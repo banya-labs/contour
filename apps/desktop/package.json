@@ -1,0 +1,11 @@
+{
+  "name": "@contour/desktop",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "npm run build && electron dist/main.js",
+    "build": "tsup src/main.ts src/preload.ts --format esm --platform node --out-dir dist",
+    "typecheck": "tsc --noEmit"
+  }
+}

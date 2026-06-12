@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  admin
+  agent
+  finance
+  legal
+  auditor
+}
+
+enum EntityType {
+  user
+  listing
+  client
+  deal
+  interaction
+  document
+  payment
+  lease
+  charge
+  schedule_item
+  payment_plan
+  insight
+  work_item
+}
+
+enum AuditAction {
+  insert
+  update
+  delete
+}
+
+enum ListingStatus {
+  available
+  reserved
+  sold
+  under_maintenance
+}
+
+enum ClientStatus {
+  lead
+  active
+  archived
+}
+
+enum DealStage {
+  new
+  viewing
+  negotiating
+  contract
+  closed_won
+  closed_lost
+}
+
+enum DealStatus {
+  open
+  won
+  lost
+}
+
+enum WorkItemStatus {
+  open
+  in_progress
+  blocked
+  done
+}
+
+enum WorkItemTone {
+  info
+  warning
+  danger
+  success
+}
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkUserId   String   @unique @map("clerk_user_id")
+  email         String?
+  fullName      String?   @map("full_name")
+  role          UserRole
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  auditLogs     AuditLog[]
+  events        Event[]
+  createdListings Listing[] @relation("UserCreatedListings")
+  createdClients  Client[]   @relation("UserCreatedClients")
+  assignedDeals   Deal[]     @relation("UserAssignedDeals")
+  assignedWorkItems WorkItem[] @relation("UserAssignedWorkItems")
+  createdWorkItems WorkItem[] @relation("UserCreatedWorkItems")
+
+  @@map("users")
+}
+
+model Listing {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title            String
+  propertyType     String         @map("property_type")
+  status           ListingStatus
+  priceCents       Int            @map("price_cents")
+  currency         String         @default("ZMW")
+  ownerName        String?        @map("owner_name")
+  createdByUserId  String?        @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  createdBy        User?          @relation("UserCreatedListings", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  deals            Deal[]         @relation("ListingDeals")
+
+  @@index([status], map: "listings_status_idx")
+  @@index([createdByUserId], map: "listings_created_by_idx")
+  @@index([createdAt], map: "listings_created_at_idx")
+  @@map("listings")
+}
+
+model Client {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName        String          @map("full_name")
+  email           String?
+  phone           String?
+  status          ClientStatus
+  source          String?
+  createdByUserId String?         @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  createdBy       User?           @relation("UserCreatedClients", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  deals           Deal[]          @relation("ClientDeals")
+
+  @@index([status], map: "clients_status_idx")
+  @@index([createdByUserId], map: "clients_created_by_idx")
+  @@index([createdAt], map: "clients_created_at_idx")
+  @@map("clients")
+}
+
+model Deal {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String
+  stage           DealStage
+  valueCents      Int            @map("value_cents")
+  currency        String         @default("ZMW")
+  status          DealStatus
+  closedAt        DateTime?      @map("closed_at")
+  listingId       String?        @map("listing_id") @db.Uuid
+  clientId        String?        @map("client_id") @db.Uuid
+  assignedUserId  String?        @map("assigned_user_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  listing         Listing?       @relation("ListingDeals", fields: [listingId], references: [id], onDelete: SetNull)
+  client          Client?        @relation("ClientDeals", fields: [clientId], references: [id], onDelete: SetNull)
+  assignedUser    User?          @relation("UserAssignedDeals", fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  @@index([stage], map: "deals_stage_idx")
+  @@index([status], map: "deals_status_idx")
+  @@index([assignedUserId], map: "deals_assigned_user_idx")
+  @@index([createdAt], map: "deals_created_at_idx")
+  @@map("deals")
+}
+
+model WorkItem {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String
+  kind            String
+  tone            WorkItemTone
+  status          WorkItemStatus
+  dueAt           DateTime?      @map("due_at")
+  assignedUserId  String?        @map("assigned_user_id") @db.Uuid
+  createdByUserId String?        @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  assignedUser    User?          @relation("UserAssignedWorkItems", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdBy       User?          @relation("UserCreatedWorkItems", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status], map: "work_items_status_idx")
+  @@index([tone], map: "work_items_tone_idx")
+  @@index([assignedUserId], map: "work_items_assigned_user_idx")
+  @@index([dueAt], map: "work_items_due_at_idx")
+  @@map("work_items")
+}
+
+model Event {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType    String     @map("event_type")
+  occurredAt   DateTime   @map("occurred_at")
+  actorUserId  String?    @map("actor_user_id") @db.Uuid
+  entityType   EntityType @map("entity_type")
+  entityId     String?    @map("entity_id") @db.Uuid
+  metadata     Json?
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  actor        User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([eventType], map: "events_type_idx")
+  @@index([occurredAt], map: "events_occurred_at_idx")
+  @@index([actorUserId], map: "events_actor_idx")
+  @@index([entityType, entityId], map: "events_entity_idx")
+  @@map("events")
+}
+
+model AuditLog {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  action       AuditAction
+  occurredAt   DateTime    @default(now()) @map("occurred_at")
+  actorUserId  String?     @map("actor_user_id") @db.Uuid
+  entityType   EntityType  @map("entity_type")
+  entityId     String?     @map("entity_id") @db.Uuid
+  beforeData   Json?       @map("before_data")
+  afterData    Json?       @map("after_data")
+  requestId    String?     @map("request_id")
+  source       String?
+  ipAddress    String?     @map("ip_address")
+  userAgent    String?     @map("user_agent")
+
+  actor        User?       @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt], map: "audit_log_occurred_idx")
+  @@index([actorUserId], map: "audit_log_actor_idx")
+  @@index([entityType, entityId], map: "audit_log_entity_idx")
+  @@map("audit_log")
+}
