@@ -3,78 +3,70 @@ import { queryContourDashboardSnapshot } from "./dashboard";
 
 describe("dashboard snapshot", () => {
   it("summarizes live listings, clients, deals, and work items", async () => {
-    const query: any = async (sql: string) => {
-      if (sql.includes("FROM listings") && sql.includes("count(*)")) {
-        return [{ count: 3 }];
-      }
-      if (sql.includes("FROM clients") && sql.includes("count(*)")) {
-        return [{ count: 2 }];
-      }
-      if (sql.includes("FROM deals") && sql.includes("count(*)")) {
-        return [{ count: 4 }];
-      }
-      if (sql.includes("FROM work_items") && sql.includes("count(*)")) {
-        return [{ count: 5 }];
-      }
-      if (sql.includes("FROM listings")) {
-        return [
+    const prisma = {
+      listing: {
+        count: async () => 3,
+        findMany: async () => [
           {
             id: "listing-1",
             title: "Lusaka West 14",
-            property_type: "Property",
+            propertyType: "Property",
             status: "available",
-            price_cents: 180000000,
+            priceCents: 180000000,
             currency: "ZMW",
-            owner_name: "M. Chanda",
-            created_at: new Date("2026-06-12T09:00:00.000Z"),
+            ownerName: "M. Chanda",
+            createdAt: new Date("2026-06-12T09:00:00.000Z"),
           },
-        ];
-      }
-      if (sql.includes("FROM clients")) {
-        return [
+        ],
+      },
+      client: {
+        count: async () => 2,
+        findMany: async () => [
           {
             id: "client-1",
-            full_name: "N. Banda",
+            fullName: "N. Banda",
             email: "n@example.com",
             phone: "+260970000000",
             status: "active",
             source: "Referral",
-            created_at: new Date("2026-06-12T09:05:00.000Z"),
+            createdAt: new Date("2026-06-12T09:05:00.000Z"),
           },
-        ];
-      }
-      if (sql.includes("FROM deals")) {
-        return [
+        ],
+      },
+      deal: {
+        count: async () => 4,
+        findMany: async () => [
           {
             id: "deal-1",
             title: "Woodlands 09",
             stage: "negotiating",
-            value_cents: 185000000,
+            valueCents: 185000000,
             currency: "USD",
             status: "open",
-            closed_at: null,
-            created_at: new Date("2026-06-12T09:10:00.000Z"),
+            closedAt: null,
+            createdAt: new Date("2026-06-12T09:10:00.000Z"),
           },
-        ];
-      }
-      if (sql.includes("FROM work_items")) {
-        return [
+        ],
+      },
+      workItem: {
+        count: async () => 5,
+        findMany: async () => [
           {
             id: "work-1",
             title: "Verify title deed",
             kind: "document_request",
             tone: "warning",
             status: "open",
-            due_at: new Date("2026-06-13T09:00:00.000Z"),
-            created_at: new Date("2026-06-12T09:15:00.000Z"),
+            dueAt: new Date("2026-06-13T09:00:00.000Z"),
+            createdAt: new Date("2026-06-12T09:15:00.000Z"),
           },
-        ];
-      }
-
-      throw new Error(`Unexpected query: ${sql}`);
+        ],
+      },
     };
 
-    const snapshot = await queryContourDashboardSnapshot({ query } as any);
+    const snapshot = await queryContourDashboardSnapshot(
+      prisma as Parameters<typeof queryContourDashboardSnapshot>[0],
+    );
 
     expect(snapshot.counts).toEqual({
       listings: 3,
