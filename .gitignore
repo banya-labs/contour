@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+.next
+.turbo
+.vercel
+apps/*/node_modules
+apps/*/.next
+packages/*/node_modules
+packages/*/dist
+package-lock.json
+
+.vercel
+.env*
+.agents/
+skills-lock.json
