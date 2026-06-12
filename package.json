@@ -10,6 +10,7 @@
     "dev:desktop": "npm run dev --workspace @contour/desktop",
     "build:web": "npm run build --workspace @contour/web",
     "build:desktop": "npm run build --workspace @contour/desktop",
+    "postinstall": "npm run generate --workspace @contour/db",
     "seed:db": "npm run seed --workspace @contour/db",
     "lint:web": "npm run lint --workspace @contour/web",
     "test": "vitest run",
