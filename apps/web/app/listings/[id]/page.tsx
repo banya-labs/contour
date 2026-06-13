@@ -50,7 +50,7 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
           className="inline-flex h-10 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium"
         >
           <ArrowLeft className="size-4" />
-          Back to inventory
+          Back to properties
         </Link>
 
         <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">

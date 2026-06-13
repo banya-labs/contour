@@ -2,7 +2,7 @@ export const contourCockpits = [
   {
     key: "portfolio",
     label: "Portfolio",
-    summary: "Inventory, listings, clients, and document readiness.",
+    summary: "Properties, listings, clients, and document readiness.",
   },
   {
     key: "revenue",
@@ -24,7 +24,7 @@ export const contourNavigation = [
   {
     label: "Portfolio",
     items: [
-      { label: "Inventory", href: "/listings" },
+      { label: "Properties", href: "/listings" },
       { label: "Clients", href: "/clients" },
     ],
   },

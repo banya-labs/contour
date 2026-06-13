@@ -24,7 +24,7 @@ export default function NewListingPage() {
           className="inline-flex h-10 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium"
         >
           <ArrowLeft className="size-4" />
-          Back to inventory
+          Back to properties
         </Link>
 
         <ListingForm

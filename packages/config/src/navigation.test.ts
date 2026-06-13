@@ -15,7 +15,7 @@ describe("contourNavigation", () => {
       {
         label: "Portfolio",
         items: [
-          { label: "Inventory" },
+          { label: "Properties" },
           { label: "Clients" },
         ],
       },
