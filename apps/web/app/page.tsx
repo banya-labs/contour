@@ -1,7 +1,6 @@
 import "../lib/load-contour-env";
 import Link from "next/link";
 import { Search, Plus, ArrowUpRight, Sparkles, ShieldCheck, Zap } from "lucide-react";
-import { currentUser } from "@clerk/nextjs/server";
 import {
   bootstrapContourClerkEnv,
   contourBrand,
@@ -22,6 +21,15 @@ export const dynamic = "force-dynamic";
 
 const authConfig = bootstrapContourClerkEnv();
 const clerkKeysConfigured = authConfig.isConfigured;
+
+async function getCurrentContourUser() {
+  if (!clerkKeysConfigured) {
+    return null;
+  }
+
+  const { currentUser } = await import("@clerk/nextjs/server");
+  return currentUser();
+}
 
 const portfolioRows = [
   { name: "Lusaka West 14", type: "Property", status: "Available", price: "ZMW 1.8M", owner: "M. Chanda" },
@@ -89,7 +97,7 @@ function pillClass(tone: string) {
 }
 
 export default async function Home() {
-  const clerkUser = await currentUser();
+  const clerkUser = await getCurrentContourUser();
   const databaseStatus = await checkContourDatabaseConnection();
   const databaseConfig = getContourDatabaseStatus();
   const workspaceName =

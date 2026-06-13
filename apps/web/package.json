@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.2",
-    "@contour/config": "0.1.0",
-    "@contour/db": "0.1.0",
+    "@contour/config": "workspace:*",
+    "@contour/db": "workspace:*",
     "dotenv": "^17.4.2",
     "lucide-react": "^1.18.0",
     "next": "16.2.9",
