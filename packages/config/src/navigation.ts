@@ -18,9 +18,12 @@ export const contourCockpits = [
 
 export const contourNavigation = [
   {
+    label: "Dashboard",
+    items: [{ label: "Overview", href: "/" }],
+  },
+  {
     label: "Portfolio",
     items: [
-      { label: "Dashboard", href: "/" },
       { label: "Inventory", href: "/listings" },
       { label: "Clients", href: "/clients" },
     ],

@@ -46,7 +46,7 @@ export default async function EditListingPage({ params }: ListingEditPageProps) 
           }}
           cancelHref={`/listings/${listing.id}`}
           heading="Edit listing"
-          description="Update the live inventory record. Changes save back into Neon and return you to the listing detail page."
+          description="Update the live inventory record and return you to the listing detail page."
         />
       </div>
     </WorkspaceShell>
