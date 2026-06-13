@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { getContourListing, getPrismaClient } from "@contour/db";
+import { WorkspaceShell } from "../../../components/workspace-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
   }
 
   return (
-    <main className="min-h-screen px-4 py-4 text-[color:var(--foreground)] lg:px-6 lg:py-6">
+    <WorkspaceShell>
       <div className="mx-auto max-w-[1200px] space-y-4">
         <Link
           href="/listings"
@@ -92,6 +93,6 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
           </div>
         </section>
       </div>
-    </main>
+    </WorkspaceShell>
   );
 }

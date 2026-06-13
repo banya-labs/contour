@@ -19,14 +19,24 @@ export const contourCockpits = [
 export const contourNavigation = [
   {
     label: "Portfolio",
-    items: [{ label: "Inventory" }, { label: "Clients" }],
+    items: [
+      { label: "Dashboard", href: "/" },
+      { label: "Inventory", href: "/listings" },
+      { label: "Clients", href: "/clients" },
+    ],
   },
   {
     label: "Revenue",
-    items: [{ label: "Deals" }, { label: "Collections" }],
+    items: [
+      { label: "Deals", href: "/deals" },
+      { label: "Collections", href: "/collections" },
+    ],
   },
   {
     label: "Action",
-    items: [{ label: "Insights" }, { label: "Work Queue" }],
+    items: [
+      { label: "Insights", href: "/insights" },
+      { label: "Work Queue", href: "/work-items" },
+    ],
   },
 ] as const;

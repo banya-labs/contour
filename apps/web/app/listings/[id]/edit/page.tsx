@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getContourListing, getPrismaClient } from "@contour/db";
 import { ListingForm } from "../../../../components/listing-form";
+import { WorkspaceShell } from "../../../../components/workspace-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function EditListingPage({ params }: ListingEditPageProps) 
   }
 
   return (
-    <main className="min-h-screen px-4 py-4 text-[color:var(--foreground)] lg:px-6 lg:py-6">
+    <WorkspaceShell>
       <div className="mx-auto max-w-[1100px] space-y-4">
         <Link
           href={`/listings/${listing.id}`}
@@ -48,6 +49,6 @@ export default async function EditListingPage({ params }: ListingEditPageProps) 
           description="Update the live inventory record. Changes save back into Neon and return you to the listing detail page."
         />
       </div>
-    </main>
+    </WorkspaceShell>
   );
 }

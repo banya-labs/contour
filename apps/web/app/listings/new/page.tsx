@@ -2,6 +2,7 @@ import "../../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ListingForm } from "../../../components/listing-form";
+import { WorkspaceShell } from "../../../components/workspace-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ const initialValues = {
 
 export default function NewListingPage() {
   return (
-    <main className="min-h-screen px-4 py-4 text-[color:var(--foreground)] lg:px-6 lg:py-6">
+    <WorkspaceShell>
       <div className="mx-auto max-w-[1100px] space-y-4">
         <Link
           href="/listings"
@@ -34,6 +35,6 @@ export default function NewListingPage() {
           description="Add a property or vacant land record, then open it from the detail page to keep editing."
         />
       </div>
-    </main>
+    </WorkspaceShell>
   );
 }

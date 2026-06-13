@@ -2,6 +2,7 @@ import "../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { getPrismaClient, listContourListings } from "@contour/db";
+import { WorkspaceShell } from "../../components/workspace-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +32,7 @@ export default async function ListingsPage() {
   const listings = await listContourListings(prisma, 100);
 
   return (
-    <main className="min-h-screen px-4 py-4 text-[color:var(--foreground)] lg:px-6 lg:py-6">
-      <div className="mx-auto max-w-[1600px] space-y-4">
+    <WorkspaceShell>
         <header className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -113,7 +113,6 @@ export default async function ListingsPage() {
             </table>
           </div>
         </section>
-      </div>
-    </main>
+    </WorkspaceShell>
   );
 }
