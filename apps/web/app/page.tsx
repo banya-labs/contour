@@ -12,15 +12,11 @@ import {
   Users,
 } from "lucide-react";
 import {
-  ensureContourWorkspaceProfile,
   getContourDashboardSnapshot,
-  getContourWorkspaceSnapshot,
 } from "@contour/db";
 import { WorkspaceShell } from "../components/workspace-shell";
 
 export const dynamic = "force-dynamic";
-
-const clerkKeysConfigured = false;
 
 type ContourSessionUser = {
   id: string;
@@ -52,7 +48,7 @@ export default async function Home() {
   const workspaceEmail =
     clerkUser?.primaryEmailAddress?.emailAddress ??
     clerkUser?.emailAddresses[0]?.emailAddress ??
-    "Auth disabled";
+    "Workspace unavailable";
   const dashboardSnapshot = await (async () => {
     try {
       return await getContourDashboardSnapshot();
@@ -61,30 +57,8 @@ export default async function Home() {
     }
   })();
 
-  const workspaceSnapshot = clerkUser
-    ? await (async () => {
-        try {
-          await ensureContourWorkspaceProfile({
-            clerkUserId: clerkUser.id,
-            email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
-            fullName: workspaceName,
-          });
-
-          return getContourWorkspaceSnapshot(clerkUser.id);
-        } catch {
-          return null;
-        }
-      })()
-    : null;
-
   const counts = dashboardSnapshot?.counts;
   const metrics = dashboardSnapshot?.metrics;
-  const lastSyncLabel = metrics?.lastSyncAt
-    ? new Intl.DateTimeFormat("en-ZM", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(metrics.lastSyncAt))
-    : "Not yet synced";
 
   const tableCountCards = counts
     ? [
@@ -121,9 +95,6 @@ export default async function Home() {
               <Sparkles className="size-3.5" />
               Live dashboard
             </div>
-            <p className="mt-4 text-[11px] uppercase tracking-[0.26em] text-[color:var(--muted)]">
-              {clerkKeysConfigured ? "Clerk enabled" : "Guest mode"}
-            </p>
             <h1 className="mt-4 text-[clamp(2rem,2.4vw,3.4rem)] font-semibold tracking-[-0.04em]">
               Contour Analytics Engine
             </h1>
@@ -163,19 +134,6 @@ export default async function Home() {
             <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Workspace</p>
             <p className="mt-1 text-[13px] font-medium">{workspaceName}</p>
             <p className="mt-1 text-[11px] text-[color:var(--muted)]">{workspaceEmail}</p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Workspace</p>
-            <p className="mt-1 text-[13px] font-medium">
-              {workspaceSnapshot?.profile?.role ?? "unassigned"}
-            </p>
-          </div>
-          <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Freshness</p>
-            <p className="mt-1 text-[13px] font-medium">{lastSyncLabel}</p>
           </div>
         </div>
       </header>
