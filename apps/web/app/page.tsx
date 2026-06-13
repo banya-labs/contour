@@ -1,10 +1,7 @@
 import "../lib/load-contour-env";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { Search, Plus, ArrowUpRight, Sparkles, ShieldCheck, Zap } from "lucide-react";
 import {
-  bootstrapContourClerkEnv,
   contourBrand,
   contourCockpits,
   contourNavigation,
@@ -17,12 +14,10 @@ import {
   getContourWorkspaceSnapshot,
 } from "@contour/db";
 import { ContourMark } from "../components/contour-mark";
-import { UserMenu } from "../components/user-menu";
 
 export const dynamic = "force-dynamic";
 
-const authConfig = bootstrapContourClerkEnv();
-const clerkKeysConfigured = authConfig.isConfigured;
+const clerkKeysConfigured = false;
 
 type ContourSessionUser = {
   id: string;
@@ -33,97 +28,8 @@ type ContourSessionUser = {
   emailAddresses: Array<{ emailAddress: string }>;
 };
 
-type ClerkSessionClaims = {
-  sub?: unknown;
-  email?: unknown;
-  email_address?: unknown;
-  primary_email_address?: unknown;
-  name?: unknown;
-  given_name?: unknown;
-  family_name?: unknown;
-};
-
-function firstString(...values: unknown[]) {
-  return (
-    values.find(
-      (value): value is string =>
-        typeof value === "string" && value.trim().length > 0,
-    ) ?? null
-  );
-}
-
-function decodeBase64UrlJson<T>(value: string): T | null {
-  try {
-    const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    return JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as T;
-  } catch {
-    return null;
-  }
-}
-
-function verifyClerkMiddlewareSignature(token: string, signature: string) {
-  const expected = createHmac("sha1", authConfig.secretKey)
-    .update(token)
-    .digest("hex");
-  const expectedBuffer = Buffer.from(expected);
-  const signatureBuffer = Buffer.from(signature);
-
-  return (
-    expectedBuffer.length === signatureBuffer.length &&
-    timingSafeEqual(expectedBuffer, signatureBuffer)
-  );
-}
-
-async function getCurrentContourUser() {
-  if (!clerkKeysConfigured) {
-    return null;
-  }
-
-  const requestHeaders = await headers();
-  const authStatus = requestHeaders.get("x-clerk-auth-status");
-  const authToken = requestHeaders.get("x-clerk-auth-token");
-  const authSignature = requestHeaders.get("x-clerk-auth-signature");
-
-  if (authStatus !== "signed-in" || !authToken || !authSignature) {
-    return null;
-  }
-
-  if (!verifyClerkMiddlewareSignature(authToken, authSignature)) {
-    return null;
-  }
-
-  const [, payload] = authToken.split(".");
-  if (!payload) {
-    return null;
-  }
-
-  const claims = decodeBase64UrlJson<ClerkSessionClaims>(payload);
-  const clerkUserId = firstString(claims?.sub);
-
-  if (!clerkUserId) {
-    return null;
-  }
-
-  const emailAddress = firstString(
-    claims?.primary_email_address,
-    claims?.email_address,
-    claims?.email,
-  );
-  const firstName = firstString(claims?.given_name);
-  const lastName = firstString(claims?.family_name);
-  const fullName =
-    firstString(claims?.name) ??
-    firstString([firstName, lastName].filter(Boolean).join(" "));
-
-  return {
-    id: clerkUserId,
-    firstName,
-    lastName,
-    fullName,
-    primaryEmailAddress: emailAddress ? { emailAddress } : null,
-    emailAddresses: emailAddress ? [{ emailAddress }] : [],
-  } satisfies ContourSessionUser;
+async function getCurrentContourUser(): Promise<ContourSessionUser | null> {
+  return null;
 }
 
 const portfolioRows = [
@@ -198,11 +104,11 @@ export default async function Home() {
   const workspaceName =
     clerkUser?.fullName ??
     [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") ??
-    "Signed-in user";
+    "Guest developer";
   const workspaceEmail =
     clerkUser?.primaryEmailAddress?.emailAddress ??
     clerkUser?.emailAddresses[0]?.emailAddress ??
-    "No email available";
+    "Auth disabled";
   const canQueryDatabase = databaseStatus.connected;
 
   const workspaceSnapshot = clerkUser && canQueryDatabase
@@ -220,7 +126,7 @@ export default async function Home() {
         }
       })()
     : null;
-  const dashboardSnapshot = clerkUser && canQueryDatabase
+  const dashboardSnapshot = canQueryDatabase
     ? await (async () => {
         try {
           return await getContourDashboardSnapshot();
@@ -307,10 +213,7 @@ export default async function Home() {
                 </div>
                 {!clerkKeysConfigured ? (
                   <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[color:rgba(148,98,29,0.2)] bg-[color:rgba(148,98,29,0.08)] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[color:var(--warning)]">
-                    Clerk keys not configured
-                    <Link href="/sign-in" className="underline underline-offset-4">
-                      Enable auth
-                    </Link>
+                    Auth bypass active for local development
                   </div>
                 ) : null}
                 <p className="mt-4 text-[11px] uppercase tracking-[0.26em] text-[color:var(--muted)]">
@@ -325,22 +228,24 @@ export default async function Home() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button className="inline-flex h-11 items-center gap-2 rounded-[999px] bg-[color:var(--primary)] px-4 text-[13px] font-medium text-[color:var(--primary-foreground)] transition-transform duration-150 hover:-translate-y-0.5">
+                <Link
+                  href="/listings/new"
+                  className="inline-flex h-11 items-center gap-2 rounded-[999px] bg-[color:var(--primary)] px-4 text-[13px] font-medium text-[color:var(--primary-foreground)] transition-transform duration-150 hover:-translate-y-0.5"
+                >
                   <Plus className="size-4" />
                   New listing
-                </button>
-                <button className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-muted)]">
+                </Link>
+                <Link
+                  href="/listings"
+                  className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-muted)]"
+                >
                   <Zap className="size-4" />
-                  Open work queue
-                </button>
+                  Open listings
+                </Link>
                 <div className="rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-1">
-                  {clerkKeysConfigured ? (
-                    <UserMenu />
-                  ) : (
-                    <span className="px-3 text-[12px] font-medium text-[color:var(--muted)]">
-                      Guest mode
-                    </span>
-                  )}
+                  <span className="px-3 text-[12px] font-medium text-[color:var(--muted)]">
+                    Guest mode
+                  </span>
                 </div>
               </div>
             </div>
@@ -502,10 +407,13 @@ export default async function Home() {
                   <p className="text-[10px] uppercase tracking-[0.28em] text-[color:var(--muted)]">Portfolio watchlist</p>
                   <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.03em]">Listings, status, and ownership</h2>
                 </div>
-                <button className="inline-flex h-10 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-[12px] font-medium">
+                <Link
+                  href="/listings"
+                  className="inline-flex h-10 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 text-[12px] font-medium"
+                >
                   <ArrowUpRight className="size-4" />
                   See all
-                </button>
+                </Link>
               </div>
 
               <div className="mt-5 overflow-hidden rounded-[22px] border border-[color:var(--border)]">
@@ -523,7 +431,11 @@ export default async function Home() {
                     {liveListings.length ? (
                       liveListings.map((row, index) => (
                         <tr key={row.id} className={index !== liveListings.length - 1 ? "border-b border-[color:var(--border)]" : ""}>
-                          <td className="px-4 py-3.5 font-medium">{row.title}</td>
+                          <td className="px-4 py-3.5 font-medium">
+                            <Link href={`/listings/${row.id}`} className="underline-offset-4 hover:underline">
+                              {row.title}
+                            </Link>
+                          </td>
                           <td className="px-4 py-3.5 text-[color:var(--muted)]">{row.propertyType}</td>
                           <td className="px-4 py-3.5">
                             <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${pillClass(normalizeTone(row.status))}`}>

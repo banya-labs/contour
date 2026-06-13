@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import "../lib/load-contour-env";
-import { bootstrapContourClerkEnv } from "@contour/config";
 import "./globals.css";
-
-const authConfig = bootstrapContourClerkEnv();
-const clerkKeysConfigured = authConfig.isConfigured;
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -43,15 +38,7 @@ export default function RootLayout({
       lang="en"
       className={`${manrope.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        {clerkKeysConfigured ? (
-          <ClerkProvider publishableKey={authConfig.publishableKey}>
-            {children}
-          </ClerkProvider>
-        ) : (
-          children
-        )}
-      </body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
