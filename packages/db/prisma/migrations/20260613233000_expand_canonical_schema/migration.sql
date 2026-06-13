@@ -314,4 +314,3 @@ ALTER TABLE "work_items"
   ADD CONSTRAINT "work_items_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE SET NULL,
   ADD CONSTRAINT "work_items_related_insight_id_fkey" FOREIGN KEY ("related_insight_id") REFERENCES "insights"("id") ON DELETE SET NULL,
   ADD CONSTRAINT "work_items_entity_id_check" CHECK ("entity_id" IS NULL OR "entity_type" IS NOT NULL);
-

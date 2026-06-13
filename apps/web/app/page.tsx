@@ -12,9 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import {
-  checkContourDatabaseConnection,
   ensureContourWorkspaceProfile,
-  getContourDatabaseStatus,
   getContourDashboardSnapshot,
   getContourWorkspaceSnapshot,
 } from "@contour/db";
@@ -47,8 +45,6 @@ function formatMoney(amountCents: number, currency: string) {
 
 export default async function Home() {
   const clerkUser = await getCurrentContourUser();
-  const databaseStatus = await checkContourDatabaseConnection();
-  const databaseConfig = getContourDatabaseStatus();
   const workspaceName =
     clerkUser?.fullName ??
     [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") ??
@@ -57,9 +53,15 @@ export default async function Home() {
     clerkUser?.primaryEmailAddress?.emailAddress ??
     clerkUser?.emailAddresses[0]?.emailAddress ??
     "Auth disabled";
-  const canQueryDatabase = databaseStatus.connected;
+  const dashboardSnapshot = await (async () => {
+    try {
+      return await getContourDashboardSnapshot();
+    } catch {
+      return null;
+    }
+  })();
 
-  const workspaceSnapshot = clerkUser && canQueryDatabase
+  const workspaceSnapshot = clerkUser
     ? await (async () => {
         try {
           await ensureContourWorkspaceProfile({
@@ -75,18 +77,14 @@ export default async function Home() {
       })()
     : null;
 
-  const dashboardSnapshot = canQueryDatabase
-    ? await (async () => {
-        try {
-          return await getContourDashboardSnapshot();
-        } catch {
-          return null;
-        }
-      })()
-    : null;
-
   const counts = dashboardSnapshot?.counts;
   const metrics = dashboardSnapshot?.metrics;
+  const lastSyncLabel = metrics?.lastSyncAt
+    ? new Intl.DateTimeFormat("en-ZM", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(metrics.lastSyncAt))
+    : "Not yet synced";
 
   const tableCountCards = counts
     ? [
@@ -170,16 +168,14 @@ export default async function Home() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Auth</p>
+            <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Workspace</p>
             <p className="mt-1 text-[13px] font-medium">
               {workspaceSnapshot?.profile?.role ?? "unassigned"}
             </p>
           </div>
           <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Config</p>
-            <p className="mt-1 text-[13px] font-medium">
-              {databaseConfig.configured ? "Loaded from env" : "Missing"}
-            </p>
+            <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Freshness</p>
+            <p className="mt-1 text-[13px] font-medium">{lastSyncLabel}</p>
           </div>
         </div>
       </header>

@@ -232,7 +232,7 @@ async function queryContourWorkspaceSnapshot(
     })),
     stats: [
       {
-        label: "Neon users",
+        label: "Workspace users",
         value: usersCount.toString(),
         detail: profile ? "Profile row exists" : "No workspace profile yet",
       },

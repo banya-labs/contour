@@ -395,6 +395,7 @@ model WorkItem {
   @@index([tone], map: "work_items_tone_idx")
   @@index([assignedUserId], map: "work_items_assigned_user_idx")
   @@index([dueAt], map: "work_items_due_at_idx")
+  @@index([createdAt], map: "work_items_created_at_idx")
   @@index([priority], map: "work_items_priority_idx")
   @@index([ownerUserId], map: "work_items_owner_user_id_idx")
   @@index([relatedInsightId], map: "work_items_related_insight_id_idx")
@@ -530,6 +531,7 @@ model PaymentPlan {
   payments              Payment[]
 
   @@index([status], map: "payment_plans_status_idx")
+  @@index([createdAt], map: "payment_plans_created_at_idx")
   @@map("payment_plans")
 }
 
@@ -577,6 +579,7 @@ model RentalLease {
   payments              Payment[]
 
   @@index([status], map: "rental_leases_status_idx")
+  @@index([createdAt], map: "rental_leases_created_at_idx")
   @@map("rental_leases")
 }
 
@@ -712,5 +715,6 @@ model Insight {
 
   @@index([status], map: "insights_status_idx")
   @@index([severity], map: "insights_severity_idx")
+  @@index([createdAt], map: "insights_created_at_idx")
   @@map("insights")
 }
