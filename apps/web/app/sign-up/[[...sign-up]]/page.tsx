@@ -38,7 +38,12 @@ export default function SignUpPage() {
 
         <div className="flex items-center justify-center px-6 py-10 sm:px-10">
           {clerkKeysConfigured ? (
-            <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+            <SignUp
+              routing="path"
+              path="/sign-up"
+              signInUrl="/sign-in"
+              forceRedirectUrl="/"
+            />
           ) : (
             <div className="max-w-md rounded-[24px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-6 text-center">
               <p className="text-[11px] uppercase tracking-[0.3em] text-[color:var(--muted)]">
