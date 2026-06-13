@@ -1,5 +1,7 @@
 import "../lib/load-contour-env";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { Search, Plus, ArrowUpRight, Sparkles, ShieldCheck, Zap } from "lucide-react";
 import {
   bootstrapContourClerkEnv,
@@ -22,13 +24,106 @@ export const dynamic = "force-dynamic";
 const authConfig = bootstrapContourClerkEnv();
 const clerkKeysConfigured = authConfig.isConfigured;
 
+type ContourSessionUser = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string | null;
+  primaryEmailAddress: { emailAddress: string } | null;
+  emailAddresses: Array<{ emailAddress: string }>;
+};
+
+type ClerkSessionClaims = {
+  sub?: unknown;
+  email?: unknown;
+  email_address?: unknown;
+  primary_email_address?: unknown;
+  name?: unknown;
+  given_name?: unknown;
+  family_name?: unknown;
+};
+
+function firstString(...values: unknown[]) {
+  return (
+    values.find(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0,
+    ) ?? null
+  );
+}
+
+function decodeBase64UrlJson<T>(value: string): T | null {
+  try {
+    const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+function verifyClerkMiddlewareSignature(token: string, signature: string) {
+  const expected = createHmac("sha1", authConfig.secretKey)
+    .update(token)
+    .digest("hex");
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+
+  return (
+    expectedBuffer.length === signatureBuffer.length &&
+    timingSafeEqual(expectedBuffer, signatureBuffer)
+  );
+}
+
 async function getCurrentContourUser() {
   if (!clerkKeysConfigured) {
     return null;
   }
 
-  const { currentUser } = await import("@clerk/nextjs/server");
-  return currentUser();
+  const requestHeaders = await headers();
+  const authStatus = requestHeaders.get("x-clerk-auth-status");
+  const authToken = requestHeaders.get("x-clerk-auth-token");
+  const authSignature = requestHeaders.get("x-clerk-auth-signature");
+
+  if (authStatus !== "signed-in" || !authToken || !authSignature) {
+    return null;
+  }
+
+  if (!verifyClerkMiddlewareSignature(authToken, authSignature)) {
+    return null;
+  }
+
+  const [, payload] = authToken.split(".");
+  if (!payload) {
+    return null;
+  }
+
+  const claims = decodeBase64UrlJson<ClerkSessionClaims>(payload);
+  const clerkUserId = firstString(claims?.sub);
+
+  if (!clerkUserId) {
+    return null;
+  }
+
+  const emailAddress = firstString(
+    claims?.primary_email_address,
+    claims?.email_address,
+    claims?.email,
+  );
+  const firstName = firstString(claims?.given_name);
+  const lastName = firstString(claims?.family_name);
+  const fullName =
+    firstString(claims?.name) ??
+    firstString([firstName, lastName].filter(Boolean).join(" "));
+
+  return {
+    id: clerkUserId,
+    firstName,
+    lastName,
+    fullName,
+    primaryEmailAddress: emailAddress ? { emailAddress } : null,
+    emailAddresses: emailAddress ? [{ emailAddress }] : [],
+  } satisfies ContourSessionUser;
 }
 
 const portfolioRows = [

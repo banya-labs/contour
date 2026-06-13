@@ -21,11 +21,17 @@ export default async function proxy(
   );
   const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
-  return clerkMiddleware(async (auth, authRequest) => {
-    if (!isPublicRoute(authRequest)) {
-      await auth.protect();
-    }
-  })(request, event);
+  return clerkMiddleware(
+    async (auth, authRequest) => {
+      if (!isPublicRoute(authRequest)) {
+        await auth.protect();
+      }
+    },
+    {
+      publishableKey: authConfig.publishableKey,
+      secretKey: authConfig.secretKey,
+    },
+  )(request, event);
 }
 
 export const config = {
