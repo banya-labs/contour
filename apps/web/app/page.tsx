@@ -100,7 +100,9 @@ export default async function Home() {
     clerkUser?.primaryEmailAddress?.emailAddress ??
     clerkUser?.emailAddresses[0]?.emailAddress ??
     "No email available";
-  const workspaceSnapshot = clerkUser
+  const canQueryDatabase = databaseStatus.connected;
+
+  const workspaceSnapshot = clerkUser && canQueryDatabase
     ? await (async () => {
         try {
           await ensureContourWorkspaceProfile({
@@ -115,8 +117,14 @@ export default async function Home() {
         }
       })()
     : null;
-  const dashboardSnapshot = clerkUser
-    ? await getContourDashboardSnapshot()
+  const dashboardSnapshot = clerkUser && canQueryDatabase
+    ? await (async () => {
+        try {
+          return await getContourDashboardSnapshot();
+        } catch {
+          return null;
+        }
+      })()
     : null;
   const workspaceRole = workspaceSnapshot?.profile?.role ?? "unassigned";
   const liveListings = dashboardSnapshot?.listings ?? [];
