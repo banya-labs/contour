@@ -2,5 +2,6 @@ export * from "./database-config";
 export * from "./client";
 export * from "./health";
 export * from "./dashboard";
+export * from "./sync";
 export * from "./workspace";
 export * from "./listings";

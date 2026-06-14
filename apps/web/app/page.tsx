@@ -9,6 +9,7 @@ import {
   LineChart,
   Plus,
   Sparkles,
+  Workflow,
   Users,
 } from "lucide-react";
 import {
@@ -117,6 +118,13 @@ export default async function Home() {
             >
               <ArrowUpRight className="size-4" />
               Open deals
+            </Link>
+            <Link
+              href="/activity"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-muted)]"
+            >
+              <Workflow className="size-4" />
+              Activity
             </Link>
           </div>
         </div>

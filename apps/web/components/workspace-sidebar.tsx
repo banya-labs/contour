@@ -21,11 +21,11 @@ export function WorkspaceSidebar() {
     <aside className="hidden w-[290px] flex-col rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex">
       <div className="flex items-center gap-4 px-1 py-2">
         <div className="flex shrink-0 items-center justify-center text-[color:var(--foreground)]">
-          <ContourMark className="size-[42px]" />
+          <ContourMark className="size-[63px]" />
         </div>
         <div className="min-w-0 leading-none">
-          <p className="truncate text-[17px] font-semibold tracking-[-0.04em] text-[color:var(--foreground)]">
-            Contour
+          <p className="truncate text-[20px] font-bold tracking-[-0.05em] text-[color:var(--foreground)]">
+            COUNTOUR
           </p>
           <p className="mt-1 text-[11px] font-normal tracking-[0.18em] text-[color:var(--muted)]">
             Analytics Engine

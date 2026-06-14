@@ -41,6 +41,7 @@ export default async function ClientsPage() {
   ]);
   const rows = clients.map((client) => ({
     id: client.id,
+    href: `/clients/${client.id}`,
     fullName: client.fullName,
     contact: client.email ?? client.phone ?? "No contact",
     status: client.status,
