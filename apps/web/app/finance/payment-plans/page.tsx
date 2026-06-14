@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, Banknote } from "lucide-react";
 import { getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../../components/workspace-shell";
+import { FinancePaymentPlansTable } from "../../../components/finance-payment-plans-table";
+import { buildSearchIndex } from "../../../lib/table-search";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,26 @@ export default async function PaymentPlansPage() {
       installmentScheduleItems: { select: { id: true, status: true } },
     },
   });
+  const rows = paymentPlans.map((plan) => ({
+    id: plan.id,
+    planName: plan.planName,
+    client: plan.client.fullName,
+    deal: plan.deal.title,
+    status: plan.status,
+    principal: `Principal: ${formatMoney(Number(plan.principalAmount), plan.currency)}`,
+    downPayment: `Down payment: ${formatMoney(Number(plan.downPaymentAmount), plan.currency)}`,
+    scheduleItems: `${plan.installmentScheduleItems.length} schedule items`,
+    searchIndex: buildSearchIndex(
+      plan.planName,
+      plan.client.fullName,
+      plan.deal.title,
+      plan.status,
+      plan.principalAmount,
+      plan.downPaymentAmount,
+      plan.currency,
+      plan.installmentScheduleItems.length,
+    ),
+  }));
 
   return (
     <WorkspaceShell>
@@ -50,32 +72,7 @@ export default async function PaymentPlansPage() {
         </div>
       </header>
 
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-        <div className="grid gap-3 xl:grid-cols-2">
-          {paymentPlans.map((plan) => (
-            <article key={plan.id} className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-[14px] font-medium">{plan.planName}</p>
-                  <p className="mt-1 text-[12px] text-[color:var(--muted)]">
-                    {plan.client.fullName} - {plan.deal.title}
-                  </p>
-                </div>
-                <p className="text-[12px] text-[color:var(--muted)]">{plan.status}</p>
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <p className="text-[12px] text-[color:var(--muted)]">
-                  Principal: {formatMoney(Number(plan.principalAmount), plan.currency)}
-                </p>
-                <p className="text-[12px] text-[color:var(--muted)]">
-                  Down payment: {formatMoney(Number(plan.downPaymentAmount), plan.currency)}
-                </p>
-                <p className="text-[12px] text-[color:var(--muted)]">{plan.installmentScheduleItems.length} schedule items</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <FinancePaymentPlansTable rows={rows} />
     </WorkspaceShell>
   );
 }

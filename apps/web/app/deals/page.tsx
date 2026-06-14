@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowUpRight, LineChart } from "lucide-react";
 import { getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
+import { DealsTable } from "../../components/deals-table";
+import { buildSearchIndex } from "../../lib/table-search";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,28 @@ export default async function DealsPage() {
     prisma.deal.count({ where: { status: "won" } }),
     prisma.deal.aggregate({ _sum: { valueCents: true } }),
   ]);
+  const rows = deals.map((deal) => ({
+    id: deal.id,
+    title: deal.title,
+    status: deal.status,
+    stage: deal.stage,
+    listing: deal.listing?.title ?? "Unset",
+    client: deal.client?.fullName ?? "Unset",
+    value: formatMoney(deal.valueCents, deal.currency),
+    plans: String(deal.paymentPlans.length),
+    payments: String(deal.payments.length),
+    searchIndex: buildSearchIndex(
+      deal.title,
+      deal.status,
+      deal.stage,
+      deal.listing?.title,
+      deal.client?.fullName,
+      deal.valueCents,
+      deal.currency,
+      deal.paymentPlans.length,
+      deal.payments.length,
+    ),
+  }));
 
   return (
     <WorkspaceShell>
@@ -71,45 +95,7 @@ export default async function DealsPage() {
         </div>
       </header>
 
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-        <div className="overflow-hidden rounded-[22px] border border-[color:var(--border)]">
-          <table className="min-w-full border-collapse text-left text-[13px]">
-            <thead className="bg-[color:var(--surface-muted)] text-[color:var(--muted)]">
-              <tr>
-                <th className="px-4 py-3 font-medium">Deal</th>
-                <th className="px-4 py-3 font-medium">Stage</th>
-                <th className="px-4 py-3 font-medium">Listing</th>
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Value</th>
-                <th className="px-4 py-3 font-medium">Plans</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deals.length ? (
-                deals.map((deal, index) => (
-                  <tr key={deal.id} className={index !== deals.length - 1 ? "border-b border-[color:var(--border)]" : ""}>
-                    <td className="px-4 py-3.5">
-                      <div className="font-medium">{deal.title}</div>
-                      <div className="mt-1 text-[11px] text-[color:var(--muted)]">{deal.status}</div>
-                    </td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{deal.stage}</td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{deal.listing?.title ?? "Unset"}</td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{deal.client?.fullName ?? "Unset"}</td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{formatMoney(deal.valueCents, deal.currency)}</td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{deal.paymentPlans.length} plans, {deal.payments.length} payments</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="px-4 py-8 text-center text-[13px] text-[color:var(--muted)]" colSpan={6}>
-                    No deals found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <DealsTable rows={rows} />
     </WorkspaceShell>
   );
 }

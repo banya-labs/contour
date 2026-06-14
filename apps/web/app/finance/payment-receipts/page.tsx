@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, ReceiptText } from "lucide-react";
 import { getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../../components/workspace-shell";
+import { FinancePaymentReceiptsTable } from "../../../components/finance-payment-receipts-table";
+import { buildSearchIndex } from "../../../lib/table-search";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,22 @@ export default async function PaymentReceiptsPage() {
       deal: { select: { title: true } },
     },
   });
+  const rows = payments.map((payment) => ({
+    id: payment.id,
+    receiptNumber: payment.receiptNumber ?? payment.id,
+    client: payment.client.fullName,
+    deal: payment.deal?.title ?? "Unset",
+    amount: formatMoney(Number(payment.amount), payment.currency),
+    method: payment.method ?? "unspecified",
+    searchIndex: buildSearchIndex(
+      payment.receiptNumber ?? payment.id,
+      payment.client.fullName,
+      payment.deal?.title,
+      payment.amount,
+      payment.currency,
+      payment.method,
+    ),
+  }));
 
   return (
     <WorkspaceShell>
@@ -49,29 +67,7 @@ export default async function PaymentReceiptsPage() {
         </div>
       </header>
 
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-        <div className="space-y-3">
-          {payments.map((payment) => (
-            <article key={payment.id} className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-[14px] font-medium">{payment.receiptNumber ?? payment.id}</p>
-                  <p className="mt-1 text-[12px] text-[color:var(--muted)]">
-                    {payment.client.fullName}
-                    {payment.deal ? ` - ${payment.deal.title}` : ""}
-                  </p>
-                </div>
-                <p className="text-[12px] text-[color:var(--muted)]">
-                  {formatMoney(Number(payment.amount), payment.currency)}
-                </p>
-              </div>
-              <p className="mt-2 text-[12px] text-[color:var(--muted)]">
-                Method: {payment.method ?? "unspecified"}
-              </p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <FinancePaymentReceiptsTable rows={rows} />
     </WorkspaceShell>
   );
 }

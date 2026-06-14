@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, House } from "lucide-react";
 import { getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../../components/workspace-shell";
+import { FinanceLeasesTable } from "../../../components/finance-leases-table";
+import { buildSearchIndex } from "../../../lib/table-search";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,22 @@ export default async function LeasesPage() {
       rentalCharges: { select: { id: true, status: true } },
     },
   });
+  const rows = leases.map((lease) => ({
+    id: lease.id,
+    leaseName: lease.leaseName,
+    tenant: lease.tenantClient.fullName,
+    listing: lease.listing.title,
+    rent: `${formatMoney(Number(lease.rentAmount), lease.currency)} monthly`,
+    charges: `${lease.rentalCharges.length} charges`,
+    searchIndex: buildSearchIndex(
+      lease.leaseName,
+      lease.tenantClient.fullName,
+      lease.listing.title,
+      lease.rentAmount,
+      lease.currency,
+      lease.rentalCharges.length,
+    ),
+  }));
 
   return (
     <WorkspaceShell>
@@ -50,24 +68,7 @@ export default async function LeasesPage() {
         </div>
       </header>
 
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-        <div className="grid gap-3 xl:grid-cols-2">
-          {leases.map((lease) => (
-            <article key={lease.id} className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-              <p className="text-[14px] font-medium">{lease.leaseName}</p>
-              <p className="mt-1 text-[12px] text-[color:var(--muted)]">
-                {lease.tenantClient.fullName} - {lease.listing.title}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[12px] text-[color:var(--muted)]">
-                  {formatMoney(Number(lease.rentAmount), lease.currency)} monthly
-                </p>
-                <p className="text-[12px] text-[color:var(--muted)]">{lease.rentalCharges.length} charges</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <FinanceLeasesTable rows={rows} />
     </WorkspaceShell>
   );
 }

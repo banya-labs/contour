@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowUpRight, Users } from "lucide-react";
 import { getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
+import { ClientsTable } from "../../components/clients-table";
+import { buildSearchIndex } from "../../lib/table-search";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,29 @@ export default async function ClientsPage() {
     prisma.client.count({ where: { status: "active" } }),
     prisma.interaction.count(),
   ]);
+  const rows = clients.map((client) => ({
+    id: client.id,
+    fullName: client.fullName,
+    contact: client.email ?? client.phone ?? "No contact",
+    status: client.status,
+    segment: client.segment ?? "Unset",
+    budget:
+      `${formatMoney(client.budgetMinAmount === null ? null : Number(client.budgetMinAmount), client.budgetCurrency ?? null)} - ${formatMoney(client.budgetMaxAmount === null ? null : Number(client.budgetMaxAmount), client.budgetCurrency ?? null)}`,
+    preferredLocation: client.preferredLocations[0]?.locationArea ?? "Unset",
+    dealsCount: String(client.deals.length),
+    searchIndex: buildSearchIndex(
+      client.fullName,
+      client.email,
+      client.phone,
+      client.status,
+      client.segment,
+      client.budgetMinAmount ?? null,
+      client.budgetMaxAmount ?? null,
+      client.budgetCurrency,
+      client.preferredLocations[0]?.locationArea,
+      client.deals.length,
+    ),
+  }));
 
   return (
     <WorkspaceShell>
@@ -77,49 +102,7 @@ export default async function ClientsPage() {
         </div>
       </header>
 
-      <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-        <div className="overflow-hidden rounded-[22px] border border-[color:var(--border)]">
-          <table className="min-w-full border-collapse text-left text-[13px]">
-            <thead className="bg-[color:var(--surface-muted)] text-[color:var(--muted)]">
-              <tr>
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Segment</th>
-                <th className="px-4 py-3 font-medium">Budget</th>
-                <th className="px-4 py-3 font-medium">Preferred location</th>
-                <th className="px-4 py-3 font-medium">Deals</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.length ? (
-                clients.map((client, index) => (
-                  <tr key={client.id} className={index !== clients.length - 1 ? "border-b border-[color:var(--border)]" : ""}>
-                    <td className="px-4 py-3.5">
-                      <div className="font-medium">{client.fullName}</div>
-                      <div className="mt-1 text-[11px] text-[color:var(--muted)]">{client.email ?? client.phone ?? "No contact"}</div>
-                    </td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{client.status}</td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{client.segment ?? "Unset"}</td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">
-                      {formatMoney(client.budgetMinAmount === null ? null : Number(client.budgetMinAmount), client.budgetCurrency ?? null)} - {formatMoney(client.budgetMaxAmount === null ? null : Number(client.budgetMaxAmount), client.budgetCurrency ?? null)}
-                    </td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">
-                      {client.preferredLocations[0]?.locationArea ?? "Unset"}
-                    </td>
-                    <td className="px-4 py-3.5 text-[color:var(--muted)]">{client.deals.length}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="px-4 py-8 text-center text-[13px] text-[color:var(--muted)]" colSpan={6}>
-                    No clients found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <ClientsTable rows={rows} />
     </WorkspaceShell>
   );
 }

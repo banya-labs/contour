@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { getPrismaClient, listContourListings } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
+import { ListingsTable } from "../../components/listings-table";
+import { buildSearchIndex } from "../../lib/table-search";
 
 export const dynamic = "force-dynamic";
 
@@ -14,22 +16,29 @@ function formatMoney(amountCents: number, currency: string) {
   }).format(amountCents / 100);
 }
 
-function statusClass(status: string) {
-  switch (status) {
-    case "available":
-      return "bg-[color:rgba(47,109,68,0.10)] text-[color:var(--success)]";
-    case "reserved":
-      return "bg-[color:rgba(148,98,29,0.12)] text-[color:var(--warning)]";
-    case "sold":
-      return "bg-[color:rgba(141,43,31,0.10)] text-[color:var(--danger)]";
-    default:
-      return "bg-[color:rgba(93,90,132,0.10)] text-[color:var(--info)]";
-  }
-}
-
 export default async function ListingsPage() {
   const prisma = getPrismaClient();
   const listings = await listContourListings(prisma, 100);
+  const rows = listings.map((listing) => ({
+    id: listing.id,
+    href: `/listings/${listing.id}`,
+    title: listing.title,
+    propertyType: listing.propertyType,
+    status: listing.status,
+    statusLabel: listing.status.replaceAll("_", " "),
+    price: formatMoney(listing.priceCents, listing.currency),
+    ownerName: listing.ownerName ?? "Unassigned",
+    updatedAt: new Date(listing.updatedAt).toLocaleDateString(),
+    searchIndex: buildSearchIndex(
+      listing.title,
+      listing.propertyType,
+      listing.status,
+      listing.priceCents,
+      listing.currency,
+      listing.ownerName,
+      new Date(listing.updatedAt).toLocaleDateString(),
+    ),
+  }));
 
   return (
     <WorkspaceShell>
@@ -64,55 +73,7 @@ export default async function ListingsPage() {
           </div>
         </header>
 
-        <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-          <div className="overflow-hidden rounded-[22px] border border-[color:var(--border)]">
-            <table className="min-w-full border-collapse text-left text-[13px]">
-              <thead className="bg-[color:var(--surface-muted)] text-[color:var(--muted)]">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Asset</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Price</th>
-                  <th className="px-4 py-3 font-medium">Owner</th>
-                  <th className="px-4 py-3 font-medium">Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listings.length ? (
-                  listings.map((listing, index) => (
-                    <tr
-                      key={listing.id}
-                      className={index !== listings.length - 1 ? "border-b border-[color:var(--border)]" : ""}
-                    >
-                      <td className="px-4 py-3.5 font-medium">
-                        <Link href={`/listings/${listing.id}`} className="underline-offset-4 hover:underline">
-                          {listing.title}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3.5 text-[color:var(--muted)]">{listing.propertyType}</td>
-                      <td className="px-4 py-3.5">
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusClass(listing.status)}`}>
-                          {listing.status.replaceAll("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">{formatMoney(listing.priceCents, listing.currency)}</td>
-                      <td className="px-4 py-3.5 text-[color:var(--muted)]">{listing.ownerName ?? "Unassigned"}</td>
-                      <td className="px-4 py-3.5 text-[color:var(--muted)]">
-                        {new Date(listing.updatedAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="px-4 py-8 text-center text-[13px] text-[color:var(--muted)]" colSpan={6}>
-                      No listings yet. Create the first record to start the inventory workflow.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <ListingsTable rows={rows} />
     </WorkspaceShell>
   );
 }
