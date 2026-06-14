@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { contourNavigation } from "@contour/config";
 import { ContourMark } from "./contour-mark";
+import { ConnectivityBadge } from "./connectivity-badge";
+
+type WorkspaceSidebarProps = {
+  lastSyncAt: string | null;
+};
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/") {
@@ -14,11 +19,11 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function WorkspaceSidebar() {
+export function WorkspaceSidebar({ lastSyncAt }: WorkspaceSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-[290px] flex-col rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex">
+    <aside className="hidden h-[calc(100vh-2rem)] w-[290px] flex-col rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex">
       <div className="flex items-center gap-4 px-1 py-2">
         <div className="flex shrink-0 items-center justify-center text-[color:var(--foreground)]">
           <ContourMark className="size-[63px]" />
@@ -33,7 +38,7 @@ export function WorkspaceSidebar() {
         </div>
       </div>
 
-      <nav className="mt-4 flex flex-1 flex-col gap-3">
+      <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
         {contourNavigation.map((section) => (
           <section
             key={section.label}
@@ -66,14 +71,8 @@ export function WorkspaceSidebar() {
         ))}
       </nav>
 
-      <div className="mt-4 rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-        <div className="flex items-center gap-2 text-[12px] font-medium">
-          <ShieldCheck className="size-4 text-[color:var(--success)]" />
-          Access locked by role
-        </div>
-        <p className="mt-2 text-[12px] leading-5 text-[color:var(--muted)]">
-          Admin, agent, finance, legal, and auditor views stay separated through shared policy.
-        </p>
+      <div className="mt-4 border-t border-[color:var(--border)] pt-4">
+        <ConnectivityBadge lastSyncAt={lastSyncAt} />
       </div>
 
     </aside>
