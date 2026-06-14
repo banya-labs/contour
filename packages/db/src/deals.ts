@@ -1,4 +1,6 @@
-import type { CurrencyCode, DealStage, DealStatus, PrismaClient } from "@prisma/client";
+import type { DealStage, DealStatus, PrismaClient } from "@prisma/client";
+
+type CurrencyCode = "ZMW" | "USD";
 
 type ContourDealRecord = {
   id: string;
