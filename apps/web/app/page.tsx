@@ -113,6 +113,13 @@ export default async function Home() {
               New listing
             </Link>
             <Link
+              href="/deals/new"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-muted)]"
+            >
+              <Plus className="size-4" />
+              New deal
+            </Link>
+            <Link
               href="/deals"
               className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-muted)]"
             >

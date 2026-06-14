@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { SearchableTable } from "./searchable-table";
 
 type DealRow = {
@@ -32,7 +33,9 @@ export function DealsTable({ rows }: DealsTableProps) {
       renderRow={(deal, _index, isLast) => (
         <tr key={deal.id} className={!isLast ? "border-b border-[color:var(--border)]" : ""}>
           <td className="px-4 py-3.5">
-            <div className="font-medium">{deal.title}</div>
+            <Link href={`/deals/${deal.id}`} className="font-medium text-[color:var(--foreground)] hover:underline">
+              {deal.title}
+            </Link>
             <div className="mt-1 text-[11px] text-[color:var(--muted)]">{deal.status}</div>
           </td>
           <td className="px-4 py-3.5 text-[color:var(--muted)]">{deal.stage}</td>

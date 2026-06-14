@@ -1,7 +1,7 @@
 import "../../lib/load-contour-env";
 import Link from "next/link";
-import { ArrowUpRight, LineChart } from "lucide-react";
-import { getPrismaClient } from "@contour/db";
+import { ArrowUpRight, LineChart, Plus } from "lucide-react";
+import { getPrismaClient, listContourDeals } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { DealsTable } from "../../components/deals-table";
 import { buildSearchIndex } from "../../lib/table-search";
@@ -19,16 +19,7 @@ function formatMoney(amountCents: number, currency: string) {
 export default async function DealsPage() {
   const prisma = getPrismaClient();
   const [deals, openDeals, wonDeals, totalValue] = await Promise.all([
-    prisma.deal.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        listing: { select: { title: true } },
-        client: { select: { fullName: true } },
-        paymentPlans: { select: { id: true } },
-        payments: { select: { id: true } },
-      },
-    }),
+    listContourDeals(prisma, 20),
     prisma.deal.count({ where: { status: "open" } }),
     prisma.deal.count({ where: { status: "won" } }),
     prisma.deal.aggregate({ _sum: { valueCents: true } }),
@@ -41,8 +32,8 @@ export default async function DealsPage() {
     listing: deal.listing?.title ?? "Unset",
     client: deal.client?.fullName ?? "Unset",
     value: formatMoney(deal.valueCents, deal.currency),
-    plans: String(deal.paymentPlans.length),
-    payments: String(deal.payments.length),
+    plans: String(deal.paymentPlansCount),
+    payments: String(deal.paymentsCount),
     searchIndex: buildSearchIndex(
       deal.title,
       deal.status,
@@ -51,8 +42,8 @@ export default async function DealsPage() {
       deal.client?.fullName,
       deal.valueCents,
       deal.currency,
-      deal.paymentPlans.length,
-      deal.payments.length,
+      deal.paymentPlansCount,
+      deal.paymentsCount,
     ),
   }));
 
@@ -70,6 +61,13 @@ export default async function DealsPage() {
               Watch the current pipeline, the linked listing, and the client attached to each deal.
             </p>
           </div>
+          <Link
+            href="/deals/new"
+            className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+          >
+            <Plus className="size-4" />
+            New deal
+          </Link>
           <Link
             href="/"
             className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"

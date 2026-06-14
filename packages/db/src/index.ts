@@ -5,3 +5,4 @@ export * from "./dashboard";
 export * from "./sync";
 export * from "./workspace";
 export * from "./listings";
+export * from "./deals";
