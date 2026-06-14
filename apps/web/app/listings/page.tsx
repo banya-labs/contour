@@ -39,9 +39,9 @@ export default async function ListingsPage() {
               <div className="inline-flex items-center gap-2 rounded-full border border-[color:rgba(39,26,0,0.12)] bg-[color:rgba(39,26,0,0.04)] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.28em] text-[color:var(--muted)]">
                 Listings
               </div>
-              <h1 className="mt-3 text-[clamp(2rem,2.2vw,3rem)] font-semibold tracking-[-0.04em]">Properties</h1>
+              <h1 className="mt-3 text-[clamp(2rem,2.2vw,3rem)] font-semibold tracking-[-0.04em]">Inventory</h1>
               <p className="mt-2 max-w-2xl text-[14px] leading-7 text-[color:var(--muted)]">
-                Browse the current properties, open a record, or create the next listing without leaving the app.
+                Browse the current inventory, open a record, or create the next listing without leaving the app.
               </p>
             </div>
 
@@ -105,7 +105,7 @@ export default async function ListingsPage() {
                 ) : (
                   <tr>
                     <td className="px-4 py-8 text-center text-[13px] text-[color:var(--muted)]" colSpan={6}>
-                      No listings yet. Create the first record to start the properties workflow.
+                      No listings yet. Create the first record to start the inventory workflow.
                     </td>
                   </tr>
                 )}

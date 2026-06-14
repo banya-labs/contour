@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, ChevronDown, ShieldCheck } from "lucide-react";
 import { contourNavigation } from "@contour/config";
 import { ContourMark } from "./contour-mark";
 
@@ -16,6 +17,22 @@ function isActivePath(pathname: string, href: string) {
 
 export function WorkspaceSidebar() {
   const pathname = usePathname();
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
+    Finance: pathname.startsWith("/finance"),
+  }));
+
+  useEffect(() => {
+    if (pathname.startsWith("/finance")) {
+      setExpandedGroups((current) => ({ ...current, Finance: true }));
+    }
+  }, [pathname]);
+
+  function toggleGroup(label: string) {
+    setExpandedGroups((current) => ({
+      ...current,
+      [label]: !current[label],
+    }));
+  }
 
   return (
     <aside className="hidden w-[290px] flex-col rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex">
@@ -39,28 +56,59 @@ export function WorkspaceSidebar() {
             key={section.label}
             className="rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
           >
-            <p className="px-2 pb-2 text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">
-              {section.label}
-            </p>
-            <div className="space-y-1">
-              {section.items.map((item) => {
-                const active = isActivePath(pathname, item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center justify-between rounded-[14px] px-3 py-2 text-[13px] transition-colors ${
-                      active
-                        ? "bg-[color:rgba(39,26,0,0.08)] font-medium text-[color:var(--foreground)]"
-                        : "text-[color:var(--foreground)] hover:bg-[color:var(--surface-muted)]"
+            <div className="flex items-center justify-between gap-2 px-2 pb-2">
+              {section.href ? (
+                <Link
+                  href={section.href}
+                  className={`text-[10px] uppercase tracking-[0.26em] transition-colors ${
+                    isActivePath(pathname, section.href)
+                      ? "font-semibold text-[color:var(--foreground)]"
+                      : "text-[color:var(--muted)] hover:text-[color:var(--foreground)]"
+                  }`}
+                >
+                  {section.label}
+                </Link>
+              ) : (
+                <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">
+                  {section.label}
+                </p>
+              )}
+              {section.href ? (
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(section.label)}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[color:var(--border)] text-[color:var(--muted)] transition-colors hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--foreground)]"
+                  aria-label={`Toggle ${section.label} navigation`}
+                  aria-expanded={expandedGroups[section.label] ?? false}
+                >
+                  <ChevronDown
+                    className={`size-3.5 transition-transform ${
+                      expandedGroups[section.label] ? "rotate-180" : ""
                     }`}
-                  >
-                    <span>{item.label}</span>
-                    <ArrowUpRight className="size-3.5 text-[color:var(--muted)]" />
-                  </Link>
-                );
-              })}
+                  />
+                </button>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              {(section.href ? expandedGroups[section.label] !== false : true) &&
+                section.items.map((item) => {
+                  const active = isActivePath(pathname, item.href);
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center justify-between rounded-[14px] px-3 py-2 text-[13px] transition-colors ${
+                        active
+                          ? "bg-[color:rgba(39,26,0,0.08)] font-medium text-[color:var(--foreground)]"
+                          : "text-[color:var(--foreground)] hover:bg-[color:var(--surface-muted)]"
+                      } ${section.href ? "pl-6" : ""}`}
+                    >
+                      <span>{item.label}</span>
+                      <ArrowUpRight className="size-3.5 text-[color:var(--muted)]" />
+                    </Link>
+                  );
+                })}
             </div>
           </section>
         ))}

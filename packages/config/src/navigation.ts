@@ -1,13 +1,24 @@
+export type ContourNavigationItem = {
+  label: string;
+  href: string;
+};
+
+export type ContourNavigationGroup = {
+  label: string;
+  href?: string;
+  items: ContourNavigationItem[];
+};
+
 export const contourCockpits = [
   {
     key: "portfolio",
     label: "Portfolio",
-    summary: "Properties, listings, clients, and document readiness.",
+    summary: "Inventory, listings, clients, and document readiness.",
   },
   {
-    key: "revenue",
-    label: "Revenue",
-    summary: "Deals, payment plans, rentals, and arrears.",
+    key: "finance",
+    label: "Finance",
+    summary: "Deals, payment plans, leases, and payment receipts.",
   },
   {
     key: "action",
@@ -16,7 +27,7 @@ export const contourCockpits = [
   },
 ] as const;
 
-export const contourNavigation = [
+export const contourNavigation: ContourNavigationGroup[] = [
   {
     label: "Dashboard",
     items: [{ label: "Overview", href: "/" }],
@@ -24,15 +35,17 @@ export const contourNavigation = [
   {
     label: "Portfolio",
     items: [
-      { label: "Properties", href: "/listings" },
+      { label: "Inventory", href: "/listings" },
       { label: "Clients", href: "/clients" },
     ],
   },
   {
-    label: "Revenue",
+    label: "Finance",
+    href: "/finance",
     items: [
-      { label: "Deals", href: "/deals" },
-      { label: "Collections", href: "/collections" },
+      { label: "Payment plans", href: "/finance/payment-plans" },
+      { label: "Leases", href: "/finance/leases" },
+      { label: "Payment Receipts", href: "/finance/payment-receipts" },
     ],
   },
   {
@@ -42,4 +55,4 @@ export const contourNavigation = [
       { label: "Work Queue", href: "/work-items" },
     ],
   },
-] as const;
+];
