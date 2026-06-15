@@ -5,7 +5,7 @@ describe("contourNavigation", () => {
   it("exposes the three cockpit groups", () => {
     expect(contourCockpits.map((item) => item.key)).toEqual([
       "portfolio",
-      "revenue",
+      "finance",
       "action",
     ]);
   });
@@ -13,24 +13,35 @@ describe("contourNavigation", () => {
   it("includes role-aware navigation sections", () => {
     expect(contourNavigation).toMatchObject([
       {
-        label: "Portfolio",
+        label: "Dashboard",
         items: [
-          { label: "Inventory" },
-          { label: "Clients" },
+          { label: "Overview", href: "/" },
+          { label: "Open deals", href: "/deals" },
+          { label: "Rentals", href: "/rentals" },
         ],
       },
       {
-        label: "Revenue",
+        label: "Portfolio",
         items: [
-          { label: "Deals" },
-          { label: "Collections" },
+          { label: "Properties", href: "/listings" },
+          { label: "Map", href: "/listings/map" },
+          { label: "Clients", href: "/clients" },
+        ],
+      },
+      {
+        label: "Finance",
+        href: "/finance",
+        items: [
+          { label: "Payment plans", href: "/finance/payment-plans" },
+          { label: "Leases", href: "/finance/leases" },
+          { label: "Payment Receipts", href: "/finance/payment-receipts" },
         ],
       },
       {
         label: "Action",
         items: [
-          { label: "Insights" },
-          { label: "Work Queue" },
+          { label: "Insights", href: "/insights" },
+          { label: "Work Queue", href: "/work-items" },
         ],
       },
     ]);

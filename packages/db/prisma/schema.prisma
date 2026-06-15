@@ -50,12 +50,15 @@ enum ClientStatus {
 }
 
 enum DealStage {
-  new
-  viewing
+  new_enquiry
+  qualified
+  site_visit
+  offer_made
   negotiating
-  contract
-  closed_won
-  closed_lost
+  document_check
+  closing
+  won
+  lost
 }
 
 enum DealStatus {
@@ -78,6 +81,136 @@ enum WorkItemTone {
   success
 }
 
+enum ListingType {
+  property
+  vacant_land
+}
+
+enum AvailabilityStatus {
+  available
+  reserved
+  under_maintenance
+  rented
+  sold
+}
+
+enum CurrencyCode {
+  ZMW
+  USD
+}
+
+enum ZoningType {
+  residential
+  commercial
+  agricultural
+  mixed
+  other
+}
+
+enum LandDesignation {
+  state_land
+  customary_land
+}
+
+enum ClientSegment {
+  prospective_buyer
+  active_tenant
+  land_owner_seller
+  past_lead
+}
+
+enum InteractionType {
+  call
+  site_visit
+  whatsapp
+  email
+  negotiation
+  other
+}
+
+enum CanonicalDealType {
+  sale
+  rental
+  installment
+}
+
+enum PlanFrequency {
+  monthly
+  quarterly
+  custom
+}
+
+enum PlanStatus {
+  active
+  completed
+  cancelled
+}
+
+enum ScheduleItemStatus {
+  due
+  paid
+  overdue
+}
+
+enum LeaseStatus {
+  active
+  ended
+}
+
+enum LeaseStage {
+  enquiry_received
+  viewing_scheduled
+  viewing_completed
+  application_received
+  screening
+  lease_draft
+  active_tenancy
+  closed
+}
+
+enum DocumentCategory {
+  title_deed
+  offer_letter
+  survey_diagram
+  site_plan
+  contract_of_sale
+  lease_agreement
+  other
+}
+
+enum InsightSeverity {
+  info
+  warn
+  critical
+}
+
+enum InsightStatus {
+  open
+  acknowledged
+  resolved
+  dismissed
+}
+
+enum WorkStatus {
+  to_do
+  doing
+  done
+  blocked
+}
+
+enum WorkPriority {
+  low
+  medium
+  high
+}
+
+enum UtilityType {
+  water
+  electricity
+  sewer
+  internet
+}
+
 model User {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clerkUserId   String   @unique @map("clerk_user_id")
@@ -91,10 +224,22 @@ model User {
   auditLogs     AuditLog[]
   events        Event[]
   createdListings Listing[] @relation("UserCreatedListings")
+  assignedListings Listing[] @relation("UserAssignedListings")
+  modifiedListings Listing[] @relation("UserModifiedListings")
   createdClients  Client[]   @relation("UserCreatedClients")
+  modifiedClients Client[]   @relation("UserModifiedClients")
   assignedDeals   Deal[]     @relation("UserAssignedDeals")
+  agentDeals      Deal[]     @relation("UserAgentDeals")
+  modifiedDeals   Deal[]     @relation("UserModifiedDeals")
   assignedWorkItems WorkItem[] @relation("UserAssignedWorkItems")
   createdWorkItems WorkItem[] @relation("UserCreatedWorkItems")
+  ownedWorkItems  WorkItem[] @relation("UserOwnedWorkItems")
+  agentInteractions Interaction[] @relation("UserAgentInteractions")
+  recordedPayments Payment[] @relation("UserRecordedPayments")
+  verifiedDocuments Document[] @relation("UserVerifiedDocuments")
+  uploadedDocuments Document[] @relation("UserUploadedDocuments")
+  syncDevices     SyncDevice[]
+  ownedInsights    Insight[] @relation("UserOwnedInsights")
 
   @@map("users")
 }
@@ -108,15 +253,50 @@ model Listing {
   currency         String         @default("ZMW")
   ownerName        String?        @map("owner_name")
   createdByUserId  String?        @map("created_by_user_id") @db.Uuid
+  listingCode      String?        @map("listing_code")
+  type            ListingType?
+  availabilityStatus AvailabilityStatus? @map("availability_status")
+  locationArea     String?        @map("location_area")
+  province         String?        @map("province")
+  cityTown         String?        @map("city_town")
+  latitude         Float?
+  longitude        Float?
+  address          String?
+  description      String?
+  askingPriceAmount Decimal?      @map("asking_price_amount") @db.Decimal(14, 2)
+  askingPriceCurrency CurrencyCode? @map("asking_price_currency")
+  bedrooms         Int?
+  bathrooms        Int?
+  landSizeHa       Decimal?      @map("land_size_ha") @db.Decimal(12, 4)
+  zoning           ZoningType?
+  landDesignation  LandDesignation? @map("land_designation")
+  assignedAgentUserId String?     @map("assigned_agent_user_id") @db.Uuid
+  internalNotes    String?        @map("internal_notes")
+  lastModifiedByUserId String?    @map("last_modified_by_user_id") @db.Uuid
+  deletedAt        DateTime?      @map("deleted_at")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
   createdBy        User?          @relation("UserCreatedListings", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  assignedAgentUser User?         @relation("UserAssignedListings", fields: [assignedAgentUserId], references: [id], onDelete: SetNull)
+  lastModifiedByUser User?        @relation("UserModifiedListings", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
   deals            Deal[]         @relation("ListingDeals")
+  listingUtilities ListingUtility[]
+  dealLinks        DealListing[]
+  interactions     Interaction[]
+  documents        Document[]
+  rentalLeases     RentalLease[]
 
   @@index([status], map: "listings_status_idx")
   @@index([createdByUserId], map: "listings_created_by_idx")
   @@index([createdAt], map: "listings_created_at_idx")
+  @@index([listingCode], map: "listings_listing_code_idx")
+  @@index([type], map: "listings_type_idx")
+  @@index([availabilityStatus], map: "listings_availability_status_idx")
+  @@index([locationArea], map: "listings_location_area_idx")
+  @@index([province], map: "listings_province_idx")
+  @@index([cityTown], map: "listings_city_town_idx")
+  @@index([assignedAgentUserId], map: "listings_assigned_agent_user_id_idx")
   @@map("listings")
 }
 
@@ -128,15 +308,36 @@ model Client {
   status          ClientStatus
   source          String?
   createdByUserId String?         @map("created_by_user_id") @db.Uuid
+  segment         ClientSegment?
+  nrcNumber       String?         @map("nrc_number")
+  passportNumber  String?         @map("passport_number")
+  tpin            String?
+  nationality     String?
+  budgetMinAmount Decimal?       @map("budget_min_amount") @db.Decimal(14, 2)
+  budgetMaxAmount Decimal?       @map("budget_max_amount") @db.Decimal(14, 2)
+  budgetCurrency  CurrencyCode?   @map("budget_currency")
+  notes           String?
+  lastModifiedByUserId String?    @map("last_modified_by_user_id") @db.Uuid
+  deletedAt       DateTime?       @map("deleted_at")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
   createdBy       User?           @relation("UserCreatedClients", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lastModifiedByUser User?        @relation("UserModifiedClients", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
   deals           Deal[]          @relation("ClientDeals")
+  preferredLocations ClientPreferredLocation[]
+  interactions    Interaction[]
+  paymentPlans    PaymentPlan[]
+  rentalLeases    RentalLease[]
+  payments        Payment[]
+  documents       Document[]
 
   @@index([status], map: "clients_status_idx")
   @@index([createdByUserId], map: "clients_created_by_idx")
   @@index([createdAt], map: "clients_created_at_idx")
+  @@index([segment], map: "clients_segment_idx")
+  @@index([tpin], map: "clients_tpin_idx")
+  @@index([nrcNumber], map: "clients_nrc_number_idx")
   @@map("clients")
 }
 
@@ -150,18 +351,44 @@ model Deal {
   closedAt        DateTime?      @map("closed_at")
   listingId       String?        @map("listing_id") @db.Uuid
   clientId        String?        @map("client_id") @db.Uuid
+  requestSummary  String?        @map("request_summary")
+  preferredPropertyType String?   @map("preferred_property_type")
+  preferredLocation String?      @map("preferred_location")
+  preferredProvince String?      @map("preferred_province")
+  preferredCityTown String?      @map("preferred_city_town")
+  preferredBedrooms Int?         @map("preferred_bedrooms")
+  preferredBathrooms Int?        @map("preferred_bathrooms")
   assignedUserId  String?        @map("assigned_user_id") @db.Uuid
+  dealName        String?        @map("deal_name")
+  dealType        CanonicalDealType? @map("deal_type")
+  offerAmount     Decimal?       @map("offer_amount") @db.Decimal(14, 2)
+  offerCurrency   CurrencyCode?  @map("offer_currency")
+  expectedCloseAt DateTime?      @map("expected_close_at")
+  agentUserId     String?        @map("agent_user_id") @db.Uuid
+  commissionPercent Decimal?     @map("commission_percent") @db.Decimal(5, 2)
+  commissionAmount Decimal?      @map("commission_amount") @db.Decimal(14, 2)
+  lastModifiedByUserId String?    @map("last_modified_by_user_id") @db.Uuid
+  deletedAt       DateTime?      @map("deleted_at")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
   listing         Listing?       @relation("ListingDeals", fields: [listingId], references: [id], onDelete: SetNull)
   client          Client?        @relation("ClientDeals", fields: [clientId], references: [id], onDelete: SetNull)
   assignedUser    User?          @relation("UserAssignedDeals", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  agentUser       User?          @relation("UserAgentDeals", fields: [agentUserId], references: [id], onDelete: SetNull)
+  lastModifiedByUser User?       @relation("UserModifiedDeals", fields: [lastModifiedByUserId], references: [id], onDelete: SetNull)
+  dealLinks       DealListing[]
+  interactions    Interaction[]
+  paymentPlans    PaymentPlan[]
+  payments        Payment[]
+  documents       Document[]
 
   @@index([stage], map: "deals_stage_idx")
   @@index([status], map: "deals_status_idx")
   @@index([assignedUserId], map: "deals_assigned_user_idx")
   @@index([createdAt], map: "deals_created_at_idx")
+  @@index([dealType], map: "deals_deal_type_idx")
+  @@index([expectedCloseAt], map: "deals_expected_close_at_idx")
   @@map("deals")
 }
 
@@ -174,16 +401,32 @@ model WorkItem {
   dueAt           DateTime?      @map("due_at")
   assignedUserId  String?        @map("assigned_user_id") @db.Uuid
   createdByUserId String?        @map("created_by_user_id") @db.Uuid
+  workType        String?        @map("work_type")
+  description     String?
+  priority        WorkPriority?
+  ownerUserId     String?        @map("owner_user_id") @db.Uuid
+  relatedInsightId String?       @map("related_insight_id") @db.Uuid
+  entityType      EntityType?    @map("entity_type")
+  entityId        String?        @map("entity_id") @db.Uuid
+  completedAt     DateTime?      @map("completed_at")
+  lastModifiedByUserId String?    @map("last_modified_by_user_id") @db.Uuid
+  deletedAt       DateTime?      @map("deleted_at")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
   assignedUser    User?          @relation("UserAssignedWorkItems", fields: [assignedUserId], references: [id], onDelete: SetNull)
   createdBy       User?          @relation("UserCreatedWorkItems", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  ownerUser       User?          @relation("UserOwnedWorkItems", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  relatedInsight  Insight?       @relation(fields: [relatedInsightId], references: [id], onDelete: SetNull)
 
   @@index([status], map: "work_items_status_idx")
   @@index([tone], map: "work_items_tone_idx")
   @@index([assignedUserId], map: "work_items_assigned_user_idx")
   @@index([dueAt], map: "work_items_due_at_idx")
+  @@index([createdAt], map: "work_items_created_at_idx")
+  @@index([priority], map: "work_items_priority_idx")
+  @@index([ownerUserId], map: "work_items_owner_user_id_idx")
+  @@index([relatedInsightId], map: "work_items_related_insight_id_idx")
   @@map("work_items")
 }
 
@@ -226,4 +469,282 @@ model AuditLog {
   @@index([actorUserId], map: "audit_log_actor_idx")
   @@index([entityType, entityId], map: "audit_log_entity_idx")
   @@map("audit_log")
+}
+
+model ListingUtility {
+  listingId String     @map("listing_id") @db.Uuid
+  utility   UtilityType
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  listing   Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, utility])
+  @@index([utility], map: "listing_utilities_utility_idx")
+  @@map("listing_utilities")
+}
+
+model ClientPreferredLocation {
+  clientId      String   @map("client_id") @db.Uuid
+  locationArea  String   @map("location_area")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, locationArea])
+  @@index([locationArea], map: "client_preferred_locations_location_area_idx")
+  @@map("client_preferred_locations")
+}
+
+model DealListing {
+  dealId    String   @map("deal_id") @db.Uuid
+  listingId String   @map("listing_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  @@id([dealId, listingId])
+  @@index([listingId], map: "deal_listings_listing_id_idx")
+  @@map("deal_listings")
+}
+
+model Interaction {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  summary           String
+  clientId          String           @map("client_id") @db.Uuid
+  listingId         String?          @map("listing_id") @db.Uuid
+  dealId            String?          @map("deal_id") @db.Uuid
+  type              InteractionType
+  outcome           String?
+  interactionAt     DateTime         @map("interaction_at")
+  nextStep          String?          @map("next_step")
+  nextFollowUpAt    DateTime?        @map("next_follow_up_at")
+  agentUserId       String           @map("agent_user_id") @db.Uuid
+  deletedAt         DateTime?        @map("deleted_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  client            Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  listing           Listing?         @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  deal              Deal?            @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  agentUser         User             @relation("UserAgentInteractions", fields: [agentUserId], references: [id], onDelete: Restrict)
+
+  @@index([clientId], map: "interactions_client_id_idx")
+  @@index([listingId], map: "interactions_listing_id_idx")
+  @@index([dealId], map: "interactions_deal_id_idx")
+  @@index([interactionAt], map: "interactions_interaction_at_idx")
+  @@map("interactions")
+}
+
+model PaymentPlan {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planName              String         @map("plan_name")
+  dealId                String         @map("deal_id") @db.Uuid
+  clientId              String         @map("client_id") @db.Uuid
+  principalAmount       Decimal        @map("principal_amount") @db.Decimal(14, 2)
+  downPaymentAmount     Decimal        @map("down_payment_amount") @db.Decimal(14, 2)
+  currency              CurrencyCode
+  frequency             PlanFrequency
+  periods               Int
+  startDate             DateTime       @map("start_date")
+  status                PlanStatus
+  lastModifiedByUserId  String?        @map("last_modified_by_user_id") @db.Uuid
+  deletedAt             DateTime?      @map("deleted_at")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  deal                  Deal           @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  client                Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  installmentScheduleItems InstallmentScheduleItem[]
+  payments              Payment[]
+
+  @@index([status], map: "payment_plans_status_idx")
+  @@index([createdAt], map: "payment_plans_created_at_idx")
+  @@map("payment_plans")
+}
+
+model InstallmentScheduleItem {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentPlanId         String         @map("payment_plan_id") @db.Uuid
+  installmentNumber     Int            @map("installment_number")
+  dueDate               DateTime       @map("due_date")
+  amountDue             Decimal        @map("amount_due") @db.Decimal(14, 2)
+  amountPaid            Decimal        @default(0) @map("amount_paid") @db.Decimal(14, 2)
+  paidAt                DateTime?      @map("paid_at")
+  status                ScheduleItemStatus
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  paymentPlan           PaymentPlan    @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
+  payments              Payment[]
+
+  @@unique([paymentPlanId, installmentNumber], map: "installment_schedule_items_unique_number")
+  @@index([dueDate], map: "installment_schedule_items_due_date_idx")
+  @@index([status], map: "installment_schedule_items_status_idx")
+  @@map("installment_schedule_items")
+}
+
+model RentalLease {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leaseName             String         @map("lease_name")
+  tenantClientId        String         @map("tenant_client_id") @db.Uuid
+  listingId             String         @map("listing_id") @db.Uuid
+  leaseStage            LeaseStage     @default(enquiry_received) @map("lease_stage")
+  startDate             DateTime       @map("start_date")
+  endDate               DateTime?      @map("end_date")
+  rentAmount            Decimal        @map("rent_amount") @db.Decimal(14, 2)
+  currency              CurrencyCode
+  billingDay            Int            @map("billing_day")
+  depositAmount         Decimal?       @map("deposit_amount") @db.Decimal(14, 2)
+  status                LeaseStatus
+  lastModifiedByUserId  String?        @map("last_modified_by_user_id") @db.Uuid
+  deletedAt             DateTime?      @map("deleted_at")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  tenantClient          Client         @relation(fields: [tenantClientId], references: [id], onDelete: Restrict)
+  listing               Listing        @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  rentalCharges         RentalCharge[]
+  payments              Payment[]
+
+  @@index([leaseStage], map: "rental_leases_lease_stage_idx")
+  @@index([status], map: "rental_leases_status_idx")
+  @@index([createdAt], map: "rental_leases_created_at_idx")
+  @@map("rental_leases")
+}
+
+model RentalCharge {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leaseId     String         @map("lease_id") @db.Uuid
+  periodMonth DateTime       @map("period_month")
+  dueDate     DateTime       @map("due_date")
+  amount      Decimal        @db.Decimal(14, 2)
+  currency    CurrencyCode
+  status      ScheduleItemStatus
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  lease       RentalLease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+
+  @@unique([leaseId, periodMonth], map: "rental_charges_unique_month")
+  @@index([dueDate], map: "rental_charges_due_date_idx")
+  @@map("rental_charges")
+}
+
+model Payment {
+  id                        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receiptNumber             String?     @unique @map("receipt_number")
+  clientId                  String      @map("client_id") @db.Uuid
+  dealId                    String?     @map("deal_id") @db.Uuid
+  paymentPlanId             String?     @map("payment_plan_id") @db.Uuid
+  installmentScheduleItemId String?     @map("installment_schedule_item_id") @db.Uuid
+  leaseId                   String?     @map("lease_id") @db.Uuid
+  rentalChargeId            String?     @map("rental_charge_id") @db.Uuid
+  paidAt                    DateTime    @map("paid_at")
+  amount                    Decimal     @db.Decimal(14, 2)
+  currency                  CurrencyCode
+  method                    String?
+  notes                     String?
+  recordedByUserId          String      @map("recorded_by_user_id") @db.Uuid
+  createdAt                 DateTime    @default(now()) @map("created_at")
+  updatedAt                 DateTime    @updatedAt @map("updated_at")
+
+  client                    Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  deal                      Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  paymentPlan               PaymentPlan? @relation(fields: [paymentPlanId], references: [id], onDelete: SetNull)
+  installmentScheduleItem   InstallmentScheduleItem? @relation(fields: [installmentScheduleItemId], references: [id], onDelete: SetNull)
+  lease                     RentalLease? @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  rentalCharge              RentalCharge? @relation(fields: [rentalChargeId], references: [id], onDelete: SetNull)
+  recordedByUser            User        @relation("UserRecordedPayments", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([paidAt], map: "payments_paid_at_idx")
+  @@map("payments")
+}
+
+model Document {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentName      String      @map("document_name")
+  category          DocumentCategory
+  listingId         String?     @map("listing_id") @db.Uuid
+  clientId          String?     @map("client_id") @db.Uuid
+  dealId            String?     @map("deal_id") @db.Uuid
+  blobUrl           String      @map("blob_url")
+  blobKey           String?     @map("blob_key")
+  mimeType          String?     @map("mime_type")
+  fileSizeBytes     BigInt?     @map("file_size_bytes")
+  isVerified        Boolean     @default(false) @map("is_verified")
+  verifiedAt        DateTime?   @map("verified_at")
+  verifiedByUserId  String?     @map("verified_by_user_id") @db.Uuid
+  notes             String?
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  uploadedByUserId  String?     @map("uploaded_by_user_id") @db.Uuid
+  deletedAt         DateTime?   @map("deleted_at")
+
+  listing           Listing?    @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  client            Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  deal              Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  verifiedByUser    User?       @relation("UserVerifiedDocuments", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  uploadedByUser    User?       @relation("UserUploadedDocuments", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([category], map: "documents_category_idx")
+  @@index([isVerified], map: "documents_is_verified_idx")
+  @@map("documents")
+}
+
+model SyncDevice {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deviceId      String      @unique @map("device_id")
+  userId        String      @map("user_id") @db.Uuid
+  deviceType    String      @map("device_type")
+  appVersion    String?     @map("app_version")
+  lastSeenAt    DateTime?   @map("last_seen_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  syncState     SyncState?
+
+  @@index([userId], map: "sync_devices_user_id_idx")
+  @@map("sync_devices")
+}
+
+model SyncState {
+  deviceId              String   @id @map("device_id") @db.Uuid
+  lastSyncToken         String?  @map("last_sync_token")
+  lastSyncAt            DateTime? @map("last_sync_at")
+  lastErrorCode         String?  @map("last_error_code")
+  lastErrorAt           DateTime? @map("last_error_at")
+  consecutiveFailures   Int      @default(0) @map("consecutive_failures")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  syncDevice            SyncDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("sync_state")
+}
+
+model Insight {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  insightType        String         @map("insight_type")
+  severity           InsightSeverity
+  title              String
+  description        String?
+  ownerUserId        String?        @map("owner_user_id") @db.Uuid
+  status             InsightStatus
+  entityType         EntityType?    @map("entity_type")
+  entityId           String?        @map("entity_id") @db.Uuid
+  evidence           Json?
+  recommendedAction  String?        @map("recommended_action")
+  dueAt              DateTime?      @map("due_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  ownerUser          User?          @relation("UserOwnedInsights", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  workItems          WorkItem[]
+
+  @@index([status], map: "insights_status_idx")
+  @@index([severity], map: "insights_severity_idx")
+  @@index([createdAt], map: "insights_created_at_idx")
+  @@map("insights")
 }

@@ -43,7 +43,7 @@ export async function checkContourDatabaseConnection(
     databaseStatus = {
       configured: true,
       connected: true,
-      message: "Neon connection verified.",
+      message: "Database connection verified.",
     };
   } catch (error) {
     databaseStatus = {
@@ -51,8 +51,8 @@ export async function checkContourDatabaseConnection(
       connected: false,
       message:
         error instanceof Error
-          ? `Neon connection failed: ${error.message}`
-          : "Neon connection failed.",
+          ? `Database connection failed: ${error.message}`
+          : "Database connection failed.",
     };
   }
 

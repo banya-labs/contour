@@ -1,0 +1,325 @@
+
+> @contour/web@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.56.1:3000
+✓ Ready in 1840ms
+◇ injected env (22) from ..\..\.env.development.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from ..\..\.env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+(node:20184) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ GET /deals 200 in 6.1s (next.js: 1884ms, proxy.ts: 454ms, application-code: 3.7s)
+⨯ Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.listing.findMany()` invocation in
+C:\Users\sewar\repos\contour\apps\web\.next\dev\server\chunks\ssr\[root-of-the-server]__1jh56x2._.js:863:39
+
+  860     };
+  861 }
+  862 async function listContourListings(prisma, limit = 50) {
+→ 863     const rows = await prisma.listing.findMany(
+The column `listings.province` does not exist in the current database.
+    at <unknown> (..\..\packages\db\src\listings.ts:196:37)
+    at async listContourListings (..\..\packages\db\src\listings.ts:196:16)
+    at async ListingsPage (app\listings\page.tsx:21:20)
+  194 |   limit = 50,
+  195 | ): Promise<ContourListingSummary[]> {
+> 196 |   const rows = await prisma.listing.findMany({
+      |                                     ^
+  197 |     orderBy: { createdAt: "desc" },
+  198 |     take: limit,
+  199 |     select: contourListingSelect, {
+  code: 'P2022',
+  meta: {
+    modelName: 'Listing',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async listContourListings (..\..\packages\db\src\listings.ts:196:16)
+        at async ListingsPage (app\listings\page.tsx:21:20)
+      194 |   limit = 50,
+      195 | ): Promise<ContourListingSummary[]> {
+    > 196 |   const rows = await prisma.listing.findMany({
+          |                ^
+      197 |     orderBy: { createdAt: "desc" },
+      198 |     take: limit,
+      199 |     select: contourListingSelect, {
+      [cause]: [Object]
+    }
+  },
+  clientVersion: '7.8.0',
+  digest: '3734761866'
+}
+ GET /listings 500 in 2.7s (next.js: 273ms, proxy.ts: 19ms, application-code: 2.4s)
+[browser] Uncaught PrismaClientKnownRequestError: 
+Invalid `prisma.listing.findMany()` invocation in
+C:\Users\sewar\repos\contour\apps\web\.next\dev\server\chunks\ssr\[root-of-the-server]__1jh56x2._.js:863:39
+
+  860     };
+  861 }
+  862 async function listContourListings(prisma, limit = 50) {
+→ 863     const rows = await prisma.listing.findMany(
+The column `listings.province` does not exist in the current database.
+    at <unknown> (..\..\packages\db\src\listings.ts:196:37)
+    at  listContourListings (..\..\packages\db\src\listings.ts:196:16)
+    at  ListingsPage (app\listings\page.tsx:21:20)
+  194 |   limit = 50,
+  195 | ): Promise<ContourListingSummary[]> {
+> 196 |   const rows = await prisma.listing.findMany({
+      |                                     ^
+  197 |     orderBy: { createdAt: "desc" },
+  198 |     take: limit,
+  199 |     select: contourListingSelect,
+ GET /listings 200 in 3.5s (next.js: 23ms, proxy.ts: 19ms, application-code: 3.4s)
+◇ injected env (0) from ..\..\.env.development.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from ..\..\.env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+ GET /listings/10000000-0000-4000-8000-000000000008 200 in 3.6s (next.js: 39ms, proxy.ts: 13ms, application-code: 3.6s)
+ GET /api/location-search?q=Lusaka 200 in 451ms (next.js: 142ms, proxy.ts: 9ms, application-code: 300ms)
+ GET /listings/new 200 in 2.1s (next.js: 199ms, proxy.ts: 12ms, application-code: 1918ms)
+ GET /api/location-search?q=Lusaka 200 in 52ms (next.js: 11ms, proxy.ts: 16ms, application-code: 26ms)
+ GET /listings/new 200 in 1775ms (next.js: 10ms, proxy.ts: 13ms, application-code: 1752ms)
+ GET /api/location-search?q=Lusaka 200 in 44ms (next.js: 14ms, proxy.ts: 10ms, application-code: 20ms)
+ GET /api/location-search?q=Lusaka%2C%20Lusaka%2C%20Lusaka%20Province 200 in 791ms (next.js: 9ms, proxy.ts: 13ms, application-code: 769ms)
+ GET / 200 in 5.1s (next.js: 1177ms, proxy.ts: 14ms, application-code: 3.9s)
+ GET /deals 200 in 1237ms (next.js: 15ms, proxy.ts: 14ms, application-code: 1208ms)
+ GET /deals?view=table 200 in 916ms (next.js: 9ms, proxy.ts: 11ms, application-code: 896ms)
+ GET /listings 200 in 781ms (next.js: 27ms, proxy.ts: 13ms, application-code: 741ms)
+ GET /clients 200 in 2.9s (next.js: 1001ms, proxy.ts: 8ms, application-code: 1866ms)
+ GET /finance 200 in 3.8s (next.js: 827ms, proxy.ts: 10ms, application-code: 3.0s)
+ GET /finance/payment-plans 200 in 2.2s (next.js: 1257ms, proxy.ts: 14ms, application-code: 974ms)
+ GET /finance/leases 200 in 1756ms (next.js: 832ms, proxy.ts: 9ms, application-code: 915ms)
+ GET /finance/payment-receipts 200 in 1677ms (next.js: 834ms, proxy.ts: 10ms, application-code: 833ms)
+ GET /insights 200 in 1870ms (next.js: 893ms, proxy.ts: 31ms, application-code: 946ms)
+ GET /work-items 200 in 2.2s (next.js: 931ms, proxy.ts: 13ms, application-code: 1268ms)
+ GET /activity 200 in 1755ms (next.js: 862ms, proxy.ts: 7ms, application-code: 886ms)
+ GET /rentals 200 in 1755ms (next.js: 1046ms, proxy.ts: 8ms, application-code: 701ms)
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from ..\..\.env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+ GET /deals 200 in 3.6s (next.js: 18ms, proxy.ts: 18ms, application-code: 3.6s)
+ GET /deals 200 in 3.5s (next.js: 199ms, proxy.ts: 39ms, application-code: 3.2s)
+ GET /deals 200 in 3.6s (next.js: 293ms, proxy.ts: 40ms, application-code: 3.3s)
+ GET /deals 200 in 3.6s (next.js: 361ms, proxy.ts: 55ms, application-code: 3.2s)
+ GET /deals 200 in 3.9s (next.js: 52ms, proxy.ts: 36ms, application-code: 3.8s)
+ GET /deals 200 in 5.8s (next.js: 1030ms, proxy.ts: 180ms, application-code: 4.6s)
+ GET /deals 200 in 1052ms (next.js: 6ms, proxy.ts: 10ms, application-code: 1035ms)
+ GET /deals 200 in 943ms (next.js: 22ms, proxy.ts: 10ms, application-code: 912ms)
+ GET /deals 200 in 833ms (next.js: 18ms, proxy.ts: 19ms, application-code: 795ms)
+ GET /deals 200 in 1378ms (next.js: 182ms, proxy.ts: 13ms, application-code: 1183ms)
+ GET /deals 200 in 1069ms (next.js: 18ms, proxy.ts: 43ms, application-code: 1009ms)
+ GET /deals 200 in 1076ms (next.js: 147ms, proxy.ts: 34ms, application-code: 895ms)
+ GET /deals 200 in 1431ms (next.js: 27ms, proxy.ts: 44ms, application-code: 1360ms)
+ GET /deals 200 in 1433ms (next.js: 129ms, proxy.ts: 43ms, application-code: 1261ms)
+ GET /deals 200 in 1429ms (next.js: 304ms, proxy.ts: 30ms, application-code: 1095ms)
+ GET /deals 200 in 1606ms (next.js: 39ms, proxy.ts: 37ms, application-code: 1531ms)
+ GET /deals 200 in 1603ms (next.js: 105ms, proxy.ts: 47ms, application-code: 1451ms)
+ GET /deals 200 in 1616ms (next.js: 545ms, proxy.ts: 27ms, application-code: 1045ms)
+ GET /deals 200 in 1251ms (next.js: 51ms, proxy.ts: 39ms, application-code: 1160ms)
+ GET /deals 200 in 1250ms (next.js: 294ms, proxy.ts: 50ms, application-code: 906ms)
+ GET /deals 200 in 1564ms (next.js: 263ms, proxy.ts: 296ms, application-code: 1004ms)
+ GET /deals 200 in 808ms (next.js: 28ms, proxy.ts: 29ms, application-code: 751ms)
+ GET /deals 200 in 1421ms (next.js: 111ms, proxy.ts: 28ms, application-code: 1282ms)
+ GET /deals 200 in 1425ms (next.js: 235ms, proxy.ts: 27ms, application-code: 1162ms)
+ GET /deals 200 in 1113ms (next.js: 11ms, proxy.ts: 64ms, application-code: 1038ms)
+ GET /deals 200 in 1125ms (next.js: 88ms, proxy.ts: 63ms, application-code: 973ms)
+ GET /deals 200 in 1467ms (next.js: 16ms, proxy.ts: 28ms, application-code: 1424ms)
+ GET /deals 200 in 1897ms (next.js: 163ms, proxy.ts: 20ms, application-code: 1714ms)
+ GET /deals 200 in 1670ms (next.js: 52ms, proxy.ts: 90ms, application-code: 1528ms)
+ GET /deals 200 in 1685ms (next.js: 242ms, proxy.ts: 84ms, application-code: 1359ms)
+ GET /deals 200 in 1697ms (next.js: 30ms, proxy.ts: 342ms, application-code: 1325ms)
+ GET /deals 200 in 1426ms (next.js: 363ms, proxy.ts: 50ms, application-code: 1013ms)
+ GET /deals 200 in 1678ms (next.js: 32ms, proxy.ts: 116ms, application-code: 1530ms)
+ GET /deals 200 in 1835ms (next.js: 58ms, proxy.ts: 391ms, application-code: 1386ms)
+ GET /deals 200 in 1581ms (next.js: 50ms, proxy.ts: 278ms, application-code: 1252ms)
+ GET /deals 200 in 1413ms (next.js: 178ms, proxy.ts: 126ms, application-code: 1108ms)
+ GET /deals 200 in 1595ms (next.js: 90ms, proxy.ts: 583ms, application-code: 922ms)
+ GET /deals 200 in 1363ms (next.js: 223ms, proxy.ts: 138ms, application-code: 1002ms)
+ GET /deals 200 in 1600ms (next.js: 25ms, proxy.ts: 71ms, application-code: 1504ms)
+ GET /deals 200 in 1552ms (next.js: 76ms, proxy.ts: 151ms, application-code: 1325ms)
+ GET /deals 200 in 1382ms (next.js: 35ms, proxy.ts: 268ms, application-code: 1079ms)
+ GET /deals 200 in 1385ms (next.js: 147ms, proxy.ts: 262ms, application-code: 977ms)
+ GET /deals 200 in 1617ms (next.js: 117ms, proxy.ts: 90ms, application-code: 1411ms)
+ GET /deals 200 in 1612ms (next.js: 231ms, proxy.ts: 95ms, application-code: 1287ms)
+ GET /deals 200 in 1799ms (next.js: 170ms, proxy.ts: 44ms, application-code: 1585ms)
+ GET /deals 200 in 1780ms (next.js: 319ms, proxy.ts: 160ms, application-code: 1301ms)
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from ..\..\.env.local // tip: ⌁ auth for agents [www.vestauth.com]
+ GET /deals 200 in 2.3s (next.js: 337ms, proxy.ts: 304ms, application-code: 1627ms)
+ GET /deals 200 in 2.3s (next.js: 233ms, proxy.ts: 302ms, application-code: 1746ms)
+ GET /deals 200 in 1519ms (next.js: 26ms, proxy.ts: 22ms, application-code: 1471ms)
+ GET /deals 200 in 1522ms (next.js: 173ms, proxy.ts: 26ms, application-code: 1323ms)
+ GET /deals 200 in 1379ms (next.js: 250ms, proxy.ts: 140ms, application-code: 990ms)
+ GET /deals 200 in 1514ms (next.js: 455ms, proxy.ts: 183ms, application-code: 876ms)
+ GET /deals 200 in 910ms (next.js: 65ms, proxy.ts: 27ms, application-code: 818ms)
+ GET /deals 200 in 1035ms (next.js: 166ms, proxy.ts: 26ms, application-code: 843ms)
+ GET /deals 200 in 1089ms (next.js: 96ms, proxy.ts: 278ms, application-code: 714ms)
+ GET /deals 200 in 1396ms (next.js: 122ms, proxy.ts: 325ms, application-code: 948ms)
+ GET /deals 200 in 941ms (next.js: 7ms, proxy.ts: 12ms, application-code: 922ms)
+ GET /deals 200 in 946ms (next.js: 68ms, proxy.ts: 11ms, application-code: 867ms)
+ GET /deals 200 in 815ms (next.js: 5ms, proxy.ts: 11ms, application-code: 799ms)
+ GET /deals 200 in 805ms (next.js: 7ms, proxy.ts: 6ms, application-code: 792ms)
+ GET /deals 200 in 810ms (next.js: 4ms, proxy.ts: 26ms, application-code: 780ms)
+ GET /deals 200 in 888ms (next.js: 7ms, proxy.ts: 27ms, application-code: 854ms)
+ GET /deals 200 in 614ms (next.js: 10ms, proxy.ts: 15ms, application-code: 590ms)
+ GET /deals 200 in 972ms (next.js: 11ms, proxy.ts: 11ms, application-code: 951ms)
+✓ Compiled in 577ms
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from ..\..\.env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+⨯ Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.$queryRaw()` invocation:
+
+
+
+    at async listContourDeals (..\..\packages\db\src\deals.ts:210:16)
+    at async DealsPage (app\deals\page.tsx:31:38)
+  208 |   options: { limit?: number; dealType?: ContourDealType } = {},
+  209 | ): Promise<ContourDealSummary[]> {
+> 210 |   const rows = await prisma.$queryRaw<ContourDealQueryRow[]>(
+      |                ^
+  211 |     Prisma.sql`${dealSelectSql()}
+  212 |       ${options.dealType ? Prisma.sql`where d.deal_type = ${options.dealType}::"Canonical...
+  213 |       order by d.created_at desc {
+  code: 'ETIMEDOUT',
+  meta: undefined,
+  clientVersion: '7.8.0',
+  digest: '534683374'
+}
+ GET /deals 200 in 1920ms (next.js: 11ms, proxy.ts: 17ms, application-code: 1891ms)
+ GET /deals 200 in 2.2s (next.js: 28ms, proxy.ts: 28ms, application-code: 2.1s)
+ GET /deals 200 in 2.9s (next.js: 195ms, proxy.ts: 155ms, application-code: 2.6s)
+ GET /deals 200 in 2.4s (next.js: 279ms, proxy.ts: 36ms, application-code: 2.1s)
+ GET /deals 200 in 2.6s (next.js: 183ms, proxy.ts: 32ms, application-code: 2.4s)
+ GET /deals 200 in 2.6s (next.js: 108ms, proxy.ts: 30ms, application-code: 2.5s)
+✓ Compiled in 143ms
+◇ injected env (0) from ..\..\.env.development.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ override existing { override: true }
+⨯ Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.listing.findMany()` invocation in
+C:\Users\sewar\repos\contour\apps\web\.next\dev\server\chunks\ssr\[root-of-the-server]__09sagg5._.js:1125:24
+
+  1122 (0, {imported module ./packages/db/src/deals.ts}["listContourDeals"])(prisma, {
+  1123     dealType: "sale"
+  1124 }),
+→ 1125 prisma.listing.findMany(
+
+    at <unknown> (app\deals\page.tsx:33:20)
+    at async DealsPage (app\deals\page.tsx:31:38)
+  31 |   const [deals, listings, clients] = await Promise.all([
+  32 |     listContourDeals(prisma, { dealType: "sale" }),
+> 33 |     prisma.listing.findMany({
+     |                    ^
+  34 |       orderBy: { createdAt: "desc" },
+  35 |       take: 100,
+  36 |       select: { {
+  code: 'ETIMEDOUT',
+  meta: { modelName: 'Listing' },
+  clientVersion: '7.8.0',
+  digest: '3558097746'
+}
+ GET /deals 200 in 1414ms (next.js: 180ms, proxy.ts: 139ms, application-code: 1095ms)
+ GET /deals 200 in 1765ms (next.js: 7ms, proxy.ts: 13ms, application-code: 1745ms)
+◇ injected env (0) from ..\..\.env.development.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from ..\..\.env.development.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from ..\..\.env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+ GET /deals 200 in 1198ms (next.js: 259ms, proxy.ts: 171ms, application-code: 768ms)
+✓ Compiled in 169ms
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from ..\..\.env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from ..\..\.env.local // tip: ⌁ auth for agents [www.vestauth.com]
+ GET /deals 200 in 2.8s (next.js: 290ms, proxy.ts: 168ms, application-code: 2.3s)
+ GET /deals 200 in 2.1s (next.js: 16ms, proxy.ts: 27ms, application-code: 2.0s)
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from ..\..\.env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from ..\..\.env.local // tip: ⌁ auth for agents [www.vestauth.com]
+ GET /deals 200 in 2.5s (next.js: 263ms, proxy.ts: 206ms, application-code: 2.0s)
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from ..\..\.env.local // tip: ⌘ suppress logs { quiet: true }
+⨯ TypeError: Cannot read properties of undefined (reading 'replaceAll')
+    at getLeaseStageLabel (lib\lease-workflows.ts:39:84)
+    at <unknown> (app\finance\leases\page.tsx:86:25)
+    at Array.map (<anonymous>)
+    at LeasesPage (app\finance\leases\page.tsx:68:28)
+  37 | ...
+  38 | ...: string) {
+> 39 | ...) => item.value === stage)?.label ?? stage.replaceAll("_", " ");
+     |                                               ^
+  40 | ...
+  41 | ...
+  42 | ...tage: string) { {
+  digest: '2963003726'
+}
+ GET /finance/leases 500 in 4.5s (next.js: 563ms, proxy.ts: 99ms, application-code: 3.9s)
+[browser] Uncaught TypeError: Cannot read properties of undefined (reading 'replaceAll')
+    at getLeaseStageLabel (lib\lease-workflows.ts:39:84)
+    at <anonymous> (app\finance\leases\page.tsx:86:25)
+    at Array.map (<anonymous>:1:18)
+    at LeasesPage (app\finance\leases\page.tsx:68:28)
+  37 | ...
+  38 | ...: string) {
+> 39 | ...) => item.value === stage)?.label ?? stage.replaceAll("_", " ");
+     |                                               ^
+  40 | ...
+  41 | ...
+  42 | ...tage: string) {
+⨯ TypeError: Cannot read properties of undefined (reading 'replaceAll')
+    at getLeaseStageLabel (lib\lease-workflows.ts:39:84)
+    at <unknown> (app\finance\leases\page.tsx:86:25)
+    at Array.map (<anonymous>)
+    at LeasesPage (app\finance\leases\page.tsx:68:28)
+  37 | ...
+  38 | ...: string) {
+> 39 | ...) => item.value === stage)?.label ?? stage.replaceAll("_", " ");
+     |                                               ^
+  40 | ...
+  41 | ...
+  42 | ...tage: string) { {
+  digest: '2963003726'
+}
+ GET /finance/leases?view=table 500 in 754ms (next.js: 13ms, proxy.ts: 20ms, application-code: 721ms)
+[browser] Uncaught TypeError: Cannot read properties of undefined (reading 'replaceAll')
+    at getLeaseStageLabel (lib\lease-workflows.ts:39:84)
+    at <anonymous> (app\finance\leases\page.tsx:86:25)
+    at Array.map (<anonymous>:1:18)
+    at LeasesPage (app\finance\leases\page.tsx:68:28)
+  37 | ...
+  38 | ...: string) {
+> 39 | ...) => item.value === stage)?.label ?? stage.replaceAll("_", " ");
+     |                                               ^
+  40 | ...
+  41 | ...
+  42 | ...tage: string) {
+○ Compiling /finance/leases/[id] ...
+◇ injected env (0) from ..\..\.env.development.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from ..\..\.env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+ GET /finance/leases/70000000-0000-4000-8000-000000000001 200 in 10.6s (next.js: 8.1s, proxy.ts: 12ms, application-code: 2.6s)
+[?25h
+npm error Lifecycle script `dev` failed with error:
+npm error code 4294967295
+npm error path C:\Users\sewar\repos\contour\apps\web
+npm error workspace @contour/web@0.1.0
+npm error location C:\Users\sewar\repos\contour\apps\web
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c next dev

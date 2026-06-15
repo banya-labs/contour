@@ -1,0 +1,44 @@
+<svg width="800" height="200" viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="black"/>
+  
+  <!-- Wordmark Text Style -->
+  <style>
+    .logo-text {
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      font-weight: 300;
+      font-size: 80px;
+      letter-spacing: 12px;
+      fill: white;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+  </style>
+
+  <!-- Typography: C N T U R -->
+  <text x="120" y="105" class="logo-text">C</text>
+  <!-- The 'O' position is roughly x=240 -->
+  <text x="365" y="105" class="logo-text">N</text>
+  <text x="480" y="105" class="logo-text">T</text>
+  <text x="595" y="105" class="logo-text">U</text>
+  <text x="710" y="105" class="logo-text">R</text>
+
+  <!-- Topographic 'O' Element (Centered at x=245, y=105) -->
+  <g transform="translate(245, 105)">
+    <!-- Outer Contour Circle -->
+    <circle cx="0" cy="0" r="38" stroke="white" stroke-width="2" fill="none" opacity="0.9"/>
+    
+    <!-- Organic Topographic Lines -->
+    <!-- Line 1: Inner White Irregular -->
+    <path d="M-20,-5 C-25,10 -10,25 5,20 C15,15 25,5 20,-15 C15,-25 -10,-20 -20,-5 Z" 
+          stroke="white" stroke-width="1.5" fill="none" opacity="0.8"/>
+    
+    <!-- Line 2: The Amber Accent Line -->
+    <path d="M-10,-15 C-5,-20 10,-20 15,-10 C20,0 10,15 -5,10 C-15,5 -15,-5 -10,-15 Z" 
+          stroke="#FFBF00" stroke-width="1.8" fill="none"/>
+          
+    <!-- Line 3: Smallest Inner White -->
+    <path d="M-5,0 C-8,5 0,10 5,5 C8,0 5,-5 -5,0 Z" 
+          stroke="white" stroke-width="1.2" fill="none" opacity="0.6"/>
+  </g>
+</svg>
