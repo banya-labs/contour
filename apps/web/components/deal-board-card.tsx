@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpRight, GripVertical } from "lucide-react";
+import { memo } from "react";
 import type { ContourDealSummary } from "@contour/db";
 import { getDealStageLabel, getDealStatusForStage } from "../lib/deal-workflows";
 import { writeKanbanDragItem } from "../lib/kanban-dnd";
@@ -34,7 +35,7 @@ function statusTone(status: string) {
   }
 }
 
-export function DealBoardCard({ deal, onSelect, onDragStart, onDragEnd, isDragging }: DealBoardCardProps) {
+function DealBoardCardComponent({ deal, onSelect, onDragStart, onDragEnd, isDragging }: DealBoardCardProps) {
   const stageLabel = getDealStageLabel(deal.stage, deal.dealType);
   const effectiveStatus = getDealStatusForStage(deal.stage) === "open" ? deal.status : getDealStatusForStage(deal.stage);
 
@@ -109,3 +110,5 @@ export function DealBoardCard({ deal, onSelect, onDragStart, onDragEnd, isDraggi
     </article>
   );
 }
+
+export const DealBoardCard = memo(DealBoardCardComponent);

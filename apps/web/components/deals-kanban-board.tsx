@@ -4,7 +4,6 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import type { ContourDealSummary, ContourDealStage, ContourDealStatus, ContourDealType } from "@contour/db";
-import { buildSearchIndex } from "../lib/table-search";
 import {
   getDealStageLabel,
   getDealStatusForStage,
@@ -45,33 +44,6 @@ function formatMoney(amountCents: number, currency: string) {
   }).format(amountCents / 100);
 }
 
-function toBoardRow(deal: ContourDealSummary | DealBoardRecord): DealBoardRecord {
-  return {
-    ...deal,
-    searchIndex:
-      "searchIndex" in deal && deal.searchIndex
-        ? deal.searchIndex
-        : buildSearchIndex(
-            deal.title,
-            getDealStageLabel(deal.stage, deal.dealType),
-            deal.status,
-            deal.requestSummary,
-            deal.preferredPropertyType,
-            deal.preferredLocation,
-            deal.preferredProvince,
-            deal.preferredCityTown,
-            deal.listingDescription,
-            deal.listing?.title,
-            deal.client?.fullName,
-            formatMoney(deal.valueCents, deal.currency),
-            deal.valueCents,
-            deal.currency,
-            deal.paymentPlansCount,
-            deal.paymentsCount,
-          ),
-  };
-}
-
 export function DealsKanbanBoard({
   boardTitle,
   boardDescription,
@@ -109,28 +81,10 @@ export function DealsKanbanBoard({
     }
 
     return deals.filter((deal) => {
-      const stageLabel = getDealStageLabel(deal.stage, deal.dealType);
-      const searchIndex =
-        deal.searchIndex ??
-        buildSearchIndex(
-          deal.title,
-          stageLabel,
-          deal.status,
-          deal.requestSummary,
-          deal.preferredPropertyType,
-          deal.preferredLocation,
-          deal.preferredProvince,
-          deal.preferredCityTown,
-          deal.listingDescription,
-          deal.listing?.title,
-          deal.client?.fullName,
-          formatMoney(deal.valueCents, deal.currency),
-          deal.valueCents,
-          deal.currency,
-          deal.paymentPlansCount,
-          deal.paymentsCount,
-        );
-
+      const searchIndex = deal.searchIndex;
+      if (!searchIndex) {
+        return false;
+      }
       return searchIndex.includes(deferredQuery);
     });
   }, [deals, deferredQuery]);
@@ -188,7 +142,7 @@ export function DealsKanbanBoard({
 
       const payload = (await response.json()) as { deal: ContourDealSummary };
       setDeals((currentDeals) =>
-        currentDeals.map((deal) => (deal.id === dealId ? toBoardRow(payload.deal) : deal)),
+        currentDeals.map((deal) => (deal.id === dealId ? payload.deal : deal)),
       );
     } catch (caughtError) {
       setDeals((currentDeals) =>
@@ -335,7 +289,7 @@ export function DealsKanbanBoard({
                     stage.deals.map((deal) => (
                       <DealBoardCard
                         key={deal.id}
-                        deal={toBoardRow(deal)}
+                        deal={deal}
                         isDragging={draggedDealId === deal.id}
                         onSelect={(dealId) => router.push(`/deals/${dealId}`)}
                         onDragStart={(dealId) => {

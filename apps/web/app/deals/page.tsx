@@ -1,7 +1,7 @@
 import "../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowUpRight, LineChart, Plus } from "lucide-react";
-import { getPrismaClient, listContourDeals } from "@contour/db";
+import { getPrismaClient, listContourDealsPaginated } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { DealsTable } from "../../components/deals-table";
 import { buildSearchIndex } from "../../lib/table-search";
@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 type DealsPageProps = {
   searchParams?: Promise<{
     view?: string;
+    page?: string;
   }>;
 };
 
@@ -25,42 +26,51 @@ function formatMoney(amountCents: number, currency: string) {
   }).format(amountCents / 100);
 }
 
+function buildDealSearchIndex(deal: any) {
+  return buildSearchIndex(
+    deal.title,
+    getDealStageLabel(deal.stage, deal.dealType),
+    deal.status,
+    deal.requestSummary,
+    deal.preferredPropertyType,
+    deal.preferredLocation,
+    deal.preferredProvince,
+    deal.preferredCityTown,
+    deal.listingDescription,
+    deal.listing?.title,
+    deal.client?.fullName,
+    formatMoney(deal.valueCents, deal.currency),
+    deal.valueCents,
+    deal.currency,
+    deal.paymentPlansCount,
+    deal.paymentsCount,
+  );
+}
+
 export default async function DealsPage({ searchParams }: DealsPageProps) {
   const resolvedSearchParams = await searchParams;
   const view = resolvedSearchParams?.view === "table" ? "table" : "board";
+  const page = parseInt(resolvedSearchParams?.page || "1", 10);
   const prisma = getPrismaClient();
-  const [deals, options] = await Promise.all([
-    listContourDeals(prisma, { dealType: "sale" }),
+  const [paginatedData, options] = await Promise.all([
+    listContourDealsPaginated(prisma, { page, pageSize: 50, dealType: "sale" }),
     getCachedLookupOptions(),
   ]);
 
+  const deals = paginatedData.deals;
   const openDeals = deals.filter((deal) => deal.status === "open").length;
   const wonDeals = deals.filter((deal) => deal.status === "won").length;
   const totalValue = deals.reduce((sum, deal) => sum + deal.valueCents, 0);
 
-  const boardRows = deals.map((deal) => ({
+  // Build search index once, reuse for both views
+  const dealsWithSearchIndex = deals.map((deal) => ({
     ...deal,
-    searchIndex: buildSearchIndex(
-      deal.title,
-      getDealStageLabel(deal.stage, deal.dealType),
-      deal.status,
-      deal.requestSummary,
-      deal.preferredPropertyType,
-      deal.preferredLocation,
-      deal.preferredProvince,
-      deal.preferredCityTown,
-      deal.listingDescription,
-      deal.listing?.title,
-      deal.client?.fullName,
-      formatMoney(deal.valueCents, deal.currency),
-      deal.valueCents,
-      deal.currency,
-      deal.paymentPlansCount,
-      deal.paymentsCount,
-    ),
+    searchIndex: buildDealSearchIndex(deal),
   }));
 
-  const rows = deals.map((deal) => {
+  const boardRows = dealsWithSearchIndex;
+
+  const rows = dealsWithSearchIndex.map((deal) => {
     const request =
       deal.requestSummary ??
       deal.preferredPropertyType ??
@@ -83,23 +93,7 @@ export default async function DealsPage({ searchParams }: DealsPageProps) {
       plansCount: deal.paymentPlansCount,
       payments: String(deal.paymentsCount),
       paymentsCount: deal.paymentsCount,
-      searchIndex: buildSearchIndex(
-        deal.title,
-        deal.status,
-        deal.stage,
-      deal.requestSummary,
-      deal.preferredPropertyType,
-      deal.preferredLocation,
-      deal.preferredProvince,
-      deal.preferredCityTown,
-      deal.listingDescription,
-      deal.listing?.title,
-      deal.client?.fullName,
-        deal.valueCents,
-        deal.currency,
-        deal.paymentPlansCount,
-        deal.paymentsCount,
-      ),
+      searchIndex: deal.searchIndex,
     };
   });
 
@@ -168,7 +162,34 @@ export default async function DealsPage({ searchParams }: DealsPageProps) {
       </header>
 
       {view === "table" ? (
-        <DealsTable rows={rows} />
+        <>
+          <DealsTable rows={rows} />
+          {paginatedData.totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+              <p className="text-[13px] text-[color:var(--muted)]">
+                Page {page} of {paginatedData.totalPages} ({paginatedData.total} total deals)
+              </p>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link
+                    href={`/deals?view=table&page=${page - 1}`}
+                    className="inline-flex h-9 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[13px] font-medium hover:bg-[color:var(--surface-muted)]"
+                  >
+                    Previous
+                  </Link>
+                )}
+                {page < paginatedData.totalPages && (
+                  <Link
+                    href={`/deals?view=table&page=${page + 1}`}
+                    className="inline-flex h-9 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[13px] font-medium hover:bg-[color:var(--surface-muted)]"
+                  >
+                    Next
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <DealsKanbanBoard
           boardTitle="Open deal pipeline"

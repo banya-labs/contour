@@ -6,12 +6,14 @@ import "./globals.css";
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   weight: "400",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
