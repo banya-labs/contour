@@ -13,7 +13,7 @@ export const contourCockpits = [
   {
     key: "portfolio",
     label: "Portfolio",
-    summary: "Inventory, listings, clients, and document readiness.",
+    summary: "Properties, listings, clients, and document readiness.",
   },
   {
     key: "finance",
@@ -30,12 +30,17 @@ export const contourCockpits = [
 export const contourNavigation: ContourNavigationGroup[] = [
   {
     label: "Dashboard",
-    items: [{ label: "Overview", href: "/" }],
+    items: [
+      { label: "Overview", href: "/" },
+      { label: "Open deals", href: "/deals" },
+      { label: "Rentals", href: "/rentals" },
+    ],
   },
   {
     label: "Portfolio",
     items: [
-      { label: "Inventory", href: "/listings" },
+      { label: "Properties", href: "/listings" },
+      { label: "Map", href: "/listings/map" },
       { label: "Clients", href: "/clients" },
     ],
   },

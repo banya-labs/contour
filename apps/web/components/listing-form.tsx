@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { saveContourListingAction } from "../lib/listing-actions";
+import { PropertyLocationPicker } from "./property-location-picker";
 
 export type ListingFormValues = {
   title: string;
@@ -8,6 +12,13 @@ export type ListingFormValues = {
   price: string;
   currency: string;
   ownerName: string;
+  address: string;
+  description: string;
+  locationArea: string;
+  province: string;
+  cityTown: string;
+  latitude: string;
+  longitude: string;
 };
 
 type ListingFormProps = {
@@ -31,6 +42,9 @@ export function ListingForm({
   heading,
   description,
 }: ListingFormProps) {
+  const [address, setAddress] = useState(initialValues.address);
+  const [coordinatesLocked, setCoordinatesLocked] = useState(Boolean(initialValues.latitude && initialValues.longitude));
+
   return (
     <form
       action={saveContourListingAction}
@@ -68,6 +82,20 @@ export function ListingForm({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="grid gap-2 md:col-span-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Description</span>
+          <textarea
+            name="description"
+            defaultValue={initialValues.description}
+            rows={4}
+            className="rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="3 bedrooms, swimming pool, double story, office, built-in cupboards..."
+          />
+          <p className="text-[12px] leading-6 text-[color:var(--muted)]">
+            Use this for searchable property features and matching hints, not just marketing copy.
+          </p>
         </label>
 
         <label className="grid gap-2">
@@ -120,7 +148,36 @@ export function ListingForm({
             placeholder="M. Chanda"
           />
         </label>
+
+        <label className="grid gap-2 md:col-span-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Address</span>
+          <input
+            name="address"
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+            readOnly={coordinatesLocked}
+            className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="Unit 104, East Park Mall, Thabo Mbeki Rd, Plot 5005, Lusaka 00000, Zambia"
+          />
+          <p className="text-[12px] leading-6 text-[color:var(--muted)]">
+            If coordinates are present, the saved address is automatically matched to them and locked.
+          </p>
+        </label>
       </div>
+
+      <PropertyLocationPicker
+        initialLocation={{
+          province: initialValues.province,
+          cityTown: initialValues.cityTown,
+          locationArea: initialValues.locationArea,
+          latitude: initialValues.latitude,
+          longitude: initialValues.longitude,
+        }}
+        onResolvedAddress={(nextAddress) => {
+          setAddress(nextAddress ?? "");
+        }}
+        onCoordinatesStateChange={setCoordinatesLocked}
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <button

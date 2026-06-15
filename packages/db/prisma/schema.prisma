@@ -50,12 +50,15 @@ enum ClientStatus {
 }
 
 enum DealStage {
-  new
-  viewing
+  new_enquiry
+  qualified
+  site_visit
+  offer_made
   negotiating
-  contract
-  closed_won
-  closed_lost
+  document_check
+  closing
+  won
+  lost
 }
 
 enum DealStatus {
@@ -154,6 +157,17 @@ enum LeaseStatus {
   ended
 }
 
+enum LeaseStage {
+  enquiry_received
+  viewing_scheduled
+  viewing_completed
+  application_received
+  screening
+  lease_draft
+  active_tenancy
+  closed
+}
+
 enum DocumentCategory {
   title_deed
   offer_letter
@@ -243,7 +257,12 @@ model Listing {
   type            ListingType?
   availabilityStatus AvailabilityStatus? @map("availability_status")
   locationArea     String?        @map("location_area")
+  province         String?        @map("province")
+  cityTown         String?        @map("city_town")
+  latitude         Float?
+  longitude        Float?
   address          String?
+  description      String?
   askingPriceAmount Decimal?      @map("asking_price_amount") @db.Decimal(14, 2)
   askingPriceCurrency CurrencyCode? @map("asking_price_currency")
   bedrooms         Int?
@@ -275,6 +294,8 @@ model Listing {
   @@index([type], map: "listings_type_idx")
   @@index([availabilityStatus], map: "listings_availability_status_idx")
   @@index([locationArea], map: "listings_location_area_idx")
+  @@index([province], map: "listings_province_idx")
+  @@index([cityTown], map: "listings_city_town_idx")
   @@index([assignedAgentUserId], map: "listings_assigned_agent_user_id_idx")
   @@map("listings")
 }
@@ -330,6 +351,13 @@ model Deal {
   closedAt        DateTime?      @map("closed_at")
   listingId       String?        @map("listing_id") @db.Uuid
   clientId        String?        @map("client_id") @db.Uuid
+  requestSummary  String?        @map("request_summary")
+  preferredPropertyType String?   @map("preferred_property_type")
+  preferredLocation String?      @map("preferred_location")
+  preferredProvince String?      @map("preferred_province")
+  preferredCityTown String?      @map("preferred_city_town")
+  preferredBedrooms Int?         @map("preferred_bedrooms")
+  preferredBathrooms Int?        @map("preferred_bathrooms")
   assignedUserId  String?        @map("assigned_user_id") @db.Uuid
   dealName        String?        @map("deal_name")
   dealType        CanonicalDealType? @map("deal_type")
@@ -561,6 +589,7 @@ model RentalLease {
   leaseName             String         @map("lease_name")
   tenantClientId        String         @map("tenant_client_id") @db.Uuid
   listingId             String         @map("listing_id") @db.Uuid
+  leaseStage            LeaseStage     @default(enquiry_received) @map("lease_stage")
   startDate             DateTime       @map("start_date")
   endDate               DateTime?      @map("end_date")
   rentAmount            Decimal        @map("rent_amount") @db.Decimal(14, 2)
@@ -578,6 +607,7 @@ model RentalLease {
   rentalCharges         RentalCharge[]
   payments              Payment[]
 
+  @@index([leaseStage], map: "rental_leases_lease_stage_idx")
   @@index([status], map: "rental_leases_status_idx")
   @@index([createdAt], map: "rental_leases_created_at_idx")
   @@map("rental_leases")

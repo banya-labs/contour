@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Workflow } from "lucide-react";
 import { contourNavigation } from "@contour/config";
 import { ContourMark } from "./contour-mark";
 import { ConnectivityBadge } from "./connectivity-badge";
@@ -72,7 +72,19 @@ export function WorkspaceSidebar({ lastSyncAt }: WorkspaceSidebarProps) {
       </nav>
 
       <div className="mt-4 border-t border-[color:var(--border)] pt-4">
-        <ConnectivityBadge lastSyncAt={lastSyncAt} />
+        <div className="flex flex-col gap-3">
+          <Link
+            href="/activity"
+            className="flex items-center justify-between rounded-[14px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface)]"
+          >
+            <span className="flex items-center gap-2">
+              <Workflow className="size-4 text-[color:var(--muted)]" />
+              Activity
+            </span>
+            <ArrowUpRight className="size-3.5 text-[color:var(--muted)]" />
+          </Link>
+          <ConnectivityBadge lastSyncAt={lastSyncAt} />
+        </div>
       </div>
 
     </aside>

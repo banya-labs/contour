@@ -2,8 +2,11 @@ import "../../../lib/load-contour-env";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
-import { getContourListing, getPrismaClient } from "@contour/db";
+import { getContourListingWithDocuments, getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../../components/workspace-shell";
+import { PropertyLocationMap } from "../../../components/property-location-map";
+import { ListingAttachmentsPanel } from "../../../components/listing-attachments-panel";
+import { pickPrimaryListingImage } from "../../../lib/listing-attachments";
 
 export const dynamic = "force-dynamic";
 
@@ -29,18 +32,21 @@ function statusClass(status: string) {
 }
 
 type ListingPageProps = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export default async function ListingDetailPage({ params }: ListingPageProps) {
+  const { id } = await params;
   const prisma = getPrismaClient();
-  const listing = await getContourListing(prisma, params.id);
+  const listing = await getContourListingWithDocuments(prisma, id);
 
   if (!listing) {
     notFound();
   }
+
+  const primaryImageUrl = pickPrimaryListingImage(listing.documents);
 
   return (
     <WorkspaceShell>
@@ -50,7 +56,7 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
           className="inline-flex h-10 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium"
         >
           <ArrowLeft className="size-4" />
-          Back to inventory
+          Back to properties
         </Link>
 
         <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
@@ -86,12 +92,66 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
               <p className="text-[11px] text-[color:var(--muted)]">Owner</p>
               <p className="mt-2 text-[18px] font-semibold">{listing.ownerName ?? "Unassigned"}</p>
             </div>
+            <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 md:col-span-2 xl:col-span-1">
+              <p className="text-[11px] text-[color:var(--muted)]">Address</p>
+              <p className="mt-2 text-[18px] font-semibold">{listing.address ?? "Unset"}</p>
+            </div>
             <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
               <p className="text-[11px] text-[color:var(--muted)]">Updated</p>
               <p className="mt-2 text-[18px] font-semibold">{new Date(listing.updatedAt).toLocaleDateString()}</p>
             </div>
+            <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+              <p className="text-[11px] text-[color:var(--muted)]">Province</p>
+              <p className="mt-2 text-[18px] font-semibold">{listing.province ?? "Unset"}</p>
+            </div>
+            <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+              <p className="text-[11px] text-[color:var(--muted)]">City / Town</p>
+              <p className="mt-2 text-[18px] font-semibold">{listing.cityTown ?? "Unset"}</p>
+            </div>
+            <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+              <p className="text-[11px] text-[color:var(--muted)]">Coordinates</p>
+              <p className="mt-2 text-[18px] font-semibold">
+                {listing.latitude != null && listing.longitude != null
+                  ? `${listing.latitude.toFixed(4)}, ${listing.longitude.toFixed(4)}`
+                  : "Unset"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[color:var(--muted)]">Description</p>
+            <p className="mt-2 text-[14px] leading-7 text-[color:var(--foreground)]">
+              {listing.description?.trim() || "No description has been added yet."}
+            </p>
           </div>
         </section>
+
+        <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+          <article className="space-y-3 rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
+            <p className="text-[10px] uppercase tracking-[0.28em] text-[color:var(--muted)]">Preview</p>
+            <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.03em]">Property thumbnail</h2>
+            {primaryImageUrl ? (
+              <img
+                src={primaryImageUrl}
+                alt={listing.title}
+                className="aspect-[4/3] w-full rounded-[22px] border border-[color:var(--border)] object-cover"
+              />
+            ) : (
+              <div className="flex min-h-[260px] items-center justify-center rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] text-[13px] text-[color:var(--muted)]">
+                No property image uploaded yet.
+              </div>
+            )}
+          </article>
+
+          <PropertyLocationMap
+            latitude={listing.latitude}
+            longitude={listing.longitude}
+            className="min-h-[420px]"
+            interactive={false}
+          />
+        </section>
+
+        <ListingAttachmentsPanel listingId={listing.id} returnTo={`/listings/${listing.id}`} attachments={listing.documents} />
       </div>
     </WorkspaceShell>
   );

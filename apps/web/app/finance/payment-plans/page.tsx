@@ -34,8 +34,11 @@ export default async function PaymentPlansPage() {
     deal: plan.deal.title,
     status: plan.status,
     principal: `Principal: ${formatMoney(Number(plan.principalAmount), plan.currency)}`,
+    principalAmount: Number(plan.principalAmount),
     downPayment: `Down payment: ${formatMoney(Number(plan.downPaymentAmount), plan.currency)}`,
+    downPaymentAmount: Number(plan.downPaymentAmount),
     scheduleItems: `${plan.installmentScheduleItems.length} schedule items`,
+    scheduleItemCount: plan.installmentScheduleItems.length,
     searchIndex: buildSearchIndex(
       plan.planName,
       plan.client.fullName,

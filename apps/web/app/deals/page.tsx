@@ -5,8 +5,17 @@ import { getPrismaClient, listContourDeals } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { DealsTable } from "../../components/deals-table";
 import { buildSearchIndex } from "../../lib/table-search";
+import { DealsKanbanBoard } from "../../components/deals-kanban-board";
+import { salesDealWorkflow, getDealStageLabel } from "../../lib/deal-workflows";
+import { getCachedLookupOptions } from "../../lib/route-data";
 
 export const dynamic = "force-dynamic";
+
+type DealsPageProps = {
+  searchParams?: Promise<{
+    view?: string;
+  }>;
+};
 
 function formatMoney(amountCents: number, currency: string) {
   return new Intl.NumberFormat("en-ZM", {
@@ -16,36 +25,83 @@ function formatMoney(amountCents: number, currency: string) {
   }).format(amountCents / 100);
 }
 
-export default async function DealsPage() {
+export default async function DealsPage({ searchParams }: DealsPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const view = resolvedSearchParams?.view === "table" ? "table" : "board";
   const prisma = getPrismaClient();
-  const [deals, openDeals, wonDeals, totalValue] = await Promise.all([
-    listContourDeals(prisma, 20),
-    prisma.deal.count({ where: { status: "open" } }),
-    prisma.deal.count({ where: { status: "won" } }),
-    prisma.deal.aggregate({ _sum: { valueCents: true } }),
+  const [deals, options] = await Promise.all([
+    listContourDeals(prisma, { dealType: "sale" }),
+    getCachedLookupOptions(),
   ]);
-  const rows = deals.map((deal) => ({
-    id: deal.id,
-    title: deal.title,
-    status: deal.status,
-    stage: deal.stage,
-    listing: deal.listing?.title ?? "Unset",
-    client: deal.client?.fullName ?? "Unset",
-    value: formatMoney(deal.valueCents, deal.currency),
-    plans: String(deal.paymentPlansCount),
-    payments: String(deal.paymentsCount),
+
+  const openDeals = deals.filter((deal) => deal.status === "open").length;
+  const wonDeals = deals.filter((deal) => deal.status === "won").length;
+  const totalValue = deals.reduce((sum, deal) => sum + deal.valueCents, 0);
+
+  const boardRows = deals.map((deal) => ({
+    ...deal,
     searchIndex: buildSearchIndex(
       deal.title,
+      getDealStageLabel(deal.stage, deal.dealType),
       deal.status,
-      deal.stage,
+      deal.requestSummary,
+      deal.preferredPropertyType,
+      deal.preferredLocation,
+      deal.preferredProvince,
+      deal.preferredCityTown,
+      deal.listingDescription,
       deal.listing?.title,
       deal.client?.fullName,
+      formatMoney(deal.valueCents, deal.currency),
       deal.valueCents,
       deal.currency,
       deal.paymentPlansCount,
       deal.paymentsCount,
     ),
   }));
+
+  const rows = deals.map((deal) => {
+    const request =
+      deal.requestSummary ??
+      deal.preferredPropertyType ??
+      deal.preferredLocation ??
+      deal.preferredCityTown ??
+      deal.preferredProvince ??
+      "No request captured";
+
+    return {
+      id: deal.id,
+      title: deal.title,
+      status: deal.status,
+      stage: getDealStageLabel(deal.stage, deal.dealType),
+      request,
+      listing: deal.listing?.title ?? "Unset",
+      client: deal.client?.fullName ?? "Unset",
+      value: formatMoney(deal.valueCents, deal.currency),
+      valueCents: deal.valueCents,
+      plans: String(deal.paymentPlansCount),
+      plansCount: deal.paymentPlansCount,
+      payments: String(deal.paymentsCount),
+      paymentsCount: deal.paymentsCount,
+      searchIndex: buildSearchIndex(
+        deal.title,
+        deal.status,
+        deal.stage,
+      deal.requestSummary,
+      deal.preferredPropertyType,
+      deal.preferredLocation,
+      deal.preferredProvince,
+      deal.preferredCityTown,
+      deal.listingDescription,
+      deal.listing?.title,
+      deal.client?.fullName,
+        deal.valueCents,
+        deal.currency,
+        deal.paymentPlansCount,
+        deal.paymentsCount,
+      ),
+    };
+  });
 
   return (
     <WorkspaceShell>
@@ -56,25 +112,43 @@ export default async function DealsPage() {
               <LineChart className="size-3.5" />
               Deals
             </div>
-            <h1 className="mt-3 text-[clamp(2rem,2.2vw,3rem)] font-semibold tracking-[-0.04em]">Deal pipeline</h1>
+            <h1 className="mt-3 text-[clamp(2rem,2.2vw,3rem)] font-semibold tracking-[-0.04em]">
+              {view === "table" ? "All deals" : "Deal pipeline"}
+            </h1>
             <p className="mt-2 max-w-2xl text-[14px] leading-7 text-[color:var(--muted)]">
-              Watch the current pipeline, the linked listing, and the client attached to each deal.
+              Watch the current pipeline, the client enquiry, the optional linked property, and the matching listings suggested for each deal.
             </p>
           </div>
-          <Link
-            href="/deals/new"
-            className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
-          >
-            <Plus className="size-4" />
-            New deal
-          </Link>
-          <Link
-            href="/"
-            className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
-          >
-            <ArrowUpRight className="size-4" />
-            Dashboard
-          </Link>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/rentals"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Rentals
+            </Link>
+            <Link
+              href="/deals/new"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <Plus className="size-4" />
+              New deal
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Dashboard
+            </Link>
+            <Link
+              href={view === "table" ? "/deals" : "/deals?view=table"}
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              {view === "table" ? "Kanban board" : "All deals"}
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -88,12 +162,28 @@ export default async function DealsPage() {
           </div>
           <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
             <p className="text-[11px] text-[color:var(--muted)]">Total pipeline value</p>
-            <p className="mt-2 text-[18px] font-semibold">{formatMoney(totalValue._sum.valueCents ?? 0, "ZMW")}</p>
+            <p className="mt-2 text-[18px] font-semibold">{formatMoney(totalValue, "ZMW")}</p>
           </div>
         </div>
       </header>
 
-      <DealsTable rows={rows} />
+      {view === "table" ? (
+        <DealsTable rows={rows} />
+      ) : (
+        <DealsKanbanBoard
+          boardTitle="Open deal pipeline"
+          boardDescription="Search across enquiries, matching requests, linked properties, clients, and stage metadata. Drag a card to move it between stages, or open it to edit the record on the full page."
+          searchPlaceholder="Search deals, requests, properties, clients..."
+          toggleLabel="All deals"
+          emptyStateTitle="No deals found"
+          emptyStateDescription="Try a broader search or clear the filter to bring the pipeline back."
+          workflow={salesDealWorkflow}
+          rows={boardRows}
+          listings={options.listings}
+          clients={options.clients}
+          tableHref="/deals?view=table"
+        />
+      )}
     </WorkspaceShell>
   );
 }

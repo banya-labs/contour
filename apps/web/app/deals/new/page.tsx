@@ -1,42 +1,32 @@
 import "../../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getPrismaClient } from "@contour/db";
 import { DealForm } from "../../../components/deal-form";
 import { WorkspaceShell } from "../../../components/workspace-shell";
+import { getCachedLookupOptions } from "../../../lib/route-data";
 
 export const dynamic = "force-dynamic";
 
 const initialValues = {
   title: "",
-  stage: "new",
+  stage: "new_enquiry",
   status: "open",
+  dealType: "sale",
   value: "",
   currency: "ZMW",
   listingId: "",
   clientId: "",
+  requestSummary: "",
+  preferredPropertyType: "",
+  preferredLocation: "",
+  preferredProvince: "",
+  preferredCityTown: "",
+  preferredBedrooms: "",
+  preferredBathrooms: "",
 };
 
 export default async function NewDealPage() {
-  const prisma = getPrismaClient();
-  const [listings, clients] = await Promise.all([
-    prisma.listing.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      select: {
-        id: true,
-        title: true,
-      },
-    }),
-    prisma.client.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      select: {
-        id: true,
-        fullName: true,
-      },
-    }),
-  ]);
+  const { listings, clients } = await getCachedLookupOptions();
 
   return (
     <WorkspaceShell>
@@ -54,9 +44,9 @@ export default async function NewDealPage() {
           initialValues={initialValues}
           cancelHref="/deals"
           heading="Create deal"
-          description="Start a new pipeline record and connect it to the listing and client that it belongs to."
-          listings={listings.map((listing) => ({ id: listing.id, label: listing.title }))}
-          clients={clients.map((client) => ({ id: client.id, label: client.fullName }))}
+          description="Start a new client enquiry, capture the property requirements, and optionally attach a listing if one already exists."
+          listings={listings}
+          clients={clients}
         />
       </div>
     </WorkspaceShell>

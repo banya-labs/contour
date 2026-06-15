@@ -11,6 +11,7 @@ type ClientRow = {
   status: string;
   source: string;
   dealsCount: string;
+  dealsCountNumber: number;
   searchIndex: string;
 };
 
@@ -26,7 +27,12 @@ export function ClientsTable({ rows }: ClientsTableProps) {
       searchPlaceholder="Search clients"
       emptyMessage="No clients match your search."
       rows={rows}
-      columns={["Client", "Status", "Source", "Deals"]}
+      columns={[
+        { key: "fullName", label: "Client", sortValue: (client) => client.fullName },
+        { key: "status", label: "Status", sortValue: (client) => client.status },
+        { key: "source", label: "Source", sortValue: (client) => client.source },
+        { key: "dealsCount", label: "Deals", sortValue: (client) => client.dealsCountNumber },
+      ]}
       colSpan={4}
       renderRow={(client, _index, isLast) => (
         <tr key={client.id} className={!isLast ? "border-b border-[color:var(--border)]" : ""}>

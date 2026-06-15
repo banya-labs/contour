@@ -1,10 +1,10 @@
 import "../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
-import { getPrismaClient, listContourListings } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { ListingsTable } from "../../components/listings-table";
 import { buildSearchIndex } from "../../lib/table-search";
+import { getCachedListingsPageData } from "../../lib/route-data";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +17,7 @@ function formatMoney(amountCents: number, currency: string) {
 }
 
 export default async function ListingsPage() {
-  const prisma = getPrismaClient();
-  const listings = await listContourListings(prisma, 100);
+  const listings = await getCachedListingsPageData();
   const rows = listings.map((listing) => ({
     id: listing.id,
     href: `/listings/${listing.id}`,
@@ -26,13 +25,29 @@ export default async function ListingsPage() {
     propertyType: listing.propertyType,
     status: listing.status,
     statusLabel: listing.status.replaceAll("_", " "),
+    locationSummary:
+      listing.address ||
+      [listing.locationArea, listing.cityTown, listing.province].filter(Boolean).join(", ") ||
+      (listing.latitude != null && listing.longitude != null
+        ? `${listing.latitude.toFixed(4)}, ${listing.longitude.toFixed(4)}`
+        : "Unset"),
+    description: listing.description ?? "Unset",
     price: formatMoney(listing.priceCents, listing.currency),
+    priceCents: listing.priceCents,
     ownerName: listing.ownerName ?? "Unassigned",
     updatedAt: new Date(listing.updatedAt).toLocaleDateString(),
+    updatedAtSort: new Date(listing.updatedAt).toISOString(),
     searchIndex: buildSearchIndex(
       listing.title,
       listing.propertyType,
       listing.status,
+      listing.address,
+      listing.description,
+      listing.locationArea,
+      listing.cityTown,
+      listing.province,
+      listing.latitude,
+      listing.longitude,
       listing.priceCents,
       listing.currency,
       listing.ownerName,
@@ -48,13 +63,19 @@ export default async function ListingsPage() {
               <div className="inline-flex items-center gap-2 rounded-full border border-[color:rgba(39,26,0,0.12)] bg-[color:rgba(39,26,0,0.04)] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.28em] text-[color:var(--muted)]">
                 Listings
               </div>
-              <h1 className="mt-3 text-[clamp(2rem,2.2vw,3rem)] font-semibold tracking-[-0.04em]">Inventory</h1>
+              <h1 className="mt-3 text-[clamp(2rem,2.2vw,3rem)] font-semibold tracking-[-0.04em]">Properties</h1>
               <p className="mt-2 max-w-2xl text-[14px] leading-7 text-[color:var(--muted)]">
-                Browse the current inventory, open a record, or create the next listing without leaving the app.
+                Browse the current properties, open a record, or create the next listing without leaving the app.
               </p>
             </div>
 
             <div className="flex items-center gap-2">
+              <Link
+                href="/listings/map"
+                className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+              >
+                Map
+              </Link>
               <Link
                 href="/"
                 className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"

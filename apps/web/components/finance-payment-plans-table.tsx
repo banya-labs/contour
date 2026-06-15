@@ -9,8 +9,11 @@ type PaymentPlanRow = {
   deal: string;
   status: string;
   principal: string;
+  principalAmount: number;
   downPayment: string;
+  downPaymentAmount: number;
   scheduleItems: string;
+  scheduleItemCount: number;
   searchIndex: string;
 };
 
@@ -26,7 +29,14 @@ export function FinancePaymentPlansTable({ rows }: FinancePaymentPlansTableProps
       searchPlaceholder="Search payment plans"
       emptyMessage="No payment plans match your search."
       rows={rows}
-      columns={["Plan", "Status", "Client", "Deal", "Principal", "Schedule"]}
+      columns={[
+        { key: "planName", label: "Plan", sortValue: (plan) => plan.planName },
+        { key: "status", label: "Status", sortValue: (plan) => plan.status },
+        { key: "client", label: "Client", sortValue: (plan) => plan.client },
+        { key: "deal", label: "Deal", sortValue: (plan) => plan.deal },
+        { key: "principal", label: "Principal", sortValue: (plan) => plan.principalAmount },
+        { key: "scheduleItems", label: "Schedule", sortValue: (plan) => plan.scheduleItemCount },
+      ]}
       colSpan={6}
       renderRow={(plan, _index, isLast) => (
         <tr key={plan.id} className={!isLast ? "border-b border-[color:var(--border)]" : ""}>

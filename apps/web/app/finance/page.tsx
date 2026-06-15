@@ -1,8 +1,8 @@
 import "../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowUpRight, Banknote } from "lucide-react";
-import { getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
+import { getCachedFinancePageData } from "../../lib/route-data";
 
 export const dynamic = "force-dynamic";
 
@@ -15,37 +15,7 @@ function formatMoney(amount: number, currency: string) {
 }
 
 export default async function FinancePage() {
-  const prisma = getPrismaClient();
-  const [paymentPlans, leases, payments, charges, overdueCharges] = await Promise.all([
-    prisma.paymentPlan.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      include: {
-        deal: { select: { title: true } },
-        client: { select: { fullName: true } },
-        installmentScheduleItems: { select: { id: true, status: true } },
-      },
-    }),
-    prisma.rentalLease.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      include: {
-        listing: { select: { title: true } },
-        tenantClient: { select: { fullName: true } },
-        rentalCharges: { select: { id: true, status: true } },
-      },
-    }),
-    prisma.payment.findMany({
-      orderBy: { paidAt: "desc" },
-      take: 10,
-      include: {
-        client: { select: { fullName: true } },
-        deal: { select: { title: true } },
-      },
-    }),
-    prisma.rentalCharge.count(),
-    prisma.rentalCharge.count({ where: { status: "overdue" } }),
-  ]);
+  const { paymentPlans, leases, payments, charges, overdueCharges } = await getCachedFinancePageData();
 
   return (
     <WorkspaceShell>
@@ -61,13 +31,36 @@ export default async function FinancePage() {
               Payment plans, leases, charges, and receipt history for the finance side of the app.
             </p>
           </div>
-          <Link
-            href="/"
-            className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
-          >
-            <ArrowUpRight className="size-4" />
-            Dashboard
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/finance/payment-plans"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Payment plans
+            </Link>
+            <Link
+              href="/finance/leases"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Leases
+            </Link>
+            <Link
+              href="/finance/payment-receipts"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Receipts
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Dashboard
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">

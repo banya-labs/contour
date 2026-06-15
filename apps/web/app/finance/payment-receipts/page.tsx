@@ -32,6 +32,7 @@ export default async function PaymentReceiptsPage() {
     client: payment.client.fullName,
     deal: payment.deal?.title ?? "Unset",
     amount: formatMoney(Number(payment.amount), payment.currency),
+    amountValue: Number(payment.amount),
     method: payment.method ?? "unspecified",
     searchIndex: buildSearchIndex(
       payment.receiptNumber ?? payment.id,

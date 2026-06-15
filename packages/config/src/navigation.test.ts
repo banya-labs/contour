@@ -14,12 +14,17 @@ describe("contourNavigation", () => {
     expect(contourNavigation).toMatchObject([
       {
         label: "Dashboard",
-        items: [{ label: "Overview", href: "/" }],
+        items: [
+          { label: "Overview", href: "/" },
+          { label: "Open deals", href: "/deals" },
+          { label: "Rentals", href: "/rentals" },
+        ],
       },
       {
         label: "Portfolio",
         items: [
-          { label: "Inventory", href: "/listings" },
+          { label: "Properties", href: "/listings" },
+          { label: "Map", href: "/listings/map" },
           { label: "Clients", href: "/clients" },
         ],
       },

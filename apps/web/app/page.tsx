@@ -9,28 +9,12 @@ import {
   LineChart,
   Plus,
   Sparkles,
-  Workflow,
   Users,
 } from "lucide-react";
-import {
-  getContourDashboardSnapshot,
-} from "@contour/db";
 import { WorkspaceShell } from "../components/workspace-shell";
+import { getCachedDashboardSnapshot } from "../lib/route-data";
 
 export const dynamic = "force-dynamic";
-
-type ContourSessionUser = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  fullName: string | null;
-  primaryEmailAddress: { emailAddress: string } | null;
-  emailAddresses: Array<{ emailAddress: string }>;
-};
-
-async function getCurrentContourUser(): Promise<ContourSessionUser | null> {
-  return null;
-}
 
 function formatMoney(amountCents: number, currency: string) {
   return new Intl.NumberFormat("en-ZM", {
@@ -41,22 +25,7 @@ function formatMoney(amountCents: number, currency: string) {
 }
 
 export default async function Home() {
-  const clerkUser = await getCurrentContourUser();
-  const workspaceName =
-    clerkUser?.fullName ??
-    [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") ??
-    "Guest developer";
-  const workspaceEmail =
-    clerkUser?.primaryEmailAddress?.emailAddress ??
-    clerkUser?.emailAddresses[0]?.emailAddress ??
-    "Workspace unavailable";
-  const dashboardSnapshot = await (async () => {
-    try {
-      return await getContourDashboardSnapshot();
-    } catch {
-      return null;
-    }
-  })();
+  const dashboardSnapshot = await getCachedDashboardSnapshot();
 
   const counts = dashboardSnapshot?.counts;
   const metrics = dashboardSnapshot?.metrics;
@@ -120,37 +89,22 @@ export default async function Home() {
               New deal
             </Link>
             <Link
-              href="/deals"
+              href="/rentals"
               className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-muted)]"
             >
-              <ArrowUpRight className="size-4" />
-              Open deals
+              <Plus className="size-4" />
+              Rentals
             </Link>
             <Link
-              href="/activity"
+              href="/clients/new"
               className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[13px] font-medium text-[color:var(--foreground)] transition-colors hover:bg-[color:var(--surface-muted)]"
             >
-              <Workflow className="size-4" />
-              Activity
+              <Plus className="size-4" />
+              New client
             </Link>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
-          <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-[color:var(--muted)]">
-            <p className="text-[11px] uppercase tracking-[0.26em]">Data status</p>
-            <p className="mt-1 text-[13px]">
-              {counts
-                ? `${counts.listings} listings, ${counts.clients} clients, ${counts.deals} deals, and ${counts.workItems} work items are loaded.`
-                : "Loading live dashboard snapshot..."}
-            </p>
-          </div>
-          <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-[0.26em] text-[color:var(--muted)]">Workspace</p>
-            <p className="mt-1 text-[13px] font-medium">{workspaceName}</p>
-            <p className="mt-1 text-[11px] text-[color:var(--muted)]">{workspaceEmail}</p>
-          </div>
-        </div>
       </header>
 
       <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">

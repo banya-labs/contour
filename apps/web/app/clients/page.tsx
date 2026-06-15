@@ -1,37 +1,15 @@
 import "../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowUpRight, Plus, Users } from "lucide-react";
-import { getPrismaClient } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { ClientsTable } from "../../components/clients-table";
 import { buildSearchIndex } from "../../lib/table-search";
+import { getCachedClientsPageData } from "../../lib/route-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientsPage() {
-  const prisma = getPrismaClient();
-  const [clients, totalClients, activeClients, linkedDeals] = await Promise.all([
-    prisma.client.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        status: true,
-        source: true,
-        deals: {
-          select: {
-            id: true,
-          },
-        },
-      },
-    }),
-    prisma.client.count(),
-    prisma.client.count({ where: { status: "active" } }),
-    prisma.deal.count(),
-  ]);
+  const { clients, totalClients, activeClients, linkedDeals } = await getCachedClientsPageData();
   const rows = clients.map((client) => ({
     id: client.id,
     href: `/clients/${client.id}`,
@@ -40,6 +18,7 @@ export default async function ClientsPage() {
     status: client.status,
     source: client.source ?? "Unset",
     dealsCount: String(client.deals.length),
+    dealsCountNumber: client.deals.length,
     searchIndex: buildSearchIndex(
       client.fullName,
       client.email,

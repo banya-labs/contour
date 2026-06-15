@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { unstable_cache } from "next/cache";
 import { getContourSyncSnapshot } from "@contour/db";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 
@@ -6,8 +7,16 @@ type WorkspaceShellProps = {
   children: ReactNode;
 };
 
+const getCachedSyncSnapshot = unstable_cache(
+  async () => getContourSyncSnapshot().catch(() => null),
+  ["contour-sync-snapshot"],
+  {
+    revalidate: 15,
+  },
+);
+
 export async function WorkspaceShell({ children }: WorkspaceShellProps) {
-  const syncSnapshot = await getContourSyncSnapshot().catch(() => null);
+  const syncSnapshot = await getCachedSyncSnapshot();
 
   return (
     <div className="min-h-screen px-4 py-4 text-[color:var(--foreground)] lg:px-6 lg:py-6">

@@ -1,29 +1,47 @@
 import "../../lib/load-contour-env";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck, Workflow } from "lucide-react";
-import { getPrismaClient } from "@contour/db";
+import { ArrowLeft, ArrowUpRight, ShieldCheck, Workflow } from "lucide-react";
 import { WorkspaceShell } from "../../components/workspace-shell";
+import { ActivityEventsTable } from "../../components/activity-events-table";
+import { buildSearchIndex } from "../../lib/table-search";
+import { getCachedActivityPageData } from "../../lib/route-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function ActivityPage() {
-  const prisma = getPrismaClient();
-  const [events, auditLogs] = await Promise.all([
-    prisma.event.findMany({
-      orderBy: { occurredAt: "desc" },
-      take: 25,
-      include: {
-        actor: { select: { fullName: true } },
-      },
-    }),
-    prisma.auditLog.findMany({
-      orderBy: { occurredAt: "desc" },
-      take: 25,
-      include: {
-        actor: { select: { fullName: true } },
-      },
-    }),
-  ]);
+  const { events, auditLogs } = await getCachedActivityPageData();
+
+  const eventRows = events.map((event) => ({
+    id: event.id,
+    eventType: event.eventType,
+    entityType: event.entityType,
+    entityId: event.entityId ?? "No entity",
+    actor: event.actor?.fullName ?? "System",
+    occurredAt: new Date(event.occurredAt).toLocaleString(),
+    searchIndex: buildSearchIndex(
+      event.eventType,
+      event.entityType,
+      event.entityId,
+      event.actor?.fullName,
+      new Date(event.occurredAt).toLocaleString(),
+    ),
+  }));
+
+  const auditRows = auditLogs.map((log) => ({
+    id: log.id,
+    eventType: log.action,
+    entityType: log.entityType,
+    entityId: log.entityId ?? "No entity",
+    actor: log.actor?.fullName ?? "System",
+    occurredAt: new Date(log.occurredAt).toLocaleString(),
+    searchIndex: buildSearchIndex(
+      log.action,
+      log.entityType,
+      log.entityId,
+      log.actor?.fullName,
+      new Date(log.occurredAt).toLocaleString(),
+    ),
+  }));
 
   return (
     <WorkspaceShell>
@@ -53,48 +71,40 @@ export default async function ActivityPage() {
               Review trail
             </div>
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Link
+              href="/insights"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Insights
+            </Link>
+            <Link
+              href="/work-items"
+              className="inline-flex h-11 items-center gap-2 rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[13px] font-medium"
+            >
+              <ArrowUpRight className="size-4" />
+              Work queue
+            </Link>
+          </div>
         </header>
 
         <section className="grid gap-4 xl:grid-cols-2">
-          <article className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-            <p className="text-[10px] uppercase tracking-[0.28em] text-[color:var(--muted)]">Events</p>
-            <div className="mt-4 space-y-3">
-              {events.map((event) => (
-                <div key={event.id} className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[14px] font-medium">{event.eventType}</p>
-                      <p className="mt-1 text-[12px] text-[color:var(--muted)]">
-                        {event.entityType} · {event.entityId ?? "No entity"}
-                      </p>
-                    </div>
-                    <p className="text-[12px] text-[color:var(--muted)]">{event.actor?.fullName ?? "System"}</p>
-                  </div>
-                  <p className="mt-2 text-[12px] text-[color:var(--muted)]">{new Date(event.occurredAt).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          </article>
+          <ActivityEventsTable
+            heading="Events"
+            description="Search system events by type, entity, actor, or time."
+            searchPlaceholder="Search events"
+            emptyMessage="No events match your search."
+            rows={eventRows}
+          />
 
-          <article className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
-            <p className="text-[10px] uppercase tracking-[0.28em] text-[color:var(--muted)]">Audit log</p>
-            <div className="mt-4 space-y-3">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[14px] font-medium">{log.action}</p>
-                      <p className="mt-1 text-[12px] text-[color:var(--muted)]">
-                        {log.entityType} · {log.entityId ?? "No entity"}
-                      </p>
-                    </div>
-                    <p className="text-[12px] text-[color:var(--muted)]">{log.actor?.fullName ?? "System"}</p>
-                  </div>
-                  <p className="mt-2 text-[12px] text-[color:var(--muted)]">{new Date(log.occurredAt).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          </article>
+          <ActivityEventsTable
+            heading="Audit log"
+            description="Search audit entries by action, entity, actor, or time."
+            searchPlaceholder="Search audit log"
+            emptyMessage="No audit rows match your search."
+            rows={auditRows}
+          />
         </section>
       </div>
     </WorkspaceShell>

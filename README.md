@@ -41,6 +41,7 @@ The web app also loads `.env.local` and `.env.development.local` from the repo r
 - Clerk: `CONTOUR_AUTH_CLERK_SECRET_KEY`, `NEXT_PUBLIC_CONTOUR_AUTH_CLERK_PUBLISHABLE_KEY`
 - Neon pooled app URL: `CONTOUR_DATABASE_URL`
 - Neon direct URL for Prisma CLI: `CONTOUR_DATABASE_URL_UNPOOLED` or `CONTOUR_POSTGRES_URL_NON_POOLING`
+- Vercel Blob write token for property uploads: `BLOB_READ_WRITE_TOKEN`
 - Web shell URL for desktop: `CONTOUR_WEB_URL` (defaults to `http://localhost:3000`)
 
 ## Notes

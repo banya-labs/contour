@@ -1,14 +1,23 @@
 import Link from "next/link";
+import { salesDealWorkflow } from "../lib/deal-workflows";
 import { saveContourDealAction } from "../lib/deals";
 
 export type DealFormValues = {
   title: string;
   stage: string;
   status: string;
+  dealType: string;
   value: string;
   currency: string;
   listingId: string;
   clientId: string;
+  requestSummary: string;
+  preferredPropertyType: string;
+  preferredLocation: string;
+  preferredProvince: string;
+  preferredCityTown: string;
+  preferredBedrooms: string;
+  preferredBathrooms: string;
 };
 
 type DealOption = {
@@ -27,21 +36,8 @@ type DealFormProps = {
   clients: DealOption[];
 };
 
-const stageOptions = [
-  "new",
-  "viewing",
-  "negotiating",
-  "contract",
-  "closed_won",
-  "closed_lost",
-];
-
 const statusOptions = ["open", "won", "lost"];
 const currencyOptions = ["ZMW", "USD"];
-
-function optionLabel(value: string) {
-  return value.replaceAll("_", " ");
-}
 
 export function DealForm({
   submitLabel,
@@ -53,7 +49,6 @@ export function DealForm({
   listings,
   clients,
 }: DealFormProps) {
-  const hasListings = listings.length > 0;
   const hasClients = clients.length > 0;
 
   return (
@@ -68,6 +63,7 @@ export function DealForm({
       </div>
 
       {dealId ? <input type="hidden" name="dealId" value={dealId} /> : null}
+      <input type="hidden" name="dealType" value={initialValues.dealType} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 md:col-span-2">
@@ -87,9 +83,9 @@ export function DealForm({
             defaultValue={initialValues.stage}
             className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
           >
-            {stageOptions.map((option) => (
-              <option key={option} value={option}>
-                {optionLabel(option)}
+            {salesDealWorkflow.stages.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -137,14 +133,14 @@ export function DealForm({
         </label>
 
         <label className="grid gap-2">
-          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Listing</span>
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Linked property</span>
           <select
             name="listingId"
             defaultValue={initialValues.listingId}
             className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
           >
-            <option value="" disabled>
-              {hasListings ? "Select a listing" : "No listings available"}
+            <option value="">
+              No linked property yet
             </option>
             {listings.map((listing) => (
               <option key={listing.id} value={listing.id}>
@@ -152,6 +148,7 @@ export function DealForm({
               </option>
             ))}
           </select>
+          <p className="text-[11px] text-[color:var(--muted)]">Leave blank if this is still only an enquiry.</p>
         </label>
 
         <label className="grid gap-2">
@@ -159,9 +156,10 @@ export function DealForm({
           <select
             name="clientId"
             defaultValue={initialValues.clientId}
+            required
             className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
           >
-            <option value="" disabled>
+            <option value="">
               {hasClients ? "Select a client" : "No clients available"}
             </option>
             {clients.map((client) => (
@@ -171,11 +169,84 @@ export function DealForm({
             ))}
           </select>
         </label>
+
+        <label className="grid gap-2 md:col-span-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Request summary</span>
+          <textarea
+            name="requestSummary"
+            defaultValue={initialValues.requestSummary}
+            rows={3}
+            className="rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="Wanted: 3-bedroom family home in Lusaka West with a yard"
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Preferred property type</span>
+          <input
+            name="preferredPropertyType"
+            defaultValue={initialValues.preferredPropertyType}
+            className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="House, apartment, stand..."
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Preferred location</span>
+          <input
+            name="preferredLocation"
+            defaultValue={initialValues.preferredLocation}
+            className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="Lusaka West, East Park, Makeni..."
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Preferred province</span>
+          <input
+            name="preferredProvince"
+            defaultValue={initialValues.preferredProvince}
+            className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="Lusaka"
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Preferred city / town</span>
+          <input
+            name="preferredCityTown"
+            defaultValue={initialValues.preferredCityTown}
+            className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="Lusaka"
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Minimum bedrooms</span>
+          <input
+            name="preferredBedrooms"
+            defaultValue={initialValues.preferredBedrooms}
+            inputMode="numeric"
+            className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="3"
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-[12px] font-medium text-[color:var(--foreground)]">Minimum bathrooms</span>
+          <input
+            name="preferredBathrooms"
+            defaultValue={initialValues.preferredBathrooms}
+            inputMode="numeric"
+            className="h-12 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
+            placeholder="2"
+          />
+        </label>
       </div>
 
-      {!hasListings || !hasClients ? (
+      {!hasClients ? (
         <p className="rounded-[18px] border border-[color:rgba(39,26,0,0.12)] bg-[color:rgba(39,26,0,0.04)] px-4 py-3 text-[13px] text-[color:var(--muted)]">
-          Create at least one listing and one client before saving a deal.
+          Create at least one client before saving a deal.
         </p>
       ) : null}
 
