@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm run build:web",
+  "installCommand": "pnpm install --filter @contour/web --frozen-lockfile",
+  "framework": "nextjs",
+  "outputDirectory": "apps/web/.next"
+}
