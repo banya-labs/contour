@@ -212,11 +212,13 @@ function dealSelectSql(
       ${includeListingDescription ? Prisma.sql`l.description as "listingDescription",` : Prisma.sql`null::text as "listingDescription",`}
       c.id as "clientRecordId",
       c.full_name as "clientFullName",
-      coalesce((select count(*)::int from payment_plans pp where pp.deal_id = ${Prisma.raw(alias)}.id), 0) as "paymentPlansCount",
-      coalesce((select count(*)::int from payments p where p.deal_id = ${Prisma.raw(alias)}.id), 0) as "paymentsCount"
+      coalesce(pp_counts.count, 0)::int as "paymentPlansCount",
+      coalesce(p_counts.count, 0)::int as "paymentsCount"
     from deals ${Prisma.raw(alias)}
     left join listings l on l.id = ${Prisma.raw(alias)}.listing_id
     left join clients c on c.id = ${Prisma.raw(alias)}.client_id
+    left join (select deal_id, count(*)::int as count from payment_plans group by deal_id) pp_counts on pp_counts.deal_id = ${Prisma.raw(alias)}.id
+    left join (select deal_id, count(*)::int as count from payments group by deal_id) p_counts on p_counts.deal_id = ${Prisma.raw(alias)}.id
   `;
 }
 
@@ -320,6 +322,58 @@ export async function listContourDeals(
 
     const rows = await prisma.$queryRaw<ContourDealQueryRow[]>(buildQuery(dealSelectSqlLegacy()));
     return rows.map(toDealSummary);
+  }
+}
+
+export async function listContourDealsPaginated(
+  prisma: PrismaClient,
+  options: { page?: number; pageSize?: number; dealType?: ContourDealType } = {},
+): Promise<{ deals: ContourDealSummary[]; total: number; totalPages: number }> {
+  const pageSize = options.pageSize || 50;
+  const page = Math.max(0, (options.page || 1) - 1);
+  const offset = page * pageSize;
+
+  const buildCountQuery = () => {
+    const whereClause = options.dealType 
+      ? Prisma.sql`where deal_type = ${options.dealType}::"CanonicalDealType"` 
+      : Prisma.empty;
+    return Prisma.sql`select count(*)::int as total from deals ${whereClause}`;
+  };
+
+  const buildDataQuery = (selectSql: Prisma.Sql) =>
+    Prisma.sql`${selectSql}
+      ${options.dealType ? Prisma.sql`where d.deal_type = ${options.dealType}::"CanonicalDealType"` : Prisma.empty}
+      order by d.created_at desc
+      limit ${pageSize}
+      offset ${offset}
+    `;
+
+  try {
+    const [countRows, dataRows] = await Promise.all([
+      prisma.$queryRaw<Array<{ total: number }>>(buildCountQuery()),
+      prisma.$queryRaw<ContourDealQueryRow[]>(buildDataQuery(dealSelectSql())),
+    ]);
+    
+    const total = countRows[0]?.total || 0;
+    const deals = dataRows.map(toDealSummary);
+    const totalPages = Math.ceil(total / pageSize);
+    
+    return { deals, total, totalPages };
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
+    }
+
+    const [countRows, dataRows] = await Promise.all([
+      prisma.$queryRaw<Array<{ total: number }>>(buildCountQuery()),
+      prisma.$queryRaw<ContourDealQueryRow[]>(buildDataQuery(dealSelectSqlLegacy())),
+    ]);
+    
+    const total = countRows[0]?.total || 0;
+    const deals = dataRows.map(toDealSummary);
+    const totalPages = Math.ceil(total / pageSize);
+    
+    return { deals, total, totalPages };
   }
 }
 
