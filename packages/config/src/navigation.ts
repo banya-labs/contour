@@ -60,4 +60,10 @@ export const contourNavigation: ContourNavigationGroup[] = [
       { label: "Work Queue", href: "/work-items" },
     ],
   },
+  {
+    label: "Documents",
+    items: [
+      { label: "Drive", href: "/drive" },
+    ],
+  },
 ];

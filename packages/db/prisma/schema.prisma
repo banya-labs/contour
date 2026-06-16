@@ -224,6 +224,23 @@ enum SyncOperationStatus {
   conflict
 }
 
+enum FileAccessRole {
+  admin
+  editor
+  viewer
+}
+
+enum FileType {
+  image
+  pdf
+  document
+  spreadsheet
+  presentation
+  video
+  archive
+  other
+}
+
 model User {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clerkUserId   String   @unique @map("clerk_user_id")
@@ -253,6 +270,10 @@ model User {
   uploadedDocuments Document[] @relation("UserUploadedDocuments")
   syncDevices     SyncDevice[]
   ownedInsights    Insight[] @relation("UserOwnedInsights")
+  driveFoldersCreated DriveFolder[] @relation("DriveFoldersCreated")
+  driveFilesCreated DriveFile[] @relation("DriveFilesCreated")
+  driveFolderPermissions DriveFolderPermission[] @relation("DriveFolderPermissions")
+  driveFilePermissions DriveFilePermission[] @relation("DriveFilePermissions")
 
   @@map("users")
 }
@@ -299,6 +320,7 @@ model Listing {
   interactions     Interaction[]
   documents        Document[]
   rentalLeases     RentalLease[]
+  driveFiles       DriveFile[]    @relation("ListingFiles")
 
   @@index([status], map: "listings_status_idx")
   @@index([createdByUserId], map: "listings_created_by_idx")
@@ -344,6 +366,7 @@ model Client {
   rentalLeases    RentalLease[]
   payments        Payment[]
   documents       Document[]
+  driveFiles      DriveFile[]    @relation("ClientFiles")
 
   @@index([status], map: "clients_status_idx")
   @@index([createdByUserId], map: "clients_created_by_idx")
@@ -395,6 +418,7 @@ model Deal {
   paymentPlans    PaymentPlan[]
   payments        Payment[]
   documents       Document[]
+  driveFiles      DriveFile[]    @relation("DealFiles")
 
   @@index([stage], map: "deals_stage_idx")
   @@index([status], map: "deals_status_idx")
@@ -619,6 +643,7 @@ model RentalLease {
   listing               Listing        @relation(fields: [listingId], references: [id], onDelete: Restrict)
   rentalCharges         RentalCharge[]
   payments              Payment[]
+  driveFiles            DriveFile[]    @relation("LeaseFiles")
 
   @@index([leaseStage], map: "rental_leases_lease_stage_idx")
   @@index([status], map: "rental_leases_status_idx")
@@ -783,4 +808,102 @@ model Insight {
   @@index([severity], map: "insights_severity_idx")
   @@index([createdAt], map: "insights_created_at_idx")
   @@map("insights")
+}
+
+model DriveFolder {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  parentFolderId    String?     @map("parent_folder_id") @db.Uuid
+  workspaceId       String      @map("workspace_id") @db.Uuid
+  createdById       String      @map("created_by_id") @db.Uuid
+  description       String?
+  isArchived        Boolean     @default(false) @map("is_archived")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  createdByUser     User        @relation("DriveFoldersCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  parentFolder      DriveFolder? @relation("ChildFolders", fields: [parentFolderId], references: [id], onDelete: Cascade)
+  childFolders      DriveFolder[] @relation("ChildFolders")
+  files             DriveFile[]
+  permissions       DriveFolderPermission[]
+
+  @@index([workspaceId], map: "drive_folders_workspace_idx")
+  @@index([parentFolderId], map: "drive_folders_parent_idx")
+  @@index([createdById], map: "drive_folders_created_by_idx")
+  @@map("drive_folders")
+}
+
+model DriveFile {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  folderId          String      @map("folder_id") @db.Uuid
+  blobUrl           String      @map("blob_url")
+  blobKey           String      @map("blob_key")
+  fileType          FileType    @map("file_type")
+  mimeType          String      @map("mime_type")
+  fileSize          BigInt      @map("file_size")
+  workspaceId       String      @map("workspace_id") @db.Uuid
+  createdById       String      @map("created_by_id") @db.Uuid
+  description       String?
+  
+  // Associations with entities (Property, Lease, Deal, Client)
+  listingId         String?     @map("listing_id") @db.Uuid
+  leaseId           String?     @map("lease_id") @db.Uuid
+  dealId            String?     @map("deal_id") @db.Uuid
+  clientId          String?     @map("client_id") @db.Uuid
+  
+  isArchived        Boolean     @default(false) @map("is_archived")
+  downloadCount     Int         @default(0) @map("download_count")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  folder            DriveFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdByUser     User        @relation("DriveFilesCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  listing           Listing?    @relation("ListingFiles", fields: [listingId], references: [id], onDelete: SetNull)
+  lease             Lease?      @relation("LeaseFiles", fields: [leaseId], references: [id], onDelete: SetNull)
+  deal              Deal?       @relation("DealFiles", fields: [dealId], references: [id], onDelete: SetNull)
+  client            Client?     @relation("ClientFiles", fields: [clientId], references: [id], onDelete: SetNull)
+  permissions       DriveFilePermission[]
+
+  @@index([workspaceId], map: "drive_files_workspace_idx")
+  @@index([folderId], map: "drive_files_folder_idx")
+  @@index([createdById], map: "drive_files_created_by_idx")
+  @@index([listingId], map: "drive_files_listing_idx")
+  @@index([dealId], map: "drive_files_deal_idx")
+  @@index([clientId], map: "drive_files_client_idx")
+  @@index([leaseId], map: "drive_files_lease_idx")
+  @@index([fileType], map: "drive_files_type_idx")
+  @@map("drive_files")
+}
+
+model DriveFolderPermission {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folderId          String      @map("folder_id") @db.Uuid
+  userId            String      @map("user_id") @db.Uuid
+  role              FileAccessRole
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  folder            DriveFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user              User        @relation("DriveFolderPermissions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, userId], map: "unique_folder_user_permissions")
+  @@index([userId], map: "drive_folder_perms_user_idx")
+  @@map("drive_folder_permissions")
+}
+
+model DriveFilePermission {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId            String      @map("file_id") @db.Uuid
+  userId            String      @map("user_id") @db.Uuid
+  role              FileAccessRole
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  file              DriveFile   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user              User        @relation("DriveFilePermissions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, userId], map: "unique_file_user_permissions")
+  @@index([userId], map: "drive_file_perms_user_idx")
+  @@map("drive_file_permissions")
 }
