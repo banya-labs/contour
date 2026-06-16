@@ -211,6 +211,19 @@ enum UtilityType {
   internet
 }
 
+enum SyncOperationType {
+  create
+  update
+  delete
+}
+
+enum SyncOperationStatus {
+  pending
+  synced
+  failed
+  conflict
+}
+
 model User {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clerkUserId   String   @unique @map("clerk_user_id")
@@ -705,6 +718,7 @@ model SyncDevice {
 
   user          User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   syncState     SyncState?
+  syncOperations SyncOperation[] @relation("SyncOperations")
 
   @@index([userId], map: "sync_devices_user_id_idx")
   @@map("sync_devices")
@@ -722,6 +736,28 @@ model SyncState {
   syncDevice            SyncDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@map("sync_state")
+}
+
+model SyncOperation {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deviceId          String                @map("device_id") @db.Uuid
+  entityType        EntityType            @map("entity_type")
+  entityId          String                @map("entity_id") @db.Uuid
+  operationType     SyncOperationType     @map("operation_type")
+  status            SyncOperationStatus   @default(pending)
+  payload           Json
+  conflictResolved  Boolean               @default(false) @map("conflict_resolved")
+  errorCode         String?               @map("error_code")
+  errorMessage      String?               @map("error_message")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  syncedAt          DateTime?             @map("synced_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
+
+  syncDevice        SyncDevice            @relation("SyncOperations", fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, status], map: "sync_operations_device_status_idx")
+  @@index([status, createdAt], map: "sync_operations_status_created_idx")
+  @@map("sync_operations")
 }
 
 model Insight {

@@ -3,6 +3,7 @@ export * from "./client";
 export * from "./health";
 export * from "./dashboard";
 export * from "./sync";
+export * from "./device-sync";
 export * from "./workspace";
 export * from "./listings";
 export * from "./deals";
