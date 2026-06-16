@@ -23,7 +23,7 @@ export function WorkspaceSidebar({ lastSyncAt }: WorkspaceSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden h-[calc(100vh-2rem)] w-[290px] flex-col rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex">
+    <aside className="hidden w-[290px] shrink-0 flex-col self-start rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex lg:sticky lg:top-6">
       <div className="flex items-center gap-4 px-1 py-2">
         <div className="flex shrink-0 items-center justify-center text-[color:var(--foreground)]">
           <ContourMark className="size-[63px]" />
@@ -38,7 +38,7 @@ export function WorkspaceSidebar({ lastSyncAt }: WorkspaceSidebarProps) {
         </div>
       </div>
 
-      <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      <nav className="mt-4 flex flex-col gap-3 overflow-y-auto">
         {contourNavigation.map((section) => (
           <section
             key={section.label}

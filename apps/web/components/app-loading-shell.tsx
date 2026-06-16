@@ -2,7 +2,7 @@ export function AppLoadingShell() {
   return (
     <div className="min-h-screen px-4 py-4 text-[color:var(--foreground)] lg:px-6 lg:py-6">
       <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1800px] gap-4 lg:gap-5">
-        <aside className="hidden h-[calc(100vh-2rem)] w-[290px] flex-col rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex">
+        <aside className="hidden w-[290px] shrink-0 flex-col self-start rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[0_18px_50px_rgba(39,26,0,0.07)] lg:flex lg:sticky lg:top-6">
           <div className="h-16 rounded-[20px] bg-[color:var(--surface-muted)] animate-pulse" />
           <div className="mt-4 space-y-3">
             {Array.from({ length: 4 }, (_, index) => (

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { getPrismaClient, uploadDriveFile, FileType } from "@contour/db";
+import { getPrismaClient, uploadDriveFile, createDriveFolder, FileType } from "@contour/db";
 
 export const dynamic = "force-dynamic";
+
+const ROOT_FOLDER_NAME = "Root";
 
 // Map MIME types to FileType enum
 function mimeTypeToFileType(mimeType: string): FileType {
@@ -37,40 +39,70 @@ function mimeTypeToFileType(mimeType: string): FileType {
   return FileType.other;
 }
 
+async function getOrCreateRootFolder(prisma: ReturnType<typeof getPrismaClient>, workspaceId: string, createdById: string) {
+  // Check if a root folder (no parent) already exists for this workspace
+  const existing = await prisma.driveFolder.findFirst({
+    where: {
+      workspaceId,
+      parentFolderId: null,
+      name: ROOT_FOLDER_NAME,
+      isArchived: false,
+    },
+  });
+
+  if (existing) return existing;
+
+  return createDriveFolder(prisma, {
+    name: ROOT_FOLDER_NAME,
+    workspaceId,
+    createdById,
+  });
+}
+
 export async function POST(request: NextRequest) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      { error: "BLOB_READ_WRITE_TOKEN is not configured" },
+      { status: 500 }
+    );
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const folderId = formData.get("folderId") as string;
     const workspaceId = formData.get("workspaceId") as string;
     const createdById = formData.get("createdById") as string;
+    const folderId = formData.get("folderId") as string | null;
     const description = formData.get("description") as string;
     const listingId = formData.get("listingId") as string | null;
     const dealId = formData.get("dealId") as string | null;
     const clientId = formData.get("clientId") as string | null;
     const leaseId = formData.get("leaseId") as string | null;
 
-    if (!file || !folderId || !workspaceId || !createdById) {
+    if (!file || !workspaceId || !createdById) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    const prisma = getPrismaClient();
+
+    // Resolve folder: use provided folderId, or get/create root folder
+    const resolvedFolderId = folderId ?? (await getOrCreateRootFolder(prisma, workspaceId, createdById)).id;
+
     // Upload to Vercel Blob
-    const blobName = `${workspaceId}/${folderId}/${Date.now()}-${file.name}`;
+    const blobName = `${workspaceId}/${resolvedFolderId}/${Date.now()}-${file.name}`;
     const blob = await put(blobName, file, {
       access: "private",
       addRandomSuffix: true,
     });
 
-    // Record in database
-    const prisma = getPrismaClient();
     const fileType = mimeTypeToFileType(file.type);
 
     const driveFile = await uploadDriveFile(prisma, {
       name: file.name,
-      folderId,
+      folderId: resolvedFolderId,
       workspaceId,
       createdById,
       blobUrl: blob.url,

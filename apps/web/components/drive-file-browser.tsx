@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Folder, FileText, Image, Download, Trash2, ChevronRight } from "lucide-react";
-import { FileType } from "@prisma/client";
-
 type DriveFile = {
   id: string;
   name: string;
-  fileType: FileType;
+  fileType: string;
   fileSize: bigint;
   createdAt: string;
   createdByUser: { fullName: string };
@@ -30,20 +28,46 @@ export function DriveFileBrowser() {
   const [folders, setFolders] = useState<DriveFolder[]>([]);
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: string | null; name: string }>>([
     { id: null, name: "Root" },
   ]);
 
+  // Fetch root folder on mount and auto-navigate to it
   useEffect(() => {
-    loadFolder(currentFolderId);
-  }, [currentFolderId]);
+    if (!initialized) {
+      fetchRootFolder();
+    }
+  }, [initialized]);
+
+  useEffect(() => {
+    if (currentFolderId !== null || initialized) {
+      loadFolder(currentFolderId);
+    }
+  }, [currentFolderId, initialized]);
+
+  const fetchRootFolder = async () => {
+    try {
+      const res = await fetch("/api/drive/folders?workspaceId=default");
+      const data = await res.json();
+      const rootFolders = (data.folders || []).filter((f: DriveFolder) => f.name === "Root");
+      if (rootFolders.length > 0) {
+        setCurrentFolderId(rootFolders[0].id);
+        setBreadcrumbs([{ id: rootFolders[0].id, name: "Root" }]);
+      }
+    } catch (err) {
+      console.error("[v0] Root folder fetch error:", err);
+    } finally {
+      setInitialized(true);
+    }
+  };
 
   const loadFolder = async (folderId: string | null) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (folderId) params.append("folderId", folderId);
-      params.append("workspaceId", "default"); // In production, get from session
+      params.append("workspaceId", "default");
 
       const response = await fetch(`/api/drive/files?${params}`);
       const data = await response.json();
@@ -73,7 +97,7 @@ export function DriveFileBrowser() {
     setBreadcrumbs(breadcrumbs.slice(0, index + 1));
   };
 
-  const getFileIcon = (fileType: FileType) => {
+  const getFileIcon = (fileType: string) => {
     switch (fileType) {
       case "image":
         return <Image className="size-4" />;
@@ -229,7 +253,7 @@ export function DriveFileBrowser() {
         </div>
       )}
 
-      {!loading && folders.length === 0 && files.length === 0 && (
+      {!loading && initialized && folders.length === 0 && files.length === 0 && (
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <FileText className="mx-auto size-12 text-[color:var(--muted)]" />

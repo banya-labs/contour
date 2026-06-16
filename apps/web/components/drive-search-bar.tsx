@@ -2,11 +2,9 @@
 
 import { useState, useDeferredValue, useMemo } from "react";
 import { Search, X } from "lucide-react";
-import { FileType } from "@prisma/client";
-
 export function DriveSearchBar() {
   const [query, setQuery] = useState("");
-  const [fileType, setFileType] = useState<FileType | "">("");
+  const [fileType, setFileType] = useState<string>("");
   const [results, setResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -73,17 +71,17 @@ export function DriveSearchBar() {
 
         <select
           value={fileType}
-          onChange={(e) => setFileType(e.target.value as FileType | "")}
+          onChange={(e) => setFileType(e.target.value)}
           className="rounded-[12px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-[13px] outline-none"
         >
           <option value="">All Types</option>
-          <option value={FileType.image}>Images</option>
-          <option value={FileType.pdf}>PDFs</option>
-          <option value={FileType.document}>Documents</option>
-          <option value={FileType.spreadsheet}>Spreadsheets</option>
-          <option value={FileType.presentation}>Presentations</option>
-          <option value={FileType.video}>Videos</option>
-          <option value={FileType.archive}>Archives</option>
+          <option value="image">Images</option>
+          <option value="pdf">PDFs</option>
+          <option value="document">Documents</option>
+          <option value="spreadsheet">Spreadsheets</option>
+          <option value="presentation">Presentations</option>
+          <option value="video">Videos</option>
+          <option value="archive">Archives</option>
         </select>
       </div>
 

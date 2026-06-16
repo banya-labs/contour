@@ -1,4 +1,4 @@
-import "../../../lib/load-contour-env";
+import "../../../../lib/load-contour-env";
 import { NextResponse } from "next/server";
 import { getPrismaClient, registerDevice } from "@contour/db";
 

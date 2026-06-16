@@ -13,7 +13,7 @@ export interface RegisteredDevice {
   deviceId: string;
   userId: string;
   deviceType: string;
-  appVersion: string;
+  appVersion: string | null;
   lastSeenAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

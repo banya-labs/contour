@@ -859,8 +859,8 @@ model DriveFile {
 
   folder            DriveFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
   createdByUser     User        @relation("DriveFilesCreated", fields: [createdById], references: [id], onDelete: Restrict)
-  listing           Listing?    @relation("ListingFiles", fields: [listingId], references: [id], onDelete: SetNull)
-  lease             Lease?      @relation("LeaseFiles", fields: [leaseId], references: [id], onDelete: SetNull)
+  listing           Listing?         @relation("ListingFiles", fields: [listingId], references: [id], onDelete: SetNull)
+  lease             RentalLease?     @relation("LeaseFiles", fields: [leaseId], references: [id], onDelete: SetNull)
   deal              Deal?       @relation("DealFiles", fields: [dealId], references: [id], onDelete: SetNull)
   client            Client?     @relation("ClientFiles", fields: [clientId], references: [id], onDelete: SetNull)
   permissions       DriveFilePermission[]
