@@ -387,44 +387,40 @@ export async function listContourListings(
   prisma: ContourListingQueryClient,
   limit = 50,
 ): Promise<ContourListingSummary[]> {
-  if (!canUseQueryRaw(prisma)) {
-    try {
-      const rows = await prisma.listing.findMany({
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        select: contourListingSelect,
-      });
+  try {
+    const rows = await prisma.listing.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      where: { deletedAt: null },
+      select: contourListingSelect,
+    });
 
-      return rows.map(toListingSummary);
-    } catch (error) {
-      if (!isMissingColumnError(error)) {
-        throw error;
-      }
-
-      const rows = await prisma.listing.findMany({
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        select: contourListingSelectLegacy,
-      });
-
-      return rows.map(toListingSummary);
+    return rows.map(toListingSummary);
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
     }
+
+    const rows = await prisma.listing.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      where: { deletedAt: null },
+      select: contourListingSelectLegacy,
+    });
+
+    return rows.map(toListingSummary);
   }
-
-  const hasDescription = await hasListingDescriptionColumn(prisma);
-  const rows = await prisma.$queryRaw<ContourListingRecord[]>(listingSelectSqlList(limit, hasDescription));
-
-  return rows.map(toListingSummary);
 }
 
 export async function listContourListingsWithDocuments(
   prisma: ContourListingQueryClient,
   limit = 50,
 ): Promise<ContourListingWithDocuments[]> {
-  if (!canUseQueryRaw(prisma)) {
+  try {
     const rows = await prisma.listing.findMany({
       orderBy: { createdAt: "desc" },
       take: limit,
+      where: { deletedAt: null },
       select: {
         ...contourListingSelect,
         documents: {
@@ -439,60 +435,62 @@ export async function listContourListingsWithDocuments(
       ...toListingSummary(row),
       documents: row.documents.map(toListingDocumentSummary),
     }));
-  }
-
-  const hasDescription = await hasListingDescriptionColumn(prisma);
-  const rows = await prisma.$queryRaw<ContourListingRecord[]>(listingSelectSqlList(limit, hasDescription));
-
-  if (!rows.length) {
-    return [];
-  }
-
-  const documents = await prisma.$queryRaw<ContourListingDocumentRecord[]>(
-    listingDocumentsSql(rows.map((row) => row.id)),
-  );
-  const documentsByListingId = new Map<string, ContourListingDocumentSummary[]>();
-
-  for (const document of documents) {
-    if (!document.listingId) {
-      continue;
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
     }
 
-    const current = documentsByListingId.get(document.listingId) ?? [];
-    current.push(toListingDocumentSummary(document));
-    documentsByListingId.set(document.listingId, current);
-  }
+    const rows = await prisma.listing.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      where: { deletedAt: null },
+      select: {
+        ...contourListingSelectLegacy,
+        documents: {
+          orderBy: { createdAt: "desc" },
+          where: { deletedAt: null },
+          select: contourListingDocumentSelect,
+        },
+      },
+    });
 
-  return rows.map((row) => ({
-    ...toListingSummary(row),
-    documents: documentsByListingId.get(row.id) ?? [],
-  }));
+    return rows.map((row) => ({
+      ...toListingSummary(row),
+      documents: row.documents.map(toListingDocumentSummary),
+    }));
+  }
 }
 
 export async function getContourListing(
   prisma: ContourListingQueryClient,
   id: string,
 ): Promise<ContourListingSummary | null> {
-  if (!canUseQueryRaw(prisma)) {
+  try {
     const row = await prisma.listing.findUnique({
       where: { id },
       select: contourListingSelect,
     });
 
     return row ? toListingSummary(row) : null;
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
+    }
+
+    const row = await prisma.listing.findUnique({
+      where: { id },
+      select: contourListingSelectLegacy,
+    });
+
+    return row ? toListingSummary(row) : null;
   }
-
-  const hasDescription = await hasListingDescriptionColumn(prisma);
-  const rows = await prisma.$queryRaw<ContourListingRecord[]>(listingSelectSqlById(id, hasDescription));
-
-  return rows[0] ? toListingSummary(rows[0]) : null;
 }
 
 export async function getContourListingWithDocuments(
   prisma: ContourListingQueryClient,
   id: string,
 ): Promise<ContourListingWithDocuments | null> {
-  if (!canUseQueryRaw(prisma)) {
+  try {
     const row = await prisma.listing.findUnique({
       where: { id },
       select: {
@@ -513,21 +511,32 @@ export async function getContourListingWithDocuments(
       ...toListingSummary(row),
       documents: row.documents.map(toListingDocumentSummary),
     };
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
+    }
+
+    const row = await prisma.listing.findUnique({
+      where: { id },
+      select: {
+        ...contourListingSelectLegacy,
+        documents: {
+          orderBy: { createdAt: "desc" },
+          where: { deletedAt: null },
+          select: contourListingDocumentSelect,
+        },
+      },
+    });
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      ...toListingSummary(row),
+      documents: row.documents.map(toListingDocumentSummary),
+    };
   }
-
-  const listing = await getContourListing(prisma, id);
-  if (!listing) {
-    return null;
-  }
-
-  const documents = await prisma.$queryRaw<ContourListingDocumentRecord[]>(
-    listingDocumentsSql([id]),
-  );
-
-  return {
-    ...listing,
-    documents: documents.map(toListingDocumentSummary),
-  };
 }
 
 export async function createContourListingAttachment(
