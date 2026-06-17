@@ -10,8 +10,12 @@ export default defineConfig({
     url:
       process.env.CONTOUR_DATABASE_URL_UNPOOLED ??
       process.env.CONTOUR_POSTGRES_URL_NON_POOLING ??
+      process.env.CONTOUR_POSTGRES_URL_NO_SSL ??
       process.env.CONTOUR_POSTGRES_PRISMA_URL ??
+      process.env.CONTOUR_POSTGRES_URL ??
+      process.env.CONTOUR_DATABASE_URL ??
       process.env.DIRECT_URL ??
+      process.env.DATABASE_URL ??
       "",
   },
 });
