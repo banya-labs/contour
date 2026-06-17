@@ -200,7 +200,8 @@ export async function searchDriveFiles(
     isArchived: false,
     ...(query && {
       name: {
-        search: query.split(' ').join(' | '),
+        contains: query,
+        mode: "insensitive" as const,
       },
     }),
     ...(options?.fileType && { fileType: options.fileType }),
@@ -289,7 +290,7 @@ export async function setFolderPermission(
 ) {
   return prisma.driveFolderPermission.upsert({
     where: {
-      unique_folder_user_permissions: {
+      folderId_userId: {
         folderId,
         userId,
       },
@@ -308,7 +309,7 @@ export async function setFilePermission(
 ) {
   return prisma.driveFilePermission.upsert({
     where: {
-      unique_file_user_permissions: {
+      fileId_userId: {
         fileId,
         userId,
       },
@@ -326,7 +327,7 @@ export async function removeFolderPermission(
 ) {
   return prisma.driveFolderPermission.delete({
     where: {
-      unique_folder_user_permissions: {
+      folderId_userId: {
         folderId,
         userId,
       },
@@ -341,7 +342,7 @@ export async function removeFilePermission(
 ) {
   return prisma.driveFilePermission.delete({
     where: {
-      unique_file_user_permissions: {
+      fileId_userId: {
         fileId,
         userId,
       },
