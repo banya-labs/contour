@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { buildSearchIndex } from "../lib/table-search";
@@ -68,7 +68,7 @@ export function LeasesKanbanBoard({
   tableHref,
 }: LeasesKanbanBoardProps) {
   const router = useRouter();
-  const [leases, setLeases] = useState(rows);
+  const [overrides, setOverrides] = useState<Record<string, LeaseBoardLease>>({});
   const [query, setQuery] = useState("");
   const [draggedLeaseId, setDraggedLeaseId] = useState<string | null>(null);
   const [activeStageValue, setActiveStageValue] = useState<string | null>(null);
@@ -76,24 +76,20 @@ export function LeasesKanbanBoard({
   const [error, setError] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
+  const leases = useMemo(() => rows.map((row) => overrides[row.id] ?? row), [overrides, rows]);
+
   function clearDragState() {
     setDraggedLeaseId(null);
     setActiveStageValue(null);
   }
 
-  useEffect(() => {
-    setLeases(rows);
-  }, [rows]);
-
   const filteredLeases = useMemo(() => {
+    const normalizedRows = leases.map((lease) => lease.searchIndex ? lease : toBoardRow(lease));
     if (!deferredQuery) {
-      return leases;
+      return normalizedRows;
     }
 
-    return leases.filter((lease) => {
-      const searchIndex = lease.searchIndex ?? toBoardRow(lease).searchIndex;
-      return searchIndex.includes(deferredQuery);
-    });
+    return normalizedRows.filter((lease) => (lease.searchIndex ?? "").includes(deferredQuery));
   }, [deferredQuery, leases]);
 
   const stageGroups = workflow.stages.map((stage) => ({
@@ -127,7 +123,7 @@ export function LeasesKanbanBoard({
 
     setSavingLeaseId(leaseId);
     setError(null);
-    setLeases((currentLeases) => currentLeases.map((lease) => (lease.id === leaseId ? optimisticLease : lease)));
+    setOverrides((current) => ({ ...current, [leaseId]: optimisticLease }));
 
     try {
       const response = await fetch(`/api/leases/${leaseId}`, {
@@ -143,9 +139,14 @@ export function LeasesKanbanBoard({
       }
 
       const payload = (await response.json()) as { lease: LeaseBoardLease };
-      setLeases((currentLeases) => currentLeases.map((lease) => (lease.id === leaseId ? payload.lease : lease)));
+      setOverrides((current) => ({ ...current, [leaseId]: payload.lease }));
+      router.refresh();
     } catch (caughtError) {
-      setLeases((currentLeases) => currentLeases.map((lease) => (lease.id === previousLease.id ? previousLease : lease)));
+      setOverrides((current) => {
+        const next = { ...current };
+        delete next[leaseId];
+        return next;
+      });
       setError(caughtError instanceof Error ? caughtError.message : "Failed to update lease");
     } finally {
       setSavingLeaseId(null);

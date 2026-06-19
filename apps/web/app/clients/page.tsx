@@ -5,29 +5,48 @@ import { WorkspaceShell } from "../../components/workspace-shell";
 import { ClientsTable } from "../../components/clients-table";
 import { buildSearchIndex } from "../../lib/table-search";
 import { getCachedClientsPageData } from "../../lib/route-data";
+import { createRouteTimer } from "../../lib/performance";
 
 export const dynamic = "force-dynamic";
 
+type ClientPageRow = {
+  id: string;
+  href: string;
+  fullName: string;
+  contact: string;
+  status: string;
+  source: string;
+  dealsCount: string;
+  dealsCountNumber: number;
+  searchIndex: string;
+};
+
 export default async function ClientsPage() {
-  const { clients, totalClients, activeClients, linkedDeals } = await getCachedClientsPageData();
-  const rows = clients.map((client) => ({
+  const timer = createRouteTimer("clients page");
+  const { clients, totalClients, activeClients } = await timer.measure(
+    "query",
+    () => getCachedClientsPageData(),
+    { note: "clients list" },
+  );
+  const rows: ClientPageRow[] = clients.map((client) => ({
     id: client.id,
     href: `/clients/${client.id}`,
     fullName: client.fullName,
     contact: client.email ?? client.phone ?? "No contact",
     status: client.status,
     source: client.source ?? "Unset",
-    dealsCount: String(client.deals.length),
-    dealsCountNumber: client.deals.length,
+    dealsCount: String(client._count.deals),
+    dealsCountNumber: client._count.deals,
     searchIndex: buildSearchIndex(
       client.fullName,
       client.email,
       client.phone,
       client.status,
       client.source,
-      client.deals.length,
+      client._count.deals,
     ),
   }));
+  timer.finish({ count: rows.length, note: `rows:${rows.length}` });
 
   return (
     <WorkspaceShell>
@@ -59,7 +78,7 @@ export default async function ClientsPage() {
           </Link>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
             <p className="text-[11px] text-[color:var(--muted)]">Total clients</p>
             <p className="mt-2 text-[18px] font-semibold">{totalClients}</p>
@@ -68,10 +87,7 @@ export default async function ClientsPage() {
             <p className="text-[11px] text-[color:var(--muted)]">Active clients</p>
             <p className="mt-2 text-[18px] font-semibold">{activeClients}</p>
           </div>
-          <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-            <p className="text-[11px] text-[color:var(--muted)]">Linked deals</p>
-            <p className="mt-2 text-[18px] font-semibold">{linkedDeals}</p>
-          </div>
+
         </div>
       </header>
 

@@ -66,6 +66,7 @@ export function PropertyLocationPicker({
 
   const numericLatitude = latitude ? Number(latitude) : null;
   const numericLongitude = longitude ? Number(longitude) : null;
+  const hasValidCoordinates = numericLatitude !== null && numericLongitude !== null;
 
   function showToast(message: string) {
     setToast(message);
@@ -195,11 +196,6 @@ export function PropertyLocationPicker({
     };
   }, []);
 
-  const hasValidCoordinates =
-    numericLatitude != null &&
-    numericLongitude != null &&
-    Number.isFinite(numericLatitude) &&
-    Number.isFinite(numericLongitude);
 
   const mapBoundary = hasValidCoordinates ? null : boundary;
   const mapGeometry = hasValidCoordinates ? null : geometry;

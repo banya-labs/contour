@@ -126,18 +126,6 @@ export function PaginatedSearchableTable<T extends PaginatedSearchableTableRow>(
   const pageRows = getPageRows(sortedRows, safeCurrentPage, pageSize);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [deferredQuery]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [sortDirection, sortKey]);
-
-  useEffect(() => {
-    setCurrentPage((previousPage) => clampPage(previousPage, pageCount));
-  }, [pageCount]);
-
-  useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node | null;
       if (rootRef.current && target && !rootRef.current.contains(target)) {
@@ -177,14 +165,20 @@ export function PaginatedSearchableTable<T extends PaginatedSearchableTableRow>(
             <input
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setCurrentPage(1);
+              }}
               placeholder={searchPlaceholder}
               className="h-11 w-full rounded-[999px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] pl-10 pr-10 text-[13px] outline-none transition focus:border-[color:var(--primary)]"
             />
             {query ? (
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={() => {
+                  setQuery("");
+                  setCurrentPage(1);
+                }}
                 className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-[color:var(--muted)] transition-colors hover:bg-[color:rgba(39,26,0,0.08)] hover:text-[color:var(--foreground)]"
                 aria-label="Clear search"
               >
@@ -242,6 +236,7 @@ export function PaginatedSearchableTable<T extends PaginatedSearchableTableRow>(
                               onClick={() => {
                                 setSortKey(column.key);
                                 setSortDirection("asc");
+                                setCurrentPage(1);
                                 setOpenSortMenuKey(null);
                               }}
                               className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2 text-left text-[12px] text-[color:var(--foreground)] hover:bg-[color:var(--surface-muted)]"
@@ -254,6 +249,7 @@ export function PaginatedSearchableTable<T extends PaginatedSearchableTableRow>(
                               onClick={() => {
                                 setSortKey(column.key);
                                 setSortDirection("desc");
+                                setCurrentPage(1);
                                 setOpenSortMenuKey(null);
                               }}
                               className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2 text-left text-[12px] text-[color:var(--foreground)] hover:bg-[color:var(--surface-muted)]"
@@ -266,6 +262,7 @@ export function PaginatedSearchableTable<T extends PaginatedSearchableTableRow>(
                               onClick={() => {
                                 setSortKey(null);
                                 setSortDirection("asc");
+                                setCurrentPage(1);
                                 setOpenSortMenuKey(null);
                               }}
                               className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2 text-left text-[12px] text-[color:var(--muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--foreground)]"

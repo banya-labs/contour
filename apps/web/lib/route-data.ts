@@ -1,11 +1,13 @@
 import { unstable_cache } from "next/cache";
 import { getContourDashboardSnapshot, getPrismaClient, listContourListings } from "@contour/db";
+import { createRouteTimer } from "./performance";
 
 export const getCachedDashboardSnapshot = unstable_cache(
   async () => getContourDashboardSnapshot().catch(() => null),
   ["contour-dashboard-snapshot"],
   {
     revalidate: 15,
+    tags: ["contour-dashboard"],
   },
 );
 
@@ -39,51 +41,64 @@ export const getCachedLookupOptions = unstable_cache(
   ["contour-lookup-options"],
   {
     revalidate: 30,
+    tags: ["contour-lookup-options"],
   },
 );
 
 export const getCachedListingsPageData = unstable_cache(
   async () => {
     const prisma = getPrismaClient();
-    return listContourListings(prisma, 100);
+    const timer = createRouteTimer("listings page data");
+    const listings = await timer.measure("query", () => listContourListings(prisma, 100));
+    timer.finish({ count: listings.length, note: `rows:${listings.length}` });
+    return listings;
   },
   ["contour-listings-page-data"],
   {
     revalidate: 30,
+    tags: ["contour-listings-page-data"],
   },
 );
 
 export const getCachedClientsPageData = unstable_cache(
   async () => {
     const prisma = getPrismaClient();
-    const [clients, totalClients, activeClients, linkedDeals] = await Promise.all([
-      prisma.client.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          phone: true,
-          status: true,
-          source: true,
-          deals: {
+    const timer = createRouteTimer("clients page data");
+    const [clients, totalClients, activeClients] = await timer.measure(
+      "query",
+      () =>
+        Promise.all([
+          prisma.client.findMany({
+            orderBy: { createdAt: "desc" },
+            take: 20,
             select: {
               id: true,
+              fullName: true,
+              email: true,
+              phone: true,
+              status: true,
+              source: true,
+              _count: {
+                select: {
+                  deals: true,
+                },
+              },
             },
-          },
-        },
-      }),
-      prisma.client.count(),
-      prisma.client.count({ where: { status: "active" } }),
-      prisma.deal.count(),
-    ]);
+          }),
+          prisma.client.count(),
+          prisma.client.count({ where: { status: "active" } }),
+        ]),
+      { note: "clients + counters" },
+    );
 
-    return { clients, totalClients, activeClients, linkedDeals };
+    timer.finish({ count: clients.length, note: `rows:${clients.length}` });
+
+    return { clients, totalClients, activeClients };
   },
   ["contour-clients-page-data"],
   {
     revalidate: 30,
+    tags: ["contour-clients-page-data"],
   },
 );
 

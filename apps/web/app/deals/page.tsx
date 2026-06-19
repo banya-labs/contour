@@ -1,13 +1,14 @@
 import "../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowUpRight, LineChart, Plus } from "lucide-react";
-import { getPrismaClient, listContourDealsPaginated } from "@contour/db";
+import { getPrismaClient, listContourDealsPaginated, type ContourDealSummary } from "@contour/db";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { DealsTable } from "../../components/deals-table";
 import { buildSearchIndex } from "../../lib/table-search";
 import { DealsKanbanBoard } from "../../components/deals-kanban-board";
 import { salesDealWorkflow, getDealStageLabel } from "../../lib/deal-workflows";
 import { getCachedLookupOptions } from "../../lib/route-data";
+import { createRouteTimer } from "../../lib/performance";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ function formatMoney(amountCents: number, currency: string) {
   }).format(amountCents / 100);
 }
 
-function buildDealSearchIndex(deal: any) {
+function buildDealSearchIndex(deal: ContourDealSummary) {
   return buildSearchIndex(
     deal.title,
     getDealStageLabel(deal.stage, deal.dealType),
@@ -48,21 +49,28 @@ function buildDealSearchIndex(deal: any) {
 }
 
 export default async function DealsPage({ searchParams }: DealsPageProps) {
+  const timer = createRouteTimer("deals page");
   const resolvedSearchParams = await searchParams;
   const view = resolvedSearchParams?.view === "table" ? "table" : "board";
   const page = parseInt(resolvedSearchParams?.page || "1", 10);
   const prisma = getPrismaClient();
-  const [paginatedData, options] = await Promise.all([
-    listContourDealsPaginated(prisma, { page, pageSize: 50, dealType: "sale" }),
-    getCachedLookupOptions(),
-  ]);
+  const paginatedData = await timer.measure(
+    "query",
+    () => listContourDealsPaginated(prisma, { page, pageSize: 50, dealType: "sale" }),
+    { note: "deals page" },
+  );
+  const options =
+    view === "table"
+      ? null
+      : await timer.measure("lookup", () => getCachedLookupOptions(), {
+          note: "board lookup options",
+        });
 
   const deals = paginatedData.deals;
   const openDeals = deals.filter((deal) => deal.status === "open").length;
   const wonDeals = deals.filter((deal) => deal.status === "won").length;
   const totalValue = deals.reduce((sum, deal) => sum + deal.valueCents, 0);
 
-  // Build search index once, reuse for both views
   const dealsWithSearchIndex = deals.map((deal) => ({
     ...deal,
     searchIndex: buildDealSearchIndex(deal),
@@ -96,6 +104,8 @@ export default async function DealsPage({ searchParams }: DealsPageProps) {
       searchIndex: deal.searchIndex,
     };
   });
+
+  timer.finish({ count: deals.length, note: `rows:${rows.length} view:${view}` });
 
   return (
     <WorkspaceShell>
@@ -200,8 +210,8 @@ export default async function DealsPage({ searchParams }: DealsPageProps) {
           emptyStateDescription="Try a broader search or clear the filter to bring the pipeline back."
           workflow={salesDealWorkflow}
           rows={boardRows}
-          listings={options.listings}
-          clients={options.clients}
+          listings={options?.listings ?? []}
+          clients={options?.clients ?? []}
           tableHref="/deals?view=table"
         />
       )}

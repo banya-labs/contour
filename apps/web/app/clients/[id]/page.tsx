@@ -1,4 +1,4 @@
-import "../../../lib/load-contour-env";
+﻿import "../../../lib/load-contour-env";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Edit3, Users } from "lucide-react";
@@ -18,10 +18,16 @@ export default async function ClientDetailPage({ params }: ClientPageProps) {
   const prisma = getPrismaClient();
   const client = await prisma.client.findUnique({
     where: { id },
-    include: {
-      deals: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      phone: true,
+      status: true,
+      source: true,
+      _count: {
         select: {
-          id: true,
+          deals: true,
         },
       },
     },
@@ -73,7 +79,7 @@ export default async function ClientDetailPage({ params }: ClientPageProps) {
             </div>
             <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
               <p className="text-[11px] text-[color:var(--muted)]">Deals</p>
-              <p className="mt-2 text-[14px] font-medium">{client.deals.length}</p>
+              <p className="mt-2 text-[14px] font-medium">{client._count.deals}</p>
             </div>
             <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
               <p className="text-[11px] text-[color:var(--muted)]">Profile status</p>

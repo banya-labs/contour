@@ -1,4 +1,4 @@
-import "../lib/load-contour-env";
+﻿import "../lib/load-contour-env";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { getCachedDashboardSnapshot } from "../lib/route-data";
+import { createRouteTimer } from "../lib/performance";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,10 @@ function formatMoney(amountCents: number, currency: string) {
 }
 
 export default async function Home() {
-  const dashboardSnapshot = await getCachedDashboardSnapshot();
+  const timer = createRouteTimer("dashboard");
+  const dashboardSnapshot = await timer.measure("query", () => getCachedDashboardSnapshot(), {
+    note: "dashboard snapshot",
+  });
 
   const counts = dashboardSnapshot?.counts;
   const metrics = dashboardSnapshot?.metrics;
@@ -55,6 +59,8 @@ export default async function Home() {
         ["Sync state rows", counts.syncState],
       ]
     : [];
+
+  timer.finish({ count: tableCountCards.length, note: counts ? `cards:${tableCountCards.length}` : "no snapshot" });
 
   return (
     <WorkspaceShell>

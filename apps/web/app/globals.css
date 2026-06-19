@@ -16,6 +16,8 @@
   --warning: #94621d;
   --danger: #8d2b1f;
   --info: #5d5a84;
+  --font-ui-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-ui-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 @theme inline {
@@ -34,8 +36,8 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-info: var(--info);
-  --font-sans: var(--font-manrope);
-  --font-mono: var(--font-plex-mono);
+  --font-sans: var(--font-ui-sans);
+  --font-mono: var(--font-ui-mono);
 }
 
 * {
@@ -55,7 +57,7 @@ body {
     ),
     var(--background);
   color: var(--foreground);
-  font-family: var(--font-manrope), "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
 }
 
 ::selection {
@@ -63,7 +65,7 @@ body {
   color: var(--foreground);
 }
 
-/* ── Boundary tooltip ─────────────────────────────────────────────── */
+/* Boundary tooltip */
 .boundary-tooltip {
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(39, 26, 0, 0.18);
@@ -73,20 +75,20 @@ body {
   font-weight: 600;
   color: #271a00;
   box-shadow: 0 2px 8px rgba(39, 26, 0, 0.12);
-  font-family: var(--font-manrope), "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: 0.02em;
 }
 .boundary-tooltip::before {
   border-top-color: rgba(39, 26, 0, 0.18);
 }
 
-/* ── Map layer control ────────────────────────────────────────────── */
+/* Map layer control */
 .leaflet-control-layers {
   border-radius: 14px !important;
   border: 1px solid rgba(39, 26, 0, 0.14) !important;
   box-shadow: 0 4px 16px rgba(39, 26, 0, 0.08) !important;
   overflow: hidden;
-  font-family: var(--font-manrope), "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
 }
 .leaflet-control-layers-toggle {
   width: 34px !important;

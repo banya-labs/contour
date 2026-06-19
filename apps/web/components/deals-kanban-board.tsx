@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import type { ContourDealSummary, ContourDealStage, ContourDealStatus, ContourDealType } from "@contour/db";
@@ -58,7 +58,7 @@ export function DealsKanbanBoard({
   tableHref,
 }: DealsKanbanBoardProps) {
   const router = useRouter();
-  const [deals, setDeals] = useState<DealBoardRecord[]>(rows);
+  const [overrides, setOverrides] = useState<Record<string, DealBoardRecord>>({});
   const [query, setQuery] = useState("");
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [activeStageValue, setActiveStageValue] = useState<string | null>(null);
@@ -66,14 +66,15 @@ export function DealsKanbanBoard({
   const [error, setError] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
+  const deals = useMemo(
+    () => rows.map((row) => overrides[row.id] ?? row),
+    [overrides, rows],
+  );
+
   function clearDragState() {
     setDraggedDealId(null);
     setActiveStageValue(null);
   }
-
-  useEffect(() => {
-    setDeals(rows);
-  }, [rows]);
 
   const filteredDeals = useMemo(() => {
     if (!deferredQuery) {
@@ -125,7 +126,7 @@ export function DealsKanbanBoard({
 
     setSavingDealId(dealId);
     setError(null);
-    setDeals((currentDeals) => currentDeals.map((deal) => (deal.id === dealId ? optimisticDeal : deal)));
+    setOverrides((current) => ({ ...current, [dealId]: optimisticDeal }));
 
     try {
       const response = await fetch(`/api/deals/${dealId}`, {
@@ -141,13 +142,14 @@ export function DealsKanbanBoard({
       }
 
       const payload = (await response.json()) as { deal: ContourDealSummary };
-      setDeals((currentDeals) =>
-        currentDeals.map((deal) => (deal.id === dealId ? payload.deal : deal)),
-      );
+      setOverrides((current) => ({ ...current, [dealId]: payload.deal }));
+      router.refresh();
     } catch (caughtError) {
-      setDeals((currentDeals) =>
-        currentDeals.map((deal) => (deal.id === previousDeal.id ? previousDeal : deal)),
-      );
+      setOverrides((current) => {
+        const next = { ...current };
+        delete next[dealId];
+        return next;
+      });
       setError(caughtError instanceof Error ? caughtError.message : "Failed to update deal");
     } finally {
       setSavingDealId(null);
@@ -164,19 +166,19 @@ export function DealsKanbanBoard({
       title: deal.title,
       stage,
       status: getDealStatusForStage(stage),
-          dealType: deal.dealType ?? workflow.dealType,
-          valueCents: deal.valueCents,
-          currency: deal.currency,
-          listingId: deal.listingId ?? "",
-          clientId: deal.clientId ?? "",
-          requestSummary: deal.requestSummary ?? "",
-          preferredPropertyType: deal.preferredPropertyType ?? "",
-          preferredLocation: deal.preferredLocation ?? "",
-          preferredProvince: deal.preferredProvince ?? "",
-          preferredCityTown: deal.preferredCityTown ?? "",
-          preferredBedrooms: deal.preferredBedrooms ?? null,
-          preferredBathrooms: deal.preferredBathrooms ?? null,
-        });
+      dealType: deal.dealType ?? workflow.dealType,
+      valueCents: deal.valueCents,
+      currency: deal.currency,
+      listingId: deal.listingId ?? "",
+      clientId: deal.clientId ?? "",
+      requestSummary: deal.requestSummary ?? "",
+      preferredPropertyType: deal.preferredPropertyType ?? "",
+      preferredLocation: deal.preferredLocation ?? "",
+      preferredProvince: deal.preferredProvince ?? "",
+      preferredCityTown: deal.preferredCityTown ?? "",
+      preferredBedrooms: deal.preferredBedrooms ?? null,
+      preferredBathrooms: deal.preferredBathrooms ?? null,
+    });
   }
 
   return (
@@ -312,9 +314,7 @@ export function DealsKanbanBoard({
       ) : (
         <div className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-8 text-center shadow-[0_16px_40px_rgba(39,26,0,0.05)]">
           <p className="text-[16px] font-semibold">{emptyStateTitle}</p>
-          <p className="mt-2 text-[13px] text-[color:var(--muted)]">
-            {emptyStateDescription}
-          </p>
+          <p className="mt-2 text-[13px] text-[color:var(--muted)]">{emptyStateDescription}</p>
           {query ? (
             <button
               type="button"

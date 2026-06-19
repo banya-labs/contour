@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createContourListing,
@@ -19,14 +20,20 @@ export async function saveContourListingAction(formData: FormData) {
     : null;
   const normalizedInput = {
     ...input,
-    address: hasCoordinates ? addressFromCoordinates : input.address,
+    address: hasCoordinates ? addressFromCoordinates ?? input.address : input.address,
   };
 
   if (listingId) {
     const listing = await updateContourListing(prisma, listingId, normalizedInput);
+    revalidateTag("contour-dashboard", "max");
+    revalidateTag("contour-listings-page-data", "max");
+    revalidateTag("contour-lookup-options", "max");
     redirect(`/listings/${listing.id}`);
   }
 
   const listing = await createContourListing(prisma, normalizedInput);
+  revalidateTag("contour-dashboard", "max");
+  revalidateTag("contour-listings-page-data", "max");
+  revalidateTag("contour-lookup-options", "max");
   redirect(`/listings/${listing.id}`);
 }

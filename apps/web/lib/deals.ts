@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createContourDeal,
@@ -15,9 +16,13 @@ export async function saveContourDealAction(formData: FormData) {
 
   if (dealId) {
     const deal = await updateContourDeal(prisma, dealId, input);
+    revalidateTag("contour-dashboard", "max");
+    revalidateTag("contour-clients-page-data", "max");
     redirect(`/deals/${deal.id}`);
   }
 
   const deal = await createContourDeal(prisma, input);
+  revalidateTag("contour-dashboard", "max");
+  revalidateTag("contour-clients-page-data", "max");
   redirect(`/deals/${deal.id}`);
 }

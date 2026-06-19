@@ -138,10 +138,6 @@ export function ListingsMapView({ listings }: ListingsMapViewProps) {
     return searchableListings.filter(({ searchIndex }) => matchesPropertyMapSearch(query, searchIndex));
   }, [query, searchableListings]);
 
-  // Reset to page 0 when search changes
-  useEffect(() => {
-    setPage(0);
-  }, [query]);
 
   const listingsWithCoordinates = useMemo(
     () => filteredListings.filter(({ listing }) => hasCoordinates(listing)),
@@ -286,7 +282,7 @@ export function ListingsMapView({ listings }: ListingsMapViewProps) {
                   for (const member of members) {
                     if (member.type !== "way" || !member.geometry) continue;
                     const coords: [number, number][] = member.geometry.map(
-                      (pt: any) => [pt.lat, pt.lon] as [number, number],
+                      (pt: { lat: number; lon: number }) => [pt.lat, pt.lon] as [number, number],
                     );
                     if (coords.length < 2) continue;
 
@@ -378,7 +374,10 @@ export function ListingsMapView({ listings }: ListingsMapViewProps) {
           <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[color:var(--muted)]" />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(0);
+            }}
             placeholder="Unit 104, East Park Mall, Thabo Mbeki Rd..."
             className="h-12 w-full rounded-[16px] border border-[color:var(--border)] bg-[color:var(--surface-muted)] pl-11 pr-4 text-[14px] outline-none transition focus:border-[color:var(--primary)]"
           />

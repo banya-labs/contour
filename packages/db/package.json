@@ -7,7 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "generate": "prisma generate",
+    "generate": "node scripts/ensure-prisma-client-link.mjs",
+    "generate:prisma": "prisma generate",
     "push": "prisma db push",
     "prisma:validate": "prisma validate",
     "seed": "prisma db seed"
@@ -28,3 +29,6 @@
     "prisma": "^7.8.0"
   }
 }
+
+
+

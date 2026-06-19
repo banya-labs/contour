@@ -6,9 +6,21 @@ import type { LeaseStageValue } from "../../../../lib/lease-workflows";
 
 const validLeaseStages = new Set(leaseWorkflow.stages.map((stage) => stage.value));
 
+interface LeaseUpdatePayload {
+  leaseName?: unknown;
+  leaseStage?: unknown;
+  status?: unknown;
+  rentAmount?: unknown;
+  currency?: unknown;
+  billingDay?: unknown;
+  depositAmount?: unknown;
+  listingId?: unknown;
+  tenantClientId?: unknown;
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const payload = (await request.json()) as Record<string, unknown>;
+  const payload = (await request.json()) as LeaseUpdatePayload;
   const leaseName = String(payload.leaseName ?? "").trim();
   const leaseStage = String(payload.leaseStage ?? "").trim();
   const status = String(payload.status ?? "").trim();
@@ -25,7 +37,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!validLeaseStages.has(leaseStage as LeaseStageValue)) {
     return new NextResponse("Lease stage is invalid", { status: 400 });
   }
-  if (!["active", "ended"].includes(status)) {
+  if (!['active', 'ended'].includes(status)) {
     return new NextResponse("Lease status is invalid", { status: 400 });
   }
   if (!Number.isFinite(rentAmount) || rentAmount <= 0) {
@@ -59,10 +71,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     where: { id },
     data: {
       leaseName,
-      leaseStage: normalizedLeaseStage as any,
+      leaseStage: normalizedLeaseStage,
       status: status === "ended" ? "ended" : getLeaseStatusForStage(normalizedLeaseStage),
       rentAmount,
-      currency: currency as any,
+      currency: currency as "ZMW" | "USD",
       billingDay,
       depositAmount: depositAmount ? depositAmount : null,
       listingId,

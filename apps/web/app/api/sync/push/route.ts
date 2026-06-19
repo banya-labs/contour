@@ -1,31 +1,26 @@
 import "../../../../lib/load-contour-env";
 import { NextResponse } from "next/server";
-import {
-  getPrismaClient,
-  getPendingSyncOperations,
-  markSyncOperationAsSynced,
-  markSyncOperationAsFailed,
-  updateSyncState,
-  type EntityType,
-} from "@contour/db";
+import { getPrismaClient, updateSyncState } from "@contour/db";
 
 export const dynamic = "force-dynamic";
 
-interface SyncPushOperation {
+type SyncOperationPayload = Record<string, unknown>;
+
+type SyncPushOperation = {
   id: string;
-  entityType: string;
+  entityType: "deal" | "client" | "listing";
   entityId: string;
   operationType: "create" | "update" | "delete";
-  payload: any;
-}
+  payload: SyncOperationPayload;
+};
 
-interface SyncPushRequest {
+type SyncPushRequest = {
   deviceId: string;
   operations: SyncPushOperation[];
-}
+};
 
 async function applyOperation(
-  prisma: any,
+  prisma: ReturnType<typeof getPrismaClient>,
   operation: SyncPushOperation,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -36,40 +31,35 @@ async function applyOperation(
         if (operationType === "create" || operationType === "update") {
           await prisma.deal.upsert({
             where: { id: entityId },
-            create: { id: entityId, ...payload },
-            update: payload,
+            create: { id: entityId, ...payload } as never,
+            update: payload as never,
           });
-        } else if (operationType === "delete") {
+        } else {
           await prisma.deal.delete({ where: { id: entityId } });
         }
         break;
-
       case "client":
         if (operationType === "create" || operationType === "update") {
           await prisma.client.upsert({
             where: { id: entityId },
-            create: { id: entityId, ...payload },
-            update: payload,
+            create: { id: entityId, ...payload } as never,
+            update: payload as never,
           });
-        } else if (operationType === "delete") {
+        } else {
           await prisma.client.delete({ where: { id: entityId } });
         }
         break;
-
       case "listing":
         if (operationType === "create" || operationType === "update") {
           await prisma.listing.upsert({
             where: { id: entityId },
-            create: { id: entityId, ...payload },
-            update: payload,
+            create: { id: entityId, ...payload } as never,
+            update: payload as never,
           });
-        } else if (operationType === "delete") {
+        } else {
           await prisma.listing.delete({ where: { id: entityId } });
         }
         break;
-
-      default:
-        return { success: false, error: `Unknown entity type: ${entityType}` };
     }
 
     return { success: true };
@@ -96,45 +86,24 @@ export async function POST(request: Request) {
 
     const prisma = getPrismaClient();
 
-    // Verify device exists
-    const device = await prisma.syncDevice.findUnique({
-      where: { deviceId },
-    });
-
+    const device = await prisma.syncDevice.findUnique({ where: { deviceId } });
     if (!device) {
-      return NextResponse.json(
-        { error: "Device not registered" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Device not registered" }, { status: 404 });
     }
 
-    const results: {
-      operationId: string;
-      success: boolean;
-      error?: string;
-    }[] = [];
+    const results: Array<{ operationId: string; success: boolean; error?: string }> = [];
 
-    // Process each operation in a transaction for consistency
     for (const operation of operations) {
       const result = await applyOperation(prisma, operation);
-
-      if (result.success) {
-        results.push({
-          operationId: operation.id,
-          success: true,
-        });
-      } else {
-        results.push({
-          operationId: operation.id,
-          success: false,
-          error: result.error,
-        });
-      }
+      results.push({
+        operationId: operation.id,
+        success: result.success,
+        ...(result.error ? { error: result.error } : {}),
+      });
     }
 
-    // Update sync state
     const successCount = results.filter((r) => r.success).length;
-    const failureCount = results.filter((r) => !r.success).length;
+    const failureCount = results.length - successCount;
 
     await updateSyncState(prisma, deviceId, {
       lastSyncAt: new Date(),
@@ -148,10 +117,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[v0] Sync push error:", error);
-
-    return NextResponse.json(
-      { error: "Failed to push data" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to push data" }, { status: 500 });
   }
 }

@@ -1,10 +1,11 @@
-import "../../lib/load-contour-env";
+﻿import "../../lib/load-contour-env";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { WorkspaceShell } from "../../components/workspace-shell";
 import { ListingsTable } from "../../components/listings-table";
 import { buildSearchIndex } from "../../lib/table-search";
 import { getCachedListingsPageData } from "../../lib/route-data";
+import { createRouteTimer } from "../../lib/performance";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,10 @@ function formatMoney(amountCents: number, currency: string) {
 }
 
 export default async function ListingsPage() {
-  const listings = await getCachedListingsPageData();
+  const timer = createRouteTimer("listings page");
+  const listings = await timer.measure("query", () => getCachedListingsPageData(), {
+    note: "listings list",
+  });
   const rows = listings.map((listing) => ({
     id: listing.id,
     href: `/listings/${listing.id}`,
@@ -54,6 +58,7 @@ export default async function ListingsPage() {
       new Date(listing.updatedAt).toLocaleDateString(),
     ),
   }));
+  timer.finish({ count: rows.length, note: `rows:${rows.length}` });
 
   return (
     <WorkspaceShell>

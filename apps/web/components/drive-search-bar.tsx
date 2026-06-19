@@ -1,17 +1,29 @@
 "use client";
 
-import { useState, useDeferredValue, useMemo } from "react";
+import { useDeferredValue, useMemo, useState, type ChangeEvent } from "react";
 import { Search, X } from "lucide-react";
+
+type DriveFileSearchResult = {
+  id: string;
+  name: string;
+  blobUrl: string;
+  listing?: { title: string };
+  deal?: { title: string };
+  client?: { fullName: string };
+  lease?: { leaseName: string };
+};
+
 export function DriveSearchBar() {
   const [query, setQuery] = useState("");
   const [fileType, setFileType] = useState<string>("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<DriveFileSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   const deferredQuery = useDeferredValue(query);
+  const activeQuery = useMemo(() => deferredQuery.trim(), [deferredQuery]);
 
-  const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newQuery = e.target.value;
+  const handleSearch = async (event: ChangeEvent<HTMLInputElement>) => {
+    const newQuery = event.target.value;
     setQuery(newQuery);
 
     if (!newQuery.trim()) {
@@ -27,7 +39,7 @@ export function DriveSearchBar() {
       if (fileType) params.append("fileType", fileType);
 
       const response = await fetch(`/api/drive/files?${params}`);
-      const data = await response.json();
+      const data = (await response.json()) as { files?: DriveFileSearchResult[] };
       setResults(data.files || []);
     } catch (error) {
       console.error("[v0] Search error:", error);
@@ -36,7 +48,7 @@ export function DriveSearchBar() {
     }
   };
 
-  const getCategoryIcon = (file: any) => {
+  const getCategoryIcon = (file: DriveFileSearchResult) => {
     if (file.listing) return "Property";
     if (file.deal) return "Deal";
     if (file.client) return "Client";
@@ -58,6 +70,7 @@ export function DriveSearchBar() {
           />
           {query && (
             <button
+              type="button"
               onClick={() => {
                 setQuery("");
                 setResults([]);
@@ -71,7 +84,7 @@ export function DriveSearchBar() {
 
         <select
           value={fileType}
-          onChange={(e) => setFileType(e.target.value)}
+          onChange={(event) => setFileType(event.target.value)}
           className="rounded-[12px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-[13px] outline-none"
         >
           <option value="">All Types</option>
@@ -85,47 +98,30 @@ export function DriveSearchBar() {
         </select>
       </div>
 
-      {/* Search Results */}
-      {query && (
+      {activeQuery && (
         <div className="rounded-[12px] border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[12px] font-medium text-[color:var(--muted)]">
               {results.length} result{results.length !== 1 ? "s" : ""} found
             </p>
-            {isSearching && (
-              <p className="text-[11px] text-[color:var(--muted)]">Searching...</p>
-            )}
+            {isSearching && <p className="text-[11px] text-[color:var(--muted)]">Searching...</p>}
           </div>
 
-          <div className="space-y-1 max-h-[300px] overflow-y-auto">
+          <div className="max-h-[300px] space-y-1 overflow-y-auto">
             {results.map((file) => (
               <div
                 key={file.id}
                 className="flex items-center justify-between gap-2 rounded-[8px] bg-[color:var(--surface-muted)] p-2"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-[12px] font-medium text-[color:var(--foreground)]">
-                    {file.name}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-medium text-[color:var(--foreground)]">{file.name}</p>
                   <div className="mt-0.5 flex items-center gap-2">
                     <span className="inline-flex rounded-full bg-[color:rgba(39,26,0,0.1)] px-2 py-0.5 text-[9px] font-medium text-[color:var(--muted)]">
                       {getCategoryIcon(file)}
                     </span>
-                    {file.listing && (
-                      <span className="text-[9px] text-[color:var(--muted)]">
-                        {file.listing.title}
-                      </span>
-                    )}
-                    {file.deal && (
-                      <span className="text-[9px] text-[color:var(--muted)]">
-                        {file.deal.title}
-                      </span>
-                    )}
-                    {file.client && (
-                      <span className="text-[9px] text-[color:var(--muted)]">
-                        {file.client.fullName}
-                      </span>
-                    )}
+                    {file.listing && <span className="text-[9px] text-[color:var(--muted)]">{file.listing.title}</span>}
+                    {file.deal && <span className="text-[9px] text-[color:var(--muted)]">{file.deal.title}</span>}
+                    {file.client && <span className="text-[9px] text-[color:var(--muted)]">{file.client.fullName}</span>}
                   </div>
                 </div>
                 <a

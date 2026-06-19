@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type ConnectivityBadgeProps = {
   lastSyncAt: string | null;
@@ -33,13 +33,14 @@ function formatLastSync(lastSyncAt: string | null) {
 }
 
 export function ConnectivityBadge({ lastSyncAt }: ConnectivityBadgeProps) {
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
-    setIsOnline(navigator.onLine);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
@@ -49,18 +50,12 @@ export function ConnectivityBadge({ lastSyncAt }: ConnectivityBadgeProps) {
     };
   }, []);
 
-  const statusLabel = useMemo(() => {
-    return isOnline ? "Online" : "Offline";
-  }, [isOnline]);
-
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-[12px] text-[color:var(--muted)]">
       <span
-        className={`size-2 rounded-full ${
-          isOnline ? "bg-[color:var(--success)]" : "bg-[color:var(--muted)]"
-        }`}
+        className={`size-2 rounded-full ${isOnline ? "bg-[color:var(--success)]" : "bg-[color:var(--muted)]"}`}
       />
-      <span className="font-medium text-[color:var(--foreground)]">{statusLabel}</span>
+      <span className="font-medium text-[color:var(--foreground)]">{isOnline ? "Online" : "Offline"}</span>
       <span>·</span>
       <span>{formatLastSync(lastSyncAt)}</span>
     </div>
