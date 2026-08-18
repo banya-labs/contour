@@ -597,7 +597,8 @@ export async function createContourListing(
             province,
             city_town,
             latitude,
-            longitude
+            longitude,
+            updated_at
           )
           values (
             ${data.title},
@@ -612,7 +613,8 @@ export async function createContourListing(
             ${data.province ?? null},
             ${data.cityTown ?? null},
             ${data.latitude ?? null},
-            ${data.longitude ?? null}
+            ${data.longitude ?? null},
+            now()
           )
           returning id
         `
@@ -629,7 +631,8 @@ export async function createContourListing(
             province,
             city_town,
             latitude,
-            longitude
+            longitude,
+            updated_at
           )
           values (
             ${data.title},
@@ -643,7 +646,8 @@ export async function createContourListing(
             ${data.province ?? null},
             ${data.cityTown ?? null},
             ${data.latitude ?? null},
-            ${data.longitude ?? null}
+            ${data.longitude ?? null},
+            now()
           )
           returning id
         `,
@@ -691,7 +695,8 @@ export async function updateContourListing(
             province = ${data.province ?? null},
             city_town = ${data.cityTown ?? null},
             latitude = ${data.latitude ?? null},
-            longitude = ${data.longitude ?? null}
+            longitude = ${data.longitude ?? null},
+            updated_at = now()
           where id = ${id}::uuid
           returning id
         `
@@ -709,7 +714,8 @@ export async function updateContourListing(
             province = ${data.province ?? null},
             city_town = ${data.cityTown ?? null},
             latitude = ${data.latitude ?? null},
-            longitude = ${data.longitude ?? null}
+            longitude = ${data.longitude ?? null},
+            updated_at = now()
           where id = ${id}::uuid
           returning id
         `,

@@ -71,6 +71,16 @@ export function DealsKanbanBoard({
     [overrides, rows],
   );
 
+  const uniqueDeals = useMemo(() => {
+    const byId = new Map<string, DealBoardRecord>();
+
+    for (const deal of deals) {
+      byId.set(deal.id, deal);
+    }
+
+    return [...byId.values()];
+  }, [deals]);
+
   function clearDragState() {
     setDraggedDealId(null);
     setActiveStageValue(null);
@@ -78,17 +88,17 @@ export function DealsKanbanBoard({
 
   const filteredDeals = useMemo(() => {
     if (!deferredQuery) {
-      return deals;
+      return uniqueDeals;
     }
 
-    return deals.filter((deal) => {
+    return uniqueDeals.filter((deal) => {
       const searchIndex = deal.searchIndex;
       if (!searchIndex) {
         return false;
       }
       return searchIndex.includes(deferredQuery);
     });
-  }, [deals, deferredQuery]);
+  }, [deferredQuery, uniqueDeals]);
 
   const stageGroups = workflow.stages.map((stage) => ({
     ...stage,
@@ -96,7 +106,7 @@ export function DealsKanbanBoard({
   }));
 
   async function saveDeal(dealId: string, input: DealBoardUpdateInput) {
-    const previousDeal = deals.find((deal) => deal.id === dealId);
+    const previousDeal = uniqueDeals.find((deal) => deal.id === dealId);
     if (!previousDeal) {
       return;
     }
@@ -142,8 +152,19 @@ export function DealsKanbanBoard({
       }
 
       const payload = (await response.json()) as { deal: ContourDealSummary };
-      setOverrides((current) => ({ ...current, [dealId]: payload.deal }));
-      router.refresh();
+      const nextDeal = payload.deal as DealBoardRecord;
+      setOverrides((current) => {
+        const existingDeal = current[dealId] ?? optimisticDeal;
+
+        return {
+          ...current,
+          [dealId]: {
+            ...existingDeal,
+            ...nextDeal,
+            searchIndex: existingDeal.searchIndex,
+          },
+        };
+      });
     } catch (caughtError) {
       setOverrides((current) => {
         const next = { ...current };
@@ -157,7 +178,7 @@ export function DealsKanbanBoard({
   }
 
   async function moveDealToStage(dealId: string, stage: string) {
-    const deal = deals.find((row) => row.id === dealId);
+    const deal = uniqueDeals.find((row) => row.id === dealId);
     if (!deal || deal.stage === stage) {
       return;
     }

@@ -33,11 +33,15 @@ function formatLastSync(lastSyncAt: string | null) {
 }
 
 export function ConnectivityBadge({ lastSyncAt }: ConnectivityBadgeProps) {
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine,
-  );
+  const [isClient, setIsClient] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [lastSyncLabel, setLastSyncLabel] = useState("Checking");
 
   useEffect(() => {
+    setIsClient(true);
+    setIsOnline(navigator.onLine);
+    setLastSyncLabel(formatLastSync(lastSyncAt));
+
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
@@ -48,16 +52,18 @@ export function ConnectivityBadge({ lastSyncAt }: ConnectivityBadgeProps) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [lastSyncAt]);
 
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-[12px] text-[color:var(--muted)]">
       <span
         className={`size-2 rounded-full ${isOnline ? "bg-[color:var(--success)]" : "bg-[color:var(--muted)]"}`}
       />
-      <span className="font-medium text-[color:var(--foreground)]">{isOnline ? "Online" : "Offline"}</span>
-      <span>·</span>
-      <span>{formatLastSync(lastSyncAt)}</span>
+      <span className="font-medium text-[color:var(--foreground)]">
+        {isClient ? (isOnline ? "Online" : "Offline") : "Checking"}
+      </span>
+      <span>-</span>
+      <span>{lastSyncLabel}</span>
     </div>
   );
 }

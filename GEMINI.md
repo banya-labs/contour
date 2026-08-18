@@ -1,2 +1,3 @@
-# Project: Contour
-@~/.gemini/projects/contour.md
+# Compatibility shim
+@./PROJECT-OS.md
+
