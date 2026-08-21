@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       data: {
         organizationId,
         title,
-        docType,
+        docType: (docType as any) || "TITLE_DEED",
         classification,
         objectKey,
         originalFileName: file.name,
