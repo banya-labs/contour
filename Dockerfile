@@ -9,7 +9,7 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml .npmrc* ./
 COPY prisma ./prisma/
-RUN pnpm install --frozen-lockfile --ignore-scripts=false
+RUN pnpm install --frozen-lockfile
 
 # Stage 2: Build Next.js application
 FROM base AS builder
