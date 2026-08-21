@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
 
     // Stream directly to MinIO
-    const s3Endpoint = process.env.S3_ENDPOINT || "http://contour-minio-8b621a-169-58-105-19.sslip.io";
+    const s3Endpoint = process.env.S3_ENDPOINT || "https://contour-files.banyalabs.com";
     const bucket = process.env.S3_BUCKET_NAME || "contour-vault";
     const s3Url = `${s3Endpoint}/${bucket}/${objectKey}`;
 
