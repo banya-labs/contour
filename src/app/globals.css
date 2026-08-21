@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 20% 99%;      /* #fdfbfa Warm Paper */
+    --foreground: 45 13% 13%;      /* #27251e Dark Charcoal */
+    --card: 0 0% 100%;             /* #ffffff Pure Card */
+    --card-foreground: 45 13% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 45 13% 13%;
+    --primary: 0 64% 33%;          /* #8b1e1e Contour Burgundy */
+    --primary-foreground: 40 20% 99%;
+    --secondary: 40 15% 94%;       /* #f6f2e8 Soft Paper */
+    --secondary-foreground: 45 13% 13%;
+    --muted: 40 10% 96%;
+    --muted-foreground: 45 5% 40%;  /* #6a6860 */
+    --accent: 0 64% 33%;
+    --accent-foreground: 40 20% 99%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 45 10% 90%;          /* rgba(0,0,0,0.08) */
+    --input: 45 10% 90%;
+    --ring: 45 13% 13%;
+    --radius: 1rem;                /* 16px soft curve standard */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-[#8b1e1e]/20 selection:text-[#27251e];
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(39, 37, 30, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(39, 37, 30, 0.25);
+}
+
+/* Leaflet Custom Marker & Popup Styles */
+.leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  color: #27251e !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 25px -5px rgba(39, 37, 30, 0.15) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  padding: 4px !important;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}

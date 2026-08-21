@@ -1,0 +1,107 @@
+# PowerSync Logical Replication Sync Rules
+# Guarantees POPIA-compliant, tenant-isolated data replication for Contour companion devices.
+
+bucket_definitions:
+  # Tenant-scoped workspace replication bucket
+  tenant_workspace:
+    parameters:
+      - SELECT request.jwt.org_id AS org_id
+    data:
+      # 1. Organization details
+      - SELECT id, name, slug, created_at, updated_at FROM organization WHERE id = bucket.org_id
+      
+      # 2. Team members (agents)
+      - SELECT id, name, email, phone, role, image, organization_id, created_at FROM user WHERE organization_id = bucket.org_id
+
+      # 3. Properties: POPIA Masking enforced at database WAL replication level
+      # Strictly excludes sensitive landlord details: owner_name, owner_phone, owner_email, owner_bank_details, title_deed_number.
+      - SELECT 
+          id, 
+          title, 
+          slug, 
+          ownership_type, 
+          property_type, 
+          listing_type, 
+          status, 
+          asking_price, 
+          rental_price, 
+          currency, 
+          bedrooms, 
+          bathrooms, 
+          plot_size_sqm, 
+          description, 
+          photos, 
+          featured_photo, 
+          suburb, 
+          city, 
+          latitude, 
+          longitude, 
+          landmark_directions, 
+          organization_id, 
+          assigned_agent_id,
+          created_at, 
+          updated_at 
+        FROM property 
+        WHERE organization_id = bucket.org_id
+
+      # 4. Active Rental Leases
+      - SELECT 
+          id, 
+          organization_id, 
+          property_id, 
+          tenant_name, 
+          tenant_phone, 
+          tenant_email, 
+          tenant_id_number, 
+          monthly_rent, 
+          currency, 
+          deposit_amount, 
+          management_fee_percent, 
+          lease_start_date, 
+          lease_end_date, 
+          payment_day_of_month, 
+          status, 
+          created_at, 
+          updated_at 
+        FROM lease 
+        WHERE organization_id = bucket.org_id
+
+      # 5. Commission Transactions
+      - SELECT 
+          id, 
+          organization_id, 
+          property_id, 
+          transaction_type, 
+          gross_value, 
+          currency, 
+          agency_commission_pct, 
+          agency_commission_amount, 
+          agent_split_pct, 
+          agent_split_amount, 
+          status, 
+          closing_agent_id, 
+          closed_at, 
+          created_at 
+        FROM transaction 
+        WHERE organization_id = bucket.org_id
+
+      # 6. CRM Client Inquiries
+      - SELECT 
+          id, 
+          organization_id, 
+          client_name, 
+          client_phone, 
+          client_email, 
+          looking_for, 
+          property_type, 
+          budget_min, 
+          budget_max, 
+          currency, 
+          preferred_suburbs, 
+          notes, 
+          status, 
+          assigned_agent_id, 
+          exclusive_lock_expires_at, 
+          created_at 
+        FROM inquiry 
+        WHERE organization_id = bucket.org_id

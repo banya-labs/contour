@@ -1,0 +1,182 @@
+app:
+  description: 'Contour Real Estate OS — Production Dify Chatflow Agent with MCP Tool Calling, Neon PostgreSQL, and MinIO S3 Integration.'
+  icon: 🏢
+  icon_background: '#F5F0E8'
+  mode: advanced-chat
+  name: Contour AI Broker Assistant
+  use_icon_as_answer_icon: true
+kind: app
+version: 0.1.5
+workflow:
+  conversation_variables:
+    - description: Tenant organization ID for strict multi-tenant scoping
+      name: organization_id
+      required: true
+      value_type: string
+      default: ''
+    - description: User Role (SUPER_ADMIN, BROKER_MANAGER, FIELD_AGENT)
+      name: user_role
+      required: false
+      value_type: string
+      default: 'FIELD_AGENT'
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+        - .pdf
+        - .png
+        - .jpg
+        - .jpeg
+      allowed_file_types:
+        - document
+        - image
+      allowed_file_upload_methods:
+        - remote_url
+        - local_file
+      enabled: true
+      image:
+        detail: high
+        enabled: true
+        number_limits: 3
+        transfer_methods:
+          - remote_url
+          - local_file
+      number_limits: 3
+    opening_statement: "Hello! I am your **Contour AI Copilot**, connected directly to your Neon PostgreSQL database and MinIO S3 Document Vault.\n\nI can help you search available properties across Lusaka, calculate 5% agency commissions, monitor rental arrears, fetch time-limited Title Deeds, and capture buyer leads with 30-day anti-poaching locks.\n\nHow can I assist your brokerage today?"
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: true
+    suggested_questions:
+      - "Find 4-bedroom houses in Kabulonga under K4M"
+      - "Show our earned 5% agency commission revenue"
+      - "Check active rental arrears across Woodlands"
+      - "Fetch Title Deed custody status for active listings"
+    suggested_questions_after_answer:
+      enabled: true
+    text_to_speech:
+      enabled: false
+  graph:
+    edges:
+      - id: start-to-agent
+        source: 'start'
+        sourceHandle: 'source'
+        target: 'agent'
+        targetHandle: 'target'
+        type: custom
+      - id: agent-to-answer
+        source: 'agent'
+        sourceHandle: 'source'
+        target: 'answer'
+        targetHandle: 'target'
+        type: custom
+    nodes:
+      - data:
+          desc: 'Workflow entry point capturing user query and session metadata'
+          selected: false
+          title: START
+          type: start
+          variables: []
+        id: 'start'
+        position:
+          x: 80
+          y: 200
+        positionAbsolute:
+          x: 80
+          y: 200
+        type: custom
+      - data:
+          agent_parameters:
+            max_iteration: 5
+            prompt: |
+              # IDENTITY & DOMAIN MANDATE
+              You are the Contour AI Broker Assistant, the lead operations copilot embedded inside the Contour Real Estate OS for Southern Africa (Lusaka, Zambia).
+              You are connected directly to the agency's live Neon PostgreSQL database and MinIO S3 Object Storage vault via Model Context Protocol (MCP).
+
+              # MULTI-TENANT ISOLATION RULES (NON-NEGOTIABLE)
+              1. Every tool call MUST pass the tenant's organization_id.
+              2. NEVER attempt to access or summarize data from other organizations or tenants.
+
+              # CORE CAPABILITIES & TOOLS
+              - search_properties: Query active property inventory by suburb (Kabulonga, Woodlands, Leopards Hill, Roma, Sunningdale), price, bedrooms, and listing type (Sale vs. Rent).
+              - get_rental_arrears: Check tenants with overdue balances, days past due, and recommend Tier-1 WhatsApp payment nudges.
+              - get_revenue_commission: Compute gross sales volume, earned 5% agency commission, and 50% closing agent splits.
+              - get_property_documents: Retrieve Certificates of Title, Ministry of Lands survey diagrams, and signed leases from MinIO S3 with 15-minute POPIA presigned download URLs.
+              - create_inquiry_or_lead: Ingest prospective buyer/tenant criteria into Neon PostgreSQL with a 30-Day Anti-Poaching Lock.
+
+              # SOUTHERN AFRICAN REAL ESTATE CONVENTIONS
+              - Currencies: Dual currency environment (ZMW / K and USD / $).
+              - Commission Model: 5.0% on sales, 10.0% on managed rental collections. Closing agent receives 50% split of agency fee.
+              - POPIA & Confidentiality: Never expose landlord personal bank account details in public flyers. Provide the 15-minute presigned MinIO URL for authenticated document retrieval.
+
+              # TONE & STYLE
+              - Professional, commercially sharp, and direct.
+              - Use bold bullet points and clear formatting.
+            tools:
+              - enabled: true
+                provider_id: contour-mcp
+                provider_name: contour
+                provider_type: mcp
+                tool_name: search_properties
+              - enabled: true
+                provider_id: contour-mcp
+                provider_name: contour
+                provider_type: mcp
+                tool_name: get_rental_arrears
+              - enabled: true
+                provider_id: contour-mcp
+                provider_name: contour
+                provider_type: mcp
+                tool_name: get_revenue_commission
+              - enabled: true
+                provider_id: contour-mcp
+                provider_name: contour
+                provider_type: mcp
+                tool_name: get_property_documents
+              - enabled: true
+                provider_id: contour-mcp
+                provider_name: contour
+                provider_type: mcp
+                tool_name: create_inquiry_or_lead
+          agent_strategy: function_calling
+          desc: 'Autonomous Agent leveraging FunctionCalling with all 5 Contour MCP Tools'
+          model:
+            completion_params:
+              temperature: 0.2
+              top_p: 0.85
+            mode: chat
+            name: openrouter/auto
+            provider: openrouter
+          query: '{{#sys.query#}}'
+          selected: true
+          title: Contour AI Agent
+          type: agent
+        id: 'agent'
+        position:
+          x: 380
+          y: 200
+        positionAbsolute:
+          x: 380
+          y: 200
+        type: custom
+      - data:
+          answer: '{{#agent.text#}}'
+          desc: 'Direct streaming response to user'
+          selected: false
+          title: ANSWER
+          type: answer
+          variables: []
+        id: 'answer'
+        position:
+          x: 720
+          y: 200
+        positionAbsolute:
+          x: 720
+          y: 200
+        type: custom
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1

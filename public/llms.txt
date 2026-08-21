@@ -1,0 +1,12 @@
+# Contour — Real Estate Operations & Field Agent OS
+> Built for Southern African Real Estate Brokerages & Property Managers.
+
+## Machine Interface Contract:
+- **Protocol**: JSON-RPC 2.0 (Model Context Protocol)
+- **Endpoint**: POST https://contour.app/api/mcp
+- **Authentication**: Authorization: Bearer <API_KEY>
+
+## Available AI Tools:
+1. `search_properties`: Query active inventory across Kabulonga, Leopards Hill, Woodlands, Roma Park with GPS landmark navigation.
+2. `get_rental_arrears`: Retrieve overdue tenancies with calculated days past due.
+3. `generate_landlord_statement`: Reconcile monthly rent collected less 10% agency fee and maintenance.

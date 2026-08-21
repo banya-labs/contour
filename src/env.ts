@@ -1,0 +1,46 @@
+import { createEnv } from "@t3-oss/env-nextjs";
+import { z } from "zod";
+
+export const env = createEnv({
+  server: {
+    DATABASE_URL: z.string().url().default("postgresql://postgres:postgres@localhost:5432/contour_db"),
+    BETTER_AUTH_SECRET: z.string().min(1).default("dev-better-auth-secret-change-in-production-12345"),
+    BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+    PAYSTACK_SECRET_KEY: z.string().optional(),
+    DIFY_API_KEY: z.string().optional(),
+    DIFY_API_BASE_URL: z.string().url().optional(),
+    REDIS_URL: z.string().optional(),
+    S3_ENDPOINT: z.string().optional(),
+    S3_BUCKET_NAME: z.string().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_PUBLIC_DOMAIN: z.string().optional(),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  },
+  client: {
+    NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+    NEXT_PUBLIC_DEV_MODE: z.string().default("true"),
+    NEXT_PUBLIC_MAP_DEFAULT_LAT: z.string().default("-15.4167"),
+    NEXT_PUBLIC_MAP_DEFAULT_LNG: z.string().default("28.2833"),
+  },
+  runtimeEnv: {
+    DATABASE_URL: process.env.DATABASE_URL,
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+    DIFY_API_KEY: process.env.DIFY_API_KEY,
+    DIFY_API_BASE_URL: process.env.DIFY_API_BASE_URL,
+    REDIS_URL: process.env.REDIS_URL,
+    S3_ENDPOINT: process.env.S3_ENDPOINT,
+    S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+    S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,
+    S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY,
+    S3_PUBLIC_DOMAIN: process.env.S3_PUBLIC_DOMAIN,
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_DEV_MODE: process.env.NEXT_PUBLIC_DEV_MODE,
+    NEXT_PUBLIC_MAP_DEFAULT_LAT: process.env.NEXT_PUBLIC_MAP_DEFAULT_LAT,
+    NEXT_PUBLIC_MAP_DEFAULT_LNG: process.env.NEXT_PUBLIC_MAP_DEFAULT_LNG,
+  },
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
+});

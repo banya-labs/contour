@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.env.development
+.env.production
+*.md
+docs
+foundation
+documentation_legacy
+.artifacts
+.dify
+.test-screenshots
+.tmp
+.vercel
+contour.rar
