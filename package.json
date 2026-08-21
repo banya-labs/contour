@@ -56,14 +56,5 @@
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/client",
-      "@prisma/engines",
-      "prisma",
-      "esbuild",
-      "sharp",
-      "better-sqlite3"
-    ]
-  }
+  "packageManager": "pnpm@9.15.4"
 }
