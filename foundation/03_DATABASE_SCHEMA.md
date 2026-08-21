@@ -1,0 +1,605 @@
+# 03 — Database Schema Specification: Contour
+
+**Database Engine**: PostgreSQL 16 with `pgvector`  
+**ORM**: Prisma 5.x / 6.x  
+**Multi-Tenancy Standard**: Enforced `organizationId` foreign key and composite indices on all tenant entities.  
+**Author**: Foundation Architect & Agentic Solutions Engineer (Banya Labs)  
+
+---
+
+## 1. Schema Invariants & Design Principles
+
+1. **Strict Organization Scoping**: All operational tables (`Property`, `Lease`, `RentPayment`, `MaintenanceExpense`, `LandlordStatement`, `Transaction`, `Inquiry`, `PropertyVisit`) carry mandatory `organizationId`.
+2. **Dual-Currency Resilience**: Monetary values are split into `amount` (Decimal) and `currency` (Enum: `ZMW`, `USD`, `ZAR`) to eliminate exchange confusion between Lusaka high-end leases ($) and local sales (K).
+3. **Agent Isolation & Owner PII Protection**: Landlord sensitive fields (`ownerPhone`, `ownerEmail`, `ownerBankDetails`, `titleDeedNumber`) live on `Property` but are strictly filtered out in field agent API serializers and PowerSync SQLite rules.
+4. **Audited Maintenance Offsets**: Landlord statement maintenance deductions require linked `MaintenanceExpense` records with verified receipts before being subtracted from gross rent.
+5. **Idempotent Rent Reminder Ledger**: `RentArrearsReminder` prevents duplicate tenant spamming across automated WhatsApp reminder tiers.
+6. **Vector Search Ready**: `Property` includes `embedding Unsupported("vector(1536)")?` for semantic natural language matchmaking via OpenAI `text-embedding-3-small`.
+
+---
+
+## 2. Complete Prisma Schema Definition
+
+```prisma
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// -----------------------------------------------------------------------------
+// 1. Better Auth & Organization Multi-Tenancy
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN
+  BROKER_MANAGER
+  FIELD_AGENT
+  FINANCE_OFFICER
+  LANDLORD
+  TENANT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          UserRole  @default(FIELD_AGENT)
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions           Session[]
+  accounts           Account[]
+  members            Member[]
+  apiKeys            ApiKey[]
+  assignedProperties Property[]          @relation("AssignedAgent")
+  createdProperties  Property[]          @relation("CreatedProperties")
+  inquiries          Inquiry[]           @relation("AssignedInquiries")
+  visits             PropertyVisit[]
+  transactions       Transaction[]       @relation("ClosingAgent")
+  approvedStatements LandlordStatement[] @relation("ApprovedBy")
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  expiresAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id           String    @id @default(cuid())
+  userId       String
+  accountId    String
+  providerId   String
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  password     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+model Organization {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String   @unique
+  logo                String?
+  currency            Currency @default(ZMW)
+  paystackCustomerId  String?
+  paystackSubCode     String?
+  subscriptionTier    String   @default("STARTER") // STARTER, GROWTH, ENTERPRISE
+  subscriptionStatus  String   @default("active")  // active, past_due, trialing
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  members             Member[]
+  invitations         Invitation[]
+  apiKeys             ApiKey[]
+  properties          Property[]
+  leases              Lease[]
+  rentPayments        RentPayment[]
+  maintenanceExpenses MaintenanceExpense[]
+  landlordStatements  LandlordStatement[]
+  arrearsReminders    RentArrearsReminder[]
+  transactions        Transaction[]
+  inquiries           Inquiry[]
+  visits              PropertyVisit[]
+  auditLogs           AuditLog[]
+  aiUsageLogs         AiUsageLog[]
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("member")
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String
+  role           String       @default("member")
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  name           String
+  key            String       @unique
+  status         String       @default("active") // "active" | "revoked"
+  permissions    String[]     @default(["read:properties", "write:inquiries"])
+  lastUsedAt     DateTime?
+  userId         String
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("api_key")
+}
+
+// -----------------------------------------------------------------------------
+// 2. Core Real Estate Domain Models
+// -----------------------------------------------------------------------------
+
+enum Currency {
+  ZMW
+  USD
+  ZAR
+}
+
+enum OwnershipType {
+  COMPANY_OWNED
+  MANAGED_ON_BEHALF
+}
+
+enum PropertyType {
+  STANDALONE_HOUSE
+  APARTMENT
+  COMMERCIAL_OFFICE
+  WAREHOUSE
+  VACANT_LAND_PLOT
+  FARM_AGRICULTURAL
+}
+
+enum ListingType {
+  FOR_SALE
+  FOR_RENT
+  BOTH
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  UNDER_OFFER
+  SOLD
+  RENTED
+  MAINTENANCE_HOLD
+  DRAFT
+  ARCHIVED
+}
+
+model Property {
+  id                  String         @id @default(cuid())
+  organizationId      String
+  title               String
+  slug                String
+  ownershipType       OwnershipType  @default(MANAGED_ON_BEHALF)
+  propertyType        PropertyType   @default(STANDALONE_HOUSE)
+  listingType         ListingType    @default(FOR_SALE)
+  status              PropertyStatus @default(AVAILABLE)
+
+  // Pricing
+  askingPrice         Decimal?       @db.Decimal(14, 2)
+  rentalPrice         Decimal?       @db.Decimal(14, 2)
+  currency            Currency       @default(ZMW)
+  agencyCommissionPct Decimal        @default(5.0) @db.Decimal(5, 2) // e.g. 5% for sale, 10% for rent
+
+  // Physical Specs
+  bedrooms            Int?
+  bathrooms           Decimal?       @db.Decimal(3, 1)
+  plotSizeSqm         Decimal?       @db.Decimal(12, 2)
+  description         String         @db.Text
+  photos              String[]       @default([])
+  featuredPhoto       String?
+
+  // Geospatial & Landmarks (Crucial for Lusaka/Southern Africa)
+  suburb              String         // e.g. "Kabulonga", "Leopards Hill", "Woodlands"
+  city                String         @default("Lusaka")
+  latitude            Float?
+  longitude           Float?
+  landmarkDirections  String?        @db.Text // e.g. "150m off Leopards Hill Rd opposite AIS"
+
+  // Sensitive Landlord Info (Restricted by RBAC & Seams)
+  ownerName           String?
+  ownerPhone          String?
+  ownerEmail          String?
+  ownerBankDetails    String?        @db.Text
+  titleDeedNumber     String?
+
+  // Assignments & Metadata
+  assignedAgentId     String?
+  createdById         String
+  embedding           Unsupported("vector(1536)")?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedAgent       User?          @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  createdBy           User           @relation("CreatedProperties", fields: [createdById], references: [id])
+  leases              Lease[]
+  maintenanceExpenses MaintenanceExpense[]
+  transactions        Transaction[]
+  visits              PropertyVisit[]
+  landlordStatements  LandlordStatement[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@index([organizationId, listingType])
+  @@index([organizationId, suburb])
+  @@map("property")
+}
+
+// -----------------------------------------------------------------------------
+// 3. Rental Management, Leases, Payments & Maintenance
+// -----------------------------------------------------------------------------
+
+enum LeaseStatus {
+  ACTIVE
+  EXPIRING_SOON
+  TERMINATED
+  IN_ARREARS
+}
+
+model Lease {
+  id                   String       @id @default(cuid())
+  organizationId       String
+  propertyId           String
+  tenantName           String
+  tenantPhone          String
+  tenantEmail          String?
+  tenantIdNumber       String?      // NRC or Passport Number
+  monthlyRent          Decimal      @db.Decimal(12, 2)
+  currency             Currency     @default(ZMW)
+  depositAmount        Decimal      @db.Decimal(12, 2)
+  managementFeePercent Decimal      @default(10.0) @db.Decimal(5, 2) // Standard 10% property management fee
+  leaseStartDate       DateTime
+  leaseEndDate         DateTime
+  paymentDayOfMonth    Int          @default(1)
+  status               LeaseStatus  @default(ACTIVE)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property             Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  payments             RentPayment[]
+  reminders            RentArrearsReminder[]
+
+  @@index([organizationId, status])
+  @@index([propertyId])
+  @@map("lease")
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  MOBILE_MONEY_AIRTEL
+  MOBILE_MONEY_MTN
+  CASH
+  CHEQUE
+}
+
+enum PaymentStatus {
+  CONFIRMED
+  PENDING_VERIFICATION
+  BOUNCED
+}
+
+model RentPayment {
+  id              String        @id @default(cuid())
+  organizationId  String
+  leaseId         String
+  amountPaid      Decimal       @db.Decimal(12, 2)
+  currency        Currency      @default(ZMW)
+  periodMonth     Int           // 1 to 12
+  periodYear      Int           // e.g. 2026
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod @default(BANK_TRANSFER)
+  referenceNumber String?
+  receiptNumber   String        @unique
+  idempotencyKey  String?       @unique
+  status          PaymentStatus @default(CONFIRMED)
+  reconciledVia   String        @default("MANUAL") // "MANUAL", "MOMO_WEBHOOK", "BANK_OCR"
+  rawPayload      String?       @db.Text
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lease           Lease         @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, periodYear, periodMonth])
+  @@map("rent_payment")
+}
+
+enum ExpenseStatus {
+  DRAFT
+  APPROVED
+  PAID
+  REJECTED
+}
+
+model MaintenanceExpense {
+  id                  String        @id @default(cuid())
+  organizationId      String
+  propertyId          String
+  description         String
+  vendorName          String?
+  amount              Decimal       @db.Decimal(12, 2)
+  currency            Currency      @default(ZMW)
+  receiptPhotoUrl     String?
+  status              ExpenseStatus @default(APPROVED)
+  periodMonth         Int           // When this is deducted from landlord rent
+  periodYear          Int
+  createdAt           DateTime      @default(now())
+
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property            Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, propertyId, periodYear, periodMonth])
+  @@map("maintenance_expense")
+}
+
+enum StatementStatus {
+  DRAFT
+  APPROVED_BY_MANAGER
+  SENT_TO_LANDLORD
+  PAID_OUT
+}
+
+model LandlordStatement {
+  id                   String          @id @default(cuid())
+  organizationId       String
+  propertyId           String
+  landlordName         String
+  statementMonth       Int
+  statementYear        Int
+  grossRentCollected   Decimal         @db.Decimal(12, 2)
+  agencyFeeDeducted    Decimal         @db.Decimal(12, 2)
+  maintenanceDeducted  Decimal         @default(0.0) @db.Decimal(12, 2)
+  netLandlordPayout    Decimal         @db.Decimal(12, 2)
+  currency             Currency        @default(ZMW)
+  pdfUrl               String?
+  status               StatementStatus @default(DRAFT)
+  approvedById         String?
+  approvedAt           DateTime?
+  sentAt               DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property             Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  approvedBy           User?           @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([organizationId, statementYear, statementMonth])
+  @@map("landlord_statement")
+}
+
+model RentArrearsReminder {
+  id             String       @id @default(cuid())
+  organizationId String
+  leaseId        String
+  tier           Int          // 1 (Friendly), 2 (Urgent), 3 (Manager Escalation)
+  channel        String       @default("WHATSAPP") // "WHATSAPP", "SMS", "EMAIL"
+  recipientPhone String
+  idempotencyKey String       @unique // e.g. "arrears-lease123-2026-8-tier1"
+  status         String       @default("SENT") // "SENT", "DELIVERED", "FAILED"
+  sentAt         DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lease          Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, leaseId])
+  @@map("rent_arrears_reminder")
+}
+
+// -----------------------------------------------------------------------------
+// 4. Commission Splits & Transactions
+// -----------------------------------------------------------------------------
+
+enum TransactionType {
+  PROPERTY_SALE
+  RENTAL_PLACEMENT
+}
+
+enum CommissionStatus {
+  EXPECTED
+  EARNED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  AGENT_PAID_OUT
+}
+
+model Transaction {
+  id                     String           @id @default(cuid())
+  organizationId         String
+  propertyId             String
+  transactionType        TransactionType  @default(PROPERTY_SALE)
+  grossValue             Decimal          @db.Decimal(14, 2) // Total sale/lease value
+  currency               Currency         @default(ZMW)
+  agencyCommissionPct    Decimal          @db.Decimal(5, 2)  // e.g. 5%
+  agencyCommissionAmount Decimal          @db.Decimal(12, 2) // e.g. K100,000
+  agentSplitPct          Decimal          @default(50.0) @db.Decimal(5, 2) // e.g. 50% to closing agent
+  agentSplitAmount       Decimal          @db.Decimal(12, 2) // e.g. K50,000
+  status                 CommissionStatus @default(EXPECTED)
+  closingAgentId         String
+  closedAt               DateTime?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property               Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  closingAgent           User             @relation("ClosingAgent", fields: [closingAgentId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("transaction")
+}
+
+// -----------------------------------------------------------------------------
+// 5. CRM Inquiries & Field Visits
+// -----------------------------------------------------------------------------
+
+enum InquiryStatus {
+  NEW_INQUIRY
+  CONTACTED
+  VIEWING_SCHEDULED
+  NEGOTIATING
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model Inquiry {
+  id                     String        @id @default(cuid())
+  organizationId         String
+  clientName             String
+  clientPhone            String
+  clientEmail            String?
+  lookingFor             ListingType   @default(FOR_SALE)
+  propertyType           PropertyType?
+  budgetMin              Decimal?      @db.Decimal(12, 2)
+  budgetMax              Decimal?      @db.Decimal(12, 2)
+  currency               Currency      @default(ZMW)
+  preferredSuburbs       String[]      @default([])
+  notes                  String?       @db.Text
+  status                 InquiryStatus @default(NEW_INQUIRY)
+  assignedAgentId        String?
+  exclusiveLockExpiresAt DateTime?     // 30-day anti-poaching lock
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedAgent          User?         @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
+  visits                 PropertyVisit[]
+
+  @@index([organizationId, status])
+  @@map("inquiry")
+}
+
+enum VisitStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model PropertyVisit {
+  id             String      @id @default(cuid())
+  organizationId String
+  propertyId     String
+  inquiryId      String
+  agentId        String
+  scheduledAt    DateTime
+  status         VisitStatus @default(SCHEDULED)
+  clientFeedback String?     @db.Text
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  inquiry        Inquiry      @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  agent          User         @relation(fields: [agentId], references: [id])
+
+  @@index([organizationId, scheduledAt])
+  @@map("property_visit")
+}
+
+// -----------------------------------------------------------------------------
+// 6. Security, POPIA Audit & Token Telemetry
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String       // e.g. "VIEW_LANDLORD_BANK_DETAILS", "EXPORT_TENANT_DATA", "AUTHORIZE_REMITTANCE"
+  entityType     String       // "Property", "Lease", "LandlordStatement"
+  entityId       String?
+  details        Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_log")
+}
+
+model AiUsageLog {
+  id               String       @id @default(cuid())
+  organizationId   String
+  userId           String?
+  agentType        String       // "WHATSAPP_LISTING_INGESTION", "MATCHMAKER", "ARREARS_SENTRY"
+  promptTokens     Int
+  completionTokens Int
+  totalTokens      Int
+  estimatedCostZar Decimal      @db.Decimal(8, 4)
+  createdAt        DateTime     @default(now())
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("ai_usage_log")
+}
+```

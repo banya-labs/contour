@@ -1,50 +1,47 @@
-# Contour Analytics Engine
+# Contour — Real Estate Operations & Field Agent Operating System
 
-Contour is an offline-first real estate CRM and operating system for Zambia, built as a shared web + desktop TypeScript monorepo.
+> **"The Real Estate Operating System for Lusaka & Southern Africa."**  
+> A high-performance, multi-tenant vertical SaaS venture by **Banya Labs**.
 
-## Stack
+---
 
-- Web: Next.js 16
-- Desktop: Electron
-- Auth: Clerk
-- Database: Neon Postgres with Prisma 7
-- Shared packages: brand, auth policy, db config
+## 🏛️ Key Capabilities
 
-## Local Setup
+- **Interactive Geospatial Lusaka Map**: Leaflet GPS map with color-coded pins (🔴 Sale, 🟡 Rent, 🟢 Sold, 🔵 Rented), popups, and synchronized bottom card carousel.
+- **Contour AI Broker Copilot (Dify Connected)**: Grounded natural language property search, 5% revenue explanations, arrears tracking, and smart WhatsApp alerts.
+- **True 5% Agency Revenue Calculation**: Explicitly separates gross inventory value from actual earned brokerage commission revenue and 50% agent splits.
+- **Daily Action Queue**: Proactive operational tasks (WhatsApp arrears reminders, client dialer nudges, DocuSign statement sign-offs, Ministry folio lookups).
+- **5-Stage Deal Pipeline Kanban**: Tracks deals from inquiry through viewing, negotiation, offer, and closing with average velocity metrics.
+- **Self-Hosted MinIO S3 Object Storage**: High-performance presigned URL binary storage for property photography, Certificates of Title, NRC ID scans, and cadastral survey plans.
+- **Landlord Remittance Engine with DocuSign Seam**: Automated `Gross Rent` − `10% Fee` − `Audited Maintenance` = `Net Remittance` formula with non-negotiable human manager approval.
+- **Client CRM with 30-Day Anti-Poaching Lock**: Prevents internal deal poaching by exclusively binding clients to closing agents.
+- **Field Agent Mobile PWA (`/kiosk`)**: 1-Click WhatsApp flyer generator with masked landlord PII for Lusaka field agents on the move.
+- **Machine & MCP Control Plane (`/api/mcp`)**: JSON-RPC 2.0 endpoint with user-scoped token management and 1-click compromise revocation.
 
-1. Copy `.env.example` to `.env.local` and fill in your Clerk and Neon values.
-2. Install dependencies with `npm install`.
-3. Start the web app with `npm run dev:web`.
-4. Start the desktop shell with `npm run dev:desktop`.
+---
 
-The web app also loads `.env.local` and `.env.development.local` from the repo root, so keep the real Clerk and Neon files there during development.
+## 🛠️ Tech Stack
 
-## Useful Scripts
+- **Framework**: Next.js 15 (App Router), TypeScript (Strict Mode)
+- **Design System**: Warm Paper (`#fdfbfa`), Ink Charcoal (`#27251e`), Burgundy (`#8b1e1e`), TailwindCSS
+- **Database**: PostgreSQL with `pgvector` (Prisma ORM)
+- **Object Storage**: **Self-Hosted MinIO (S3-Compatible)**
+- **Authentication**: Better Auth (Multi-tenancy & API Key plugins)
+- **Payments**: Paystack (ZMW, USD, ZAR)
+- **AI Backend**: Dify Agent Runtime
+- **Testing**: Playwright End-to-End Test Suite
 
-- `npm run dev:web`
-- `npm run dev:desktop`
-- `npm run build:web`
-- `npm run build:desktop`
-- `npm run seed:db`
-- `npm run typecheck`
-- `npm run typecheck:desktop`
+---
 
-## Database
+## 🚀 Quick Start
 
-- Prisma schema: `packages/db/prisma/schema.prisma`
-- Prisma config: `packages/db/prisma.config.ts`
-- Regenerate the client from `packages/db` with `npx prisma generate`
-- Seed demo CRM data with `npm run seed:db`
+```bash
+# Clone & install
+pnpm install
 
-## Environment Variables
+# Run dev server
+pnpm dev
 
-- Clerk: `CONTOUR_AUTH_CLERK_SECRET_KEY`, `NEXT_PUBLIC_CONTOUR_AUTH_CLERK_PUBLISHABLE_KEY`
-- Neon pooled app URL: `CONTOUR_DATABASE_URL`
-- Neon direct URL for Prisma CLI: `CONTOUR_DATABASE_URL_UNPOOLED` or `CONTOUR_POSTGRES_URL_NON_POOLING`
-- Vercel Blob write token for property uploads: `BLOB_READ_WRITE_TOKEN`
-- Web shell URL for desktop: `CONTOUR_WEB_URL` (defaults to `http://localhost:3000`)
-
-## Notes
-
-- The shell currently falls back to guest mode when Clerk env vars are not configured.
-- The canonical product and UX docs live in `doc/`.
+# Build production bundle
+pnpm build
+```

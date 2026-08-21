@@ -1,0 +1,262 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Contour Real Estate OS Dify Agent Tools",
+    "description": "Multi-Tenant Tool Grid connecting Dify to Neon PostgreSQL database and MinIO S3 Object Storage for Contour Real Estate OS.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://contour.banyalabs.com",
+      "description": "Production Dokploy Container"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Contour Org-Scoped API Key from ApiKey table or DIFY_TOOL_SECRET"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/api/dify/tools/properties": {
+      "post": {
+        "operationId": "search_properties",
+        "summary": "Search Properties in Neon PostgreSQL",
+        "description": "Searches active Lusaka property listings in Neon PostgreSQL strictly scoped to the authenticated tenant organization.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organization_id": {
+                    "type": "string",
+                    "description": "The active tenant organization ID (e.g. org_demo_contour)"
+                  },
+                  "query": {
+                    "type": "string",
+                    "description": "Keyword search across title, description, or landmark directions"
+                  },
+                  "suburb": {
+                    "type": "string",
+                    "description": "Lusaka suburb filter (e.g. Kabulonga, Woodlands, Leopards Hill, Roma, Sunningdale)"
+                  },
+                  "listingType": {
+                    "type": "string",
+                    "enum": ["FOR_SALE", "FOR_RENT", "BOTH"],
+                    "description": "Listing type: FOR_SALE or FOR_RENT"
+                  },
+                  "propertyType": {
+                    "type": "string",
+                    "description": "STANDALONE_HOUSE, APARTMENT, COMMERCIAL_OFFICE, WAREHOUSE, VACANT_LAND_PLOT"
+                  },
+                  "minPrice": {
+                    "type": "number",
+                    "description": "Minimum asking or rental price in tenant currency"
+                  },
+                  "maxPrice": {
+                    "type": "number",
+                    "description": "Maximum asking or rental price in tenant currency"
+                  },
+                  "bedrooms": {
+                    "type": "integer",
+                    "description": "Minimum number of bedrooms"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Maximum number of records to return"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching property listings belonging strictly to the organization"
+          }
+        }
+      }
+    },
+    "/api/dify/tools/arrears": {
+      "post": {
+        "operationId": "get_rental_arrears",
+        "summary": "Retrieve Rent Arrears in Neon PostgreSQL",
+        "description": "Returns all tenants with overdue rent balances, days elapsed, and WhatsApp reminder recommendations for the authenticated tenant.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organization_id": {
+                    "type": "string",
+                    "description": "The active tenant organization ID"
+                  },
+                  "minDaysOverdue": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Filter tenants overdue by at least N days"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List of active rental arrears and calculated overdue balances"
+          }
+        }
+      }
+    },
+    "/api/dify/tools/commission": {
+      "post": {
+        "operationId": "get_revenue_commission",
+        "summary": "Calculate Agency Commissions & Deal Splits",
+        "description": "Aggregates earned 5% agency commissions, gross closed sales volume, and 50% agent splits for the active tenant organization.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organization_id": {
+                    "type": "string",
+                    "description": "The active tenant organization ID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revenue, commission earnings, and pipeline calculations"
+          }
+        }
+      }
+    },
+    "/api/dify/tools/documents": {
+      "post": {
+        "operationId": "get_property_documents",
+        "summary": "Fetch Legal Documents from MinIO S3 Vault",
+        "description": "Retrieves confidential legal documents (Certificates of Title, Ministry Site Surveys, Leases) with 15-minute POPIA presigned download URLs strictly isolated to the tenant's S3 folder.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organization_id": {
+                    "type": "string",
+                    "description": "The active tenant organization ID"
+                  },
+                  "propertyId": {
+                    "type": "string",
+                    "description": "Optional Property ID to fetch specific title deeds or diagrams"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": ["TITLE_DEED", "SITE_SURVEY_DIAGRAM", "LEASE_CONTRACT", "NRC_PASSPORT_ID", "MANDATE_AGREEMENT"],
+                    "description": "Document category filter"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document records with active 15-minute MinIO presigned download URLs"
+          }
+        }
+      }
+    },
+    "/api/dify/tools/inquiries": {
+      "post": {
+        "operationId": "create_inquiry_or_lead",
+        "summary": "Record CRM Buyer Lead with 30-Day Anti-Poaching Lock",
+        "description": "Registers a new prospective buyer/tenant inquiry from conversational intake into Neon PostgreSQL with a 30-day anti-poaching lock.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["clientName", "clientPhone"],
+                "properties": {
+                  "organization_id": {
+                    "type": "string",
+                    "description": "The active tenant organization ID"
+                  },
+                  "clientName": {
+                    "type": "string",
+                    "description": "Client full name"
+                  },
+                  "clientPhone": {
+                    "type": "string",
+                    "description": "Client phone number (e.g. +260977123456)"
+                  },
+                  "clientEmail": {
+                    "type": "string",
+                    "description": "Client email address"
+                  },
+                  "lookingFor": {
+                    "type": "string",
+                    "enum": ["FOR_SALE", "FOR_RENT"],
+                    "default": "FOR_SALE"
+                  },
+                  "propertyType": {
+                    "type": "string",
+                    "description": "STANDALONE_HOUSE, APARTMENT, COMMERCIAL_OFFICE, WAREHOUSE, VACANT_LAND_PLOT"
+                  },
+                  "budgetMax": {
+                    "type": "number",
+                    "description": "Maximum buyer budget"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": ["ZMW", "USD", "ZAR"],
+                    "default": "ZMW"
+                  },
+                  "preferredSuburbs": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Target suburbs (e.g. ['Kabulonga', 'Woodlands'])"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "Specific buyer requirements or conversational context"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created inquiry record with anti-poaching lock expiration timestamp"
+          }
+        }
+      }
+    }
+  }
+}

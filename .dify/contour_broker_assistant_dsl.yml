@@ -1,0 +1,135 @@
+app:
+  description: 'Contour AI Broker Assistant — Intelligent Real Estate Copilot connected to Neon PostgreSQL and MinIO S3 Object Storage via MCP.'
+  icon: 🏢
+  icon_background: '#F5F0E8'
+  mode: agent-chat
+  name: Contour AI Broker Assistant
+  use_icon_as_answer_icon: true
+kind: app
+model_config:
+  agent_mode:
+    enabled: true
+    max_iteration: 5
+    strategy: function_call
+    tools:
+      - enabled: true
+        provider_id: contour-mcp
+        provider_name: contour
+        provider_type: mcp
+        tool_name: search_properties
+      - enabled: true
+        provider_id: contour-mcp
+        provider_name: contour
+        provider_type: mcp
+        tool_name: get_rental_arrears
+      - enabled: true
+        provider_id: contour-mcp
+        provider_name: contour
+        provider_type: mcp
+        tool_name: get_revenue_commission
+      - enabled: true
+        provider_id: contour-mcp
+        provider_name: contour
+        provider_type: mcp
+        tool_name: get_property_documents
+      - enabled: true
+        provider_id: contour-mcp
+        provider_name: contour
+        provider_type: mcp
+        tool_name: create_inquiry_or_lead
+  annotation_reply:
+    enabled: false
+  chat_prompt_config: {}
+  completion_prompt_config: {}
+  dataset_configs:
+    datasets:
+      datasets: []
+    reranking_enable: false
+    retrieval_model: multiple
+    top_k: 4
+  dataset_query_variable: ''
+  external_data_tools: []
+  file_upload:
+    allowed_file_extensions:
+      - .pdf
+      - .png
+      - .jpg
+      - .jpeg
+    allowed_file_types:
+      - document
+      - image
+    allowed_file_upload_methods:
+      - remote_url
+      - local_file
+    enabled: true
+    image:
+      detail: high
+      enabled: true
+      number_limits: 3
+      transfer_methods:
+        - remote_url
+        - local_file
+    number_limits: 3
+  model:
+    completion_params:
+      temperature: 0.2
+      top_p: 0.85
+    mode: chat
+    name: openrouter/auto
+    provider: openrouter
+  more_like_this:
+    enabled: false
+  opening_statement: "Hello! I am your **Contour AI Copilot**, connected directly to your Neon PostgreSQL database and MinIO S3 Document Vault.\n\nI can help you search available properties across Lusaka, calculate 5% agency commissions, monitor rental arrears, fetch time-limited Title Deeds, and capture buyer leads with 30-day anti-poaching locks.\n\nHow can I assist your brokerage today?"
+  pre_prompt: |
+    # IDENTITY & DOMAIN MANDATE
+    You are the Contour AI Broker Assistant, the operations copilot for Contour Real Estate OS in Lusaka, Zambia. Connected to Neon PostgreSQL and MinIO S3 via MCP.
+
+    # MULTI-TENANT ISOLATION RULES
+    1. Every tool call MUST pass the tenant's organization_id.
+    2. NEVER access or summarize data from other organizations or tenants.
+
+    # CORE CAPABILITIES & TOOLS
+    - search_properties: Query active inventory by suburb, price, bedrooms, and listing type (Sale vs. Rent).
+    - get_rental_arrears: Check tenants with overdue balances, days past due, and recommend WhatsApp reminders.
+    - get_revenue_commission: Compute gross sales volume, earned 5% agency commission, and 50% closing splits.
+    - get_property_documents: Retrieve Certificates of Title, survey diagrams, and leases with 15-minute POPIA presigned download URLs.
+    - create_inquiry_or_lead: Ingest prospective buyer/tenant criteria into Neon PostgreSQL with a 30-Day Anti-Poaching Lock.
+
+    # DOMAIN CONVENTIONS
+    - Currencies: Dual currency environment — Zambian Kwacha (ZMW / K) and US Dollars (USD / $).
+    - Commission: 5.0% on sales, 10.0% on rental management. Closing agent receives 50% split.
+    - Documents: 15-minute POPIA presigned download URLs for legal custody.
+
+    # TONE & STYLE
+    - Professional, commercially sharp, concise.
+    - Use bold bullet points and clear formatting.
+  prompt_type: simple
+  retriever_resource:
+    enabled: true
+  sensitive_word_avoidance:
+    configs: []
+    enabled: false
+    type: ''
+  speech_to_text:
+    enabled: true
+  suggested_questions:
+    - "Find 4-bedroom houses in Kabulonga under K4M"
+    - "Show our earned 5% agency commission revenue"
+    - "Check active rental arrears across Woodlands"
+    - "Fetch Title Deed custody status for active listings"
+  suggested_questions_after_answer:
+    enabled: true
+  text_to_speech:
+    enabled: false
+  user_input_form:
+    - text-input:
+        default: ''
+        label: Organization ID
+        required: true
+        variable: organization_id
+    - text-input:
+        default: 'FIELD_AGENT'
+        label: User Role
+        required: false
+        variable: user_role
+version: 0.1.5

@@ -1,0 +1,270 @@
+{
+  "total": 33,
+  "passed": 32,
+  "failed": 1,
+  "passRate": 97,
+  "assertions": [
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 320px (Ultra-narrow Mobile)",
+      "passed": true,
+      "details": "docWidth: 320px vs winWidth: 320px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 320,
+        "winWidth": 320,
+        "bodyWidth": 320,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 320px (Ultra-narrow Mobile)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 375px (iPhone SE)",
+      "passed": true,
+      "details": "docWidth: 375px vs winWidth: 375px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 375,
+        "winWidth": 375,
+        "bodyWidth": 375,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 375px (iPhone SE)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 390px (iPhone 14 / Modern Standard)",
+      "passed": true,
+      "details": "docWidth: 390px vs winWidth: 390px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 390,
+        "winWidth": 390,
+        "bodyWidth": 390,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 390px (iPhone 14 / Modern Standard)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 414px (Large Mobile / Plus)",
+      "passed": true,
+      "details": "docWidth: 414px vs winWidth: 414px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 414,
+        "winWidth": 414,
+        "bodyWidth": 414,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 414px (Large Mobile / Plus)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 768px (iPad / Tablet Portrait)",
+      "passed": true,
+      "details": "docWidth: 768px vs winWidth: 768px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 768,
+        "winWidth": 768,
+        "bodyWidth": 768,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 768px (iPad / Tablet Portrait)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 1024px (Tablet Landscape / Small Laptop)",
+      "passed": true,
+      "details": "docWidth: 1024px vs winWidth: 1024px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 1024,
+        "winWidth": 1024,
+        "bodyWidth": 1024,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 1024px (Tablet Landscape / Small Laptop)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 1440px (Desktop Workstation)",
+      "passed": true,
+      "details": "docWidth: 1440px vs winWidth: 1440px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 1440,
+        "winWidth": 1440,
+        "bodyWidth": 1440,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 1440px (Desktop Workstation)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "Zero Horizontal Overflow @ 1920px (Full HD Ultra-wide)",
+      "passed": true,
+      "details": "docWidth: 1920px vs winWidth: 1920px. Offending elements: 0",
+      "metrics": {
+        "docWidth": 1920,
+        "winWidth": 1920,
+        "bodyWidth": 1920,
+        "isOverflowing": false,
+        "offendingCount": 0,
+        "offendingSample": []
+      }
+    },
+    {
+      "category": "RESPONSIVE",
+      "testName": "H1 Header Legibility @ 1920px (Full HD Ultra-wide)",
+      "passed": true,
+      "details": "H1 present and visible in DOM"
+    },
+    {
+      "category": "CALCULATOR-BOUNDS",
+      "testName": "Extreme Minimum Values (ZMW: 1 mandate, K500k, 3% comm, 5% leak)",
+      "passed": true,
+      "details": "DOM reflects K 7,650 recovered revenue. No NaN/Infinity: true"
+    },
+    {
+      "category": "CALCULATOR-BOUNDS",
+      "testName": "Extreme Maximum Values (ZMW: 50 mandates, K15M, 7% comm, 30% leak)",
+      "passed": true,
+      "details": "DOM reflects K 160,650,000 recovered revenue. No NaN/Infinity: true"
+    },
+    {
+      "category": "CALCULATOR-BOUNDS",
+      "testName": "USD Minimum Bounds ($25k price, 1 mandate)",
+      "passed": false,
+      "details": "DOM contains $ 383 (or $ 382.50 rounded). Text verified."
+    },
+    {
+      "category": "CALCULATOR-BOUNDS",
+      "testName": "USD Maximum Bounds ($1M price, 50 mandates)",
+      "passed": true,
+      "details": "DOM contains $ 10,710,000 annual recovered revenue."
+    },
+    {
+      "category": "CALCULATOR-STRESS",
+      "testName": "Rapid Jitter Stability (20 rapid random slider events)",
+      "passed": true,
+      "details": "No DOM crash, no calculation error, no NaN produced during high-speed slider jitter"
+    },
+    {
+      "category": "INTERACTIVE-STATE",
+      "testName": "WhatsApp Flyer Copy Button State Transition",
+      "passed": true,
+      "details": "Button transitioned to 'Copied to Clipboard!' state"
+    },
+    {
+      "category": "INTERACTIVE-STATE",
+      "testName": "WhatsApp Flyer Copy Button Auto-Reversion",
+      "passed": true,
+      "details": "Button cleanly reverted to original state after 2.5s timeout"
+    },
+    {
+      "category": "INTERACTIVE-STATE",
+      "testName": "POPIA FAQ Accordion Multi-Item Expansion",
+      "passed": true,
+      "details": "FAQ 2 expanded: true, FAQ 3 expanded: true"
+    },
+    {
+      "category": "INTERACTIVE-STATE",
+      "testName": "POPIA FAQ Accordion Collapse Action",
+      "passed": true,
+      "details": "FAQ 2 closed cleanly on second click"
+    },
+    {
+      "category": "INTERACTIVE-STATE",
+      "testName": "Map Preview All 5 Suburb Spotlight Transitions",
+      "passed": true,
+      "details": "Clicked all 5 Lusaka suburbs and verified spotlight DOM synchronization"
+    },
+    {
+      "category": "INTERACTIVE-STATE",
+      "testName": "Pricing Matrix Billing & Currency Interactivity",
+      "passed": true,
+      "details": "Annual 20% discount and USD price calculation ($39/mo Starter, $99/mo Growth) verified"
+    },
+    {
+      "category": "NAVIGATION",
+      "testName": "Surface Route Link Present: Fast Dev Login",
+      "passed": true,
+      "details": "Selector 'a[href='/login']' found in landing page markup"
+    },
+    {
+      "category": "NAVIGATION",
+      "testName": "Surface Route Link Present: Live Map Demo",
+      "passed": true,
+      "details": "Selector 'a[href='/dashboard/map']' found in landing page markup"
+    },
+    {
+      "category": "NAVIGATION",
+      "testName": "Surface Route Link Present: Open Dashboard",
+      "passed": true,
+      "details": "Selector 'a[href='/dashboard']' found in landing page markup"
+    },
+    {
+      "category": "NAVIGATION",
+      "testName": "Surface Route Link Present: Field PWA Kiosk",
+      "passed": true,
+      "details": "Selector 'a[href='/kiosk']' found in landing page markup"
+    },
+    {
+      "category": "NAVIGATION",
+      "testName": "Surface Route Link Present: Public Shareable Card",
+      "passed": true,
+      "details": "Selector 'a[href='/p/executive-4-bed-kabulonga']' found in landing page markup"
+    },
+    {
+      "category": "NAVIGATION",
+      "testName": "Surface Route Link Present: Admin MCP Hub",
+      "passed": true,
+      "details": "Selector 'a[href='/admin/mcp']' found in landing page markup"
+    }
+  ]
+}
