@@ -36,7 +36,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
 
       // Dev Mode Super Admin Bypass
       if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        organizationId = "org_demo_contour";
+        organizationId = "org_contour_demo";
         userId = "user_demo_superadmin";
         userRole = "SUPER_ADMIN";
         session = {
@@ -51,9 +51,13 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         }
         if (session) {
           userId = session.user.id;
-          organizationId = session.session?.organizationId || session.user.organizationId;
+          organizationId = session.session?.organizationId || session.user.organizationId || "org_contour_demo";
           userRole = session.user.role || "FIELD_AGENT";
         }
+      }
+
+      if (!organizationId || organizationId === "org_demo_contour") {
+        organizationId = "org_contour_demo";
       }
 
       if (options.requireRoles && options.requireRoles.length > 0 && !options.requireRoles.includes(userRole)) {

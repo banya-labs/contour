@@ -6,7 +6,7 @@ const tokenHandler = createApiHandler({
   handler: async (req, ctx) => {
     const { organizationId, userId } = ctx;
 
-    const orgId = organizationId || "org_demo_contour";
+    const orgId = organizationId || "org_contour_demo";
     const sub = userId || "user_demo_superadmin";
     const exp = Math.floor(Date.now() / 1000) + 3600; // 1 hour expiration
 

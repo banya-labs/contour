@@ -117,23 +117,12 @@ export default function DocumentsVaultPage() {
     return matchesSearch && matchesType;
   });
 
-  // ── View / Download: get presigned URL from MinIO via /api/storage/[fileId] ──
-  const handleViewDoc = async (doc: VaultDoc) => {
-    try {
-      const encodedKey = encodeURIComponent(doc.objectKey);
-      const res = await fetch(`/api/storage/${encodedKey}`);
-      const data = await res.json();
-      if (data.success && data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
-      } else {
-        alert(`[POPIA AUDIT LOGGED] Secure access logged for: "${doc.title}". File: ${doc.originalFileName}`);
-      }
-    } catch {
-      alert(`[POPIA AUDIT LOGGED] Access logged for: "${doc.title}"`);
-    }
+  // ── View / Download: stream securely from MinIO via /api/storage/view ──
+  const handleViewDoc = (doc: VaultDoc) => {
+    window.open(`/api/storage/view?key=${encodeURIComponent(doc.objectKey)}`, "_blank", "noopener,noreferrer");
   };
 
-  // ── Two-step upload: presign → PUT to MinIO → POST metadata to Neon ───
+  // ── Direct multipart upload to MinIO & Neon DB ───
   const handleUploadDoc = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
@@ -149,63 +138,30 @@ export default function DocumentsVaultPage() {
     }
 
     setUploading(true);
-    setUploadProgress("presigning");
+    setUploadProgress("uploading");
 
     try {
-      // Step 1: Get presigned PUT URL from our API
-      const ext = selectedFile.name.split(".").pop()?.toUpperCase() || "FILE";
-      const presignRes = await fetch(
-        `/api/storage/upload?filename=${encodeURIComponent(selectedFile.name)}&category=${formData.docType}&organizationId=org_contour_demo&mimeType=${encodeURIComponent(selectedFile.type || "application/octet-stream")}`
-      );
-      const presignData = await presignRes.json();
+      const data = new FormData();
+      data.append("file", selectedFile);
+      data.append("title", formData.title);
+      data.append("docType", formData.docType);
+      data.append("classification", formData.classification);
+      if (formData.propertyId) data.append("propertyId", formData.propertyId);
+      if (formData.registryFolio) data.append("registryFolio", formData.registryFolio);
+      data.append("organizationId", "org_contour_demo");
 
-      if (!presignData.success) {
-        throw new Error(presignData.error || "Failed to get upload URL");
-      }
-
-      const { uploadUrl, objectKey } = presignData;
-
-      // Step 2: PUT the file directly to MinIO (or mock endpoint in dev mode)
-      setUploadProgress("uploading");
-      const putRes = await fetch(uploadUrl, {
-        method: "PUT",
-        body: selectedFile,
-        headers: { "Content-Type": selectedFile.type || "application/octet-stream" },
-      });
-
-      // In dev mode the mock endpoint returns 404/405 — that's OK, objectKey is still valid
-      // We proceed regardless so the Neon record is always saved with the correct objectKey
-      if (!putRes.ok && putRes.status !== 404 && putRes.status !== 405) {
-        console.warn("MinIO PUT returned non-OK status:", putRes.status, "— proceeding with Neon record save");
-      }
-
-      // Step 3: Save metadata to Neon
-      setUploadProgress("saving");
-      const saveRes = await fetch("/api/documents", {
+      const res = await fetch("/api/storage/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formData.title,
-          docType: formData.docType,
-          classification: formData.classification,
-          objectKey,
-          originalFileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          mimeType: selectedFile.type || "application/octet-stream",
-          fileType: ext,
-          propertyId: formData.propertyId || undefined,
-          registryFolio: formData.registryFolio || undefined,
-          uploadedBy: "Grace Banda (Principal Broker)",
-        }),
+        body: data,
       });
 
-      const saveData = await saveRes.json();
-      if (!saveData.success) {
-        throw new Error(saveData.error || "Failed to save document record");
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error || "Failed to upload document");
       }
 
       setUploadProgress("done");
-      setDocuments((prev) => [saveData.document, ...prev]);
+      setDocuments((prev) => [json.document, ...prev]);
       setIsModalOpen(false);
       resetForm();
     } catch (err: any) {

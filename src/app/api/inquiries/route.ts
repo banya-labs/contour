@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       });
     } catch (dbErr: any) {
       if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        organization = { id: "org_demo_contour", name: "Contour Demo Org" };
+        organization = { id: "org_contour_demo", name: "Contour Demo Org" };
       } else {
         throw dbErr;
       }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     if (!organization) {
       if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        organization = { id: parsed.org || "org_demo_contour", name: "Contour Demo Org" };
+        organization = { id: parsed.org || "org_contour_demo", name: "Contour Demo Org" };
       } else {
         return NextResponse.json(
           { success: false, error: "Organization not found." },

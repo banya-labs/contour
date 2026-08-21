@@ -100,7 +100,7 @@ const postHandler = createApiHandler({
 
     const property = await db.property.create({
       data: {
-        organizationId: organizationId || "org_demo_contour",
+        organizationId: organizationId || "org_contour_demo",
         title: body.title,
         slug,
         ownershipType: body.ownershipType,

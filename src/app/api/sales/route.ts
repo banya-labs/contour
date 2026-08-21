@@ -64,7 +64,7 @@ const postHandler = createApiHandler({
 
     const transaction = await db.transaction.create({
       data: {
-        organizationId: organizationId || "org_demo_contour",
+        organizationId: organizationId || "org_contour_demo",
         propertyId: body.propertyId,
         transactionType: "PROPERTY_SALE",
         grossValue: body.grossValue as any,
