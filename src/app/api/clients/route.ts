@@ -35,7 +35,7 @@ const postHandler = createApiHandler({
 
     const client = await db.inquiry.create({
       data: {
-        organizationId: organizationId || "org_demo_contour",
+        organizationId: organizationId || "org_contour_demo",
         clientName: body.clientName,
         clientPhone: body.clientPhone,
         clientEmail: body.clientEmail || undefined,

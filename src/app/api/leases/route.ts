@@ -46,7 +46,7 @@ const postHandler = createApiHandler({
 
     const lease = await db.lease.create({
       data: {
-        organizationId: organizationId || "org_demo_contour",
+        organizationId: organizationId || "org_contour_demo",
         propertyId: body.propertyId,
         tenantName: body.tenantName,
         tenantPhone: body.tenantPhone,

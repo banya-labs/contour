@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const conversationId = body.conversationId || body.conversation_id;
 
     // 1. Resolve Tenant Context from Better Auth Session
-    let organizationId = body.context?.organizationId || "org_demo_contour";
+    let organizationId = body.context?.organizationId || "org_contour_demo";
     let userId = body.context?.userId || "user_demo_broker";
     let userName = body.context?.userName || "Grace Banda";
     let userRole = body.context?.currentRole || body.context?.userRole || "SUPER_ADMIN";
