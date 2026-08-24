@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Sparkles,
   Search,
+  CheckCircle2,
 } from "lucide-react";
 
 interface SuburbData {
@@ -21,6 +22,7 @@ interface SuburbData {
   mandatesCount: number;
   avgPrice: string;
   coordinates: string;
+  elevation: string;
   sampleListing: {
     title: string;
     type: string;
@@ -38,10 +40,11 @@ const SUBURBS: SuburbData[] = [
     mandatesCount: 4,
     avgPrice: "K 3,500,000",
     coordinates: "15°25'17.4\"S 28°20'04.2\"E",
+    elevation: "1,280 m",
     sampleListing: {
       title: "Executive 4-Bed Standalone Residence",
       type: "FOR SALE",
-      price: "K 3,500,000",
+      price: "K 14,500,000",
       stand: "Stand # 8942-A (2,400 m²)",
       landmark: "200m off Kabulonga Road, near Centro Mall",
     },
@@ -53,6 +56,7 @@ const SUBURBS: SuburbData[] = [
     mandatesCount: 3,
     avgPrice: "$ 2,200 / mo",
     coordinates: "15°26'52.8\"S 28°22'51.6\"E",
+    elevation: "1,295 m",
     sampleListing: {
       title: "Modern 3-Bed Townhouse in Gated Estate",
       type: "FOR RENT",
@@ -68,6 +72,7 @@ const SUBURBS: SuburbData[] = [
     mandatesCount: 2,
     avgPrice: "$ 850,000",
     coordinates: "15°22'19.2\"S 28°18'18.0\"E",
+    elevation: "1,285 m",
     sampleListing: {
       title: "5-Acre Commercial Development Plot",
       type: "FOR SALE",
@@ -83,6 +88,7 @@ const SUBURBS: SuburbData[] = [
     mandatesCount: 3,
     avgPrice: "K 18,000 / mo",
     coordinates: "15°26'06.0\"S 28°19'19.2\"E",
+    elevation: "1,275 m",
     sampleListing: {
       title: "Luxury 2-Bedroom Serviced Apartment",
       type: "FOR RENT",
@@ -98,6 +104,7 @@ const SUBURBS: SuburbData[] = [
     mandatesCount: 2,
     avgPrice: "K 35,000 / mo",
     coordinates: "15°23'52.8\"S 28°18'43.2\"E",
+    elevation: "1,288 m",
     sampleListing: {
       title: "Prime 450 m² Commercial Office Floor",
       type: "FOR RENT",
@@ -112,147 +119,170 @@ export function MapDemoPreview() {
   const [selectedSuburb, setSelectedSuburb] = useState<SuburbData>(SUBURBS[0]);
 
   return (
-    <section className="py-20 bg-paper-100 border-b border-border" id="map-preview">
-      <div className="max-w-6xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-paper-200 border border-border text-ink-800 text-xs font-semibold uppercase tracking-wider mb-4">
-            <Compass className="w-3.5 h-3.5 text-contour-red" />
-            Geospatial Cadastral Intelligence
+    <div className="w-full">
+      {/* Map Preview Canvas */}
+      <div className="bg-white rounded-3xl border border-[#E6E0D4] shadow-xl overflow-hidden">
+        
+        {/* Top Geodesic Coordinates Header */}
+        <div className="bg-[#FAF8F5] px-6 py-3.5 border-b border-[#ECE7DE] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono text-stone-700">
+          <div className="flex items-center gap-2">
+            <Navigation className="w-3.5 h-3.5 text-[#C89B3C]" />
+            <span className="font-bold text-[#16382B]">LUSAKA GIS MAPPING CORRIDOR</span>
+            <span className="text-stone-400">|</span>
+            <span>UTM Zone 35S • {selectedSuburb.coordinates}</span>
           </div>
-          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ink-900 tracking-tight">
-            Interactive Property Map & Cadastral Stand Boundaries
-          </h2>
-          <p className="text-sm sm:text-base text-ink-600 mt-3 leading-relaxed">
-            Move beyond static photo lists. Locate properties by cadastral stands, landmark cues, and suburb price dynamics across Greater Lusaka.
-          </p>
+          <div className="flex items-center gap-3 text-stone-500">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Leaflet Tiles Cached Offline
+            </span>
+            <span className="text-[#C89B3C] font-bold">▲ {selectedSuburb.elevation}</span>
+          </div>
         </div>
 
-        {/* Map Preview Canvas */}
-        <div className="bg-white rounded-2xl border border-border shadow-floating overflow-hidden">
-          {/* Top Geodesic Coordinates Header */}
-          <div className="bg-paper-200 px-6 py-3 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono text-ink-700">
-            <div className="flex items-center gap-2">
-              <Navigation className="w-3.5 h-3.5 text-contour-red" />
-              <span className="font-bold">LUSAKA GIS MAPPING CORRIDOR</span>
-              <span className="text-ink-400">|</span>
-              <span>UTM Zone 35S • {selectedSuburb.coordinates}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] text-contour-emerald font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-contour-emerald animate-pulse" />
-                14 Live GPS Stand Pins
-              </span>
-            </div>
-          </div>
+        {/* Interactive Suburb Selector Ribbon */}
+        <div className="p-4 bg-white border-b border-[#ECE7DE] flex items-center gap-2 overflow-x-auto">
+          <span className="text-xs font-bold text-stone-500 uppercase tracking-wider pl-2 pr-1 shrink-0 font-mono">
+            Lusaka Suburbs:
+          </span>
+          {SUBURBS.map((suburb) => {
+            const isSelected = selectedSuburb.id === suburb.id;
+            return (
+              <button
+                key={suburb.id}
+                type="button"
+                onClick={() => setSelectedSuburb(suburb)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-[#16382B] text-white shadow-xs font-bold"
+                    : "bg-[#FAF8F5] border border-[#E6E0D4] text-stone-600 hover:bg-[#F3EFE6]"
+                }`}
+              >
+                <MapPin className={`w-3 h-3 ${isSelected ? "text-[#E8C265]" : "text-stone-400"}`} />
+                <span>{suburb.name}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isSelected ? "bg-white/20 text-white" : "bg-stone-200 text-stone-600"
+                  }`}
+                >
+                  {suburb.mandatesCount}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-          <div className="p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Suburb Selector List */}
-            <div className="lg:col-span-5 space-y-2">
-              <span className="text-xs font-bold text-ink-600 uppercase tracking-wider block mb-2">
-                Prime Lusaka Suburb Hubs
-              </span>
-              <div className="space-y-2">
-                {SUBURBS.map((suburb) => {
-                  const isSelected = selectedSuburb.id === suburb.id;
-                  return (
-                    <button
-                      key={suburb.id}
-                      type="button"
-                      onClick={() => setSelectedSuburb(suburb)}
-                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between ${
-                        isSelected
-                          ? "bg-paper-200 border-contour-red/60 shadow-subtle text-ink-950"
-                          : "bg-white border-border hover:bg-paper-100 text-ink-700"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
-                            isSelected
-                              ? "bg-contour-red text-white"
-                              : "bg-paper-200 text-ink-700"
-                          }`}
-                        >
-                          <MapPin className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-ink-900">{suburb.name}</div>
-                          <div className="text-[11px] text-ink-500">{suburb.category}</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono text-xs font-bold text-ink-900">
-                          {suburb.mandatesCount} Mandates
-                        </div>
-                        <div className="text-[10px] text-ink-400 font-mono">
-                          Avg {suburb.avgPrice}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+        {/* Visual Map Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[420px]">
+          
+          {/* Left: Interactive Simulated Vector Map */}
+          <div className="lg:col-span-7 bg-[#FAF8F5] p-6 relative overflow-hidden flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#ECE7DE]">
+            
+            {/* Topographic Background Simulation */}
+            <div className="absolute inset-0 opacity-40 pointer-events-none">
+              <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="map-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E6E0D4" strokeWidth="1" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#map-grid)" />
+                <path d="M 20 80 Q 200 40 400 120 T 800 160" fill="none" stroke="#16382B" strokeWidth="2" opacity="0.2" />
+                <path d="M 50 200 Q 250 160 500 240 T 900 280" fill="none" stroke="#16382B" strokeWidth="1.5" opacity="0.15" />
+              </svg>
+            </div>
+
+            {/* Suburb Header in Map */}
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="p-3 rounded-2xl bg-white/90 backdrop-blur-md border border-[#E6E0D4] shadow-xs">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#C89B3C] font-bold">
+                  Cadastral Survey Layer
+                </span>
+                <h3 className="font-serif text-lg font-bold text-[#16382B]">
+                  {selectedSuburb.name} District
+                </h3>
+                <p className="text-xs text-stone-500">{selectedSuburb.category}</p>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white/90 backdrop-blur-md border border-[#E6E0D4] text-right font-mono text-xs shadow-xs">
+                <span className="text-stone-400 block text-[9px] uppercase">Benchmark Price</span>
+                <span className="font-bold text-[#16382B]">{selectedSuburb.avgPrice}</span>
               </div>
             </div>
 
-            {/* Spotlight Listing Card for Selected Suburb */}
-            <div className="lg:col-span-7 bg-paper-100 rounded-2xl p-6 sm:p-7 border border-border shadow-card space-y-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-contour-dark text-white text-[10px] font-bold font-mono">
-                    {selectedSuburb.sampleListing.type}
-                  </span>
-                  <span className="text-xs font-bold text-ink-900">{selectedSuburb.name} Spotlight</span>
+            {/* Simulated Geospatial Pins */}
+            <div className="relative z-10 my-8 flex items-center justify-around">
+              <div className="p-3 rounded-2xl bg-white border-2 border-[#16382B] shadow-lg flex items-center gap-2.5 animate-bounce">
+                <div className="w-7 h-7 rounded-xl bg-[#16382B] text-[#E8C265] flex items-center justify-center font-bold text-xs">
+                  <Building className="w-4 h-4" />
                 </div>
-                <span className="text-xs font-mono text-ink-500">
-                  {selectedSuburb.sampleListing.stand}
-                </span>
+                <div>
+                  <p className="text-xs font-bold text-[#16382B]">{selectedSuburb.sampleListing.stand}</p>
+                  <p className="text-[10px] text-emerald-700 font-bold font-mono">100% Title Verified</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Coordinate Bar */}
+            <div className="relative z-10 flex items-center justify-between text-[11px] font-mono text-stone-500">
+              <span>Projection: WGS 84 / UTM 35S</span>
+              <span className="text-emerald-700 font-semibold">✓ Stand Boundaries Verified</span>
+            </div>
+          </div>
+
+          {/* Right: Selected Suburb Cadastral Spec */}
+          <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-6 bg-white">
+            
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#16382B]/10 text-[#16382B] text-[11px] font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-[#C89B3C]" />
+                <span>ACTIVE SURVEY MANDATE</span>
               </div>
 
               <div>
-                <h3 className="font-serif text-xl sm:text-2xl font-bold text-ink-900 leading-snug">
+                <span className="text-xs font-mono font-bold text-[#C89B3C] uppercase">
+                  {selectedSuburb.sampleListing.type}
+                </span>
+                <h4 className="font-serif text-xl sm:text-2xl font-bold text-[#16382B] leading-snug">
                   {selectedSuburb.sampleListing.title}
-                </h3>
-                <div className="flex items-center gap-1.5 text-xs text-ink-700 mt-2">
-                  <MapPin className="w-3.5 h-3.5 text-contour-red shrink-0" />
-                  <span>{selectedSuburb.sampleListing.landmark}</span>
-                </div>
+                </h4>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-ink-400 block">Asking / Guide Price</span>
-                  <span className="font-mono text-2xl font-bold text-contour-red">
-                    {selectedSuburb.sampleListing.price}
-                  </span>
+              <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#ECE7DE] space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Cadastral Stand:</span>
+                  <span className="font-bold text-[#16382B] font-mono">{selectedSuburb.sampleListing.stand}</span>
                 </div>
-
-                <Link
-                  href="/dashboard/map"
-                  className="px-5 py-2.5 rounded-full bg-contour-red hover:bg-contour-red/90 text-white text-xs font-semibold transition-all shadow-subtle flex items-center justify-center gap-2"
-                >
-                  <span>Explore on Full Map</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Landmark Directions:</span>
+                  <span className="font-medium text-stone-800 text-right max-w-[200px]">{selectedSuburb.sampleListing.landmark}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-[#EAE5DB]">
+                  <span className="text-stone-500">Asking Value:</span>
+                  <span className="font-bold text-base text-emerald-700 font-mono">{selectedSuburb.sampleListing.price}</span>
+                </div>
               </div>
             </div>
+
+            {/* Open Full Live Map CTA */}
+            <div className="space-y-2">
+              <Link
+                href="/dashboard/map"
+                className="w-full py-3 rounded-xl bg-[#16382B] hover:bg-[#0F291E] text-[#E8C265] text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                <span>Open Full Interactive Lusaka Map</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <p className="text-[10px] text-center text-stone-400 font-mono">
+                Includes Leaflet GPS routing & company-owned vs managed overlays
+              </p>
+            </div>
+
           </div>
 
-          {/* Bottom Callout & Direct Map Link */}
-          <div className="bg-paper-200/80 px-6 py-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-xs text-ink-700 text-center sm:text-left">
-              <strong>Need full cadastral GIS search?</strong> View stand polygons, borehole depths, and title folios on our Leaflet GIS interface.
-            </div>
-            <Link
-              href="/dashboard/map"
-              className="inline-flex items-center gap-2 text-xs font-bold text-contour-red hover:text-ink-950 transition-colors"
-            >
-              <span>Launch Full Interactive Lusaka Map (/dashboard/map)</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
         </div>
+
       </div>
-    </section>
+    </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   HelpCircle,
   Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 
 interface FaqItem {
@@ -65,96 +66,100 @@ export function PopiaFaqAccordion() {
   };
 
   return (
-    <section className="py-20 bg-paper-200/60 border-b border-border" id="faq">
-      <div className="max-w-5xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-paper-300 border border-border text-ink-800 text-xs font-semibold uppercase tracking-wider mb-4">
-            <ShieldCheck className="w-3.5 h-3.5 text-contour-emerald" />
-            Legal & Data Integrity
+    <div className="w-full">
+      {/* Header */}
+      <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#16382B]/10 border border-[#16382B]/15 text-[#16382B] text-xs font-semibold">
+          <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+          <span>LEGAL CUSTODY & DATA INTEGRITY</span>
+        </div>
+        <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#16382B] tracking-tight">
+          Institutional Security, POPIA & FAQ
+        </h2>
+        <p className="text-sm sm:text-base text-stone-600 leading-relaxed">
+          Engineered to comply with the Zambian Lands Act, PACRA guidelines, and South African POPIA / FICA data sovereignty standards.
+        </p>
+      </div>
+
+      {/* 3 Compliance Pillars */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E6E0D4] shadow-xs space-y-3 hover:border-[#C89B3C]/50 transition-colors">
+          <div className="w-10 h-10 rounded-2xl bg-[#16382B]/10 text-[#16382B] flex items-center justify-center">
+            <Lock className="w-5 h-5 text-[#C89B3C]" />
           </div>
-          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-ink-900 tracking-tight">
-            Institutional Security, POPIA Compliance & FAQ
-          </h2>
-          <p className="text-sm sm:text-base text-ink-600 mt-3 leading-relaxed">
-            Engineered to comply with the Zambian Lands Act, PACRA guidelines, and South African POPIA / FICA data sovereignty standards.
+          <h3 className="font-serif font-bold text-base text-[#16382B]">
+            Encrypted Title Deeds Vault
+          </h3>
+          <p className="text-xs text-stone-600 leading-relaxed">
+            AES-256 encrypted custody for Certificates of Title, NRC ID copies, and survey folios with 15-minute expiring download tokens.
           </p>
         </div>
 
-        {/* 3 Compliance Pillars */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
-          <div className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-contour-emerald/10 text-contour-emerald flex items-center justify-center mb-3">
-              <Lock className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-ink-900">
-              Encrypted Title Deeds Vault
-            </h3>
-            <p className="text-xs text-ink-600 leading-relaxed">
-              AES-256 encrypted custody for Certificates of Title, NRC ID copies, and survey folios with 15-minute expiring download tokens.
-            </p>
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E6E0D4] shadow-xs space-y-3 hover:border-[#C89B3C]/50 transition-colors">
+          <div className="w-10 h-10 rounded-2xl bg-[#16382B]/10 text-[#16382B] flex items-center justify-center">
+            <FileCheck className="w-5 h-5 text-[#C89B3C]" />
           </div>
-
-          <div className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-contour-amber/10 text-contour-amber flex items-center justify-center mb-3">
-              <FileCheck className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-ink-900">
-              Immutable POPIA Audit Trail
-            </h3>
-            <p className="text-xs text-ink-600 leading-relaxed">
-              Every document download, client phone reveal, and statement export is permanently logged with user identity, timestamp, and IP address.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-contour-red/10 text-contour-red flex items-center justify-center mb-3">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-ink-900">
-              The DocuSign Human Seam
-            </h3>
-            <p className="text-xs text-ink-600 leading-relaxed">
-              AI calculates ledger deductions and drafts remittance PDFs, but money never moves without explicit sign-off from an authorized broker.
-            </p>
-          </div>
+          <h3 className="font-serif font-bold text-base text-[#16382B]">
+            Immutable POPIA Audit Trail
+          </h3>
+          <p className="text-xs text-stone-600 leading-relaxed">
+            Every document download, client phone reveal, and statement export is permanently logged with user identity, timestamp, and IP address.
+          </p>
         </div>
 
-        {/* Accordion List */}
-        <div className="space-y-3">
-          {FAQS.map((faq) => {
-            const isOpen = openIds.includes(faq.id);
-            return (
-              <div
-                key={faq.id}
-                className="bg-white rounded-2xl border border-border shadow-card overflow-hidden transition-colors"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleFaq(faq.id)}
-                  aria-expanded={isOpen}
-                  className="w-full p-5 text-left flex items-center justify-between gap-4 font-semibold text-xs sm:text-sm text-ink-900 hover:text-contour-red transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <HelpCircle className="w-4 h-4 text-contour-red shrink-0" />
-                    <span>{faq.question}</span>
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 text-ink-400 shrink-0 transition-transform duration-200 ${
-                      isOpen ? "rotate-180 text-contour-red" : ""
-                    }`}
-                  />
-                </button>
-                {isOpen && (
-                  <div className="px-5 pb-5 pt-1 text-xs text-ink-600 leading-relaxed border-t border-paper-200 font-sans">
-                    {faq.answer}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E6E0D4] shadow-xs space-y-3 hover:border-[#C89B3C]/50 transition-colors">
+          <div className="w-10 h-10 rounded-2xl bg-[#16382B]/10 text-[#16382B] flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5 text-[#C89B3C]" />
+          </div>
+          <h3 className="font-serif font-bold text-base text-[#16382B]">
+            The DocuSign Human Seam
+          </h3>
+          <p className="text-xs text-stone-600 leading-relaxed">
+            AI calculates ledger deductions and drafts remittance PDFs, but money never moves without explicit sign-off from an authorized broker.
+          </p>
         </div>
       </div>
-    </section>
+
+      {/* Accordion List */}
+      <div className="space-y-3 max-w-4xl mx-auto">
+        {FAQS.map((faq) => {
+          const isOpen = openIds.includes(faq.id);
+          return (
+            <div
+              key={faq.id}
+              className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                isOpen
+                  ? "bg-white border-[#C89B3C]/50 shadow-sm"
+                  : "bg-white/80 border-[#E6E0D4] hover:bg-white"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggleFaq(faq.id)}
+                aria-expanded={isOpen}
+                className="w-full p-5 sm:p-6 text-left flex items-center justify-between gap-4 font-semibold text-xs sm:text-sm text-[#16382B] hover:text-[#C89B3C] transition-colors"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-[#FAF8F5] border border-[#E6E0D4] flex items-center justify-center text-[11px] font-bold text-[#16382B] shrink-0 font-mono">
+                    ?
+                  </span>
+                  <span className="font-serif text-sm sm:text-base font-bold text-[#16382B]">{faq.question}</span>
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-stone-400 shrink-0 transition-transform duration-200 ${
+                    isOpen ? "rotate-180 text-[#C89B3C]" : ""
+                  }`}
+                />
+              </button>
+              {isOpen && (
+                <div className="px-5 sm:px-6 pb-6 pt-0 text-xs sm:text-sm text-stone-600 leading-relaxed border-t border-[#FAF8F5]">
+                  <p className="pt-3">{faq.answer}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
