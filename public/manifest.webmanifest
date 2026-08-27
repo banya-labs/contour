@@ -1,0 +1,17 @@
+﻿{
+  "name": "Contour Field Agent PWA",
+  "short_name": "Contour Agent",
+  "description": "Real Estate Operations & Field Agent Operating System for Southern Africa",
+  "start_url": "/agent",
+  "display": "standalone",
+  "background_color": "#0B1711",
+  "theme_color": "#0B1711",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

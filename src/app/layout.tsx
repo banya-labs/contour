@@ -5,6 +5,12 @@ import DevModeBanner from "@/components/dev-mode-banner";
 export const metadata: Metadata = {
   title: "Contour — Real Estate Operations & Field Agent OS",
   description: "The Real Estate Operations & Field Agent Operating System for Southern Africa.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Contour Agent",
+  },
 };
 
 export default function RootLayout({

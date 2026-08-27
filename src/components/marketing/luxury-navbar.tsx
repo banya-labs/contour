@@ -73,7 +73,7 @@ export function LuxuryNavbar() {
             Market Notes
           </Link>
           <Link
-            href="/kiosk"
+            href="/agent"
             className="hover:text-[#E57A1A] transition-colors duration-150 py-1 flex items-center gap-1 text-[#E57A1A]"
           >
             <Sparkles className="w-3 h-3" />
@@ -150,7 +150,7 @@ export function LuxuryNavbar() {
               Market Notes
             </Link>
             <Link
-              href="/kiosk"
+              href="/agent"
               onClick={() => setMobileMenuOpen(false)}
               className="py-1 text-[#E57A1A]"
             >

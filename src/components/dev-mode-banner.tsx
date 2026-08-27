@@ -51,12 +51,14 @@ export default function DevModeBanner() {
     { href: "/", label: "Marketing Landing", icon: Home },
     { href: "/dashboard", label: "Operations Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/map", label: "Lusaka Property Map", icon: Map },
-    { href: "/kiosk", label: "Field Agent PWA", icon: Smartphone },
+    { href: "/agent", label: "Field Agent PWA", icon: Smartphone },
     { href: "/admin/mcp", label: "Admin MCP Studio", icon: Key },
   ];
 
+  const isPwa = pathname?.startsWith("/agent") || pathname?.startsWith("/kiosk");
+
   return (
-    <div ref={menuRef} className="fixed bottom-3 right-3 z-[9999] font-sans select-none">
+    <div ref={menuRef} className={`fixed ${isPwa ? "bottom-20 right-3 hidden sm:block" : "bottom-3 right-3"} z-[9999] font-sans select-none`}>
       {/* Floating Badge Trigger Overlay */}
       <button
         onClick={() => setIsOpen(!isOpen)}

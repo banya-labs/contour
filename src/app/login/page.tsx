@@ -11,7 +11,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("password123");
 
   const handleFastDevLogin = (role: string) => {
-    router.push("/dashboard");
+    if (role === "FIELD_AGENT") {
+      router.push("/agent");
+    } else {
+      router.push("/dashboard");
+    }
   };
 
   return (
@@ -37,18 +41,20 @@ export default function LoginPage() {
             <span>Fast Dev Login (1-Click)</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleFastDevLogin("SUPER_ADMIN")}
-              className="px-3 py-2 rounded-lg bg-white hover:bg-paper-100 border border-border text-xs font-semibold text-ink-900 text-left transition-colors shadow-subtle"
+            <Link
+              href="/dashboard"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-paper-100 border border-border text-xs font-semibold text-ink-900 text-left transition-colors shadow-subtle flex items-center gap-1.5"
             >
-              👑 Principal Broker
-            </button>
-            <button
-              onClick={() => handleFastDevLogin("FIELD_AGENT")}
-              className="px-3 py-2 rounded-lg bg-white hover:bg-paper-100 border border-border text-xs font-semibold text-ink-900 text-left transition-colors shadow-subtle"
+              <span>👑</span>
+              <span>Principal Broker</span>
+            </Link>
+            <Link
+              href="/agent"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-paper-100 border border-border text-xs font-semibold text-ink-900 text-left transition-colors shadow-subtle flex items-center gap-1.5"
             >
-              📱 Field Agent
-            </button>
+              <span>📱</span>
+              <span>Field Agent</span>
+            </Link>
           </div>
         </div>
 

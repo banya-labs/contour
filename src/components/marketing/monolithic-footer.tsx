@@ -120,7 +120,7 @@ export function MonolithicFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/kiosk" className="hover:text-[#E57A1A] transition-colors flex items-center gap-1.5">
+                <Link href="/agent" className="hover:text-[#E57A1A] transition-colors flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3" />
                   <span>Offline Field PWA</span>
                 </Link>

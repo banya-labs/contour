@@ -207,7 +207,7 @@ export default function WorkspaceSidebar() {
           <span>Agency Settings</span>
         </Link>
         <Link
-          href="/kiosk"
+          href="/agent"
           className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-ink-800 hover:bg-paper-200 rounded-xl transition-colors"
         >
           <Smartphone className="w-4 h-4 text-ink-600" />
