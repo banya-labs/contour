@@ -1,0 +1,3 @@
+file 'C:/Users/sewar/repos/Contour/public/videos/contour/scene_1_arrival.mp4'
+file 'C:/Users/sewar/repos/Contour/public/videos/contour/scene_2_pool.mp4'
+file 'C:/Users/sewar/repos/Contour/public/videos/contour/scene_3_terrace.mp4'

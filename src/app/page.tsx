@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { LuxuryNavbar } from "@/components/marketing/luxury-navbar";
-import { LuxuryHeroStage } from "@/components/marketing/luxury-hero-stage";
+import { FilmScrollCanvas } from "@/components/marketing/film-scroll-canvas";
+import { FilmScrollOverlays } from "@/components/marketing/film-scroll-overlays";
 import { EditorialManifestoGallery } from "@/components/marketing/editorial-manifesto-gallery";
 import { InteractiveIntentMatrix } from "@/components/marketing/interactive-intent-matrix";
 import { CuratedServicesBento } from "@/components/marketing/curated-services-bento";
@@ -12,34 +13,53 @@ import { EditorialMarketNotes } from "@/components/marketing/editorial-market-no
 import { MonolithicFooter } from "@/components/marketing/monolithic-footer";
 
 export default function HomePage() {
+  const [currentFrame, setCurrentFrame] = useState(1);
+  const totalFrames = 302;
+
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#141715] font-sans antialiased selection:bg-[#E57A1A] selection:text-white">
+    <div className="min-h-screen bg-[#0B1711] text-[#141715] font-sans antialiased selection:bg-[#E57A1A] selection:text-white">
       {/* 1. Glassmorphic Navigation Bar */}
       <LuxuryNavbar />
 
-      {/* 2. Floating 3D Villa Hero Stage with Instant Search */}
-      <LuxuryHeroStage />
+      {/* 2. 60fps Full-Screen Film Scroll Canvas */}
+      <FilmScrollCanvas
+        totalFrames={totalFrames}
+        framePrefix="/frames/frame_"
+        frameExt=".webp"
+        onFrameChange={(frame) => setCurrentFrame(frame)}
+      />
 
-      {/* 3. The Contour Manifesto & Asymmetrical Staggered Photo Grid */}
-      <EditorialManifestoGallery />
+      {/* 3. Multi-Scene Frame-Synced Text & UI Overlays */}
+      <FilmScrollOverlays
+        currentFrame={currentFrame}
+        totalFrames={totalFrames}
+      />
 
-      {/* 4. Kinetic Intent Switcher: "How CONTOUR Helps You" (Buy / Sell / Lease / Develop) */}
-      <InteractiveIntentMatrix />
+      {/* 4. Editorial Content & Operations Sections (Seamless Ground Hand-Off) */}
+      <div id="mandates" className="relative z-20 bg-[#FAF8F5] shadow-2xl rounded-t-[40px] sm:rounded-t-[56px] border-t border-stone-200/80">
+        
+        {/* The Contour Manifesto & Staggered Photo Grid */}
+        <EditorialManifestoGallery />
 
-      {/* 5. Curated Services & Legal Custody Bento Grid */}
-      <CuratedServicesBento />
+        {/* Kinetic Intent Switcher (Buy / Sell / Lease / Develop) */}
+        <InteractiveIntentMatrix />
 
-      {/* 6. Interactive Lusaka Spatial Map & Neighborhood Coordinates */}
-      <MapDemoPreview />
+        {/* Curated Services & Legal Title Bento Grid */}
+        <CuratedServicesBento />
 
-      {/* 7. Executive Testimonials & Commission Proof */}
-      <EditorialTestimonialCard />
+        {/* Interactive Spatial Lusaka Map & Coordinates */}
+        <MapDemoPreview />
 
-      {/* 8. Lusaka Market Intelligence & Editorial Notes */}
-      <EditorialMarketNotes />
+        {/* Executive Testimonials & Proof */}
+        <EditorialTestimonialCard />
 
-      {/* 9. Monolithic Typographic Footer & Conversion Engine */}
-      <MonolithicFooter />
+        {/* Lusaka Market Intelligence */}
+        <EditorialMarketNotes />
+
+        {/* Monolithic Footer */}
+        <MonolithicFooter />
+      </div>
     </div>
   );
 }
+
