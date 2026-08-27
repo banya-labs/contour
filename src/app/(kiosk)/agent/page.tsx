@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   MapPin,
   MessageSquare,
@@ -44,11 +45,29 @@ import {
   CheckCheck,
   Phone,
   Layers,
-  Sparkle
+  Sparkle,
+  Map as MapIcon,
+  Navigation,
+  Crosshair
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import ContourGenUiModal from "@/components/ai/contour-genui-modal";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
+import { PropertyMapItem } from "@/components/map/interactive-property-map";
+
+// Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
+const InteractivePropertyMap = dynamic(
+  () => import("@/components/map/interactive-property-map"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[60vh] rounded-2xl bg-[#0F1B14] border border-emerald-900/50 flex flex-col items-center justify-center text-xs text-emerald-400 gap-2 animate-pulse">
+        <MapPin className="w-6 h-6 text-[#E57A1A] animate-bounce" />
+        <span>Loading Lusaka Spatial Map...</span>
+      </div>
+    ),
+  }
+);
 
 export default function FieldAgentPwaPage() {
   return (
@@ -58,7 +77,7 @@ export default function FieldAgentPwaPage() {
   );
 }
 
-type TabType = "PROPERTIES" | "CLIENTS" | "DEALS" | "EARNINGS";
+type TabType = "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
 
 function AgentKioskContent() {
@@ -75,8 +94,9 @@ function AgentKioskContent() {
     playSuccessTone,
   } = usePowerSync();
 
-  // Active Bottom Navigation Tab
+  // Active Bottom Navigation Tab & Sub-View
   const [activeTab, setActiveTab] = useState<TabType>("PROPERTIES");
+  const [propertyViewMode, setPropertyViewMode] = useState<"LIST" | "MAP">("LIST");
 
   // Search & Filters
   const [search, setSearch] = useState("");
@@ -86,6 +106,7 @@ function AgentKioskContent() {
   // Selection & Modal States
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [matchedProperty, setMatchedProperty] = useState<any | null>(null);
+  const [selectedMapProperty, setSelectedMapProperty] = useState<any | null>(null);
   const [intakeDrawer, setIntakeDrawer] = useState<IntakeType>("NONE");
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
 
@@ -178,37 +199,85 @@ function AgentKioskContent() {
     {
       id: "prop_01",
       title: "Executive 4-Bedroom Standalone Residence",
+      slug: "executive-4-bedroom-standalone-residence",
       suburb: "Kabulonga",
+      city: "Lusaka",
       price: 3500000,
+      askingPrice: 3500000,
       currency: "ZMW",
       propertyType: "RESIDENTIAL_SALE",
       listingType: "FOR_SALE",
+      status: "AVAILABLE",
+      ownershipType: "MANAGED_ON_BEHALF",
       bedrooms: 4,
       bathrooms: 3,
+      plotSizeSqm: 2400,
+      latitude: -15.4215,
+      longitude: 28.3345,
+      photos: ["/images/villa-hero.webp"],
       mandateType: "EXCLUSIVE",
     },
     {
       id: "prop_02",
       title: "Luxury 5-Bed Diplomatic Villa with Pool",
+      slug: "luxury-5-bed-diplomatic-villa",
       suburb: "Leopards Hill",
+      city: "Lusaka",
       price: 3500,
+      rentalPrice: 3500,
       currency: "USD",
       propertyType: "RESIDENTIAL_RENTAL",
       listingType: "FOR_RENT",
+      status: "AVAILABLE",
+      ownershipType: "MANAGED_ON_BEHALF",
       bedrooms: 5,
       bathrooms: 4,
+      plotSizeSqm: 4000,
+      latitude: -15.4480,
+      longitude: 28.3810,
+      photos: ["/images/villa-hero.webp"],
       mandateType: "EXCLUSIVE",
     },
     {
       id: "prop_03",
       title: "5-Acre Commercial Mixed-Use Development Land",
+      slug: "5-acre-commercial-mixed-use-development-land",
       suburb: "Roma Park",
+      city: "Lusaka",
       price: 850000,
+      askingPrice: 850000,
       currency: "USD",
       propertyType: "COMMERCIAL_LAND",
       listingType: "FOR_SALE",
+      status: "AVAILABLE",
+      ownershipType: "COMPANY_OWNED",
       bedrooms: 0,
       bathrooms: 0,
+      plotSizeSqm: 20234,
+      latitude: -15.3850,
+      longitude: 28.3120,
+      photos: ["/images/villa-hero.webp"],
+      mandateType: "EXCLUSIVE",
+    },
+    {
+      id: "prop_04",
+      title: "Modern 3-Bedroom Semi-Detached Townhouse",
+      slug: "modern-3-bed-townhouse-ibex",
+      suburb: "Ibex Hill",
+      city: "Lusaka",
+      price: 1800,
+      rentalPrice: 1800,
+      currency: "USD",
+      propertyType: "RESIDENTIAL_RENTAL",
+      listingType: "FOR_RENT",
+      status: "AVAILABLE",
+      ownershipType: "MANAGED_ON_BEHALF",
+      bedrooms: 3,
+      bathrooms: 2,
+      plotSizeSqm: 800,
+      latitude: -15.4380,
+      longitude: 28.3650,
+      photos: ["/images/villa-hero.webp"],
       mandateType: "EXCLUSIVE",
     },
   ];
@@ -229,6 +298,28 @@ function AgentKioskContent() {
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
     return matchesSub && matchesSearch && matchesType;
   });
+
+  // Map Format for InteractivePropertyMap
+  const mapItems: PropertyMapItem[] = filteredProperties.map((p: any) => ({
+    id: p.id,
+    title: p.title,
+    slug: p.slug || p.id,
+    listingType: p.listingType || "FOR_SALE",
+    status: p.status || "AVAILABLE",
+    ownershipType: p.ownershipType || "MANAGED_ON_BEHALF",
+    askingPrice: p.price || p.askingPrice || null,
+    rentalPrice: p.rentalPrice || (p.listingType === "FOR_RENT" ? p.price : null),
+    currency: p.currency || "ZMW",
+    bedrooms: p.bedrooms || 4,
+    bathrooms: p.bathrooms || 3,
+    plotSizeSqm: p.plotSizeSqm || 2000,
+    suburb: p.suburb || "Kabulonga",
+    city: p.city || "Lusaka",
+    latitude: p.latitude || -15.4215,
+    longitude: p.longitude || 28.3345,
+    photos: p.photos && p.photos.length > 0 ? p.photos : ["/images/villa-hero.webp"],
+    description: p.description,
+  }));
 
   // 1-Click WhatsApp Pitch Generator
   const generateWhatsAppFlyer = (p: any) => {
@@ -272,6 +363,8 @@ function AgentKioskContent() {
       mandateType: newPropMandate,
       agentId: currentAgent.id,
       agentName: currentAgent.name,
+      latitude: newPropSuburb === "Kabulonga" ? -15.4215 : newPropSuburb === "Leopards Hill" ? -15.4480 : -15.3850,
+      longitude: newPropSuburb === "Kabulonga" ? 28.3345 : newPropSuburb === "Leopards Hill" ? 28.3810 : 28.3120,
       createdAt: new Date().toISOString(),
     };
 
@@ -312,7 +405,7 @@ function AgentKioskContent() {
 
     const newDeal = {
       id: `deal_${Date.now()}`,
-      propertyTitle: offerPropertyId ? properties.find((p: any) => p.id === offerPropertyId)?.title || "Executive Mandate" : "Lusaka Mandate",
+      propertyTitle: offerPropertyId ? displayProperties.find((p: any) => p.id === offerPropertyId)?.title || "Executive Mandate" : "Lusaka Mandate",
       suburb: newPropSuburb,
       clientName: offerClientName,
       value: `${newClientCurrency === "USD" ? "$" : "K"} ${Number(offerAmount).toLocaleString()}`,
@@ -456,21 +549,56 @@ function AgentKioskContent() {
       {/* 2. Main Scrollable Canvas */}
       <main className="flex-1 px-4 py-4 space-y-4 pb-28 overflow-y-auto">
         
-        {/* ================= TAB 1: PROPERTIES ================= */}
-        {activeTab === "PROPERTIES" && (
+        {/* ================= TAB 1: PROPERTIES (CATALOG & SPATIAL MAP) ================= */}
+        {(activeTab === "PROPERTIES" || activeTab === "MAP") && (
           <div className="space-y-4">
             
-            {/* Search and Suburb Chips */}
+            {/* Search, Suburb Chips & Layout Switcher */}
             <div className="space-y-2.5">
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search Lusaka properties, suburbs, specs..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full bg-[#101D16] border border-emerald-900/50 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#E57A1A] transition-colors"
-                />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Lusaka properties, suburbs..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full bg-[#101D16] border border-emerald-900/50 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#E57A1A] transition-colors"
+                  />
+                </div>
+
+                {/* View Mode Toggle: [ 📋 List | 🗺️ Map ] */}
+                <div className="flex bg-[#101D16] p-1 rounded-xl border border-emerald-900/50 text-xs shrink-0">
+                  <button
+                    onClick={() => {
+                      setPropertyViewMode("LIST");
+                      setActiveTab("PROPERTIES");
+                      playNeutralTone();
+                    }}
+                    className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all ${
+                      propertyViewMode === "LIST" && activeTab === "PROPERTIES"
+                        ? "bg-[#E57A1A] text-white shadow-sm"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span>List</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPropertyViewMode("MAP");
+                      setActiveTab("PROPERTIES");
+                      playNeutralTone();
+                    }}
+                    className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all ${
+                      propertyViewMode === "MAP" || activeTab === "MAP"
+                        ? "bg-[#E57A1A] text-white shadow-sm"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Map</span>
+                  </button>
+                </div>
               </div>
 
               {/* Suburb Horizontal Scroll */}
@@ -494,14 +622,14 @@ function AgentKioskContent() {
               </div>
 
               {/* Type Filter Pill Switcher */}
-              <div className="flex items-center gap-2 pt-1 text-xs">
-                <span className="text-[10px] uppercase font-mono text-slate-500 font-bold">Filter:</span>
+              <div className="flex items-center gap-2 pt-0.5 text-xs">
+                <span className="text-[10px] uppercase font-mono text-slate-500 font-bold">Type:</span>
                 <div className="flex bg-[#101D16] p-0.5 rounded-lg border border-emerald-900/40 text-[11px]">
                   {(["ALL", "SALE", "RENT"] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => setPropertyTypeFilter(t)}
-                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                      className={`px-2.5 py-0.5 rounded-md font-semibold transition-colors ${
                         propertyTypeFilter === t
                           ? "bg-emerald-900/80 text-emerald-200"
                           : "text-slate-400 hover:text-white"
@@ -511,109 +639,200 @@ function AgentKioskContent() {
                     </button>
                   ))}
                 </div>
-                <span className="ml-auto text-[10px] text-slate-400 font-mono">
+                <span className="ml-auto text-[10px] text-emerald-400 font-mono font-bold">
                   {filteredProperties.length} Mandates
                 </span>
               </div>
             </div>
 
-            {/* Properties List Cards */}
-            <div className="space-y-3.5">
-              {filteredProperties.map((p: any) => {
-                const isCopied = copiedId === p.id;
-                const priceStr = formatCurrency(Number(p.price || 0), p.currency || "ZMW");
+            {/* A. MAP VIEW MODE */}
+            {(propertyViewMode === "MAP" || activeTab === "MAP") && (
+              <div className="space-y-3">
+                {/* Embedded Mobile Map Container */}
+                <div className="h-[52vh] rounded-2xl overflow-hidden border border-emerald-900/60 relative shadow-lg bg-[#0F1B14]">
+                  <InteractivePropertyMap
+                    properties={mapItems}
+                    onSelectProperty={(prop) => {
+                      setSelectedMapProperty(prop);
+                      playSuccessTone();
+                    }}
+                    searchQuery={search}
+                    filterType={propertyTypeFilter}
+                    className="w-full h-full"
+                  />
 
-                return (
-                  <div
-                    key={p.id}
-                    className="bg-[#0F1B14] border border-emerald-900/50 rounded-2xl p-4 space-y-3 shadow-md hover:border-emerald-700/60 transition-all"
-                  >
-                    {/* Header: Title & Suburb */}
+                  {/* Floating Map Helper Badge */}
+                  <div className="absolute top-2.5 left-2.5 z-[1000] bg-[#0B1711]/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-800/60 text-[10px] text-emerald-300 font-mono flex items-center gap-1.5 shadow">
+                    <Compass className="w-3 h-3 text-[#E57A1A] animate-spin" />
+                    <span>Tap any pin to view Mandate</span>
+                  </div>
+                </div>
+
+                {/* Selected Property Floating Detail Card on Map */}
+                {selectedMapProperty ? (
+                  <div className="bg-[#0F1B14] border border-emerald-700/80 rounded-2xl p-4 space-y-3 shadow-xl animate-in slide-in-from-bottom-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#E57A1A] bg-[#E57A1A]/10 px-2 py-0.5 rounded border border-[#E57A1A]/20">
-                          {p.suburb || "Lusaka"}
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-[#E57A1A] bg-[#E57A1A]/10 px-2 py-0.5 rounded border border-[#E57A1A]/20">
+                          {selectedMapProperty.suburb}
                         </span>
                         <h3 className="text-sm font-bold text-white mt-1 leading-snug">
-                          {p.title}
+                          {selectedMapProperty.title}
                         </h3>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <div className="text-sm font-extrabold text-emerald-400 font-mono">
-                          {priceStr}
+                          {formatCurrency(Number(selectedMapProperty.askingPrice || selectedMapProperty.rentalPrice || 0), selectedMapProperty.currency || "ZMW")}
                         </div>
                         <span className="text-[9px] text-slate-400 uppercase font-mono">
-                          {p.listingType === "FOR_RENT" ? "Per Month" : "Sale Price"}
+                          {selectedMapProperty.listingType === "FOR_RENT" ? "Per Month" : "Price"}
                         </span>
                       </div>
                     </div>
 
-                    {/* Property Specs Pill Grid */}
                     <div className="flex items-center gap-3 text-xs text-slate-300 py-1 border-y border-emerald-900/40">
                       <div className="flex items-center gap-1">
                         <Bed className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{p.bedrooms || 4} Beds</span>
+                        <span>{selectedMapProperty.bedrooms || 4} Beds</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Bath className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{p.bathrooms || 3} Baths</span>
+                        <span>{selectedMapProperty.bathrooms || 3} Baths</span>
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] text-slate-400 ml-auto font-mono">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Verified Title</span>
+                      <div className="flex items-center gap-1 text-[10px] text-emerald-400 ml-auto font-mono">
+                        <Navigation className="w-3 h-3 text-[#E57A1A]" />
+                        <span>{selectedMapProperty.latitude.toFixed(4)}, {selectedMapProperty.longitude.toFixed(4)}</span>
                       </div>
                     </div>
 
-                    {/* Masked PII Notice */}
-                    <div className="bg-[#0B150F] px-2.5 py-1.5 rounded-lg border border-emerald-950 flex items-center justify-between text-[10px] text-slate-400">
-                      <span className="flex items-center gap-1 text-emerald-400/90 font-medium">
-                        <Lock className="w-3 h-3 text-[#E57A1A]" />
-                        <span>Landlord PII Masked (Mandate Protected)</span>
-                      </span>
-                      <span className="font-mono text-slate-500">ID: {p.id.slice(0, 8)}</span>
-                    </div>
-
-                    {/* Action Bar */}
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      
-                      {/* WhatsApp Flyer Generator */}
+                    {/* Action Bar on Map Card */}
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
                       <button
-                        onClick={() => copyWhatsAppFlyer(p)}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm ${
-                          isCopied
-                            ? "bg-emerald-600 text-white"
-                            : "bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 border border-emerald-700/50"
-                        }`}
+                        onClick={() => copyWhatsAppFlyer(selectedMapProperty)}
+                        className="py-2 px-3 rounded-xl bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 text-xs font-bold border border-emerald-700/50 flex items-center justify-center gap-1.5 shadow-sm"
                       >
-                        {isCopied ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Pitch Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>WhatsApp Pitch</span>
-                          </>
-                        )}
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>{copiedId === selectedMapProperty.id ? "Copied!" : "WhatsApp Pitch"}</span>
                       </button>
 
-                      {/* Match Buyers Button */}
                       <button
                         onClick={() => {
-                          setMatchedProperty(p);
+                          setMatchedProperty(selectedMapProperty);
                           playNeutralTone();
                         }}
-                        className="py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-900 to-[#10241A] hover:from-emerald-800 hover:to-[#173426] text-white text-xs font-bold border border-emerald-600/40 flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                        className="py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-900 to-[#10241A] text-white text-xs font-bold border border-emerald-600/40 flex items-center justify-center gap-1.5 shadow-sm"
                       >
                         <Users className="w-3.5 h-3.5 text-[#E57A1A]" />
                         <span>Match Buyers</span>
                       </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ) : (
+                  <div className="bg-[#0B150F] p-3 rounded-xl border border-emerald-950 text-center text-xs text-slate-400">
+                    <span>💡 Tap any property pin on the Lusaka map above to preview mandating specs, generate WhatsApp copy, or match registered buyers.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* B. LIST VIEW MODE */}
+            {propertyViewMode === "LIST" && activeTab === "PROPERTIES" && (
+              <div className="space-y-3.5">
+                {filteredProperties.map((p: any) => {
+                  const isCopied = copiedId === p.id;
+                  const priceStr = formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW");
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="bg-[#0F1B14] border border-emerald-900/50 rounded-2xl p-4 space-y-3 shadow-md hover:border-emerald-700/60 transition-all"
+                    >
+                      {/* Header: Title & Suburb */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#E57A1A] bg-[#E57A1A]/10 px-2 py-0.5 rounded border border-[#E57A1A]/20">
+                            {p.suburb || "Lusaka"}
+                          </span>
+                          <h3 className="text-sm font-bold text-white mt-1 leading-snug">
+                            {p.title}
+                          </h3>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-extrabold text-emerald-400 font-mono">
+                            {priceStr}
+                          </div>
+                          <span className="text-[9px] text-slate-400 uppercase font-mono">
+                            {p.listingType === "FOR_RENT" ? "Per Month" : "Sale Price"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Property Specs Pill Grid */}
+                      <div className="flex items-center gap-3 text-xs text-slate-300 py-1 border-y border-emerald-900/40">
+                        <div className="flex items-center gap-1">
+                          <Bed className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{p.bedrooms || 4} Beds</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Bath className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{p.bathrooms || 3} Baths</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-slate-400 ml-auto font-mono">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Verified Title</span>
+                        </div>
+                      </div>
+
+                      {/* Masked PII Notice */}
+                      <div className="bg-[#0B150F] px-2.5 py-1.5 rounded-lg border border-emerald-950 flex items-center justify-between text-[10px] text-slate-400">
+                        <span className="flex items-center gap-1 text-emerald-400/90 font-medium">
+                          <Lock className="w-3 h-3 text-[#E57A1A]" />
+                          <span>Landlord PII Masked (Mandate Protected)</span>
+                        </span>
+                        <span className="font-mono text-slate-500">ID: {p.id.slice(0, 8)}</span>
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        {/* WhatsApp Flyer Generator */}
+                        <button
+                          onClick={() => copyWhatsAppFlyer(p)}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm ${
+                            isCopied
+                              ? "bg-emerald-600 text-white"
+                              : "bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 border border-emerald-700/50"
+                          }`}
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Pitch Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>WhatsApp Pitch</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Match Buyers Button */}
+                        <button
+                          onClick={() => {
+                            setMatchedProperty(p);
+                            playNeutralTone();
+                          }}
+                          className="py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-900 to-[#10241A] hover:from-emerald-800 hover:to-[#173426] text-white text-xs font-bold border border-emerald-600/40 flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                        >
+                          <Users className="w-3.5 h-3.5 text-[#E57A1A]" />
+                          <span>Match Buyers</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -905,7 +1124,7 @@ function AgentKioskContent() {
       <footer className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A140F]/95 backdrop-blur-md border-t border-emerald-900/40 max-w-md mx-auto">
         <div className="grid grid-cols-5 items-center px-2 py-2">
           
-          {/* Properties Tab */}
+          {/* Properties (Catalog & Map) Tab */}
           <button
             onClick={() => {
               setActiveTab("PROPERTIES");
@@ -1188,7 +1407,7 @@ function AgentKioskContent() {
                     className="w-full bg-[#101D16] border border-emerald-900/50 rounded-xl px-3 py-2 text-white focus:outline-none"
                   >
                     <option value="">Choose Mandate...</option>
-                    {properties.map((p: any) => (
+                    {displayProperties.map((p: any) => (
                       <option key={p.id} value={p.id}>{p.title} ({p.suburb})</option>
                     ))}
                   </select>
