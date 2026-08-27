@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
+  output: "standalone",
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" }
