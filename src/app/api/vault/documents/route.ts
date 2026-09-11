@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 // ── GET /api/vault/documents ─────────────────────────────────────────────────
 export const GET = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.read"],
   handler: async (_req, { organizationId, userId, userRole }) => {
     const orgId = organizationId!;
 
@@ -191,6 +192,7 @@ const createVaultDocSchema = z.object({
 
 export const POST = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.upload"],
   bodySchema: createVaultDocSchema,
   handler: async (_req, { organizationId, userId, body, session }) => {
     const orgId = organizationId!;

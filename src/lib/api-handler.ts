@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { logger } from "./logger";
 import { getTenantContext, type TenantContext } from "./tenant-context";
-import { hasRequiredRole } from "./authorization";
+import { hasRequiredRole, roleHasPermission, resolveContourRole, type Permission } from "./authorization";
 import type { Session } from "./auth";
 
 export type ApiContext = {
@@ -11,6 +11,7 @@ export type ApiContext = {
   organizationId?: string;
   userId?: string;
   userRole?: string;
+  contourRole?: import("./authorization").ContourRoleKey;
 };
 
 export type ApiHandlerOptions<TBody, TQuery> = {
@@ -18,6 +19,7 @@ export type ApiHandlerOptions<TBody, TQuery> = {
   querySchema?: z.ZodType<TQuery>;
   requireAuth?: boolean;
   requireRoles?: string[];
+  requirePermissions?: Permission[];
   handler: (
     req: NextRequest,
     context: ApiContext & { body: TBody; query: TQuery }
@@ -49,6 +51,8 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         userId: "user_demo_superadmin",
         organizationId: "org_contour_demo",
         userRole: "SUPER_ADMIN",
+        contourRole: "OWNER",
+        permissions: [],
       };
       const tenant = isLocalDevelopment ? demoTenant : await getTenantContext(req);
 
@@ -72,6 +76,13 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
 
       if (options.requireRoles && options.requireRoles.length > 0 && !hasRequiredRole(userRole, options.requireRoles)) {
         return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 });
+      }
+
+      if (options.requirePermissions?.length) {
+        const allowed = isLocalDevelopment && tenant === demoTenant
+          ? true
+          : options.requirePermissions.every((permission) => tenant?.permissions.includes(permission) ?? roleHasPermission(resolveContourRole(tenant?.session.user.role ?? userRole, "member"), permission));
+        if (!allowed) return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 });
       }
 
       // Parse Query

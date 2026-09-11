@@ -24,6 +24,10 @@ function OnboardingContent() {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const [organizationName, setOrganizationName] = useState("");
   const [slug, setSlug] = useState("");
+  const [country, setCountry] = useState("ZM");
+  const [currency, setCurrency] = useState("ZMW");
+  const [agencyType, setAgencyType] = useState("BROKERAGE");
+  const [city, setCity] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +103,18 @@ function OnboardingContent() {
         setIsSubmitting(false);
         return;
       }
+
+      const profileResponse = await fetch("/api/onboarding/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: organizationName.trim(), slug: slugify(slug), country, currency, agencyType, city }),
+      });
+      if (!profileResponse.ok) {
+        const profileError = await profileResponse.json().catch(() => null) as { error?: string } | null;
+        setError(profileError?.error || "Workspace created, but profile setup needs to be retried.");
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     router.replace(redirectUrl);
@@ -129,6 +145,33 @@ function OnboardingContent() {
               placeholder="Lusaka Property Group"
               className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black outline-none focus:border-editorial-black"
             />
+          </label>
+
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block space-y-2">
+              <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">Market</span>
+              <select value={country} onChange={(event) => setCountry(event.target.value)} className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black">
+                <option value="ZM">Zambia</option><option value="ZA">South Africa</option><option value="ZW">Zimbabwe</option>
+              </select>
+            </label>
+            <label className="block space-y-2">
+              <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">Currency</span>
+              <select value={currency} onChange={(event) => setCurrency(event.target.value)} className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black">
+                <option value="ZMW">ZMW</option><option value="ZAR">ZAR</option><option value="USD">USD</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">Agency type</span>
+            <select value={agencyType} onChange={(event) => setAgencyType(event.target.value)} className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black">
+              <option value="BROKERAGE">Brokerage</option><option value="PROPERTY_MANAGEMENT">Property management</option><option value="DEVELOPER">Developer</option><option value="LANDLORD">Landlord</option><option value="MIXED">Mixed</option>
+            </select>
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">City (optional)</span>
+            <input value={city} onChange={(event) => setCity(event.target.value)} placeholder="Lusaka" className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black outline-none focus:border-editorial-black" />
           </label>
 
           <label className="block space-y-2">

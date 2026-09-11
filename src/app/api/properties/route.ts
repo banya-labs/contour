@@ -5,6 +5,7 @@ import { createPropertySchema, updatePropertySchema } from "@/lib/validations";
 import { z } from "zod";
 
 const getHandler = createApiHandler({
+  requirePermissions: ["properties.read"],
   querySchema: z.object({
     org: z.string().optional(),
     search: z.string().optional(),
@@ -99,6 +100,7 @@ const getHandler = createApiHandler({
 });
 
 const postHandler = createApiHandler({
+  requirePermissions: ["pwa.listings.create"],
   bodySchema: createPropertySchema,
   handler: async (req, ctx) => {
     const { organizationId, userId, body } = ctx;
@@ -146,6 +148,7 @@ const postHandler = createApiHandler({
 });
 
 const patchHandler = createApiHandler({
+  requirePermissions: ["properties.update"],
   bodySchema: updatePropertySchema,
   handler: async (req, ctx) => {
     const { body } = ctx;

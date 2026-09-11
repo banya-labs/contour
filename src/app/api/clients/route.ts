@@ -4,6 +4,7 @@ import { createApiHandler } from "@/lib/api-handler";
 import { createInquirySchema } from "@/lib/validations";
 
 const getHandler = createApiHandler({
+  requirePermissions: ["leads.read"],
   handler: async (req, ctx) => {
     const { organizationId } = ctx;
 
@@ -25,6 +26,7 @@ const getHandler = createApiHandler({
 });
 
 const postHandler = createApiHandler({
+  requirePermissions: ["pwa.inquiries.update"],
   bodySchema: createInquirySchema,
   handler: async (req, ctx) => {
     const { organizationId, body } = ctx;

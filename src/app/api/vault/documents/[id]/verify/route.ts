@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 
 export const POST = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.verify"],
   handler: async (_req, { params, organizationId, userId }) => {
     const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };

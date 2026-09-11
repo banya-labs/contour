@@ -135,6 +135,10 @@ model Organization {
   vaultAccessGrants   VaultAccessGrant[]
   documentRequests    DocumentRequest[]
   payments            Payment[]
+  profile             OrganizationProfile?
+  assets              OrganizationAsset[]
+  roles               OrganizationRole[]
+  uploadSessions      UploadSession[]
 
   @@map("organization")
 }
@@ -144,10 +148,16 @@ model Member {
   organizationId String
   userId         String
   role           String       @default("member")
+  status         String       @default("active")
+  deactivatedAt  DateTime?
+  deactivatedById String?
+  lastRoleChangedAt DateTime?
   createdAt      DateTime     @default(now())
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleAssignments MemberRoleAssignment[]
+  permissionOverrides MemberPermissionOverride[]
 
   @@unique([organizationId, userId])
   @@map("member")
@@ -161,12 +171,149 @@ model Invitation {
   role           String       @default("member")
   status         String       @default("pending")
   expiresAt      DateTime
+  tokenHash      String?      @unique
+  acceptedAt     DateTime?
+  acceptedByUserId String?
+  revokedAt      DateTime?
+  roleKey        String?
+  note           String?
   createdAt      DateTime     @default(now())
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   inviter        User?        @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
 
   @@map("invitation")
+}
+
+model OrganizationProfile {
+  id                   String   @id @default(cuid())
+  organizationId       String   @unique
+  country              String   @default("ZM")
+  timezone             String   @default("Africa/Lusaka")
+  agencyType           String   @default("BROKERAGE")
+  primaryOfficeAddress String?
+  city                 String?
+  primaryPhone         String?
+  primaryEmail         String?
+  onboardingStatus     String   @default("ORGANIZATION_PROFILE_REQUIRED")
+  onboardingStep       String   @default("PROFILE")
+  completedAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_profile")
+}
+
+model OrganizationAsset {
+  id               String   @id @default(cuid())
+  organizationId   String
+  kind             String
+  objectKey        String   @unique
+  mimeType         String
+  fileSize         Int
+  sha256           String
+  originalFileName String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind])
+  @@index([organizationId, kind])
+  @@map("organization_asset")
+}
+
+model OrganizationRole {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String
+  displayName    String
+  description    String?
+  isSystem       Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions    OrganizationRolePermission[]
+  assignments    MemberRoleAssignment[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId, isActive])
+  @@map("organization_role")
+}
+
+model OrganizationRolePermission {
+  id         String   @id @default(cuid())
+  roleId     String
+  permission String
+  createdAt  DateTime @default(now())
+
+  role       OrganizationRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permission])
+  @@index([permission])
+  @@map("organization_role_permission")
+}
+
+model MemberRoleAssignment {
+  id           String   @id @default(cuid())
+  memberId     String
+  roleId       String
+  assignedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  member       Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role         OrganizationRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, roleId])
+  @@index([memberId])
+  @@map("member_role_assignment")
+}
+
+model MemberPermissionOverride {
+  id           String   @id @default(cuid())
+  memberId     String
+  permission   String
+  effect       String   @default("ALLOW")
+  scope        Json?
+  assignedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  member       Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, permission])
+  @@index([memberId, effect])
+  @@map("member_permission_override")
+}
+
+model UploadSession {
+  id                String   @id @default(cuid())
+  organizationId    String
+  createdById       String?
+  purpose           String
+  objectKey         String   @unique
+  expectedMimeType  String
+  expectedSize      Int
+  expectedSha256    String?
+  status            String   @default("PENDING")
+  verifiedMimeType  String?
+  verifiedSize      Int?
+  verifiedSha256    String?
+  expiresAt         DateTime
+  verifiedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([expiresAt])
+  @@map("upload_session")
 }
 
 model ApiKey {

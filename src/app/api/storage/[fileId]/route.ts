@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { s3Storage } from "@/lib/storage/s3";
 import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
+import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 
 export async function GET(
   req: NextRequest,
@@ -12,6 +13,8 @@ export async function GET(
     if (!tenant) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const role = resolveContourRole(tenant.session.user.role ?? undefined, "member", tenant.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
+    if (!roleHasPermission(role, "vault.download")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { fileId } = await params;
 

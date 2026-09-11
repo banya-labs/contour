@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import { auth, type Session } from "./auth";
 import { db } from "./db";
-import { resolveApplicationRole } from "./authorization";
+import { permissionsForRole, resolveApplicationRole, resolveContourRole, type ContourRoleKey, type Permission } from "./authorization";
 
 export type TenantContext = {
   session: Session;
   userId: string;
   organizationId: string;
   userRole: string;
+  contourRole: ContourRoleKey;
+  permissions: readonly Permission[];
 };
 
 /**
@@ -25,18 +27,34 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
 
   const userId = session.user.id;
   const organizationId = session.session.activeOrganizationId;
-  const membership = await db.member.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId,
-        userId,
-      },
-    },
-    select: { id: true, role: true },
-  });
+  let membership;
+  try {
+    membership = await db.member.findUnique({
+      where: { organizationId_userId: { organizationId, userId } },
+      select: { id: true, role: true, status: true, roleAssignments: { include: { role: { include: { permissions: true } } } }, permissionOverrides: true },
+    });
+  } catch {
+    // Allow an application rollout before the additive RBAC migration has been applied.
+    const legacyMembership = await db.member.findUnique({
+      where: { organizationId_userId: { organizationId, userId } },
+      select: { id: true, role: true },
+    });
+    membership = legacyMembership ? { ...legacyMembership, status: "active", roleAssignments: [], permissionOverrides: [] } : null;
+  }
 
-  if (!membership) {
+  if (!membership || membership.status !== "active") {
     return null;
+  }
+
+  const roleAssignments = membership.roleAssignments ?? [];
+  const permissionOverrides = membership.permissionOverrides ?? [];
+  const assignedRole = roleAssignments[0]?.role.key;
+  const contourRole = resolveContourRole(session.user.role ?? undefined, membership.role, assignedRole);
+  const basePermissions = new Set<Permission>(permissionsForRole(contourRole));
+  for (const assignment of roleAssignments) for (const permission of assignment.role.permissions) basePermissions.add(permission.permission as Permission);
+  for (const override of permissionOverrides) {
+    if (override.effect === "DENY") basePermissions.delete(override.permission as Permission);
+    if (override.effect === "ALLOW") basePermissions.add(override.permission as Permission);
   }
 
   return {
@@ -44,5 +62,7 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
     userId,
     organizationId,
     userRole: resolveApplicationRole(session.user.role ?? undefined, membership.role),
+    contourRole,
+    permissions: [...basePermissions],
   };
 }

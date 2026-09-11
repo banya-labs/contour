@@ -13,6 +13,7 @@ const updateAccessSchema = z.object({
 
 export const GET = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.grant_access"],
   requireRoles: ["SUPER_ADMIN", "BROKER_MANAGER"],
   handler: async (_req, { organizationId }) => {
     const orgId = organizationId!;
@@ -72,6 +73,7 @@ export const GET = createApiHandler({
 
 export const POST = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.grant_access"],
   requireRoles: ["SUPER_ADMIN", "BROKER_MANAGER"],
   bodySchema: updateAccessSchema,
   handler: async (_req, { organizationId, userId: grantedById, body }) => {

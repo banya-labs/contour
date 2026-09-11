@@ -1,5 +1,6 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { HeadObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { randomUUID } from "node:crypto";
 
 export type StorageCategory =
   | "PROPERTY_PHOTO"
@@ -67,7 +68,8 @@ export class S3StorageService {
 
   generateObjectKey(organizationId: string, category: StorageCategory, fileName: string): string {
     if (!organizationId) throw new Error("organizationId is required for storage keys");
-    return `${organizationId}/${category.toLowerCase()}/${Date.now()}_${sanitizeFileName(fileName)}`;
+    const extension = sanitizeFileName(fileName).split(".").pop() || "bin";
+    return `${organizationId}/${category.toLowerCase()}/${randomUUID()}.${extension}`;
   }
 
   private getPublicUrl(objectKey: string): string {
@@ -113,6 +115,15 @@ export class S3StorageService {
       new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey }),
       { expiresIn },
     );
+  }
+
+  async headObject(objectKey: string): Promise<{ contentLength: number; contentType: string; etag?: string }> {
+    const result = await this.getClient().send(new HeadObjectCommand({ Bucket: this.bucketName, Key: objectKey }));
+    return {
+      contentLength: result.ContentLength ?? 0,
+      contentType: result.ContentType || "application/octet-stream",
+      etag: result.ETag,
+    };
   }
 }
 

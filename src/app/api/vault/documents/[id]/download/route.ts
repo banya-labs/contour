@@ -5,6 +5,7 @@ import { s3Storage } from "@/lib/storage/s3";
 
 export const GET = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.download"],
   handler: async (_req, { params, organizationId, userId }) => {
     const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };

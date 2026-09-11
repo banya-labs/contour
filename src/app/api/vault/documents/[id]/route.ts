@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 
 export const DELETE = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.delete"],
   handler: async (_req, { params, organizationId, userId }) => {
     const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };

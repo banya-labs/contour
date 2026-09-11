@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { getTenantContext } from "@/lib/tenant-context";
+import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 
 // ── GET /api/documents ─────────────────────────────────────────────────────
 // Returns all VaultDocument records from Neon, newest first.
@@ -13,6 +14,8 @@ export async function GET(_req: NextRequest) {
     if (!tenant) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    const role = resolveContourRole(tenant.session.user.role ?? undefined, "member", tenant.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
+    if (!roleHasPermission(role, "vault.read")) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
 
     const documents = await db.vaultDocument.findMany({
       where: { organizationId: tenant.organizationId },
@@ -60,6 +63,8 @@ export async function POST(req: NextRequest) {
     if (!tenant) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    const role = resolveContourRole(tenant.session.user.role ?? undefined, "member", tenant.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
+    if (!roleHasPermission(role, "vault.upload")) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
 
     const body = await req.json();
     const parsed = createDocSchema.safeParse(body);

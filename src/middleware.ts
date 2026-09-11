@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { CORRELATION_HEADER, getOrCreateCorrelationId } from "@/lib/correlation";
+import { getTenantContext } from "@/lib/tenant-context";
+import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 
 const PUBLIC_PATHS = [
   "/",
@@ -11,8 +13,6 @@ const PUBLIC_PATHS = [
   "/privacy",
   "/terms",
   "/p/",
-  "/kiosk",
-  "/agent",
   "/upload/",
   "/api/auth/",
   "/api/health",
@@ -54,6 +54,19 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.redirect(signInUrl);
     response.headers.set(CORRELATION_HEADER, correlationId);
     return response;
+  }
+
+  const pathname = request.nextUrl.pathname;
+  if (pathname.startsWith("/agent") || pathname.startsWith("/kiosk") || pathname.startsWith("/dashboard")) {
+    const tenant = await getTenantContext(request);
+    const role = resolveContourRole(session.user.role ?? undefined, "member", tenant?.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
+    const requiredPermission = pathname.startsWith("/agent") || pathname.startsWith("/kiosk") ? "pwa.access" : "dashboard.read";
+    if (!tenant || !roleHasPermission(role, requiredPermission)) {
+      const destination = pathname.startsWith("/dashboard") && roleHasPermission(role, "pwa.access") ? "/agent" : "/sign-in";
+      const response = NextResponse.redirect(new URL(destination, request.url));
+      response.headers.set(CORRELATION_HEADER, correlationId);
+      return response;
+    }
   }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
