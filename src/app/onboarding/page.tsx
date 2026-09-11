@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
@@ -17,7 +17,7 @@ function safeRedirect(value: string | null): string {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
 }
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = safeRedirect(searchParams.get("redirect_url"));
@@ -157,5 +157,13 @@ export default function OnboardingPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-white text-sm text-editorial-muted">Preparing your workspace...</main>}>
+      <OnboardingContent />
+    </Suspense>
   );
 }
