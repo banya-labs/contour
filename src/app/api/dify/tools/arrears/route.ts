@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateDifyRequest } from "@/lib/dify-auth";
-import { MOCK_LEASES } from "@/lib/mock-data";
+import { rentalArrearsToolSchema } from "@/lib/ai-tool-schemas";
+import { getOrCreateCorrelationId } from "@/lib/correlation";
 
 /**
  * Dify Tool: `get_rental_arrears`
@@ -11,17 +12,18 @@ import { MOCK_LEASES } from "@/lib/mock-data";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { organization_id, minDaysOverdue = 1 } = body;
+    const parsed = rentalArrearsToolSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid arrears arguments" }, { status: 400 });
+    }
+    const { organization_id, minDaysOverdue } = parsed.data;
 
     const { context, errorResponse } = await authenticateDifyRequest(req, organization_id);
     if (errorResponse) return errorResponse;
 
     const tenantOrgId = context!.organizationId;
 
-    let arrearsList: any[] = [];
-
-    try {
-      const leasesInArrears = await db.lease.findMany({
+    const leasesInArrears = await db.lease.findMany({
         where: {
           organizationId: tenantOrgId,
           status: "IN_ARREARS",
@@ -40,11 +42,10 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      const today = new Date();
+    const today = new Date();
 
-      arrearsList = leasesInArrears.map((lease: any) => {
+    const arrearsList = leasesInArrears.map((lease) => {
         // Calculate estimated days overdue
-        const currentMonth = today.getMonth() + 1;
         const dueDay = lease.paymentDayOfMonth || 1;
         const dueDate = new Date(today.getFullYear(), today.getMonth(), dueDay);
         const diffTime = Math.max(0, today.getTime() - dueDate.getTime());
@@ -62,24 +63,7 @@ export async function POST(req: NextRequest) {
           lastPaymentDate: lease.payments[0]?.paymentDate || null,
           recommendedAction: "Dispatch Tier-1 WhatsApp payment nudge (4-day cooldown active)",
         };
-      });
-    } catch (dbError) {
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        arrearsList = MOCK_LEASES.filter((l) => l.status === "IN_ARREARS").map((l) => ({
-          leaseId: l.id,
-          tenantName: l.tenantName,
-          tenantPhone: l.tenantPhone,
-          property: l.propertyTitle,
-          suburb: "Woodlands",
-          monthlyRent: `ZMW ${l.monthlyRent.toLocaleString()}`,
-          amountOverdue: `ZMW 18,000`,
-          daysOverdue: 14,
-          recommendedAction: "Dispatch Tier-1 WhatsApp payment nudge (4-day cooldown active)",
-        }));
-      } else {
-        throw dbError;
-      }
-    }
+      }).filter((arrears) => arrears.daysOverdue >= Number(minDaysOverdue));
 
     return NextResponse.json({
       success: true,
@@ -88,10 +72,11 @@ export async function POST(req: NextRequest) {
       arrears: arrearsList,
     });
   } catch (error: any) {
-    console.error("Dify Arrears Tool Error:", error);
+    const correlationId = getOrCreateCorrelationId(req);
+    console.error("Dify Arrears Tool Error:", { correlationId, error });
     return NextResponse.json(
-      { error: "Failed to retrieve rent arrears", details: error.message },
-      { status: 500 }
+      { error: "Failed to retrieve rent arrears", correlationId },
+      { status: 500, headers: { "x-correlation-id": correlationId } }
     );
   }
 }

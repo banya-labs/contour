@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 export const DELETE = createApiHandler({
   requireAuth: true,
   handler: async (_req, { params, organizationId, userId }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };
 
     if (!id) {

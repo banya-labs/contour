@@ -46,6 +46,7 @@ model User {
   vaultGrants        VaultAccessGrant[]  @relation("VaultGrants")
   grantedVaultAccess VaultAccessGrant[]  @relation("GrantedVaultAccess")
   documentRequests   DocumentRequest[]
+  sentInvitations    Invitation[]        @relation("InvitationInviter")
 
   @@map("user")
 }
@@ -58,6 +59,7 @@ model Session {
   ipAddress      String?
   userAgent      String?
   organizationId String?
+  activeOrganizationId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -74,6 +76,10 @@ model Account {
   accessToken  String?
   refreshToken String?
   expiresAt    DateTime?
+  idToken      String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope        String?
   password     String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -99,6 +105,7 @@ model Organization {
   name                String
   slug                String   @unique
   logo                String?
+  metadata            String?
   currency            Currency @default(ZMW)
   lencoCustomerId     String?
   lencoSubscriptionId String?
@@ -127,6 +134,7 @@ model Organization {
   vaultDocuments      VaultDocument[]
   vaultAccessGrants   VaultAccessGrant[]
   documentRequests    DocumentRequest[]
+  payments            Payment[]
 
   @@map("organization")
 }
@@ -148,6 +156,7 @@ model Member {
 model Invitation {
   id             String       @id @default(cuid())
   organizationId String
+  inviterId      String?
   email          String
   role           String       @default("member")
   status         String       @default("pending")
@@ -155,6 +164,7 @@ model Invitation {
   createdAt      DateTime     @default(now())
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter        User?        @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
 
   @@map("invitation")
 }
@@ -631,6 +641,54 @@ enum DocumentRequestStatus {
   FULFILLED
   EXPIRED
   REVOKED
+}
+
+enum LencoPaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  organizationId        String
+  reference             String        @unique
+  idempotencyKey        String        @unique
+  provider              String        @default("LENCO")
+  providerTransactionId String?
+  planId                String
+  billingCycle          String
+  amount                Decimal       @db.Decimal(12, 2)
+  currency              Currency
+  status                LencoPaymentStatus @default(PENDING)
+  failureReason         String?
+  checkoutUrl           String?
+  metadata              Json?
+  completedAt           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@map("payment")
+}
+
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  provider    String
+  dedupeKey   String    @unique
+  eventId     String?
+  eventType   String
+  reference   String?
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([provider, reference])
+  @@index([provider, createdAt])
+  @@map("webhook_event")
 }
 
 model VaultDocument {

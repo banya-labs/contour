@@ -15,7 +15,7 @@ export const GET = createApiHandler({
   requireAuth: true,
   requireRoles: ["SUPER_ADMIN", "BROKER_MANAGER"],
   handler: async (_req, { organizationId }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
 
     // 1. Fetch organization members
     const members = await db.user.findMany({
@@ -75,7 +75,7 @@ export const POST = createApiHandler({
   requireRoles: ["SUPER_ADMIN", "BROKER_MANAGER"],
   bodySchema: updateAccessSchema,
   handler: async (_req, { organizationId, userId: grantedById, body }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
     const data = body;
 
     const grant = await db.vaultAccessGrant.upsert({
@@ -92,14 +92,14 @@ export const POST = createApiHandler({
         propertyIds: data.propertyIds,
         canVerifyDocs: data.canVerifyDocs,
         canDeleteDocs: data.canDeleteDocs,
-        grantedById: grantedById || "user_demo_superadmin",
+        grantedById: grantedById!,
       },
       update: {
         accessLevel: data.accessLevel,
         propertyIds: data.propertyIds,
         canVerifyDocs: data.canVerifyDocs,
         canDeleteDocs: data.canDeleteDocs,
-        grantedById: grantedById || "user_demo_superadmin",
+        grantedById: grantedById!,
       },
     });
 

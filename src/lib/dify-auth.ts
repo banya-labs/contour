@@ -13,7 +13,7 @@ export interface DifyTenantContext {
  * 
  * Supports:
  * 1. Bearer API Key from Contour's `ApiKey` table in Neon PostgreSQL.
- * 2. Master System Secret `DIFY_TOOL_SECRET` + `X-Organization-Id` header / body param.
+ * 2. Master System Secret `BETTER_AUTH_SECRET` + `X-Organization-Id` header / body param.
  * 3. Dev / Local demo fallback (`org_demo_contour`).
  */
 export async function authenticateDifyRequest(
@@ -26,7 +26,7 @@ export async function authenticateDifyRequest(
     const targetOrgId = bodyOrQueryOrgId || headerOrgId;
 
     // 1. Dev Mode Bypass (when no auth header provided)
-    if (process.env.NEXT_PUBLIC_DEV_MODE === "true" && !authHeader) {
+    if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true" && !authHeader) {
       return {
         context: {
           organizationId: targetOrgId || "org_contour_demo",
@@ -40,7 +40,7 @@ export async function authenticateDifyRequest(
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       // In dev mode, allow fallback
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
+      if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
         return {
           context: {
             organizationId: targetOrgId || "org_contour_demo",
@@ -62,8 +62,8 @@ export async function authenticateDifyRequest(
 
     const token = authHeader.replace("Bearer ", "").trim();
 
-    // 2. Master Dify Tool Secret Validation (Configured in Dokploy / .env)
-    const masterSecret = process.env.DIFY_TOOL_SECRET || process.env.BETTER_AUTH_SECRET;
+    // 2. Master service secret validation (configured in Dokploy / .env)
+    const masterSecret = process.env.BETTER_AUTH_SECRET;
     if (masterSecret && token === masterSecret) {
       if (!targetOrgId) {
         return {
@@ -130,7 +130,7 @@ export async function authenticateDifyRequest(
       };
     } catch (dbErr) {
       // If DB is offline during local test, fallback in dev mode
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
+      if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
         return {
           context: {
             organizationId: targetOrgId || "org_contour_demo",

@@ -30,33 +30,20 @@ export async function POST(req: NextRequest) {
     const parsed = publicInquirySchema.parse(body);
 
     // 3. Resolve the organization slug/id
-    let organization: any = null;
-    try {
-      organization = await db.organization.findFirst({
-        where: {
-          OR: [
-            { id: parsed.org },
-            { slug: parsed.org }
-          ]
-        }
-      });
-    } catch (dbErr: any) {
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        organization = { id: "org_contour_demo", name: "Contour Demo Org" };
-      } else {
-        throw dbErr;
+    const organization = await db.organization.findFirst({
+      where: {
+        OR: [
+          { id: parsed.org },
+          { slug: parsed.org }
+        ]
       }
-    }
+    });
 
     if (!organization) {
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        organization = { id: parsed.org || "org_contour_demo", name: "Contour Demo Org" };
-      } else {
-        return NextResponse.json(
-          { success: false, error: "Organization not found." },
-          { status: 404 }
-        );
-      }
+      return NextResponse.json(
+        { success: false, error: "Organization not found." },
+        { status: 404 }
+      );
     }
 
     // 4. Resolve the property if provided and find its assigned agent
@@ -65,8 +52,8 @@ export async function POST(req: NextRequest) {
 
     if (parsed.propertyId) {
       try {
-        const property = await db.property.findUnique({
-          where: { id: parsed.propertyId },
+        const property = await db.property.findFirst({
+          where: { id: parsed.propertyId, organizationId: organization.id },
           select: { title: true, assignedAgentId: true }
         });
 
@@ -81,39 +68,20 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Create inquiry in database
-    let inquiry: any;
-    try {
-      inquiry = await db.inquiry.create({
-        data: {
-          organizationId: organization.id,
-          clientName: parsed.clientName,
-          clientPhone: parsed.clientPhone,
-          clientEmail: parsed.clientEmail || null,
-          lookingFor: "FOR_SALE",
-          notes: enrichedNotes,
-          assignedAgentId: assignedAgentId,
-          status: "NEW_INQUIRY",
-          // Enforce the 30-day anti-poaching lock
-          exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }
-      });
-    } catch (dbErr: any) {
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        console.warn("DB offline or error during inquiry creation, falling back to mock success.", dbErr.message);
-        inquiry = {
-          id: `inq_${Date.now()}`,
-          organizationId: organization.id,
-          clientName: parsed.clientName,
-          clientPhone: parsed.clientPhone,
-          clientEmail: parsed.clientEmail || null,
-          notes: enrichedNotes,
-          status: "NEW_INQUIRY",
-          createdAt: new Date().toISOString(),
-        };
-      } else {
-        throw dbErr;
+    const inquiry = await db.inquiry.create({
+      data: {
+        organizationId: organization.id,
+        clientName: parsed.clientName,
+        clientPhone: parsed.clientPhone,
+        clientEmail: parsed.clientEmail || null,
+        lookingFor: "FOR_SALE",
+        notes: enrichedNotes,
+        assignedAgentId,
+        status: "NEW_INQUIRY",
+        // Enforce the 30-day anti-poaching lock
+        exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       }
-    }
+    });
 
     // 6. Return response
     return NextResponse.json({

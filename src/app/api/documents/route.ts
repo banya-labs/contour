@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-
-const ORG_ID = "org_contour_demo";
+import { getTenantContext } from "@/lib/tenant-context";
 
 // ── GET /api/documents ─────────────────────────────────────────────────────
 // Returns all VaultDocument records from Neon, newest first.
@@ -10,8 +9,13 @@ const ORG_ID = "org_contour_demo";
 // presigned download URL via GET /api/storage/[fileId].
 export async function GET(_req: NextRequest) {
   try {
+    const tenant = await getTenantContext(_req);
+    if (!tenant) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const documents = await db.vaultDocument.findMany({
-      where: { organizationId: ORG_ID },
+      where: { organizationId: tenant.organizationId },
       include: {
         property: {
           select: { id: true, title: true, suburb: true },
@@ -52,6 +56,11 @@ const createDocSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const tenant = await getTenantContext(req);
+    if (!tenant) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const parsed = createDocSchema.safeParse(body);
 
@@ -66,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     const doc = await db.vaultDocument.create({
       data: {
-        organizationId: ORG_ID,
+        organizationId: tenant.organizationId,
         propertyId: data.propertyId || null,
         title: data.title,
         docType: data.docType,
@@ -77,7 +86,7 @@ export async function POST(req: NextRequest) {
         mimeType: data.mimeType,
         fileType: data.fileType,
         registryFolio: data.registryFolio || null,
-        uploadedBy: data.uploadedBy,
+        uploadedBy: tenant.userId,
         isVerified: true,
       },
       include: {
@@ -88,7 +97,7 @@ export async function POST(req: NextRequest) {
     // Log POPIA audit event for the upload
     await db.auditLog.create({
       data: {
-        organizationId: ORG_ID,
+        organizationId: tenant.organizationId,
         action: "VAULT_DOCUMENT_UPLOAD",
         entityType: "VaultDocument",
         entityId: doc.id,

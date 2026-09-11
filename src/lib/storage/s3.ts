@@ -1,13 +1,5 @@
-/**
- * Banya Labs S3-Compatible Object Storage Client (MinIO / Dokploy Bucket / AWS S3 / Cloudflare R2)
- *
- * Replaces non-standard database blob storage with industry-standard S3 bucket architecture.
- * Features:
- * - Direct Presigned Upload & Download URLs (zero web server buffer bottleneck)
- * - Tenant-isolated object keys: {tenantId}/{category}/{fileId}_{filename}
- * - POPIA time-limited (15-min) download presigning for confidential title deeds & NRC scans
- * - Dev Mode / Local Mock fallback for zero-cloud testing
- */
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export type StorageCategory =
   | "PROPERTY_PHOTO"
@@ -28,61 +20,99 @@ export type StorageMetadata = {
   registryFolio?: string;
 };
 
+type PresignedUpload = {
+  uploadUrl: string;
+  objectKey: string;
+  publicCdnUrl: string;
+};
+
+const MAX_PRESIGN_SECONDS = 900;
+
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is required for S3 storage`);
+  return value;
+}
+
+function sanitizeFileName(fileName: string): string {
+  const normalized = fileName.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "-").replace(/-+/g, "-");
+  return normalized.slice(0, 160) || "file";
+}
+
 export class S3StorageService {
-  private bucketName: string;
-  private endpoint: string;
-  private region: string;
+  private readonly bucketName: string;
+  private readonly endpoint: string | undefined;
+  private readonly region: string;
+  private client: S3Client | undefined;
 
   constructor() {
     this.bucketName = process.env.S3_BUCKET_NAME || "contour-vault";
-    this.endpoint = process.env.S3_ENDPOINT || "https://storage.banyalabs.com";
+    this.endpoint = process.env.S3_ENDPOINT || undefined;
     this.region = process.env.S3_REGION || "auto";
   }
 
-  /**
-   * Generates a structured S3 object key with strict tenant namespace isolation
-   */
-  generateObjectKey(organizationId: string, category: StorageCategory, fileName: string): string {
-    const sanitizedName = fileName.toLowerCase().replace(/[^a-z0-9\._\-]/g, "-");
-    const timestamp = Date.now();
-    return `${organizationId}/${category.toLowerCase()}/${timestamp}_${sanitizedName}`;
+  private getClient(): S3Client {
+    if (!this.client) {
+      const accessKeyId = getRequiredEnv("S3_ACCESS_KEY_ID");
+      const secretAccessKey = getRequiredEnv("S3_SECRET_ACCESS_KEY");
+      this.client = new S3Client({
+        region: this.region,
+        endpoint: this.endpoint,
+        forcePathStyle: Boolean(this.endpoint),
+        credentials: { accessKeyId, secretAccessKey },
+      });
+    }
+    return this.client;
   }
 
-  /**
-   * Generates a Presigned PUT URL for direct client-to-storage upload (bypassing server RAM)
-   */
+  generateObjectKey(organizationId: string, category: StorageCategory, fileName: string): string {
+    if (!organizationId) throw new Error("organizationId is required for storage keys");
+    return `${organizationId}/${category.toLowerCase()}/${Date.now()}_${sanitizeFileName(fileName)}`;
+  }
+
+  private getPublicUrl(objectKey: string): string {
+    const publicDomain = process.env.S3_PUBLIC_DOMAIN;
+    return publicDomain ? `${publicDomain.replace(/\/$/, "")}/${this.bucketName}/${objectKey}` : "";
+  }
+
   async getPresignedUploadUrl(
     organizationId: string,
     category: StorageCategory,
     fileName: string,
-    mimeType: string
-  ): Promise<{ uploadUrl: string; objectKey: string; publicCdnUrl: string }> {
+    mimeType: string,
+  ): Promise<PresignedUpload> {
     const objectKey = this.generateObjectKey(organizationId, category, fileName);
-    const cdnDomain = process.env.S3_PUBLIC_DOMAIN || this.endpoint;
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: objectKey,
+      ContentType: mimeType || "application/octet-stream",
+      Metadata: {
+        organizationId,
+        category,
+        originalFileName: sanitizeFileName(fileName),
+      },
+    });
+    const uploadUrl = await getSignedUrl(this.getClient(), command, { expiresIn: MAX_PRESIGN_SECONDS });
 
-    // In local dev/demo mode, return direct mock handler endpoint
-    if (process.env.NEXT_PUBLIC_DEV_MODE === "true" || !process.env.S3_ACCESS_KEY_ID) {
-      return {
-        uploadUrl: `/api/storage/upload?key=${encodeURIComponent(objectKey)}`,
-        objectKey,
-        publicCdnUrl: `${cdnDomain}/${this.bucketName}/${objectKey}`,
-      };
-    }
-
-    // Production S3 / MinIO Presigned URL generation would sign with AWS SDK v3
-    return {
-      uploadUrl: `${this.endpoint}/${this.bucketName}/${objectKey}`,
-      objectKey,
-      publicCdnUrl: `${cdnDomain}/${this.bucketName}/${objectKey}`,
-    };
+    return { uploadUrl, objectKey, publicCdnUrl: this.getPublicUrl(objectKey) };
   }
 
-  /**
-   * Generates a time-limited Presigned GET URL for confidential documents (POPIA Audited)
-   */
-  async getPresignedDownloadUrl(objectKey: string, expiresInSeconds: number = 900): Promise<string> {
-    const cdnDomain = process.env.S3_PUBLIC_DOMAIN || this.endpoint;
-    return `${cdnDomain}/${this.bucketName}/${objectKey}?expires=${expiresInSeconds}`;
+  async putObject(objectKey: string, body: ArrayBuffer | Uint8Array, contentType: string): Promise<void> {
+    await this.getClient().send(new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: objectKey,
+      Body: body instanceof ArrayBuffer ? new Uint8Array(body) : body,
+      ContentType: contentType || "application/octet-stream",
+    }));
+  }
+
+  async getPresignedDownloadUrl(objectKey: string, expiresInSeconds = MAX_PRESIGN_SECONDS): Promise<string> {
+    const expiresIn = Math.min(Math.max(expiresInSeconds, 1), MAX_PRESIGN_SECONDS);
+    return getSignedUrl(
+      this.getClient(),
+      new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey }),
+      { expiresIn },
+    );
   }
 }
 

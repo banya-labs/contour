@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { authenticateDifyRequest } from "@/lib/dify-auth";
-import { MOCK_PROPERTIES } from "@/lib/mock-data";
+import { searchPropertiesToolSchema } from "@/lib/ai-tool-schemas";
+import { getOrCreateCorrelationId } from "@/lib/correlation";
 
 /**
  * Dify Tool: `search_properties`
@@ -12,17 +14,11 @@ import { MOCK_PROPERTIES } from "@/lib/mock-data";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const {
-      organization_id,
-      query,
-      suburb,
-      listingType,
-      propertyType,
-      minPrice,
-      maxPrice,
-      bedrooms,
-      limit = 10,
-    } = body;
+    const parsed = searchPropertiesToolSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid property search arguments" }, { status: 400 });
+    }
+    const { organization_id, query, suburb, listingType, propertyType, minPrice, maxPrice, bedrooms, limit } = parsed.data;
 
     const { context, errorResponse } = await authenticateDifyRequest(req, organization_id);
     if (errorResponse) return errorResponse;
@@ -30,7 +26,7 @@ export async function POST(req: NextRequest) {
     const tenantOrgId = context!.organizationId;
 
     // Build strict tenant-scoped query for Neon PostgreSQL
-    const whereClause: any = {
+    const whereClause: Prisma.PropertyWhereInput = {
       organizationId: tenantOrgId,
       status: "AVAILABLE",
     };
@@ -48,18 +44,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (bedrooms) {
-      whereClause.bedrooms = { gte: Number(bedrooms) };
+      whereClause.bedrooms = { gte: bedrooms };
     }
 
-    if (minPrice || maxPrice) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
       if (listingType === "FOR_RENT") {
         whereClause.rentalPrice = {};
-        if (minPrice) whereClause.rentalPrice.gte = Number(minPrice);
-        if (maxPrice) whereClause.rentalPrice.lte = Number(maxPrice);
+        if (minPrice !== undefined) whereClause.rentalPrice.gte = minPrice;
+        if (maxPrice !== undefined) whereClause.rentalPrice.lte = maxPrice;
       } else {
         whereClause.askingPrice = {};
-        if (minPrice) whereClause.askingPrice.gte = Number(minPrice);
-        if (maxPrice) whereClause.askingPrice.lte = Number(maxPrice);
+        if (minPrice !== undefined) whereClause.askingPrice.gte = minPrice;
+        if (maxPrice !== undefined) whereClause.askingPrice.lte = maxPrice;
       }
     }
 
@@ -72,12 +68,9 @@ export async function POST(req: NextRequest) {
       ];
     }
 
-    let properties: any[] = [];
-
-    try {
-      properties = await db.property.findMany({
+    const properties = await db.property.findMany({
         where: whereClause,
-        take: Number(limit),
+        take: limit,
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -101,19 +94,6 @@ export async function POST(req: NextRequest) {
           createdAt: true,
         },
       });
-    } catch (dbError) {
-      // Fallback for dev / mock environment
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        properties = MOCK_PROPERTIES.filter((p) => {
-          if (suburb && !p.suburb.toLowerCase().includes(suburb.toLowerCase())) return false;
-          if (listingType && p.listingType !== listingType) return false;
-          if (bedrooms && (!p.bedrooms || p.bedrooms < Number(bedrooms))) return false;
-          return true;
-        });
-      } else {
-        throw dbError;
-      }
-    }
 
     // Format properties for Dify LLM context
     const formattedResults = properties.map((p) => ({
@@ -141,11 +121,12 @@ export async function POST(req: NextRequest) {
       totalCount: formattedResults.length,
       properties: formattedResults,
     });
-  } catch (error: any) {
-    console.error("Dify Property Search Tool Error:", error);
+  } catch (error: unknown) {
+    const correlationId = getOrCreateCorrelationId(req);
+    console.error("Dify Property Search Tool Error:", { correlationId, error });
     return NextResponse.json(
-      { error: "Failed to search properties", details: error.message },
-      { status: 500 }
+      { error: "Failed to search properties", correlationId },
+      { status: 500, headers: { "x-correlation-id": correlationId } }
     );
   }
 }

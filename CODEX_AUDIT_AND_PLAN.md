@@ -4,6 +4,10 @@ Date: 2026-09-11
 Project: Contour  
 Target: Reliable multi-tenant SaaS for Zambian real-estate operators
 
+Current position: Phase 6 — Testing, CI, documentation, and reference-verified cleanup.
+Phase 6 progress: ESLint CLI migration is in place; the unused Better Auth CLI was removed; Next.js is upgraded to patched 15.5.24; targeted lint and the unit/route test suite pass.
+Current verification blocker: full ESLint, TypeScript, and production build processes remain silent for several minutes on Windows and require CI/clean-run investigation.
+
 ## 1. Executive decision
 
 The current repository is a feature-rich but mixed-state prototype. It contains active product work, demo fallbacks, competing authentication systems, copied design assets, legacy documentation, and incomplete production integrations.
@@ -29,6 +33,134 @@ No existing working-tree change should be reverted as part of this plan. Cleanup
 The working tree is on `main` and contains a large uncommitted change set spanning dashboard and kiosk UI, vault and client-upload flows, Lenco billing, Better Auth-facing routes, existing Clerk middleware, deleted AI/test files, new marketing assets, and schema changes without a `prisma/migrations` directory.
 
 The first repository action is to commit and push this complete baseline to `origin/main`. That commit is a checkpoint, not a declaration that the system is production-ready.
+
+### Phase 0 checkpoint
+
+- Baseline commit: `622f11905edab638fd4352ca73f01970c3d4b1ab`
+- Commit subject: `Update by Antigavity to handver to Codex`
+- Branch: `main`
+- Working tree: clean after the manual commit.
+- Local tracking state: `HEAD` matches the local `origin/main` reference.
+- Remote verification: the environment could not reach GitHub over HTTPS, so the remote server was not independently queried during this session.
+
+### Phase 1 implementation checkpoint
+
+Implemented in the working tree:
+
+- Removed Clerk runtime usage from the root layout, middleware, auth pages, dashboard navigation, mobile navigation, marketing navigation, and settings.
+- Removed the Clerk theme module and direct `@clerk/nextjs` dependency declaration.
+- Added Better Auth Next.js handlers at `/api/auth/*`.
+- Added Google social-provider configuration with optional server-only credentials.
+- Added custom Better Auth email/password and Google sign-in/sign-up UI.
+- Replaced Clerk middleware with Better Auth session validation using the Node.js runtime.
+- Added Google OAuth environment placeholders to `.env.example`.
+- Changed the development-mode default from enabled to disabled.
+
+Verification:
+
+- `pnpm exec tsc --noEmit --pretty false --incremental false`: passes.
+- `pnpm build`: still fails with the existing local Windows `spawn EPERM` process error.
+
+Required credentials before Google OAuth can be tested:
+
+```text
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+```
+
+Google redirect URIs:
+
+```text
+http://localhost:3000/api/auth/callback/google
+https://<production-domain>/api/auth/callback/google
+```
+
+Do not commit these credentials. Add them to the local environment and deployment secret store only.
+
+### Phase 2 implementation checkpoint — tenant and authorization hardening
+
+Implemented in the working tree:
+
+- Added a centralized Better Auth tenant-context resolver in `src/lib/tenant-context.ts`.
+- Removed the API-handler demo organization and development super-admin bypass.
+- Made `createApiHandler` protected by default and require an active organization membership.
+- Changed tenant resolution to use Better Auth's `activeOrganizationId` and verify the `Member` record in PostgreSQL.
+- Secured the legacy document metadata endpoint and direct storage upload endpoint with the authenticated tenant context.
+- Prevented clients from selecting arbitrary `organizationId` values for document uploads.
+- Restricted Better Auth trusted origins to the configured application URL.
+- Added protected organization onboarding after signup, including slug generation, active-organization selection, and safe internal redirect handling.
+- Mapped Better Auth organization owners/admins to Contour's organization-scoped broker roles.
+- Added tenant-context and authorization unit tests covering unauthenticated requests, missing memberships, tenant identity, and role policy.
+
+Verification:
+
+- `pnpm exec tsc --noEmit --pretty false --incremental false`: passes.
+- Remaining tenant hardening work: add database-backed cross-tenant integration tests against an isolated test database.
+
+### Phase 3 implementation checkpoint — database and storage reliability
+
+Implemented in the working tree:
+
+- Generated the initial Prisma migration at `prisma/migrations/20260911000000_initial_schema/migration.sql` without connecting to or changing a live database.
+- Added explicit `db:migrate`, `db:migrate:deploy`, and `db:migrate:status` scripts.
+- Replaced placeholder S3 URLs with AWS SDK v3 presigned PUT and GET URLs compatible with MinIO, Dokploy storage, Cloudflare R2, and AWS S3.
+- Added server-side direct object upload through the S3 client and removed silent storage-success fallbacks.
+- Capped presigned URL lifetime at 15 minutes and retained tenant-prefixed object keys.
+- Changed storage viewing to return an authenticated presigned redirect instead of exposing raw bucket URLs.
+
+Verification:
+
+- `pnpm exec tsc --noEmit --pretty false --incremental false`: passes.
+- `pnpm test`: passes with 9 tests.
+- Dokploy must run `pnpm db:migrate:deploy` as a release/deploy command against the intended production database.
+- S3 credentials and bucket policy must be configured before upload/download can be exercised.
+- Existing databases created before Prisma Migrate require a one-time baseline using `prisma migrate resolve --applied 20260911000000_initial_schema` before deploying subsequent migrations.
+
+### Phase 4 implementation checkpoint — Lenco billing reliability
+
+Implemented in the working tree:
+
+- Added durable `Payment` records with unique payment references and idempotency keys.
+- Added durable `WebhookEvent` records with deduplication keys and processing timestamps.
+- Required an `Idempotency-Key` on checkout requests and handled concurrent duplicate requests safely.
+- Removed production payment simulation when Lenco is unconfigured; simulation is now limited to non-production development mode.
+- Added transactional payment completion handling so a verified payment updates both the payment and organization subscription together.
+- Required valid constant-time Lenco HMAC-SHA512 webhook verification using the SHA-256-derived API-token signing key; missing API tokens no longer bypass security.
+- Re-queried Lenco transaction status before accepting successful webhook events.
+- Prevented late failed webhooks from downgrading an already successful payment.
+- Removed the unused Paystack integration and remaining Paystack-facing copy.
+
+Verification:
+
+- `pnpm exec tsc --noEmit --pretty false --incremental false`: passes.
+- `pnpm test`: passes with 11 tests.
+- Production verification still requires Lenco sandbox credentials and a signed webhook delivery.
+
+### Phase 5 implementation checkpoint — AI and MCP data integrity
+
+Implemented in the working tree:
+
+- Removed fabricated production fallbacks from the Dify property, arrears, commission, inquiry, and document tools.
+- Changed Dify document retrieval to read real, non-deleted tenant-scoped vault records before generating presigned URLs.
+- Changed MCP property, arrears, and commission tools to return database-backed results only.
+- Changed MCP inquiry creation to persist a real tenant-scoped `Inquiry` record with the 30-day anti-poaching lock.
+- Added basic JSON-RPC 2.0 envelope validation for MCP requests.
+- Added shared Zod schemas for all Dify/MCP tool argument shapes, including bounded limits, numeric coercion, supported enums, and budget-range validation.
+- Added consistent invalid-argument responses for Dify tools and MCP `-32602` errors before database access.
+- Added Vitest path-alias configuration and a Dify route regression suite proving client-supplied organization IDs cannot override authenticated tenant scope.
+- Added request correlation IDs through middleware and machine-endpoint error responses, without exposing internal exception details to callers.
+- Added bounded machine reads: property search is capped at 50 records and vault/MCP document retrieval is capped at 50 records.
+- Updated Dify documentation and adversarial tests to use `BETTER_AUTH_SECRET` after removing the retired optional Dify secret variable.
+
+Verification:
+
+- Static search confirms no retired Dify environment variable names remain in active configuration or source.
+- `git diff --check` passes.
+- Full TypeScript/Vitest verification was attempted but stalled without diagnostic output in the current Windows process environment; it requires a follow-up run in a clean process or CI.
+- Focused validation and tenant-isolation tests pass: 5 tests across 2 files.
+- Correlation-ID regression tests pass as part of the focused suite.
+- Isolated PostgreSQL verification completed on 2026-09-11: both committed migrations applied and the Dify cross-tenant integration test passed.
+- Full Vitest verification completed on 2026-09-11: 8 test files and 20 tests passed with `TEST_DATABASE_URL` configured.
 
 ## 3. Verified quality baseline
 
@@ -291,11 +423,13 @@ Likely candidates, subject to reference verification:
 
 ## 15. Immediate next actions
 
-1. Commit and push the current working tree to `main`.
-2. Create a follow-up stabilization branch from that checkpoint.
-3. Remove Clerk and configure Better Auth Google OAuth.
-4. Remove Paystack references.
-5. Replace fake storage with real S3-compatible signing.
-6. Fix tenant-scoped mutations and vault download authorization.
-7. Add the first Prisma migration and cross-tenant tests.
+1. Replace the interactive `next lint` script with non-interactive ESLint CLI configuration.
+2. Resolve and document the Windows production-build process issue.
+3. Expand integration/security coverage to MCP reads/writes, vault access, and upload-link controls.
+4. Consolidate canonical documentation and perform reference-verified asset/file cleanup.
+5. Add CI gates for lint, type-check, unit/integration tests, and production build.
 
+Phase 6 dependency note: `pnpm audit --audit-level high` no longer reports the prior
+critical Better Auth or Next.js findings. Nine moderate/high transitive findings
+remain in `sharp`, PostCSS, and Prisma-related tooling and require follow-up before
+production release.

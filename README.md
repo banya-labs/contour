@@ -27,7 +27,7 @@
 - **Database**: PostgreSQL with `pgvector` (Prisma ORM)
 - **Object Storage**: **Self-Hosted MinIO (S3-Compatible)**
 - **Authentication**: Better Auth (Multi-tenancy & API Key plugins)
-- **Payments**: Paystack (ZMW, USD, ZAR)
+- **Payments**: Lenco Zambia
 - **AI Backend**: Dify Agent Runtime
 - **Testing**: Playwright End-to-End Test Suite
 
@@ -42,6 +42,62 @@ pnpm install
 # Run dev server
 pnpm dev
 
+# Generate Prisma client
+pnpm db:generate
+
+# Apply committed migrations in a deployment or staging environment
+pnpm db:migrate:deploy
+
 # Build production bundle
 pnpm build
 ```
+
+### Verification
+
+```bash
+# Unit and route regression tests
+pnpm test
+
+# Cross-tenant integration test against an isolated PostgreSQL database
+TEST_DATABASE_URL="postgresql://..." pnpm test -- tests/integration/dify-tenant-isolation.integration.test.ts
+```
+
+The integration test is skipped when `TEST_DATABASE_URL` is not configured.
+Use a disposable database created from the committed Prisma migrations; never
+point it at production.
+
+### Production storage and database
+
+Contour requires an S3-compatible bucket for document storage. Configure
+`S3_BUCKET_NAME`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and
+optionally `S3_ENDPOINT` for MinIO, Dokploy storage, or another compatible
+provider. Presigned uploads and downloads expire after 15 minutes; the
+application never accepts a client-supplied organization ID for protected
+storage operations.
+
+Run `pnpm db:migrate:deploy` as a Dokploy release/deploy command after setting
+`DATABASE_URL`. Do not use `pnpm db:push` against production because it bypasses
+the committed migration history.
+
+### One-time baseline for an existing database
+
+If the database was originally created with `prisma db push` or another schema
+tool, it is not empty and Prisma will report `P3005` when it sees the initial
+create-schema migration. After verifying the existing database matches the
+initial migration and taking a backup, mark only the initial migration as
+already applied, then deploy the remaining migrations:
+
+```bash
+pnpm exec prisma migrate resolve --applied 20260911000000_initial_schema
+pnpm db:migrate:deploy
+```
+
+The resolve command records migration history; it does not recreate or delete
+existing tables. Do not mark `20260911010000_billing_idempotency` as applied,
+because that migration still needs to create the billing and webhook tables.
+
+### Lenco webhook signing
+
+Lenco does not issue a separate webhook secret. It derives the signing key from
+`LENCO_API_KEY` using SHA-256, then signs the raw webhook body with HMAC-SHA512.
+Keep `LENCO_API_KEY` private and configure the webhook URL through Lenco.

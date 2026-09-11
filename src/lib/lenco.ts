@@ -128,18 +128,26 @@ export function getPlanPrice(
 }
 
 /**
- * Verifies incoming Lenco webhook HMAC SHA-256 signature
+ * Verifies the Lenco webhook signature.
+ * Lenco derives the webhook hash key as SHA-256 of the API token, then signs
+ * the raw request body with HMAC-SHA512.
  */
 export function verifyLencoSignature(rawBody: string, signature: string | null): boolean {
-  const secret = process.env.LENCO_WEBHOOK_SECRET || "dev_lenco_webhook_secret";
-  if (!signature) return false;
+  const apiToken = process.env.LENCO_API_KEY;
+  if (!apiToken || !signature) return false;
 
+  const webhookHashKey = crypto.createHash("sha256").update(apiToken).digest("hex");
   const hash = crypto
-    .createHmac("sha256", secret)
+    .createHmac("sha512", webhookHashKey)
     .update(rawBody)
-    .digest("hex");
+    .digest();
 
-  return hash.toLowerCase() === signature.toLowerCase();
+  const normalizedSignature = signature.trim().replace(/^sha256=/i, "");
+  const provided = /^[0-9a-f]+$/i.test(normalizedSignature)
+    ? Buffer.from(normalizedSignature, "hex")
+    : Buffer.from(normalizedSignature, "base64");
+
+  return provided.length === hash.length && crypto.timingSafeEqual(provided, hash);
 }
 
 export interface LencoCollectionPayload {
@@ -167,7 +175,11 @@ export interface LencoCollectionResult {
   checkoutUrl?: string;
   ussdPromptSent?: boolean;
   message: string;
-  data?: any;
+  data?: Record<string, unknown>;
+}
+
+function isDevelopmentSimulationEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true";
 }
 
 /**
@@ -177,11 +189,11 @@ export async function initiateLencoCollection(
   payload: LencoCollectionPayload
 ): Promise<LencoCollectionResult> {
   const apiKey = process.env.LENCO_API_KEY;
-  const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+  const isDevMode = isDevelopmentSimulationEnabled();
   const apiUrl = process.env.LENCO_API_URL || "https://api.lenco.co";
 
-  // Dev mode or missing API key fallback
-  if (isDevMode || !apiKey || apiKey.includes("placeholder")) {
+  // Simulation is intentionally limited to non-production environments.
+  if (isDevMode) {
     return {
       success: true,
       status: "SUCCESS",
@@ -196,11 +208,20 @@ export async function initiateLencoCollection(
     };
   }
 
+  if (!apiKey || apiKey.includes("placeholder")) {
+    return {
+      success: false,
+      status: "FAILED",
+      reference: payload.reference,
+      message: "Lenco is not configured. Set LENCO_API_KEY before accepting payments.",
+    };
+  }
+
   try {
     const endpoint =
       payload.channel === "mobile_money"
-        ? `${apiUrl}/v1/collections/mobile-money`
-        : `${apiUrl}/v1/collections/card`;
+        ? `${apiUrl}/collections/mobile-money`
+        : `${apiUrl}/collections/card`;
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -229,14 +250,14 @@ export async function initiateLencoCollection(
       }),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as Record<string, unknown>;
 
     if (!response.ok) {
       return {
         success: false,
         status: "FAILED",
         reference: payload.reference,
-        message: data.message || `Lenco API error: HTTP ${response.status}`,
+        message: typeof data.message === "string" ? data.message : `Lenco API error: HTTP ${response.status}`,
         data,
       };
     }
@@ -245,7 +266,7 @@ export async function initiateLencoCollection(
       success: true,
       status: data.status === "successful" ? "SUCCESS" : "PENDING_AUTHORIZATION",
       reference: payload.reference,
-      checkoutUrl: data.checkout_url || data.link,
+      checkoutUrl: typeof data.checkout_url === "string" ? data.checkout_url : typeof data.link === "string" ? data.link : undefined,
       ussdPromptSent: payload.channel === "mobile_money",
       message:
         payload.channel === "mobile_money"
@@ -253,12 +274,12 @@ export async function initiateLencoCollection(
           : "Payment initiated successfully.",
       data,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       success: false,
       status: "FAILED",
       reference: payload.reference,
-      message: error.message || "Failed to communicate with Lenco API.",
+      message: error instanceof Error ? error.message : "Failed to communicate with Lenco API.",
     };
   }
 }
@@ -266,12 +287,12 @@ export async function initiateLencoCollection(
 /**
  * Re-queries Lenco transaction status by reference for idempotent verification
  */
-export async function getLencoTransactionStatus(reference: string): Promise<any> {
+export async function getLencoTransactionStatus(reference: string): Promise<Record<string, unknown> | null> {
   const apiKey = process.env.LENCO_API_KEY;
-  const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+  const isDevMode = isDevelopmentSimulationEnabled();
   const apiUrl = process.env.LENCO_API_URL || "https://api.lenco.co";
 
-  if (isDevMode || !apiKey || apiKey.includes("placeholder")) {
+  if (isDevMode) {
     return {
       status: "successful",
       reference,
@@ -279,15 +300,17 @@ export async function getLencoTransactionStatus(reference: string): Promise<any>
     };
   }
 
+  if (!apiKey || apiKey.includes("placeholder")) return null;
+
   try {
-    const response = await fetch(`${apiUrl}/v1/transactions-by-reference/${encodeURIComponent(reference)}`, {
+    const response = await fetch(`${apiUrl}/collections/status/${encodeURIComponent(reference)}`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
     });
-    return await response.json();
-  } catch (err: any) {
-    console.error(`[Lenco Re-query Error] Reference ${reference}:`, err.message);
+    return (await response.json()) as Record<string, unknown>;
+  } catch (err: unknown) {
+    console.error(`[Lenco Re-query Error] Reference ${reference}:`, err instanceof Error ? err.message : err);
     return null;
   }
 }

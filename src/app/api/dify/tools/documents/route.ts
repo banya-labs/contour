@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateDifyRequest } from "@/lib/dify-auth";
-import { s3Storage, StorageCategory } from "@/lib/storage/s3";
+import { propertyDocumentsToolSchema } from "@/lib/ai-tool-schemas";
+import { getOrCreateCorrelationId } from "@/lib/correlation";
+import { s3Storage } from "@/lib/storage/s3";
 
 /**
  * Dify Tool: `get_property_documents`
@@ -15,88 +17,39 @@ import { s3Storage, StorageCategory } from "@/lib/storage/s3";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { organization_id, propertyId, category } = body;
+    const parsed = propertyDocumentsToolSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid document arguments" }, { status: 400 });
+    }
+    const { organization_id, propertyId, category } = parsed.data;
 
     const { context, errorResponse } = await authenticateDifyRequest(req, organization_id);
     if (errorResponse) return errorResponse;
 
     const tenantOrgId = context!.organizationId;
 
-    // 1. Verify property ownership in Neon PostgreSQL
-    let propertyTitle = "Lusaka Property";
-    let titleDeedNo = "LUS/LAND/2026/8942-A";
-
-    if (propertyId) {
-      try {
-        const prop = await db.property.findFirst({
-          where: {
-            id: propertyId,
-            organizationId: tenantOrgId, // STRICT TENANT ISOLATION
-          },
-          select: { title: true, titleDeedNumber: true },
-        });
-
-        if (!prop && process.env.NEXT_PUBLIC_DEV_MODE !== "true") {
-          return NextResponse.json(
-            { error: "Property not found or access denied for this tenant." },
-            { status: 404 }
-          );
-        }
-
-        if (prop) {
-          propertyTitle = prop.title;
-          titleDeedNo = prop.titleDeedNumber || titleDeedNo;
-        }
-      } catch (err) {
-        console.warn("Property lookup warning in documents tool:", err);
-      }
-    }
-
-    // 2. Query MinIO S3 object keys scoped strictly to `{tenantOrgId}/`
-    const sampleDocuments = [
-      {
-        id: `doc_title_${propertyId || "prop1"}`,
-        fileName: "Certificate_of_Title_Certified_Copy.pdf",
-        category: "TITLE_DEED" as StorageCategory,
-        objectKey: `${tenantOrgId}/title_deed/1740000000_title_deed.pdf`,
-        registryFolio: titleDeedNo,
-        securityLevel: "RESTRICTED_MANAGEMENT",
-        uploadedAt: "2026-02-10T10:30:00Z",
+    // 1. Query only real, non-deleted vault records belonging to this tenant.
+    const documents = await db.vaultDocument.findMany({
+      where: {
+        organizationId: tenantOrgId,
+        propertyId: propertyId || undefined,
+        docType: category || undefined,
+        isDeleted: false,
       },
-      {
-        id: `doc_survey_${propertyId || "prop1"}`,
-        fileName: "Ministry_of_Lands_Site_Survey_Diagram.pdf",
-        category: "SITE_SURVEY_DIAGRAM" as StorageCategory,
-        objectKey: `${tenantOrgId}/site_survey_diagram/1740000000_survey_diagram.pdf`,
-        registryFolio: `SURVEY-${titleDeedNo}`,
-        securityLevel: "AGENT_ACCESSIBLE",
-        uploadedAt: "2026-02-12T14:15:00Z",
-      },
-      {
-        id: `doc_lease_${propertyId || "prop1"}`,
-        fileName: "Signed_Standard_Residential_Lease.pdf",
-        category: "LEASE_CONTRACT" as StorageCategory,
-        objectKey: `${tenantOrgId}/lease_contract/1740000000_signed_lease.pdf`,
-        registryFolio: "LEASE-2026-01",
-        securityLevel: "AGENT_ACCESSIBLE",
-        uploadedAt: "2026-02-15T09:00:00Z",
-      },
-    ];
-
-    const filteredDocs = category
-      ? sampleDocuments.filter((d) => d.category === category)
-      : sampleDocuments;
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
 
     // 3. Generate 15-minute POPIA presigned download URLs for MinIO S3
     const docsWithPresignedUrls = await Promise.all(
-      filteredDocs.map(async (doc) => {
+      documents.map(async (doc) => {
         const presignedUrl = await s3Storage.getPresignedDownloadUrl(doc.objectKey, 900);
         return {
           id: doc.id,
-          fileName: doc.fileName,
-          category: doc.category,
+          fileName: doc.originalFileName,
+          category: doc.docType,
           registryFolio: doc.registryFolio,
-          securityClassification: doc.securityLevel,
+          securityClassification: doc.classification,
           minioObjectKey: doc.objectKey,
           presignedDownloadUrl: presignedUrl,
           expiresInSeconds: 900,
@@ -135,10 +88,11 @@ export async function POST(req: NextRequest) {
       popiaNotice: "Presigned URLs expire in 15 minutes. All document retrievals are logged in the immutable audit trail.",
     });
   } catch (error: any) {
-    console.error("Dify Document Tool Error:", error);
+    const correlationId = getOrCreateCorrelationId(req);
+    console.error("Dify Document Tool Error:", { correlationId, error });
     return NextResponse.json(
-      { error: "Failed to fetch documents from MinIO S3", details: error.message },
-      { status: 500 }
+      { error: "Failed to fetch documents from MinIO S3", correlationId },
+      { status: 500, headers: { "x-correlation-id": correlationId } }
     );
   }
 }

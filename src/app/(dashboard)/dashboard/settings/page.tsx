@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { OrganizationProfile, UserProfile } from "@clerk/nextjs";
+import { authClient } from "@/lib/auth-client";
 import {
   Building2,
   Phone,
@@ -62,6 +62,7 @@ function SettingsContent() {
   ]);
   const [newKeyName, setNewKeyName] = useState("");
   const [docSubTab, setDocSubTab] = useState<"FETCH" | "INQUIRE">("FETCH");
+  const { data: session } = authClient.useSession();
 
   useEffect(() => {
     setSettings(getAgencySettings());
@@ -375,7 +376,7 @@ function SettingsContent() {
         </div>
       )}
 
-      {/* TAB 2: CLERK B2B MULTI-TENANT ORGANIZATION PROFILE */}
+      {/* TAB 2: BETTER AUTH ORGANIZATION CONTEXT */}
       {activeTab === "ORGANIZATION" && (
         <div className="pt-2">
           <div className="bg-white border border-editorial-border p-4 sm:p-6">
@@ -390,28 +391,28 @@ function SettingsContent() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-geist px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
-                  Clerk B2B Engine
+                  Better Auth organization boundary
                 </span>
               </div>
             </div>
 
-            <OrganizationProfile
-              routing="hash"
-              appearance={{
-                elements: {
-                  rootBox: "w-full",
-                  card: "rounded-none border-0 shadow-none p-0 w-full",
-                  navbar: "border-b border-editorial-border bg-white mb-6 p-0",
-                  navbarButton:
-                    "rounded-none font-heading text-xs font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black py-2 px-3 data-[active=true]:text-contour-red data-[active=true]:border-b data-[active=true]:border-contour-red",
-                },
-              }}
-            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="border border-editorial-border bg-neutral-50 p-4">
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Authenticated user</p>
+                <p className="mt-2 text-sm font-semibold text-editorial-black">{session?.user.name || "Loading..."}</p>
+                <p className="text-xs text-editorial-muted">{session?.user.email || ""}</p>
+              </div>
+              <div className="border border-editorial-border bg-neutral-50 p-4">
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Workspace membership</p>
+                <p className="mt-2 text-sm font-semibold text-editorial-black">Contour Agency Workspace</p>
+                <p className="text-xs text-editorial-muted">Organization administration will be enabled in the tenancy phase.</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* TAB 3: CLERK USER PROFILE & ACCOUNT SECURITY */}
+      {/* TAB 3: BETTER AUTH USER ACCOUNT & SECURITY */}
       {activeTab === "ACCOUNT" && (
         <div className="pt-2">
           <div className="bg-white border border-editorial-border p-4 sm:p-6">
@@ -431,18 +432,16 @@ function SettingsContent() {
               </div>
             </div>
 
-            <UserProfile
-              routing="hash"
-              appearance={{
-                elements: {
-                  rootBox: "w-full",
-                  card: "rounded-none border-0 shadow-none p-0 w-full",
-                  navbar: "border-b border-editorial-border bg-white mb-6 p-0",
-                  navbarButton:
-                    "rounded-none font-heading text-xs font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black py-2 px-3 data-[active=true]:text-contour-red data-[active=true]:border-b data-[active=true]:border-contour-red",
-                },
-              }}
-            />
+            <div className="space-y-4">
+              <div className="border border-editorial-border p-4">
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Account email</p>
+                <p className="mt-2 text-sm font-semibold text-editorial-black">{session?.user.email || "Loading..."}</p>
+              </div>
+              <div className="border border-editorial-border p-4">
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Authentication providers</p>
+                <p className="mt-2 text-xs text-editorial-muted">Email/password is enabled. Google OAuth is available when the server Google credentials are configured.</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

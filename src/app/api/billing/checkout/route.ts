@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import {
@@ -18,124 +20,155 @@ const checkoutSchema = z.object({
   currency: z.enum(["ZMW", "USD", "ZAR"]).default("ZMW"),
   channel: z.enum(["mobile_money", "card", "bank_transfer"]).default("mobile_money"),
   mobileMoneyOperator: z.enum(["mtn", "airtel", "zamtel"]).optional(),
-  phone: z.string().optional(),
-  customerName: z.string().optional(),
-  customerEmail: z.string().optional(),
+  phone: z.string().trim().min(7).max(30).optional(),
+  customerName: z.string().trim().min(2).max(120).optional(),
+  customerEmail: z.string().email().optional(),
+}).superRefine((value, context) => {
+  if (value.channel === "mobile_money" && !value.phone) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["phone"], message: "A phone number is required for mobile money." });
+  }
 });
+
+function paymentResponse(payment: {
+  status: string;
+  reference: string;
+  checkoutUrl: string | null;
+  planId: string;
+  billingCycle: string;
+}) {
+  return {
+    success: payment.status !== "FAILED",
+    status: payment.status,
+    reference: payment.reference,
+    checkoutUrl: payment.checkoutUrl || undefined,
+    planId: payment.planId,
+    billingCycle: payment.billingCycle,
+    message: payment.status === "SUCCESS"
+      ? "Payment completed successfully."
+      : payment.status === "PENDING"
+        ? "Payment initiated. Complete the authorization request to finish checkout."
+        : "Payment failed. Please try again.",
+  };
+}
 
 const postHandler = createApiHandler({
   bodySchema: checkoutSchema,
   handler: async (req, ctx) => {
     const { organizationId, userId, body, session } = ctx;
-    const targetOrgId = organizationId || "org_contour_demo";
+    const targetOrgId = organizationId!;
+    const idempotencyKey = req.headers.get("idempotency-key")?.trim();
 
-    const planId = body.planId;
-    const billingCycle: BillingCycle = body.billingCycle || "MONTHLY";
-    const currency: SupportedCurrency = (body.currency as SupportedCurrency) || "ZMW";
-    const channel: PaymentChannel = (body.channel as PaymentChannel) || "mobile_money";
-    const mobileMoneyOperator = body.mobileMoneyOperator;
-    const phone = body.phone;
-    const customerName = body.customerName;
-    const customerEmail = body.customerEmail;
-
-    const plan = CONTOUR_PLANS[planId];
-    if (!plan) {
+    if (!idempotencyKey || idempotencyKey.length < 16 || idempotencyKey.length > 200) {
       return NextResponse.json(
-        { success: false, error: "Invalid subscription plan selected." },
-        { status: 400 }
+        { success: false, error: "A unique Idempotency-Key header is required." },
+        { status: 400 },
       );
     }
 
-    const priceInfo = getPlanPrice(planId, billingCycle, currency as SupportedCurrency);
-    const reference = `contour_${planId}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const narration = `Contour ${plan.name} (${billingCycle}) - ${targetOrgId}`;
-
-    const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
-    const apiKey = process.env.LENCO_API_KEY;
-
-    // 1. Dev Mode or Unconfigured Gateway: Instant Activation Simulation
-    if (isDevMode || !apiKey || apiKey.includes("placeholder")) {
-      try {
-        await db.organization.update({
-          where: { id: targetOrgId },
-          data: {
-            subscriptionTier: planId.toUpperCase(),
-            subscriptionStatus: "active",
-            lencoSubscriptionId: reference,
-            lencoAccountReference: `dev_ref_${Date.now()}`,
-          },
-        });
-
-        // Record in audit log
-        await db.auditLog.create({
-          data: {
-            organizationId: targetOrgId,
-            userId: userId || null,
-            action: "SUBSCRIPTION_UPGRADED_DEV_BYPASS",
-            entityType: "Organization",
-            entityId: targetOrgId,
-            details: {
-              planId,
-              billingCycle,
-              price: priceInfo.formatted,
-              gateway: "LENCO_DEV_BYPASS",
-              reference,
-            },
-          },
-        });
-      } catch (err: any) {
-        console.warn("[Billing Checkout] DB update skipped in mock mode:", err.message);
+    const existingPayment = await db.payment.findUnique({ where: { idempotencyKey } });
+    if (existingPayment) {
+      if (existingPayment.organizationId !== targetOrgId) {
+        return NextResponse.json({ success: false, error: "Invalid idempotency key." }, { status: 409 });
       }
-
-      return NextResponse.json({
-        success: true,
-        status: "SUCCESS",
-        reference,
-        message: `Successfully upgraded to ${plan.name} (${priceInfo.formatted}/${billingCycle.toLowerCase()})!`,
-        plan: plan.name,
-        price: priceInfo.formatted,
-        billingCycle,
-        simulated: true,
-      });
+      return NextResponse.json(paymentResponse(existingPayment));
     }
 
-    // 2. Production Mode: Initiate Lenco Collection Request
+    const plan = CONTOUR_PLANS[body.planId];
+    const billingCycle: BillingCycle = body.billingCycle || "MONTHLY";
+    const currency: SupportedCurrency = body.currency || "ZMW";
+    const channel: PaymentChannel = body.channel || "mobile_money";
+
+    if (!plan || (currency === "ZAR" && channel === "mobile_money")) {
+      return NextResponse.json({ success: false, error: "This payment combination is not supported." }, { status: 400 });
+    }
+
+    const priceInfo = getPlanPrice(body.planId, billingCycle, currency);
+    const reference = `contour_${targetOrgId}_${Date.now()}_${crypto.randomUUID()}`;
+    let payment: Awaited<ReturnType<typeof db.payment.create>>;
+    try {
+      payment = await db.payment.create({
+        data: {
+          organizationId: targetOrgId,
+          reference,
+          idempotencyKey,
+          planId: body.planId,
+          billingCycle,
+          amount: priceInfo.amount,
+          currency,
+          status: "PENDING",
+          metadata: { channel, mobileMoneyOperator: body.mobileMoneyOperator || null },
+        },
+      });
+    } catch (error: unknown) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+        const concurrentPayment = await db.payment.findUnique({ where: { idempotencyKey } });
+        if (concurrentPayment && concurrentPayment.organizationId === targetOrgId) {
+          return NextResponse.json(paymentResponse(concurrentPayment));
+        }
+      }
+      throw error;
+    }
+
     const collectionResult = await initiateLencoCollection({
       amount: priceInfo.amount,
       currency: currency === "USD" ? "USD" : "ZMW",
       reference,
-      narration,
+      narration: `Contour ${plan.name} (${billingCycle}) - ${targetOrgId}`,
       customer: {
-        name: customerName || session?.user?.name || "Contour Broker",
-        email: customerEmail || session?.user?.email || "billing@contour.app",
-        phone: phone || "+260970000000",
+        name: body.customerName || session?.user.name || "Contour Broker",
+        email: body.customerEmail || session?.user.email || "billing@contour.banyalabs.com",
+        phone: body.phone || "",
       },
-      channel: channel as PaymentChannel,
-      mobileMoneyOperator: mobileMoneyOperator as MobileMoneyOperator,
+      channel,
+      mobileMoneyOperator: body.mobileMoneyOperator as MobileMoneyOperator | undefined,
       organizationId: targetOrgId,
-      planId,
-      billingCycle: billingCycle as BillingCycle,
+      planId: body.planId,
+      billingCycle,
       callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com"}/dashboard/billing?ref=${reference}`,
     });
 
-    if (!collectionResult.success) {
-      return NextResponse.json(
-        { success: false, error: collectionResult.message, details: collectionResult.data },
-        { status: 400 }
-      );
+    const updatedPayment = await db.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: collectionResult.success ? (collectionResult.status === "SUCCESS" ? "SUCCESS" : "PENDING") : "FAILED",
+        checkoutUrl: collectionResult.checkoutUrl,
+        failureReason: collectionResult.success ? null : collectionResult.message,
+        completedAt: collectionResult.status === "SUCCESS" ? new Date() : null,
+        metadata: (collectionResult.data || { channel, mobileMoneyOperator: body.mobileMoneyOperator || null }) as Prisma.InputJsonValue,
+      },
+    });
+
+    if (updatedPayment.status === "SUCCESS") {
+      await db.organization.update({
+        where: { id: targetOrgId },
+        data: {
+          subscriptionTier: body.planId.toUpperCase(),
+          subscriptionStatus: "active",
+          lencoSubscriptionId: reference,
+          lencoAccountReference: reference,
+        },
+      });
+      await db.auditLog.create({
+        data: {
+          organizationId: targetOrgId,
+          userId: userId || null,
+          action: "LENCO_PAYMENT_COMPLETED",
+          entityType: "Payment",
+          entityId: payment.id,
+          details: { reference, planId: body.planId, billingCycle, amount: priceInfo.amount, currency },
+        },
+      });
     }
 
     return NextResponse.json({
-      success: true,
-      status: collectionResult.status,
-      reference,
-      checkoutUrl: collectionResult.checkoutUrl,
+      ...paymentResponse(updatedPayment),
+      checkoutUrl: collectionResult.checkoutUrl || undefined,
       ussdPromptSent: collectionResult.ussdPromptSent,
       message: collectionResult.message,
-    });
+    }, { status: updatedPayment.status === "FAILED" ? 502 : 200 });
   },
 });
 
-export async function POST(req: NextRequest, context?: any) {
+export async function POST(req: NextRequest, context?: unknown) {
   return postHandler(req, context);
 }

@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 export const GET = createApiHandler({
   requireAuth: true,
   handler: async (_req, { organizationId, userId, userRole }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
 
     // 1. Determine user access grant
     let accessLevel = "FULL_VAULT";
@@ -193,7 +193,7 @@ export const POST = createApiHandler({
   requireAuth: true,
   bodySchema: createVaultDocSchema,
   handler: async (_req, { organizationId, userId, body, session }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
     const data = body;
 
     // Guardrail: Check if property is ARCHIVED

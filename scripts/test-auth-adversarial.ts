@@ -62,7 +62,7 @@ async function runAuthAdversarialTests() {
   );
 
   // 3. Master Secret Auth with explicit X-Organization-Id
-  process.env.DIFY_TOOL_SECRET = "contour-test-master-secret-123";
+  process.env.BETTER_AUTH_SECRET = "contour-test-master-secret-123";
   const masterAuthReq = new NextRequest("http://localhost:3000/api/mcp", {
     method: "POST",
     headers: {

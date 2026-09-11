@@ -1,8 +1,7 @@
 ﻿import React from "react";
 import Link from "next/link";
-import { SignIn } from "@clerk/nextjs";
 import { CornerMark } from "@/components/ui/corner-mark";
-import { clerkEditorialAppearance } from "@/lib/clerk-theme";
+import { AuthForm } from "@/components/auth/auth-form";
 
 export default function SignInPage() {
   return (
@@ -45,14 +44,7 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {/* Actual Clerk SignIn Component */}
-          <SignIn
-            path="/sign-in"
-            routing="path"
-            signUpUrl="/sign-up"
-            fallbackRedirectUrl="/dashboard"
-            appearance={clerkEditorialAppearance}
-          />
+          <AuthForm mode="sign-in" />
 
           <CornerMark position="bottom-left" />
           <CornerMark position="bottom-right" />

@@ -30,7 +30,7 @@ const createDocRequestSchema = z.object({
 export const GET = createApiHandler({
   requireAuth: true,
   handler: async (_req, { organizationId }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
 
     const requests = await db.documentRequest.findMany({
       where: { organizationId: orgId },
@@ -59,7 +59,7 @@ export const POST = createApiHandler({
   requireAuth: true,
   bodySchema: createDocRequestSchema,
   handler: async (_req, { organizationId, userId, body }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
     const data = body;
 
     // Generate secure 32-byte cryptographic token
@@ -79,7 +79,7 @@ export const POST = createApiHandler({
         organizationId: orgId,
         propertyId: data.propertyId || null,
         inquiryId: data.inquiryId || null,
-        requestedById: userId || "user_demo_superadmin",
+        requestedById: userId!,
         title: data.title,
         message: data.message || null,
         requiredTypes: data.requiredTypes,

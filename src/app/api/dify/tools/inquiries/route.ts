@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateDifyRequest } from "@/lib/dify-auth";
+import { inquiryToolSchema } from "@/lib/ai-tool-schemas";
+import { getOrCreateCorrelationId } from "@/lib/correlation";
 
 /**
  * Dify Tool: `create_inquiry_or_lead`
@@ -11,26 +13,11 @@ import { authenticateDifyRequest } from "@/lib/dify-auth";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const {
-      organization_id,
-      clientName,
-      clientPhone,
-      clientEmail,
-      lookingFor = "FOR_SALE",
-      propertyType,
-      budgetMin,
-      budgetMax,
-      currency = "ZMW",
-      preferredSuburbs = [],
-      notes,
-    } = body;
-
-    if (!clientName || !clientPhone) {
-      return NextResponse.json(
-        { error: "Client name and phone number are required to create an inquiry." },
-        { status: 400 }
-      );
+    const parsed = inquiryToolSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid inquiry arguments" }, { status: 400 });
     }
+    const { organization_id, clientName, clientPhone, clientEmail, lookingFor, propertyType, budgetMin, budgetMax, currency, preferredSuburbs, notes } = parsed.data;
 
     const { context, errorResponse } = await authenticateDifyRequest(req, organization_id);
     if (errorResponse) return errorResponse;
@@ -41,10 +28,7 @@ export async function POST(req: NextRequest) {
     const antiPoachingExpiry = new Date();
     antiPoachingExpiry.setDate(antiPoachingExpiry.getDate() + 30);
 
-    let createdInquiry: any = null;
-
-    try {
-      createdInquiry = await db.inquiry.create({
+    const createdInquiry = await db.inquiry.create({
         data: {
           organizationId: tenantOrgId,
           clientName,
@@ -61,24 +45,6 @@ export async function POST(req: NextRequest) {
           status: "NEW_INQUIRY",
         },
       });
-    } catch (dbError) {
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        createdInquiry = {
-          id: `inq_${Date.now()}`,
-          organizationId: tenantOrgId,
-          clientName,
-          clientPhone,
-          lookingFor,
-          budgetMax,
-          currency,
-          preferredSuburbs,
-          exclusiveLockExpiresAt: antiPoachingExpiry,
-          status: "NEW_INQUIRY",
-        };
-      } else {
-        throw dbError;
-      }
-    }
 
     return NextResponse.json({
       success: true,
@@ -93,10 +59,11 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Dify Inquiry Ingestion Tool Error:", error);
+    const correlationId = getOrCreateCorrelationId(req);
+    console.error("Dify Inquiry Ingestion Tool Error:", { correlationId, error });
     return NextResponse.json(
-      { error: "Failed to create inquiry in database", details: error.message },
-      { status: 500 }
+      { error: "Failed to create inquiry in database", correlationId },
+      { status: 500, headers: { "x-correlation-id": correlationId } }
     );
   }
 }

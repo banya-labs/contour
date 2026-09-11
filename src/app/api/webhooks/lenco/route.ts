@@ -1,122 +1,146 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { verifyLencoSignature, getLencoTransactionStatus } from "@/lib/lenco";
+import { getLencoTransactionStatus, verifyLencoSignature } from "@/lib/lenco";
+
+type JsonRecord = Record<string, unknown>;
+
+const SUCCESS_EVENTS = new Set(["transaction.successful", "collection.successful", "charge.successful"]);
+const FAILED_EVENTS = new Set(["transaction.failed", "collection.failed", "charge.failed"]);
+
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function isProviderSuccess(payload: JsonRecord): boolean {
+  const nested = asRecord(payload.data);
+  const status = asString(payload.status) || asString(nested.status);
+  return Boolean(status && ["successful", "success", "completed", "paid"].includes(status.toLowerCase()));
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
 
 export async function POST(req: NextRequest) {
+  const rawBody = await req.text();
+  const signature =
+    req.headers.get("x-lenco-signature") ||
+    req.headers.get("lenco-signature") ||
+    req.headers.get("x-signature");
+
+  if (!verifyLencoSignature(rawBody, signature)) {
+    return NextResponse.json({ success: false, error: "Invalid webhook signature." }, { status: 401 });
+  }
+
+  let payload: JsonRecord;
   try {
-    const rawBody = await req.text();
-    const signature =
-      req.headers.get("x-lenco-signature") ||
-      req.headers.get("lenco-signature") ||
-      req.headers.get("x-signature");
+    payload = asRecord(JSON.parse(rawBody));
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid JSON payload." }, { status: 400 });
+  }
 
-    const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
-    const webhookSecret = process.env.LENCO_WEBHOOK_SECRET;
+  const data = asRecord(payload.data);
+  const event = asString(payload.event) || asString(payload.type) || "transaction.successful";
+  const reference = asString(data.reference) || asString(payload.reference);
+  const eventId = req.headers.get("x-lenco-event-id") || asString(payload.id) || asString(data.id);
+  const bodyHash = crypto.createHash("sha256").update(rawBody).digest("hex");
+  const dedupeKey = eventId ? `lenco:event:${eventId}` : `lenco:body:${bodyHash}`;
 
-    // 1. Signature Verification
-    const isSignatureValid = verifyLencoSignature(rawBody, signature);
-    if (!isSignatureValid && !isDevMode && webhookSecret && !webhookSecret.includes("placeholder")) {
-      console.error("[Lenco Webhook] Invalid webhook signature rejected.");
-      return NextResponse.json(
-        { success: false, error: "Invalid HMAC SHA-256 signature." },
-        { status: 401 }
-      );
-    }
+  if (!reference) {
+    return NextResponse.json({ success: false, error: "Webhook reference is required." }, { status: 400 });
+  }
 
-    let payload: any;
+  let webhookEvent = await db.webhookEvent.findUnique({ where: { dedupeKey } });
+  if (webhookEvent?.processedAt) {
+    return NextResponse.json({ success: true, received: true, duplicate: true });
+  }
+
+  if (!webhookEvent) {
     try {
-      payload = JSON.parse(rawBody);
-    } catch (parseErr) {
-      return NextResponse.json(
-        { success: false, error: "Invalid JSON payload." },
-        { status: 400 }
-      );
+      webhookEvent = await db.webhookEvent.create({
+        data: {
+          provider: "LENCO",
+          dedupeKey,
+          eventId: eventId || null,
+          eventType: event,
+          reference,
+          payload: payload as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error: unknown) {
+      if (!isUniqueConstraintError(error)) throw error;
+      webhookEvent = await db.webhookEvent.findUnique({ where: { dedupeKey } });
+      if (!webhookEvent) throw error;
+      if (webhookEvent.processedAt) {
+        return NextResponse.json({ success: true, received: true, duplicate: true });
+      }
+    }
+  }
+
+  const payment = await db.payment.findUnique({ where: { reference } });
+  if (!payment) {
+    return NextResponse.json({ success: false, error: "Payment reference not found." }, { status: 404 });
+  }
+
+  if (SUCCESS_EVENTS.has(event)) {
+    const providerStatus = await getLencoTransactionStatus(reference);
+    if (!providerStatus || (!isProviderSuccess(providerStatus) && !isProviderSuccess(data))) {
+      return NextResponse.json({ success: true, received: true, pendingVerification: true }, { status: 202 });
     }
 
-    const event = payload.event || payload.type || "transaction.successful";
-    const data = payload.data || payload;
-    const reference = data.reference;
-    const metadata = data.metadata || {};
-    const targetOrgId = metadata.organizationId || data.organizationId;
-    const planId = metadata.planId || "growth";
-    const billingCycle = metadata.billingCycle || "MONTHLY";
+    await db.$transaction(async (transaction) => {
+      const updated = await transaction.payment.updateMany({
+        where: { reference, status: { not: "SUCCESS" } },
+        data: {
+          status: "SUCCESS",
+          providerTransactionId: asString(data.transactionId) || asString(data.id),
+          completedAt: new Date(),
+        },
+      });
 
-    console.log(`[Lenco Webhook Received] Event: ${event}, Ref: ${reference}, Org: ${targetOrgId}`);
-
-    // 2. Handle successful transaction events
-    if (
-      event === "transaction.successful" ||
-      event === "collection.successful" ||
-      event === "charge.successful"
-    ) {
-      if (targetOrgId) {
-        await db.organization.update({
-          where: { id: targetOrgId },
+      if (updated.count > 0) {
+        await transaction.organization.update({
+          where: { id: payment.organizationId },
           data: {
-            subscriptionTier: planId.toUpperCase(),
+            subscriptionTier: payment.planId.toUpperCase(),
             subscriptionStatus: "active",
             lencoSubscriptionId: reference,
             lencoAccountReference: reference,
           },
         });
-
-        // Record in immutable AuditLog
-        await db.auditLog.create({
+        await transaction.auditLog.create({
           data: {
-            organizationId: targetOrgId,
+            organizationId: payment.organizationId,
             action: "LENCO_PAYMENT_VERIFIED",
-            entityType: "Organization",
-            entityId: targetOrgId,
-            details: {
-              event,
-              reference,
-              amount: data.amount,
-              currency: data.currency,
-              planId,
-              billingCycle,
-              source: "LENCO_WEBHOOK",
-              verifiedAt: new Date().toISOString(),
-            },
-          },
-        });
-
-        console.log(`[Lenco Webhook] Organization ${targetOrgId} upgraded to ${planId.toUpperCase()} active.`);
-      }
-    } else if (
-      event === "transaction.failed" ||
-      event === "collection.failed" ||
-      event === "charge.failed"
-    ) {
-      if (targetOrgId) {
-        await db.organization.update({
-          where: { id: targetOrgId },
-          data: {
-            subscriptionStatus: "past_due",
-          },
-        });
-
-        await db.auditLog.create({
-          data: {
-            organizationId: targetOrgId,
-            action: "LENCO_PAYMENT_FAILED",
-            entityType: "Organization",
-            entityId: targetOrgId,
-            details: {
-              event,
-              reference,
-              failureReason: data.reason || data.message || "Card/MoMo transaction declined",
-            },
+            entityType: "Payment",
+            entityId: payment.id,
+            details: { event, reference, source: "LENCO_WEBHOOK", verifiedAt: new Date().toISOString() },
           },
         });
       }
-    }
 
-    return NextResponse.json({ status: "success", received: true });
-  } catch (err: any) {
-    console.error("[Lenco Webhook Handler Error]:", err.message);
-    return NextResponse.json(
-      { success: false, error: err.message || "Webhook processing error." },
-      { status: 500 }
-    );
+      await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
+    });
+  } else if (FAILED_EVENTS.has(event)) {
+    await db.$transaction(async (transaction) => {
+      await transaction.payment.updateMany({
+        where: { reference, status: { not: "SUCCESS" } },
+        data: {
+          status: "FAILED",
+          failureReason: asString(data.reason) || asString(data.message) || "Lenco payment failed",
+        },
+      });
+      await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
+    });
+  } else {
+    await db.webhookEvent.update({ where: { id: webhookEvent.id }, data: { processedAt: new Date() } });
   }
+
+  return NextResponse.json({ success: true, received: true });
 }

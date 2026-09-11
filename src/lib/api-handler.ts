@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { logger } from "./logger";
-import { auth } from "./auth";
-import { headers } from "next/headers";
+import { getTenantContext, type TenantContext } from "./tenant-context";
+import { hasRequiredRole } from "./authorization";
+import type { Session } from "./auth";
 
 export type ApiContext = {
   params?: Record<string, string | string[]>;
-  session?: any;
+  session?: import("./auth").Session;
   organizationId?: string;
   userId?: string;
   userRole?: string;
@@ -30,47 +31,46 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
     try {
       const params = context?.params;
       const resolvedParams = params instanceof Promise ? await params : params;
-      let session: any = null;
-      let organizationId: string | undefined = undefined;
-      let userId: string | undefined = undefined;
-      let userRole: string = "FIELD_AGENT";
+      const isLocalDevelopment =
+        process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true";
+      const demoTenant: TenantContext = {
+        session: {
+          user: {
+            id: "user_demo_superadmin",
+            name: "Demo Principal Broker",
+            email: "grace@contour.demo",
+            role: "SUPER_ADMIN",
+          },
+          session: {
+            id: "sess_demo",
+            activeOrganizationId: "org_contour_demo",
+          },
+        } as unknown as Session,
+        userId: "user_demo_superadmin",
+        organizationId: "org_contour_demo",
+        userRole: "SUPER_ADMIN",
+      };
+      const tenant = isLocalDevelopment ? demoTenant : await getTenantContext(req);
 
-      // Dev Mode Super Admin Bypass
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        organizationId = "org_contour_demo";
-        userId = "user_demo_superadmin";
-        userRole = "SUPER_ADMIN";
-        session = {
-          user: { id: userId, name: "Demo Principal Broker", email: "grace@contour.demo", role: userRole },
-          session: { id: "sess_demo", organizationId },
-        };
-      } else {
-        let reqHeaders: any;
-        try {
-          reqHeaders = await headers();
-        } catch {
-          reqHeaders = req.headers;
-        }
-        try {
-          session = await auth.api.getSession({ headers: reqHeaders });
-        } catch {
-          session = null;
-        }
-        if (options.requireAuth && !session) {
-          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-        if (session) {
-          userId = session.user.id;
-          organizationId = session.session?.organizationId || session.user.organizationId || "org_contour_demo";
-          userRole = session.user.role || "FIELD_AGENT";
-        }
+      // API handlers are protected by default. Public endpoints should use a
+      // dedicated handler so authentication is never accidentally omitted.
+      if (options.requireAuth !== false && !tenant) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      if (!organizationId || organizationId === "org_demo_contour") {
-        organizationId = "org_contour_demo";
+      if (options.requireAuth !== false && tenant === null) {
+        return NextResponse.json(
+          { error: "Organization context required", code: "ORGANIZATION_CONTEXT_REQUIRED" },
+          { status: 403 }
+        );
       }
 
-      if (options.requireRoles && options.requireRoles.length > 0 && !options.requireRoles.includes(userRole)) {
+      const session = tenant?.session;
+      const organizationId = tenant?.organizationId;
+      const userId = tenant?.userId;
+      const userRole = tenant?.userRole || "FIELD_AGENT";
+
+      if (options.requireRoles && options.requireRoles.length > 0 && !hasRequiredRole(userRole, options.requireRoles)) {
         return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 });
       }
 
@@ -106,10 +106,10 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         body,
         query,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ err: error, path: req.nextUrl?.pathname }, "Unhandled API error");
       return NextResponse.json(
-        { error: error.message || "Internal Server Error" },
+        { error: error instanceof Error ? error.message : "Internal Server Error" },
         { status: 500 }
       );
     }

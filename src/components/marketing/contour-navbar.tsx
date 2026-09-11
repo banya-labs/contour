@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 export function ContourNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -75,27 +74,18 @@ export function ContourNavbar() {
 
         {/* Right: CTA & Mobile Hamburger */}
         <div className="flex items-center gap-4">
-          <Show when="signed-out">
-            <SignInButton mode="modal">
-              <button className="hidden sm:inline-flex font-geist text-xs uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover-un px-2 py-1 cursor-pointer">
-                Log In
-              </button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="btn-fill-wipe bg-editorial-black text-white px-5 sm:px-6 py-2.5 sm:py-3 font-heading text-xs sm:text-sm font-semibold tracking-wide border-none rounded-none cursor-pointer">
-                <span>Get Started</span>
-              </button>
-            </SignUpButton>
-          </Show>
-          <Show when="signed-in">
-            <Link
-              href="/dashboard"
-              className="btn-fill-wipe bg-editorial-black text-white px-5 sm:px-6 py-2.5 sm:py-3 font-heading text-xs sm:text-sm font-semibold tracking-wide border-none rounded-none"
-            >
-              <span>Operations Console</span>
-            </Link>
-            <UserButton />
-          </Show>
+          <Link
+            href="/sign-in"
+            className="hidden sm:inline-flex font-geist text-xs uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover-un px-2 py-1"
+          >
+            Log In
+          </Link>
+          <Link
+            href="/sign-up"
+            className="btn-fill-wipe bg-editorial-black text-white px-5 sm:px-6 py-2.5 sm:py-3 font-heading text-xs sm:text-sm font-semibold tracking-wide border-none rounded-none"
+          >
+            <span>Get Started</span>
+          </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 text-editorial-black hover:text-editorial-red focus:outline-none cursor-pointer"
@@ -126,31 +116,20 @@ export function ContourNavbar() {
               </a>
             ))}
             <div className="pt-2 flex flex-col gap-3">
-              <Show when="signed-out">
-                <SignInButton mode="modal">
-                  <button className="w-full font-geist text-sm text-center py-2 text-editorial-muted hover:text-editorial-black border border-editorial-border cursor-pointer">
-                    Log In
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="w-full bg-editorial-black text-white text-center py-3 font-heading text-sm font-semibold cursor-pointer">
-                    Get Started Free
-                  </button>
-                </SignUpButton>
-              </Show>
-              <Show when="signed-in">
-                <div className="flex items-center justify-between px-2 py-1">
-                  <span className="text-xs font-semibold text-editorial-muted uppercase">Account</span>
-                  <UserButton />
-                </div>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="bg-editorial-black text-white text-center py-3 font-heading text-sm font-semibold"
-                >
-                  Operations Console
-                </Link>
-              </Show>
+              <Link
+                href="/sign-in"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full font-geist text-sm text-center py-2 text-editorial-muted hover:text-editorial-black border border-editorial-border"
+              >
+                Log In
+              </Link>
+              <Link
+                href="/sign-up"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full bg-editorial-black text-white text-center py-3 font-heading text-sm font-semibold"
+              >
+                Get Started Free
+              </Link>
             </div>
           </motion.div>
         )}

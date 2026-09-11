@@ -6,7 +6,7 @@ import { s3Storage } from "@/lib/storage/s3";
 export const GET = createApiHandler({
   requireAuth: true,
   handler: async (_req, { params, organizationId, userId }) => {
-    const orgId = organizationId || "org_contour_demo";
+    const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };
 
     if (!id) {

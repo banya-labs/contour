@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DocumentType, SecurityLevel } from "@prisma/client";
 import { s3Storage, StorageCategory } from "@/lib/storage/s3";
 import { db } from "@/lib/db";
+import { getTenantContext } from "@/lib/tenant-context";
 
 /**
- * GET /api/storage/upload?filename=deed.pdf&category=TITLE_DEED&organizationId=org_contour_demo
+ * GET /api/storage/upload?filename=deed.pdf&category=TITLE_DEED
  */
 export async function GET(req: NextRequest) {
   try {
+    const tenant = await getTenantContext(req);
+    if (!tenant) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const filename = searchParams.get("filename");
     const category = (searchParams.get("category") as StorageCategory) || "TITLE_DEED";
-    const organizationId = searchParams.get("organizationId") || "org_contour_demo";
+    const organizationId = tenant.organizationId;
     const mimeType = searchParams.get("mimeType") || "application/octet-stream";
 
     if (!filename) {
@@ -47,44 +54,54 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const tenant = await getTenantContext(req);
+    if (!tenant) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const title = (formData.get("title") as string) || "Uploaded Document";
-    const docType = (formData.get("docType") as StorageCategory) || "TITLE_DEED";
-    const classification = (formData.get("classification") as any) || "RESTRICTED_MANAGEMENT";
+    const requestedCategory = String(formData.get("docType") || "TITLE_DEED");
+    const storageCategories: StorageCategory[] = [
+      "PROPERTY_PHOTO",
+      "SITE_SURVEY_DIAGRAM",
+      "TITLE_DEED",
+      "NRC_PASSPORT_ID",
+      "MANDATE_AGREEMENT",
+      "LEASE_CONTRACT",
+    ];
+    const storageCategory: StorageCategory = storageCategories.includes(requestedCategory as StorageCategory)
+      ? (requestedCategory as StorageCategory)
+      : "TITLE_DEED";
+    const docType: DocumentType = storageCategory === "PROPERTY_PHOTO" ? DocumentType.OTHER : storageCategory;
+    const requestedClassification = String(formData.get("classification") || "RESTRICTED_MANAGEMENT");
+    const classifications: SecurityLevel[] = [
+      SecurityLevel.RESTRICTED_MANAGEMENT,
+      SecurityLevel.CONFIDENTIAL_PII,
+      SecurityLevel.AGENT_ACCESSIBLE,
+    ];
+    const classification: SecurityLevel = classifications.includes(requestedClassification as SecurityLevel)
+      ? (requestedClassification as SecurityLevel)
+      : SecurityLevel.RESTRICTED_MANAGEMENT;
     const propertyId = formData.get("propertyId") as string | null;
     const registryFolio = formData.get("registryFolio") as string | null;
-    const organizationId = (formData.get("organizationId") as string) || "org_contour_demo";
+    const organizationId = tenant.organizationId;
 
     if (!file) {
       return NextResponse.json({ success: false, error: "File is required" }, { status: 400 });
     }
 
-    const objectKey = s3Storage.generateObjectKey(organizationId, docType, file.name);
+    const objectKey = s3Storage.generateObjectKey(organizationId, storageCategory, file.name);
     const bytes = await file.arrayBuffer();
-
-    // Stream directly to MinIO
-    const s3Endpoint = process.env.S3_ENDPOINT || "https://contour-files.banyalabs.com";
-    const bucket = process.env.S3_BUCKET_NAME || "contour-vault";
-    const s3Url = `${s3Endpoint}/${bucket}/${objectKey}`;
-
-    try {
-      await fetch(s3Url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: bytes,
-        signal: AbortSignal.timeout(10000),
-      });
-    } catch (s3Err) {
-      console.warn("Direct MinIO stream warning:", s3Err);
-    }
+    await s3Storage.putObject(objectKey, bytes, file.type || "application/octet-stream");
 
     // Save metadata in Neon PostgreSQL
     const doc = await db.vaultDocument.create({
       data: {
         organizationId,
         title,
-        docType: (docType as any) || "TITLE_DEED",
+        docType,
         classification,
         objectKey,
         originalFileName: file.name,
@@ -93,7 +110,7 @@ export async function POST(req: NextRequest) {
         fileType: file.name.split(".").pop()?.toUpperCase() || "PDF",
         propertyId: propertyId || undefined,
         registryFolio: registryFolio || undefined,
-        uploadedBy: "Principal Broker",
+        uploadedBy: tenant.userId,
         isVerified: true,
       },
       include: {

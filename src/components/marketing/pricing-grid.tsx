@@ -210,12 +210,12 @@ export function PricingGrid() {
         </div>
       </div>
 
-      {/* Paystack Badge & Guarantee Framed in 1400px Grid */}
+      {/* Lenco Zambia Badge & Guarantee Framed in 1400px Grid */}
       <div className="w-full border-b border-editorial-border bg-white">
         <div className="max-w-[1400px] mx-auto py-8 text-center space-y-2 border-x border-editorial-border">
           <div className="inline-flex items-center gap-2 border border-editorial-border px-4 py-1.5 font-geist text-xs text-editorial-black">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            <span>Powered by <strong>Paystack</strong> · Cards, Bank Transfer & Mobile Money</span>
+            <span>Powered by <strong>Lenco Zambia</strong> · Cards & Mobile Money</span>
           </div>
           <p className="font-geist text-xs text-editorial-muted max-w-xl mx-auto px-4">
             Prices in Zambian Kwacha (ZMW). USD equivalent shown on toggle. All plans include 14-day free trial. No credit card required.

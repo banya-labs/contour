@@ -131,7 +131,7 @@ export default function CommissionsPage() {
             Conveyance & Commission Pipeline
           </h3>
           <span className="text-[9px] sm:text-[10px] font-geist text-editorial-muted uppercase tracking-wider">
-            Lenco / Paystack Reconciled
+            Lenco Reconciled
           </span>
         </div>
 

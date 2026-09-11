@@ -1,26 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { s3Storage } from "@/lib/storage/s3";
 import { db } from "@/lib/db";
+import { getTenantContext } from "@/lib/tenant-context";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }
 ) {
   try {
+    const tenant = await getTenantContext(req);
+    if (!tenant) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { fileId } = await params;
+
+    const document = await db.vaultDocument.findFirst({
+      where: {
+        objectKey: fileId,
+        organizationId: tenant.organizationId,
+        isDeleted: false,
+      },
+      select: { id: true },
+    });
+
+    if (!document) {
+      return NextResponse.json({ error: "File not found or access denied" }, { status: 404 });
+    }
 
     // Generate a secure, time-limited presigned download URL from MinIO / S3
     const downloadUrl = await s3Storage.getPresignedDownloadUrl(fileId, 900);
 
-    // Record POPIA Audit Event in Neon PostgreSQL if organizationId can be deduced
+    // Record the audit event against the authenticated tenant.
     try {
-      const orgPrefix = fileId.includes("/") ? fileId.split("/")[0] : "org_contour_vault";
       await db.auditLog.create({
         data: {
-          organizationId: orgPrefix,
+          organizationId: tenant.organizationId,
           action: "DIRECT_STORAGE_FILE_ACCESS",
           entityType: "DocumentVault",
-          entityId: fileId,
+          entityId: document.id,
           details: {
             storageProvider: "MINIO_S3_OBJECT_STORAGE",
             expiresInSeconds: 900,

@@ -24,9 +24,6 @@ const getHandler = createApiHandler({
     }
 
     let targetOrgId = org || organizationId;
-    if (targetOrgId === "org_demo_contour") {
-      targetOrgId = "org_contour_demo";
-    }
 
     const allowedStatuses = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
     let statusFilter: any = { in: allowedStatuses };
@@ -113,7 +110,7 @@ const postHandler = createApiHandler({
 
     const property = await db.property.create({
       data: {
-        organizationId: organizationId || "org_contour_demo",
+        organizationId: organizationId!,
         title: body.title,
         slug,
         ownershipType: body.ownershipType,
@@ -139,7 +136,7 @@ const postHandler = createApiHandler({
         ownerEmail: body.ownerEmail,
         ownerBankDetails: body.ownerBankDetails,
         titleDeedNumber: body.titleDeedNumber,
-        createdById: userId || "user_demo_superadmin",
+        createdById: userId!,
         assignedAgentId: body.assignedAgentId,
       }
     });

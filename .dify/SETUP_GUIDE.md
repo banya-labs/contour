@@ -24,7 +24,7 @@ With MCP, Dify discovers all 5 tools, schemas, and descriptions automatically ov
 - **Transport Type**: `SSE` or `Streamable HTTP`
 - **Headers / Authentication**:
   - **Key**: `Authorization`
-  - **Value**: `Bearer your-api-key-or-dify-tool-secret` (e.g. `banya_live_xxx` or `DIFY_TOOL_SECRET`)
+  - **Value**: `Bearer your-Contour-api-key-or-BETTER_AUTH_SECRET`
 
 4. Click **Save & Connect**.
 

@@ -13,7 +13,7 @@ components:
     ApiKeyAuth:
       type: http
       scheme: bearer
-      description: Contour Org-Scoped API Key from ApiKey table or DIFY_TOOL_SECRET
+      description: Contour Org-Scoped API Key from ApiKey table or BETTER_AUTH_SECRET
 security:
   - ApiKeyAuth: []
 paths:

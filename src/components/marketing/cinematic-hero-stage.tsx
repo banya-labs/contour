@@ -115,7 +115,7 @@ export function CinematicHeroStage() {
             <span className="text-white/20">•</span>
             <span className="hover:text-white transition-colors">PowerSync SQLite (Offline)</span>
             <span className="text-white/20">•</span>
-            <span className="hover:text-white transition-colors">Paystack ZMW / USD</span>
+            <span className="hover:text-white transition-colors">Lenco Zambia ZMW / USD</span>
           </div>
         </div>
       </div>

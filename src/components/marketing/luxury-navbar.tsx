@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { LogIn, ArrowRight, Menu, X, Sparkles } from "lucide-react";
-import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 
 export function LuxuryNavbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -86,46 +85,26 @@ export function LuxuryNavbar() {
 
         {/* Right Action CTAs (Clerk Auth Aware) */}
         <div className="hidden sm:flex items-center gap-3">
-          <Show when="signed-out">
-            <SignInButton mode="modal">
-              <button
-                className={`text-xs font-semibold transition-colors px-3 py-1.5 flex items-center gap-1.5 rounded-lg cursor-pointer ${
-                  isScrolled ? "text-stone-700 hover:text-black hover:bg-stone-200/50" : "text-stone-200 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <LogIn className={`w-3.5 h-3.5 ${isScrolled ? "text-stone-500" : "text-stone-300"}`} />
-                <span>Sign In</span>
-              </button>
-            </SignInButton>
-
-            <SignUpButton mode="modal">
-              <button
-                className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 shadow-sm hover:shadow flex items-center gap-2 group cursor-pointer ${
-                  isScrolled
-                    ? "bg-[#141715] hover:bg-stone-800 text-[#FAF8F5]"
-                    : "bg-[#E57A1A] hover:bg-[#E57A1A]/90 text-white shadow-lg shadow-[#E57A1A]/20"
-                }`}
-              >
-                <span>Get Started</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </SignUpButton>
-          </Show>
-
-          <Show when="signed-in">
-            <Link
-              href="/dashboard"
-              className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 shadow-sm hover:shadow flex items-center gap-2 group ${
-                isScrolled
-                  ? "bg-[#141715] hover:bg-stone-800 text-[#FAF8F5]"
-                  : "bg-[#E57A1A] hover:bg-[#E57A1A]/90 text-white shadow-lg shadow-[#E57A1A]/20"
-              }`}
-            >
-              <span>Launch Operations</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <UserButton />
-          </Show>
+          <Link
+            href="/sign-in"
+            className={`text-xs font-semibold transition-colors px-3 py-1.5 flex items-center gap-1.5 rounded-lg ${
+              isScrolled ? "text-stone-700 hover:text-black hover:bg-stone-200/50" : "text-stone-200 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            <LogIn className={`w-3.5 h-3.5 ${isScrolled ? "text-stone-500" : "text-stone-300"}`} />
+            <span>Sign In</span>
+          </Link>
+          <Link
+            href="/sign-up"
+            className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 shadow-sm hover:shadow flex items-center gap-2 group ${
+              isScrolled
+                ? "bg-[#141715] hover:bg-stone-800 text-[#FAF8F5]"
+                : "bg-[#E57A1A] hover:bg-[#E57A1A]/90 text-white shadow-lg shadow-[#E57A1A]/20"
+            }`}
+          >
+            <span>Get Started</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
         </div>
 
         {/* Mobile Hamburger Toggle */}
@@ -187,32 +166,20 @@ export function LuxuryNavbar() {
               Field Agent Mobile PWA
             </Link>
             <div className="pt-3 border-t border-stone-200 flex flex-col gap-2.5">
-              <Show when="signed-out">
-                <SignInButton mode="modal">
-                  <button className="w-full text-center py-2 text-xs font-semibold text-stone-700 border border-stone-300 rounded-full cursor-pointer hover:bg-stone-100 transition-colors">
-                    Sign In
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="w-full text-center py-2 text-xs font-bold text-white bg-[#141715] rounded-full cursor-pointer hover:bg-stone-800 transition-colors">
-                    Get Started Free
-                  </button>
-                </SignUpButton>
-              </Show>
-
-              <Show when="signed-in">
-                <div className="flex items-center justify-between px-2 py-1">
-                  <span className="text-xs font-semibold text-stone-600">Account</span>
-                  <UserButton />
-                </div>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2 text-xs font-bold text-white bg-[#141715] rounded-full"
-                >
-                  Launch Operations
-                </Link>
-              </Show>
+              <Link
+                href="/sign-in"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2 text-xs font-semibold text-stone-700 border border-stone-300 rounded-full hover:bg-stone-100 transition-colors"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/sign-up"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2 text-xs font-bold text-white bg-[#141715] rounded-full hover:bg-stone-800 transition-colors"
+              >
+                Get Started Free
+              </Link>
             </div>
           </nav>
         </div>

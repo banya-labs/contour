@@ -32,7 +32,7 @@ async function runAuthAndSchemaChallenges() {
   // ---------------------------------------------------------------------------
   console.log("--- 1. Testing Production Auth Mode Gates (No Bypass) ---");
   process.env.NEXT_PUBLIC_DEV_MODE = "false";
-  process.env.DIFY_TOOL_SECRET = "super_secret_dify_tool_key_2026";
+  process.env.BETTER_AUTH_SECRET = "super_secret_dify_tool_key_2026";
 
   // 1.1 Unauthenticated Request to Property Search
   {

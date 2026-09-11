@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateDifyRequest } from "@/lib/dify-auth";
 import { s3Storage, StorageCategory } from "@/lib/storage/s3";
-import { MOCK_PROPERTIES, MOCK_LEASES, MOCK_TRANSACTIONS } from "@/lib/mock-data";
+import { createInquirySchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import crypto from "crypto";
+import { z } from "zod";
+import { aiToolSchemas, type AiToolName } from "@/lib/ai-tool-schemas";
+import { getOrCreateCorrelationId } from "@/lib/correlation";
+
+const jsonRpcRequestSchema = z.object({
+  jsonrpc: z.literal("2.0"),
+  method: z.string().min(1).max(100),
+  params: z.record(z.unknown()).optional(),
+  id: z.union([z.string(), z.number(), z.null()]).optional(),
+});
 
 /**
  * Model Context Protocol (MCP) Server Endpoint for Contour Real Estate OS
@@ -191,7 +201,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => null);
+    const parsedRequest = jsonRpcRequestSchema.safeParse(body);
+    if (!parsedRequest.success) {
+      return NextResponse.json(
+        { jsonrpc: "2.0", error: { code: -32600, message: "Invalid JSON-RPC request" }, id: null },
+        { status: 400 }
+      );
+    }
+
     const { jsonrpc, method, params, id } = body;
 
     // 1. MCP Initialization Handshake
@@ -238,6 +256,24 @@ export async function POST(req: NextRequest) {
     // 3. Tool Execution
     if (method === "tools/call") {
       const { name, arguments: args } = params || {};
+
+      const toolSchema = typeof name === "string" ? aiToolSchemas[name as AiToolName] : undefined;
+      if (toolSchema) {
+        const parsedArguments = toolSchema.safeParse(args || {});
+        if (!parsedArguments.success) {
+          return NextResponse.json(
+            {
+              jsonrpc: "2.0",
+              error: {
+                code: -32602,
+                message: parsedArguments.error.issues[0]?.message || "Invalid tool arguments",
+              },
+              id,
+            },
+            { status: 400 }
+          );
+        }
+      }
 
       // Authenticate & scope to tenant organization
       const { context, errorResponse } = await authenticateDifyRequest(req, args?.organization_id);
@@ -292,9 +328,7 @@ export async function POST(req: NextRequest) {
 
       // TOOL: search_properties
       if (name === "search_properties") {
-        let properties: any[] = [];
-        try {
-          properties = await db.property.findMany({
+        const properties = await db.property.findMany({
             where: {
               organizationId: tenantOrgId,
               status: "AVAILABLE",
@@ -302,22 +336,9 @@ export async function POST(req: NextRequest) {
               ...(args?.listingType ? { listingType: args.listingType } : {}),
               ...(args?.bedrooms ? { bedrooms: { gte: Number(args.bedrooms) } } : {}),
             },
-            take: Number(args?.limit || 10),
+            take: Math.min(Math.max(Number(args?.limit || 10), 1), 50),
             orderBy: { createdAt: "desc" },
           });
-        } catch {
-          properties = [];
-        }
-
-        // Fallback to rich mock properties if DB table is currently empty
-        if (!properties || properties.length === 0) {
-          properties = MOCK_PROPERTIES.filter((p) => {
-            if (args?.suburb && !p.suburb.toLowerCase().includes(args.suburb.toLowerCase())) return false;
-            if (args?.listingType && p.listingType !== args.listingType) return false;
-            if (args?.bedrooms && (!p.bedrooms || p.bedrooms < Number(args.bedrooms))) return false;
-            return true;
-          });
-        }
 
         const formatted = properties.map((p) => ({
           title: p.title,
@@ -350,13 +371,11 @@ export async function POST(req: NextRequest) {
 
       // TOOL: get_rental_arrears
       if (name === "get_rental_arrears") {
-        let arrears: any[] = [];
-        try {
-          const leases = await db.lease.findMany({
+        const leases = await db.lease.findMany({
             where: { organizationId: tenantOrgId, status: "IN_ARREARS" },
             include: { property: true },
           });
-          arrears = leases.map((l: any) => ({
+        const arrears = leases.map((l) => ({
             tenantName: l.tenantName,
             tenantPhone: l.tenantPhone,
             property: l.property.title,
@@ -365,22 +384,6 @@ export async function POST(req: NextRequest) {
             daysOverdue: 14,
             action: "Dispatch Tier-1 WhatsApp payment nudge",
           }));
-        } catch {
-          arrears = [];
-        }
-
-        if (!arrears || arrears.length === 0) {
-          arrears = MOCK_LEASES.filter((l) => l.status === "IN_ARREARS").map((l) => ({
-            tenantName: l.tenantName,
-            tenantPhone: l.tenantPhone,
-            property: l.propertyTitle,
-            suburb: "Woodlands",
-            monthlyRent: `ZMW ${l.monthlyRent.toLocaleString()}`,
-            amountOverdue: `ZMW 18,000`,
-            daysOverdue: 14,
-            action: "Dispatch Tier-1 WhatsApp payment nudge (4-day cooldown active)",
-          }));
-        }
 
         return NextResponse.json({
           jsonrpc: "2.0",
@@ -398,13 +401,47 @@ export async function POST(req: NextRequest) {
 
       // TOOL: get_revenue_commission
       if (name === "get_revenue_commission") {
+        const transactions = await db.transaction.findMany({
+          where: { organizationId: tenantOrgId },
+        });
+        let totalGrossZmw = 0;
+        let totalGrossUsd = 0;
+        let earnedAgencyCommissionZmw = 0;
+        let earnedAgencyCommissionUsd = 0;
+        let agentSplitsPaidZmw = 0;
+        let agentSplitsPaidUsd = 0;
+        let pipelineExpectedZmw = 0;
+
+        for (const transaction of transactions) {
+          const gross = Number(transaction.grossValue);
+          const commission = Number(transaction.agencyCommissionAmount);
+          const split = Number(transaction.agentSplitAmount);
+          const isEarned = ["EARNED", "RECEIVED", "AGENT_PAID_OUT"].includes(transaction.status);
+
+          if (transaction.currency === "USD") {
+            if (isEarned) {
+              totalGrossUsd += gross;
+              earnedAgencyCommissionUsd += commission;
+              agentSplitsPaidUsd += split;
+            }
+          } else if (isEarned) {
+            totalGrossZmw += gross;
+            earnedAgencyCommissionZmw += commission;
+            agentSplitsPaidZmw += split;
+          } else if (transaction.status === "EXPECTED") {
+            pipelineExpectedZmw += commission;
+          }
+        }
+
         const metrics = {
-          totalGrossVolume: "$ 2,050,000 + K 4,200,000",
-          earnedAgencyCommission: "$ 102,500 + K 210,000",
-          agentSplitsPaid: "$ 51,250 + K 105,000",
-          pipelineExpectedCommission: "K 388,500",
+          totalGrossVolume: `$ ${totalGrossUsd.toLocaleString()} + K ${totalGrossZmw.toLocaleString()}`,
+          earnedAgencyCommission: `$ ${earnedAgencyCommissionUsd.toLocaleString()} + K ${earnedAgencyCommissionZmw.toLocaleString()}`,
+          agentSplitsPaid: `$ ${agentSplitsPaidUsd.toLocaleString()} + K ${agentSplitsPaidZmw.toLocaleString()}`,
+          pipelineExpectedCommission: `K ${pipelineExpectedZmw.toLocaleString()}`,
           agencyCommissionRate: "5% (Sales) / 10% (Property Management)",
           closingAgentSplitRate: "50% of Agency Fee",
+          closedDealsCount: transactions.filter((transaction) => transaction.status !== "EXPECTED").length,
+          pipelineDealsCount: transactions.filter((transaction) => transaction.status === "EXPECTED").length,
         };
 
         return NextResponse.json({
@@ -423,18 +460,24 @@ export async function POST(req: NextRequest) {
 
       // TOOL: get_property_documents
       if (name === "get_property_documents") {
-        const sampleKey = `${tenantOrgId}/title_deed/1740000000_title_deed.pdf`;
-        const presignedUrl = await s3Storage.getPresignedDownloadUrl(sampleKey, 900);
-
-        const docs = [
-          {
-            fileName: "Certificate_of_Title_Certified_Copy.pdf",
-            category: "TITLE_DEED",
-            vaultPath: `s3://contour-vault/${sampleKey}`,
-            presignedDownloadUrl: presignedUrl,
-            expiresIn: "15 minutes (POPIA Custody)",
+        const documents = await db.vaultDocument.findMany({
+          where: {
+            organizationId: tenantOrgId,
+            propertyId: args?.propertyId || undefined,
+            docType: args?.category || undefined,
+            isDeleted: false,
           },
-        ];
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        });
+        const docs = await Promise.all(documents.map(async (document) => ({
+          id: document.id,
+          fileName: document.originalFileName,
+          category: document.docType,
+          vaultPath: `s3://contour-vault/${document.objectKey}`,
+          presignedDownloadUrl: await s3Storage.getPresignedDownloadUrl(document.objectKey, 900),
+          expiresIn: "15 minutes (POPIA Custody)",
+        })));
 
         // Record POPIA Audit Event in Neon PostgreSQL
         try {
@@ -453,7 +496,7 @@ export async function POST(req: NextRequest) {
             },
           });
         } catch (auditErr) {
-          // Non-blocking in dev mode / offline tests
+          console.warn("MCP document audit log failed:", auditErr);
         }
 
         return NextResponse.json({
@@ -472,8 +515,33 @@ export async function POST(req: NextRequest) {
 
       // TOOL: create_inquiry_or_lead
       if (name === "create_inquiry_or_lead") {
+        const parsedInquiry = createInquirySchema.safeParse(args || {});
+        if (!parsedInquiry.success) {
+          return NextResponse.json(
+            { jsonrpc: "2.0", error: { code: -32602, message: parsedInquiry.error.issues[0]?.message || "Invalid inquiry arguments" }, id },
+            { status: 400 }
+          );
+        }
+
         const antiPoachingExpiry = new Date();
         antiPoachingExpiry.setDate(antiPoachingExpiry.getDate() + 30);
+        const createdInquiry = await db.inquiry.create({
+          data: {
+            organizationId: tenantOrgId,
+            clientName: parsedInquiry.data.clientName,
+            clientPhone: parsedInquiry.data.clientPhone,
+            clientEmail: parsedInquiry.data.clientEmail || null,
+            lookingFor: parsedInquiry.data.lookingFor,
+            propertyType: parsedInquiry.data.propertyType || null,
+            budgetMin: parsedInquiry.data.budgetMin,
+            budgetMax: parsedInquiry.data.budgetMax,
+            currency: parsedInquiry.data.currency,
+            preferredSuburbs: parsedInquiry.data.preferredSuburbs,
+            notes: parsedInquiry.data.notes ? `[MCP Agent Capture] ${parsedInquiry.data.notes}` : "[MCP Agent Capture] Lead recorded via MCP",
+            exclusiveLockExpiresAt: antiPoachingExpiry,
+            status: "NEW_INQUIRY",
+          },
+        });
 
         return NextResponse.json({
           jsonrpc: "2.0",
@@ -485,8 +553,9 @@ export async function POST(req: NextRequest) {
                   {
                     success: true,
                     tenant: tenantOrgId,
-                    clientName: args.clientName,
-                    clientPhone: args.clientPhone,
+                    inquiryId: createdInquiry.id,
+                    clientName: createdInquiry.clientName,
+                    clientPhone: createdInquiry.clientPhone,
                     antiPoachingLockExpiry: antiPoachingExpiry.toISOString(),
                     message: "Lead successfully recorded with 30-Day Anti-Poaching Lock.",
                   },
@@ -511,9 +580,11 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   } catch (error: any) {
+    const correlationId = getOrCreateCorrelationId(req);
+    console.error("MCP request failed:", { correlationId, error });
     return NextResponse.json(
-      { jsonrpc: "2.0", error: { code: -32603, message: error.message || "Internal server error" }, id: null },
-      { status: 500 }
+      { jsonrpc: "2.0", error: { code: -32603, message: "Internal server error", data: { correlationId } }, id: null },
+      { status: 500, headers: { "x-correlation-id": correlationId } }
     );
   }
 }

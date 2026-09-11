@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateDifyRequest } from "@/lib/dify-auth";
-import { MOCK_TRANSACTIONS } from "@/lib/mock-data";
+import { commissionToolSchema } from "@/lib/ai-tool-schemas";
+import { getOrCreateCorrelationId } from "@/lib/correlation";
 
 /**
  * Dify Tool: `get_revenue_commission`
@@ -12,17 +13,18 @@ import { MOCK_TRANSACTIONS } from "@/lib/mock-data";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { organization_id } = body;
+    const parsed = commissionToolSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid commission arguments" }, { status: 400 });
+    }
+    const { organization_id } = parsed.data;
 
     const { context, errorResponse } = await authenticateDifyRequest(req, organization_id);
     if (errorResponse) return errorResponse;
 
     const tenantOrgId = context!.organizationId;
 
-    let metrics: any = null;
-
-    try {
-      const transactions = await db.transaction.findMany({
+    const transactions = await db.transaction.findMany({
         where: { organizationId: tenantOrgId },
         include: {
           property: { select: { title: true, suburb: true } },
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      metrics = {
+    const metrics = {
         totalGrossVolume: `$ ${totalGrossUsd.toLocaleString()} + K ${totalGrossZmw.toLocaleString()}`,
         earnedAgencyCommission: `$ ${earnedAgencyCommissionUsd.toLocaleString()} + K ${earnedAgencyCommissionZmw.toLocaleString()}`,
         agentSplitsPaid: `$ ${agentSplitsPaidUsd.toLocaleString()} + K ${agentSplitsPaidZmw.toLocaleString()}`,
@@ -68,20 +70,6 @@ export async function POST(req: NextRequest) {
         closedDealsCount: transactions.filter((t: any) => t.status !== "EXPECTED").length,
         pipelineDealsCount: transactions.filter((t: any) => t.status === "EXPECTED").length,
       };
-    } catch (dbError) {
-      if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-        metrics = {
-          totalGrossVolume: "$ 2,050,000 + K 4,200,000",
-          earnedAgencyCommission: "$ 102,500 + K 210,000",
-          agentSplitsPaid: "$ 51,250 + K 105,000",
-          pipelineExpectedCommission: "K 388,500",
-          closedDealsCount: 3,
-          pipelineDealsCount: 4,
-        };
-      } else {
-        throw dbError;
-      }
-    }
 
     return NextResponse.json({
       success: true,
@@ -91,10 +79,11 @@ export async function POST(req: NextRequest) {
       metrics,
     });
   } catch (error: any) {
-    console.error("Dify Commission Tool Error:", error);
+    const correlationId = getOrCreateCorrelationId(req);
+    console.error("Dify Commission Tool Error:", { correlationId, error });
     return NextResponse.json(
-      { error: "Failed to retrieve commission metrics", details: error.message },
-      { status: 500 }
+      { error: "Failed to retrieve commission metrics", correlationId },
+      { status: 500, headers: { "x-correlation-id": correlationId } }
     );
   }
 }

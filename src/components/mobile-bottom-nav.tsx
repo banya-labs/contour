@@ -19,14 +19,14 @@ import {
   LogOut,
   Building,
 } from "lucide-react";
-import { SignOutButton, useUser, useOrganization } from "@clerk/nextjs";
+import { authClient } from "@/lib/auth-client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
-  const { user } = useUser();
-  const { organization } = useOrganization();
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
 
   const primaryTabs = [
     {
@@ -145,8 +145,8 @@ export default function MobileBottomNav() {
       <BottomSheet
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
-        title={organization?.name || "Contour Agency"}
-        subtitle={user?.primaryEmailAddress?.emailAddress || "Workspace Menu"}
+        title="Contour Agency"
+        subtitle={user?.email || "Workspace Menu"}
       >
         <div className="space-y-5 pb-4 font-geist">
           {moreNavLinks.map((group) => (
@@ -184,15 +184,14 @@ export default function MobileBottomNav() {
 
           {/* User Sign Out */}
           <div className="pt-2 border-t border-editorial-border">
-            <SignOutButton redirectUrl="/sign-in">
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out of Session</span>
-              </button>
-            </SignOutButton>
+            <button
+              type="button"
+              onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out of Session</span>
+            </button>
           </div>
         </div>
       </BottomSheet>

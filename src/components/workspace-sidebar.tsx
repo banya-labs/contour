@@ -3,12 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  useUser,
-  useOrganization,
-  OrganizationSwitcher,
-  SignOutButton,
-} from "@clerk/nextjs";
+import { authClient } from "@/lib/auth-client";
 import {
   LayoutDashboard,
   Home,
@@ -39,16 +34,16 @@ type NavGroup = {
 
 export default function WorkspaceSidebar() {
   const pathname = usePathname();
-  const { user, isLoaded: isUserLoaded } = useUser();
-  const { organization, membership, isLoaded: isOrgLoaded } = useOrganization();
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const user = session?.user;
 
   // Determine user role in current active agency organization
-  const role = membership?.role;
-  const isPrincipalBroker = !role || role === "org:admin";
+  const role = (user as (typeof user & { role?: string }) | undefined)?.role;
+  const isPrincipalBroker = !role || role === "SUPER_ADMIN" || role === "BROKER_MANAGER";
   const roleLabel =
-    role === "org:admin"
+    role === "SUPER_ADMIN"
       ? "Principal Broker"
-      : role === "org:manager"
+      : role === "BROKER_MANAGER"
       ? "Branch Manager"
       : "Field Agent";
 
@@ -104,14 +99,14 @@ export default function WorkspaceSidebar() {
   const isDocumentsActive = pathname.startsWith("/dashboard/documents");
 
   // User initials for monogram avatar fallback
-  const userInitials =
-    user?.firstName && user?.lastName
-      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-      : user?.firstName
-      ? user.firstName[0].toUpperCase()
-      : user?.primaryEmailAddress?.emailAddress
-      ? user.primaryEmailAddress.emailAddress[0].toUpperCase()
-      : "C";
+  const userInitials = user?.name
+    ? user.name
+        .split(" ")
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : user?.email?.[0]?.toUpperCase() || "C";
 
   return (
     <aside className="hidden md:flex md:w-16 lg:w-64 bg-white border-r border-editorial-border h-screen max-h-screen sticky top-0 flex-col justify-between p-2 lg:p-3 shrink-0 font-geist select-none overflow-hidden transition-all duration-200">
@@ -132,21 +127,11 @@ export default function WorkspaceSidebar() {
             </span>
           </div>
 
-          {/* Real Estate Multi-Tenant Organization Switcher (Full on Desktop) */}
+          {/* Real Estate Multi-Tenant Organization Context */}
           <div className="hidden lg:block w-full">
-            <OrganizationSwitcher
-              hidePersonal={false}
-              afterCreateOrganizationUrl="/dashboard"
-              afterSelectOrganizationUrl="/dashboard"
-              afterLeaveOrganizationUrl="/dashboard"
-              appearance={{
-                elements: {
-                  rootBox: "w-full",
-                  organizationSwitcherTrigger:
-                    "w-full rounded-none border border-editorial-border bg-neutral-50/50 hover:bg-neutral-100/60 px-2.5 py-1.5 text-xs font-heading font-semibold text-editorial-black flex items-center justify-between transition-colors shadow-none",
-                },
-              }}
-            />
+            <div className="w-full border border-editorial-border bg-neutral-50/50 px-2.5 py-1.5 text-xs font-heading font-semibold text-editorial-black">
+              Contour Agency Workspace
+            </div>
           </div>
         </div>
 
@@ -294,17 +279,17 @@ export default function WorkspaceSidebar() {
           <span className="hidden lg:inline">Admin Control</span>
         </Link>
 
-        {/* Live Clerk User Profile Card */}
+        {/* Live Better Auth User Profile Card */}
         <div className="flex items-center justify-center lg:justify-between p-1.5 lg:p-2 border border-editorial-border bg-neutral-50/70 mt-1">
           <Link
             href="/dashboard/settings?tab=account"
             className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80 transition-opacity"
             title="View Account Profile"
           >
-            {user?.imageUrl ? (
+            {user?.image ? (
               <img
-                src={user.imageUrl}
-                alt={user.fullName || "User"}
+                src={user.image}
+                alt={user.name || "User"}
                 className="w-7 h-7 object-cover border border-editorial-border shrink-0"
               />
             ) : (
@@ -314,7 +299,7 @@ export default function WorkspaceSidebar() {
             )}
             <div className="hidden lg:block min-w-0 flex-1">
               <div className="text-xs font-heading font-bold text-editorial-black truncate leading-tight">
-                {isUserLoaded ? user?.fullName || user?.username || "Authenticated Agent" : "Loading..."}
+                {!isSessionPending ? user?.name || "Authenticated Agent" : "Loading..."}
               </div>
               <div className="text-[10px] font-geist text-editorial-muted truncate">
                 {roleLabel}
@@ -322,15 +307,14 @@ export default function WorkspaceSidebar() {
             </div>
           </Link>
           <div className="hidden lg:block">
-            <SignOutButton redirectUrl="/sign-in">
-              <button
-                type="button"
-                title="Sign Out"
-                className="text-editorial-muted hover:text-contour-red p-1 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </SignOutButton>
+            <button
+              type="button"
+              title="Sign Out"
+              onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
+              className="text-editorial-muted hover:text-contour-red p-1 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
