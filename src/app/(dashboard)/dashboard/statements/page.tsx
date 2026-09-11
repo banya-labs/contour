@@ -58,33 +58,35 @@ export default function LandlordStatementsPage() {
   ];
 
   return (
-    <div className="p-6 sm:p-8 pb-32 sm:pb-40 space-y-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
+    <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>
-          <span className="text-xs font-semibold text-contour-red uppercase tracking-wider">
-            Financial Reconciliation
+          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
+            FINANCIAL RECONCILIATION // SEAM V2
           </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink-900 mt-0.5">
+          <h1 className="font-serif text-xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-0.5 sm:mt-1">
             Landlord Remittance Statements
           </h1>
-          <p className="text-xs text-ink-600 mt-1">
+          <p className="text-xs text-editorial-neutral mt-0.5 sm:mt-1">
             Automated monthly rent reconciliation with 10% management fee deduction and maintenance offsets.
           </p>
         </div>
 
-        <button className="px-4 py-2.5 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-semibold transition-transform active:scale-95 shadow-subtle flex items-center gap-1.5 self-start sm:self-auto">
-          <Plus className="w-3.5 h-3.5" />
+        <button className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 self-start sm:self-auto">
+          <Plus className="w-3.5 h-3.5 text-editorial-red" />
           <span>Generate Statement</span>
         </button>
       </div>
 
       {/* Seam Notice Box */}
-      <div className="bg-paper-200 border border-border p-4 rounded-2xl flex items-start gap-3">
-        <ShieldCheck className="w-5 h-5 text-contour-red shrink-0 mt-0.5" />
-        <div className="text-xs space-y-1 text-ink-800">
-          <span className="font-bold text-ink-900">The DocuSign Human Approval Seam Active</span>
-          <p className="text-ink-600 leading-relaxed">
+      <div className="bg-editorial-paper/50 border border-editorial-border p-4 sm:p-5 rounded-none flex items-start gap-3">
+        <ShieldCheck className="w-4 sm:w-5 h-4 sm:h-5 text-editorial-red shrink-0 mt-0.5" />
+        <div className="text-xs space-y-1 text-editorial-black">
+          <span className="font-mono font-bold text-editorial-black uppercase tracking-wider text-[10px] sm:text-[11px] block">
+            The DocuSign Human Approval Seam Active
+          </span>
+          <p className="text-editorial-neutral leading-relaxed">
             AI agents calculate ledger deductions and draft PDF statements. Under Banya Labs operating doctrine, an authorized Principal Broker or Finance Officer must physically sign off before net remittances are disbursed to landlord bank accounts.
           </p>
         </div>
@@ -93,15 +95,15 @@ export default function LandlordStatementsPage() {
       {/* Statements List */}
       <div className="space-y-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-border shadow-card">
-            <Bot className="animate-spin w-8 h-8 mb-2 text-contour-red" />
-            <span className="text-xs text-ink-600 font-medium">Loading landlord statements from database...</span>
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-none border border-editorial-border">
+            <Bot className="animate-spin w-8 h-8 mb-2 text-editorial-red" />
+            <span className="text-xs font-mono text-editorial-neutral">Loading landlord statements from database...</span>
           </div>
         ) : statements.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-border shadow-card text-center space-y-3">
-            <FileSpreadsheet className="w-12 h-12 text-ink-400" />
-            <h3 className="font-semibold text-ink-900">No statements generated</h3>
-            <p className="text-sm text-ink-600 max-w-sm">No landlord remittance statements have been generated for this month yet.</p>
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-none border border-editorial-border text-center space-y-3">
+            <FileSpreadsheet className="w-12 h-12 text-editorial-neutral/50" />
+            <h3 className="font-serif font-bold text-editorial-black text-lg">No statements generated</h3>
+            <p className="text-xs text-editorial-neutral max-w-sm">No landlord remittance statements have been generated for this month yet.</p>
           </div>
         ) : (
           statements.map((stmt) => {
@@ -111,51 +113,56 @@ export default function LandlordStatementsPage() {
             return (
               <div
                 key={stmt.id}
-                className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-4"
+                className="bg-white rounded-none p-6 border border-editorial-border space-y-4 hover:border-editorial-black transition-colors"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-editorial-border pb-4">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-ink-600">
-                      {monthStr} Statement
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-editorial-neutral block">
+                      STATEMENT REF // {monthStr.toUpperCase()}
                     </span>
-                    <h3 className="font-bold text-base text-ink-900">{stmt.property?.title || "Untitled Property"}</h3>
-                    <div className="text-xs text-ink-600">Landlord: {stmt.landlordName}</div>
+                    <h3 className="font-serif font-bold text-lg text-editorial-black mt-0.5">
+                      {stmt.property?.title || "Untitled Property"}
+                    </h3>
+                    <div className="text-xs text-editorial-neutral font-mono mt-0.5">
+                      Landlord: <span className="text-editorial-black font-semibold">{stmt.landlordName}</span>
+                    </div>
                   </div>
 
                   <span
-                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold self-start sm:self-auto ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-none text-[11px] font-mono font-bold uppercase tracking-wider self-start sm:self-auto border ${
                       isAuthorized
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                        : "bg-amber-50 text-amber-800 border-amber-300"
                     }`}
                   >
+                    <span className={`w-1.5 h-1.5 ${isAuthorized ? "bg-emerald-600" : "bg-amber-600"}`} />
                     {isAuthorized ? "Remittance Authorized" : "Pending Human Sign-Off"}
                   </span>
                 </div>
 
                 {/* Equation Breakdown Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-paper-100 border border-border text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-editorial-paper/40 border border-editorial-border text-xs">
                   <div>
-                    <div className="text-ink-600 text-[10px] uppercase font-semibold">Gross Rent Collected</div>
-                    <div className="font-mono font-bold text-ink-900 mt-1">
+                    <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Gross Rent Collected</div>
+                    <div className="font-mono font-bold text-editorial-black text-sm mt-1">
                       {formatCurrency(Number(stmt.grossRentCollected), stmt.currency)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-ink-600 text-[10px] uppercase font-semibold">Agency Fee (10%)</div>
-                    <div className="font-mono font-bold text-contour-red mt-1">
+                    <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Agency Fee (10%)</div>
+                    <div className="font-mono font-bold text-editorial-red text-sm mt-1">
                       - {formatCurrency(Number(stmt.agencyFeeDeducted), stmt.currency)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-ink-600 text-[10px] uppercase font-semibold">Maintenance Offsets</div>
-                    <div className="font-mono font-bold text-ink-800 mt-1">
+                    <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Maintenance Offsets</div>
+                    <div className="font-mono font-bold text-editorial-black text-sm mt-1">
                       - {formatCurrency(Number(stmt.maintenanceDeducted), stmt.currency)}
                     </div>
                   </div>
-                  <div className="border-l border-paper-300 pl-4">
-                    <div className="text-contour-emerald text-[10px] uppercase font-bold">Net Landlord Payout</div>
-                    <div className="font-mono font-bold text-base text-contour-emerald mt-0.5">
+                  <div className="border-l border-editorial-border pl-4">
+                    <div className="text-emerald-700 text-[10px] font-mono uppercase tracking-wider font-bold">Net Landlord Payout</div>
+                    <div className="font-mono font-bold text-base text-emerald-800 mt-0.5">
                       {formatCurrency(Number(stmt.netLandlordPayout), stmt.currency)}
                     </div>
                   </div>
@@ -163,7 +170,7 @@ export default function LandlordStatementsPage() {
 
                 {/* Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                  <button className="px-3.5 py-1.5 rounded-full bg-paper-200 hover:bg-paper-300 text-ink-900 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                  <button className="px-4 py-2 rounded-none bg-white border border-editorial-border hover:bg-editorial-paper text-editorial-black text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors">
                     <Download className="w-3.5 h-3.5" />
                     <span>Download PDF Statement</span>
                   </button>
@@ -171,14 +178,14 @@ export default function LandlordStatementsPage() {
                   {!isAuthorized ? (
                     <button
                       onClick={() => handleAuthorizeSeam(stmt.id)}
-                      className="px-5 py-2 rounded-full bg-contour-red hover:bg-contour-red/90 text-white text-xs font-bold transition-all shadow-subtle flex items-center gap-1.5"
+                      className="px-5 py-2.5 rounded-none bg-editorial-red hover:bg-editorial-red/90 text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5"
                     >
                       <Lock className="w-3.5 h-3.5" />
-                      <span>Authorize & Disburse Remittance</span>
+                      <span>Authorize &amp; Disburse Remittance</span>
                     </button>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs text-contour-emerald font-semibold">
-                      <CheckCircle2 className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-mono font-semibold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <span>Authorized for bank wire remittance</span>
                     </div>
                   )}

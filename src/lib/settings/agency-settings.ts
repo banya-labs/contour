@@ -16,6 +16,9 @@ export type AgencySettings = {
   bannerAccentColor: string;
   instagramHandle: string;
   facebookPage: string;
+  pacraNumber?: string;
+  defaultSaleCommission?: number;
+  defaultAgentSplit?: number;
 };
 
 export const DEFAULT_AGENCY_SETTINGS: AgencySettings = {

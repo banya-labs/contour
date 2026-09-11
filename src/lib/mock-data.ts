@@ -1,4 +1,4 @@
-import { PropertyMapItem } from "@/components/map/interactive-property-map";
+import type { PropertyMapItem } from "@/types/property-map";
 
 export const MOCK_PROPERTIES: PropertyMapItem[] = [
   {

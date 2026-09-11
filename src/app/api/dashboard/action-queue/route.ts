@@ -52,7 +52,7 @@ const getHandler = createApiHandler({
     });
 
     const totalInquiries = inquiryStatusBreakdown.reduce(
-      (acc, g) => acc + g._count.status,
+      (acc: number, g: { _count: { status: number } }) => acc + g._count.status,
       0
     );
 

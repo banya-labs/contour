@@ -1,555 +1,464 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText,
   ShieldCheck,
   Search,
   Upload,
+  Link2,
+  Users,
   Lock,
-  Eye,
-  Download,
-  CheckCircle2,
-  FolderLock,
-  X,
-  Sparkles,
-  Bot,
-  FileX,
-  AlertCircle,
+  Building,
+  RefreshCw,
+  Scale,
+  Info,
+  LayoutGrid,
+  FolderTree,
+  Filter,
 } from "lucide-react";
+import { VaultTree, VaultDoc, PropertyItem } from "@/components/vault/vault-tree";
+import { VaultPropertyGrid } from "@/components/vault/vault-property-grid";
+import { UploadDocumentModal } from "@/components/vault/upload-document-modal";
+import { RequestDocumentModal } from "@/components/vault/request-document-modal";
+import { VaultAccessModal } from "@/components/vault/vault-access-modal";
+import { FolderCollaboratorsModal } from "@/components/vault/folder-collaborators-modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-// ── Type matching the Prisma VaultDocument model ──────────────────────────
-type VaultDoc = {
-  id: string;
-  title: string;
-  docType: string;
-  classification: string;
-  objectKey: string;
-  originalFileName: string;
-  fileSize: number;
-  mimeType: string;
-  fileType: string;
-  registryFolio: string | null;
-  uploadedBy: string;
-  isVerified: boolean;
-  createdAt: string;
-  property: { id: string; title: string; suburb: string } | null;
-};
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  TITLE_DEED: "📜 Title Deed",
-  NRC_PASSPORT_ID: "🪪 NRC / Passport ID",
-  MANDATE_AGREEMENT: "✍️ Mandate Agreement",
-  LEASE_CONTRACT: "📑 Lease Contract",
-  SITE_SURVEY_DIAGRAM: "📐 Survey Diagram",
-};
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export default function DocumentsVaultPage() {
+export default function DocumentVaultPage() {
   const [documents, setDocuments] = useState<VaultDoc[]>([]);
+  const [properties, setProperties] = useState<PropertyItem[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
+  const [accessLevel, setAccessLevel] = useState<string>("FULL_VAULT");
   const [loading, setLoading] = useState(true);
-  const [properties, setProperties] = useState<any[]>([]);
+
+  // View Mode: Tree vs Grid
+  const [viewMode, setViewMode] = useState<"TREE" | "GRID">("TREE");
+
+  // Filters
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("ALL");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [category, setCategory] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  // Upload flow state
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<"idle" | "presigning" | "uploading" | "saving" | "done" | "error">("idle");
-  const [uploadError, setUploadError] = useState("");
+  // Modals
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadPropertyId, setUploadPropertyId] = useState<string | null>(null);
+  const [isRequestOpen, setIsRequestOpen] = useState(false);
+  const [isAccessOpen, setIsAccessOpen] = useState(false);
+  const [isDpaModalOpen, setIsDpaModalOpen] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    title: "",
-    propertyId: "",
-    docType: "TITLE_DEED",
-    classification: "RESTRICTED_MANAGEMENT",
-    registryFolio: `DOC-LUS-${Math.floor(1000 + Math.random() * 9000)}`,
-  });
-  const [formError, setFormError] = useState("");
+  // Collaborator Modal
+  const [isCollabsOpen, setIsCollabsOpen] = useState(false);
+  const [selectedPropertyForCollabs, setSelectedPropertyForCollabs] = useState<PropertyItem | null>(null);
 
-  // ── Load documents from Neon DB ────────────────────────────────────────
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [docsRes, propsRes] = await Promise.all([
-          fetch("/api/documents"),
-          fetch("/api/properties"),
-        ]);
-        const docsData = await docsRes.json();
-        const propsData = await propsRes.json();
-
-        if (docsData.success && docsData.documents) {
-          setDocuments(docsData.documents);
+  const loadVaultData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/vault/documents");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDocuments(data.documents || []);
+        setProperties(data.properties || []);
+        setMembers(data.members || []);
+        if (data.accessLevel) {
+          setAccessLevel(data.accessLevel);
         }
-        if (propsData.success && propsData.properties) {
-          setProperties(propsData.properties);
-          if (propsData.properties.length > 0) {
-            setFormData((prev) => ({ ...prev, propertyId: propsData.properties[0].id }));
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load vault data:", err);
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error("Failed to load vault:", err);
+    } finally {
+      setLoading(false);
     }
-    loadData();
+  };
+
+  useEffect(() => {
+    loadVaultData();
   }, []);
 
-  // ── Filtered view ──────────────────────────────────────────────────────
-  const filteredDocs = documents.filter((doc) => {
-    const matchesSearch =
-      search.trim() === "" ||
-      doc.title.toLowerCase().includes(search.toLowerCase()) ||
-      doc.property?.title.toLowerCase().includes(search.toLowerCase()) ||
-      doc.property?.suburb.toLowerCase().includes(search.toLowerCase()) ||
-      (doc.registryFolio || "").toLowerCase().includes(search.toLowerCase());
+  const totalFiles = documents.length;
+  const verifiedCount = documents.filter((d) => d.isVerified).length;
+  const totalSizeBytes = documents.reduce((acc, d) => acc + (d.fileSize || 0), 0);
+  const totalSizeMb = (totalSizeBytes / 1024 / 1024).toFixed(2);
+  const clientUploadsCount = documents.filter((d) => d.uploadedByType === "CLIENT").length;
 
-    const matchesType = filterType === "ALL" || doc.docType === filterType;
-    return matchesSearch && matchesType;
-  });
-
-  // ── View / Download: stream securely from MinIO via /api/storage/view ──
-  const handleViewDoc = (doc: VaultDoc) => {
-    window.open(`/api/storage/view?key=${encodeURIComponent(doc.objectKey)}`, "_blank", "noopener,noreferrer");
+  const handleOpenUploadForProperty = (propId?: string) => {
+    setUploadPropertyId(propId || null);
+    setIsUploadOpen(true);
   };
 
-  // ── Direct multipart upload to MinIO & Neon DB ───
-  const handleUploadDoc = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError("");
-    setUploadError("");
+  const handleOpenCollaborators = (property: PropertyItem) => {
+    setSelectedPropertyForCollabs(property);
+    setIsCollabsOpen(true);
+  };
 
-    if (!formData.title.trim() || formData.title.length < 3) {
-      setFormError("Document title is required (at least 3 characters).");
-      return;
-    }
-    if (!selectedFile) {
-      setFormError("Please select a file to upload.");
-      return;
-    }
-
-    setUploading(true);
-    setUploadProgress("uploading");
-
-    try {
-      const data = new FormData();
-      data.append("file", selectedFile);
-      data.append("title", formData.title);
-      data.append("docType", formData.docType);
-      data.append("classification", formData.classification);
-      if (formData.propertyId) data.append("propertyId", formData.propertyId);
-      if (formData.registryFolio) data.append("registryFolio", formData.registryFolio);
-      data.append("organizationId", "org_contour_demo");
-
-      const res = await fetch("/api/storage/upload", {
-        method: "POST",
-        body: data,
-      });
-
-      const json = await res.json();
-      if (!json.success) {
-        throw new Error(json.error || "Failed to upload document");
+  // Filtered properties based on Search, Status, and Category
+  const filteredProperties = useMemo(() => {
+    return properties.filter((prop) => {
+      // 1. Property Status filter
+      if (statusFilter !== "ALL" && prop.status !== statusFilter) {
+        return false;
       }
 
-      setUploadProgress("done");
-      setDocuments((prev) => [json.document, ...prev]);
-      setIsModalOpen(false);
-      resetForm();
-    } catch (err: any) {
-      console.error("Upload error:", err);
-      setUploadError(err.message || "Upload failed");
-      setUploadProgress("error");
-    } finally {
-      setUploading(false);
-    }
-  };
+      // 2. Search query filter
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const titleMatch = prop.title.toLowerCase().includes(q);
+        const suburbMatch = prop.suburb.toLowerCase().includes(q);
+        const standMatch = prop.standPlotNumber?.toLowerCase().includes(q) || false;
+        const folioMatch = prop.titleDeedNumber?.toLowerCase().includes(q) || false;
+        const docMatch = documents.some(
+          (d) => d.propertyId === prop.id && d.title.toLowerCase().includes(q)
+        );
+        if (!titleMatch && !suburbMatch && !standMatch && !folioMatch && !docMatch) {
+          return false;
+        }
+      }
 
-  const resetForm = () => {
-    setSelectedFile(null);
-    setUploadProgress("idle");
-    setUploadError("");
-    setFormError("");
-    setFormData({
-      title: "",
-      propertyId: properties[0]?.id || "",
-      docType: "TITLE_DEED",
-      classification: "RESTRICTED_MANAGEMENT",
-      registryFolio: `DOC-LUS-${Math.floor(1000 + Math.random() * 9000)}`,
+      // 3. Category filter (must have at least one doc of that category)
+      if (category !== "ALL") {
+        const hasCategoryDoc = documents.some(
+          (d) => d.propertyId === prop.id && d.docType === category
+        );
+        if (!hasCategoryDoc) return false;
+      }
+
+      return true;
     });
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  }, [properties, documents, search, statusFilter, category]);
 
   return (
-    <div className="p-6 sm:p-8 pb-32 sm:pb-40 space-y-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="w-full h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-32 space-y-6 font-geist antialiased text-editorial-black">
+      {/* Top Banner: Zambia DPA Compliance Notice */}
+      <div className="border-t-2 border-contour-red border-x border-b border-editorial-border bg-white text-editorial-black p-4 rounded-none shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="w-8 h-8 rounded-none bg-editorial-bg border border-editorial-border flex items-center justify-center shrink-0">
+            <Scale className="w-4 h-4 text-contour-red" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-heading font-bold uppercase tracking-wider text-contour-red">
+                Zambia Data Protection Act No. 3 of 2021
+              </span>
+              <span className="text-[10px] font-mono bg-editorial-bg text-editorial-black px-1.5 py-0.5 border border-editorial-border uppercase">
+                ODPC Reg. Statutory Custody
+              </span>
+            </div>
+            <p className="text-xs text-editorial-muted mt-0.5 leading-relaxed">
+              Encrypted document vault with 15-min presigned tokens, immutable audit logs, and automatic 7-year statutory retention.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsDpaModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider bg-white hover:bg-[#fff5f3] hover:border-contour-red/40 text-editorial-black rounded-none border border-editorial-border transition-colors"
+          >
+            <Info className="w-3.5 h-3.5 text-contour-red" />
+            <span>Compliance Policy</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Header & Global Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-editorial-border pb-5">
         <div>
-          <span className="text-xs font-semibold text-contour-red uppercase tracking-wider">
-            Legal &amp; Compliance Custody
-          </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink-900 mt-0.5">
-            Documents &amp; Title Deeds Vault
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-block w-2 h-2 bg-contour-red" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-editorial-muted">
+              Legal Records & Title Deeds
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold uppercase tracking-wider text-editorial-black">
+            Legal & Document Vault
           </h1>
-          <p className="text-xs text-ink-600 mt-1">
-            Secure digital repository for Certificates of Title, NRC/Passport ID copies, mandates, and leases.
-            Files stored in MinIO — metadata indexed in Neon for fast retrieval.
+          <p className="text-xs text-editorial-muted mt-1 max-w-2xl">
+            Custodial repository for Certificates of Title, NRC ID scans, Sole Mandates, and client ingestions with granular collaborator controls.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-semibold transition-transform active:scale-95 shadow-subtle flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Upload className="w-3.5 h-3.5" />
-          <span>Upload Document</span>
-        </button>
-      </div>
+        {/* Global Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleOpenUploadForProperty(undefined)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-mono font-bold uppercase tracking-wider bg-contour-red hover:bg-contour-red/90 text-white rounded-none shadow-sm transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Upload Document</span>
+          </button>
 
-      {/* POPIA Notice */}
-      <div className="bg-paper-200 border border-border p-4 rounded-2xl flex items-start gap-3">
-        <FolderLock className="w-5 h-5 text-contour-red shrink-0 mt-0.5" />
-        <div className="text-xs space-y-1 text-ink-800">
-          <span className="font-bold text-ink-900">POPIA &amp; SADC Data Sovereignty Invariant</span>
-          <p className="text-ink-600 leading-relaxed">
-            Sensitive National Registration Cards (NRCs), Passports, and Certificates of Title are encrypted and restricted.
-            Every viewing action is recorded in the immutable{" "}
-            <code className="font-mono bg-paper-300 px-1 py-0.5 rounded text-ink-900">AuditLog</code>{" "}
-            with operator identity, IP, and timestamp. Files live in MinIO object storage; Neon holds the index.
-          </p>
+          <button
+            type="button"
+            onClick={() => setIsRequestOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-mono uppercase tracking-wider bg-white hover:bg-[#fff5f3] text-editorial-black rounded-none border border-editorial-border transition-colors"
+          >
+            <Link2 className="w-3.5 h-3.5 text-contour-red" />
+            <span>Request Client Docs</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsAccessOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-mono uppercase tracking-wider bg-white hover:bg-editorial-bg text-editorial-black rounded-none border border-editorial-border transition-colors"
+          >
+            <Users className="w-3.5 h-3.5 text-editorial-muted" />
+            <span>Access Control</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={loadVaultData}
+            title="Refresh Vault Data"
+            className="p-2 text-editorial-muted hover:text-editorial-black hover:bg-[#fff5f3] rounded-none border border-editorial-border transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-contour-red" : ""}`} />
+          </button>
         </div>
       </div>
 
-      {/* Category Pills & Search */}
-      <div className="bg-white rounded-2xl p-4 border border-border shadow-card flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 bg-paper-100 px-3 py-2 rounded-xl border border-border flex-1 max-w-md">
-          <Search className="w-4 h-4 text-ink-600 shrink-0" />
+      {/* Metric KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-4 bg-white rounded-none border border-editorial-border shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1">
+            <span className="font-mono text-[10px] uppercase tracking-wider">Total Documents</span>
+            <FileText className="w-4 h-4 text-editorial-muted" />
+          </div>
+          <div className="text-2xl font-bold font-mono text-editorial-black">{totalFiles}</div>
+          <p className="text-[11px] font-mono text-editorial-muted mt-1">{totalSizeMb} MB S3 storage</p>
+        </div>
+
+        <div className="p-4 bg-white rounded-none border border-editorial-border shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1">
+            <span className="font-mono text-[10px] uppercase tracking-wider">Verified Folios</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="text-2xl font-bold font-mono text-emerald-600">{verifiedCount}</div>
+          <p className="text-[11px] font-mono text-editorial-muted mt-1">Confirmed Lands Registry</p>
+        </div>
+
+        <div className="p-4 bg-white rounded-none border border-editorial-border shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1">
+            <span className="font-mono text-[10px] uppercase tracking-wider">Client Ingests</span>
+            <Link2 className="w-4 h-4 text-contour-red" />
+          </div>
+          <div className="text-2xl font-bold font-mono text-editorial-black">{clientUploadsCount}</div>
+          <p className="text-[11px] font-mono text-editorial-muted mt-1">Via PIN-protected links</p>
+        </div>
+
+        <div className="p-4 bg-white rounded-none border border-editorial-border shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1">
+            <span className="font-mono text-[10px] uppercase tracking-wider">Your Access Tier</span>
+            <Lock className="w-4 h-4 text-contour-red" />
+          </div>
+          <div className="text-sm font-bold font-mono text-contour-red truncate uppercase mt-1">
+            {accessLevel.replace("_", " ")}
+          </div>
+          <p className="text-[11px] font-mono text-editorial-muted mt-1">3-Tier RBAC Scoped</p>
+        </div>
+      </div>
+
+      {/* Search, Filter & View Switcher Toolbar */}
+      <div className="bg-white rounded-none border border-editorial-border p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+        {/* Search Property / File */}
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-editorial-muted" />
           <input
             type="text"
-            placeholder="Search by title, property, or folio number..."
+            placeholder="Search properties, folios, stand #, title deeds..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-xs text-ink-900 placeholder:text-ink-600 focus:outline-none"
+            className="w-full pl-9 pr-4 py-1.5 text-xs font-mono rounded-none border border-editorial-border bg-white text-editorial-black placeholder-editorial-muted focus:outline-none focus:border-contour-red"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto text-xs">
-          {[
-            { id: "ALL", label: "All Documents" },
-            { id: "TITLE_DEED", label: "📜 Title Deeds" },
-            { id: "NRC_PASSPORT_ID", label: "🪪 ID / NRC Copies" },
-            { id: "MANDATE_AGREEMENT", label: "✍️ Agency Mandates" },
-            { id: "LEASE_CONTRACT", label: "📑 Lease Contracts" },
-            { id: "SITE_SURVEY_DIAGRAM", label: "📐 Survey Plans" },
-          ].map((tab) => (
+        {/* Filters and View Mode Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status Filter */}
+          <div className="flex items-center gap-1">
+            <Filter className="w-3.5 h-3.5 text-editorial-muted hidden sm:inline" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-xs font-mono px-2.5 py-1.5 rounded-none border border-editorial-border bg-white text-editorial-black focus:outline-none focus:border-contour-red"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="AVAILABLE">🟢 Available</option>
+              <option value="UNDER_OFFER">🟡 Under Offer</option>
+              <option value="SOLD">🔵 Sold</option>
+              <option value="RENTED">🟣 Rented</option>
+              <option value="ARCHIVED">🔒 Archived</option>
+            </select>
+          </div>
+
+          {/* Category Filter */}
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="text-xs font-mono px-2.5 py-1.5 rounded-none border border-editorial-border bg-white text-editorial-black focus:outline-none focus:border-contour-red"
+          >
+            <option value="ALL">All Categories</option>
+            <option value="TITLE_DEED">📜 Title Deeds & Diagrams</option>
+            <option value="NRC_PASSPORT_ID">🪪 NRC / Passports</option>
+            <option value="MANDATE_AGREEMENT">📝 Mandate Agreements</option>
+            <option value="LEASE_CONTRACT">🏠 Leases & Tenancy</option>
+            <option value="PROOF_OF_RESIDENCE">📬 Proof of Residence</option>
+            <option value="VALUATION_REPORT">📊 Valuation Reports</option>
+          </select>
+
+          {/* View Mode Switcher: Tree vs Grid */}
+          <div className="flex items-center border border-editorial-border rounded-none overflow-hidden ml-auto sm:ml-0">
             <button
-              key={tab.id}
-              onClick={() => setFilterType(tab.id)}
-              className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap ${
-                filterType === tab.id
-                  ? "bg-ink-900 text-white"
-                  : "bg-paper-100 hover:bg-paper-200 text-ink-800 border border-border"
+              type="button"
+              onClick={() => setViewMode("TREE")}
+              title="Hierarchical Folder Tree View"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors ${
+                viewMode === "TREE"
+                  ? "bg-editorial-black text-white"
+                  : "bg-white text-editorial-muted hover:text-editorial-black hover:bg-editorial-bg"
               }`}
             >
-              {tab.label}
+              <FolderTree className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Tree View</span>
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setViewMode("GRID")}
+              title="Architectural Property Grid View"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider border-l border-editorial-border transition-colors ${
+                viewMode === "GRID"
+                  ? "bg-editorial-black text-white"
+                  : "bg-white text-editorial-muted hover:text-editorial-black hover:bg-editorial-bg"
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Grid View</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Documents Grid */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-border shadow-card">
-          <Bot className="animate-spin w-8 h-8 mb-3 text-contour-red" />
-          <span className="text-xs text-ink-600 font-medium">Loading vault from Neon database...</span>
-        </div>
-      ) : filteredDocs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-border shadow-card text-center space-y-3">
-          <FileX className="w-12 h-12 text-ink-400" />
-          <h3 className="font-semibold text-ink-900">
-            {documents.length === 0 ? "Vault is empty" : "No matching documents"}
-          </h3>
-          <p className="text-sm text-ink-600 max-w-sm">
-            {documents.length === 0
-              ? "Upload your first document — it will be stored in MinIO and indexed in Neon."
-              : "Try adjusting your search or category filter."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDocs.map((doc) => {
-            const isConfidential = doc.classification !== "AGENT_ACCESSIBLE";
-            const dateStr = new Date(doc.createdAt).toLocaleDateString("en-ZM", {
-              year: "numeric", month: "short", day: "numeric",
-            });
-
-            return (
-              <div
-                key={doc.id}
-                className="bg-white rounded-2xl p-5 border border-border shadow-card hover:shadow-floating transition-all flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-paper-200 text-ink-800">
-                      {doc.fileType} • {formatBytes(doc.fileSize)}
-                    </span>
-                    {isConfidential ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-contour-red bg-red-50 px-2 py-0.5 rounded-full">
-                        <Lock className="w-3 h-3" /> Restricted
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-contour-emerald bg-emerald-50 px-2 py-0.5 rounded-full">
-                        <CheckCircle2 className="w-3 h-3" /> Agent Access
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-paper-200 flex items-center justify-center text-contour-red shrink-0 mt-0.5">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-ink-900 leading-snug">{doc.title}</h4>
-                      <div className="text-[11px] text-ink-600 mt-0.5">
-                        {doc.property
-                          ? `${doc.property.title} (${doc.property.suburb})`
-                          : "No property linked"}
-                      </div>
-                      <div className="text-[10px] font-mono text-ink-500 mt-0.5">
-                        {DOC_TYPE_LABELS[doc.docType] || doc.docType}
-                        {doc.registryFolio && ` · ${doc.registryFolio}`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Actions */}
-                <div className="pt-3 border-t border-paper-200 flex items-center justify-between text-xs">
-                  <span className="text-[10px] text-ink-600">
-                    By {doc.uploadedBy.split(" (")[0]} on {dateStr}
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleViewDoc(doc)}
-                      className="p-1.5 rounded-lg bg-paper-200 hover:bg-paper-300 text-ink-900 transition-colors"
-                      title="View / Open from MinIO"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleViewDoc(doc)}
-                      className="p-1.5 rounded-lg bg-ink-900 hover:bg-ink-950 text-white transition-colors"
-                      title="Download from MinIO"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Modal: Upload Document */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-border shadow-floating space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <Upload className="w-5 h-5 text-contour-red" />
-                <h3 className="font-bold text-base text-ink-900">Upload &amp; Encrypt Document</h3>
-              </div>
-              <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="text-ink-600 hover:text-ink-900">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Upload architecture note */}
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-paper-100 border border-border text-[11px] text-ink-700">
-              <ShieldCheck className="w-4 h-4 text-contour-red shrink-0 mt-0.5" />
-              <span>
-                File is uploaded <strong>directly to MinIO object storage</strong> via presigned URL (zero server RAM).
-                Metadata (title, type, property link) is indexed in <strong>Neon PostgreSQL</strong>.
-              </span>
-            </div>
-
-            {formError && (
-              <div className="p-3 rounded-xl bg-red-50 text-contour-red text-xs font-semibold flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 shrink-0" /> {formError}
-              </div>
-            )}
-
-            {uploadError && (
-              <div className="p-3 rounded-xl bg-red-50 text-contour-red text-xs font-semibold flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 shrink-0" /> Upload error: {uploadError}
-              </div>
-            )}
-
-            <form onSubmit={handleUploadDoc} className="space-y-3.5 text-xs">
-              {/* File picker */}
-              <div>
-                <label className="block font-semibold text-ink-800 mb-1">Select File *</label>
-                <div
-                  className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-paper-100/60 cursor-pointer hover:border-contour-red/50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="w-6 h-6 text-ink-400 mx-auto mb-1" />
-                  {selectedFile ? (
-                    <div className="space-y-0.5">
-                      <span className="font-bold text-ink-900 block truncate max-w-xs mx-auto">{selectedFile.name}</span>
-                      <span className="text-[10px] text-ink-600">{formatBytes(selectedFile.size)}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="font-semibold text-ink-900 block">Click to select PDF or image</span>
-                      <span className="text-[10px] text-ink-600">PDF, JPG, PNG up to 25 MB · Stored in MinIO</span>
-                    </>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      setSelectedFile(f);
-                      if (!formData.title) {
-                        setFormData((prev) => ({ ...prev, title: f.name.replace(/\.[^.]+$/, "") }));
-                      }
-                    }
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-ink-800 mb-1">Document Title *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Certificate of Title (White Paper Folio 294)"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Category Type</label>
-                  <select
-                    value={formData.docType}
-                    onChange={(e) => setFormData({ ...formData, docType: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
-                  >
-                    <option value="TITLE_DEED">📜 Title Deed</option>
-                    <option value="NRC_PASSPORT_ID">🪪 NRC / Passport ID</option>
-                    <option value="MANDATE_AGREEMENT">✍️ Mandate Agreement</option>
-                    <option value="LEASE_CONTRACT">📑 Lease Contract</option>
-                    <option value="SITE_SURVEY_DIAGRAM">📐 Survey Diagram</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Security Level</label>
-                  <select
-                    value={formData.classification}
-                    onChange={(e) => setFormData({ ...formData, classification: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
-                  >
-                    <option value="RESTRICTED_MANAGEMENT">🔒 Restricted (Management)</option>
-                    <option value="CONFIDENTIAL_PII">🛡️ Confidential PII</option>
-                    <option value="AGENT_ACCESSIBLE">👥 Agent Accessible</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Property Link</label>
-                  <select
-                    value={formData.propertyId}
-                    onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
-                  >
-                    <option value="">— No property —</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title} ({p.suburb})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Folio / Reference #</label>
-                  <input
-                    type="text"
-                    value={formData.registryFolio}
-                    onChange={(e) => setFormData({ ...formData, registryFolio: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Upload progress */}
-              {uploading && (
-                <div className="p-3 rounded-xl bg-paper-100 border border-border text-xs space-y-1">
-                  {[
-                    { key: "presigning", label: "① Getting presigned MinIO URL..." },
-                    { key: "uploading", label: "② Uploading file directly to MinIO..." },
-                    { key: "saving", label: "③ Indexing metadata in Neon PostgreSQL..." },
-                  ].map(({ key, label }) => (
-                    <div
-                      key={key}
-                      className={`flex items-center gap-2 ${
-                        uploadProgress === key ? "text-contour-red font-semibold" : "text-ink-400"
-                      }`}
-                    >
-                      {uploadProgress === key ? (
-                        <Bot className="w-3.5 h-3.5 animate-spin shrink-0" />
-                      ) : (
-                        <div className="w-3.5 h-3.5 shrink-0" />
-                      )}
-                      {label}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => { setIsModalOpen(false); resetForm(); }}
-                  className="px-4 py-2 rounded-full border border-border text-ink-800 hover:bg-paper-200"
-                  disabled={uploading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploading || !selectedFile}
-                  className="px-5 py-2 rounded-full bg-ink-900 hover:bg-ink-950 text-white font-semibold shadow-subtle flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>{uploading ? "Uploading..." : "Upload & Seal"}</span>
-                </button>
-              </div>
-            </form>
+      {/* Main Content Area: Tree or Grid */}
+      <div className="bg-white rounded-none border border-editorial-border p-4 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[460px]">
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-editorial-border">
+          <div className="flex items-center gap-2">
+            <Building className="w-4 h-4 text-contour-red" />
+            <span className="text-xs font-heading font-bold uppercase tracking-wider text-editorial-black">
+              {viewMode === "TREE" ? "Contour Vault Directory Tree" : "Contour Property Vaults Grid"}
+            </span>
           </div>
+          <span className="text-xs font-mono text-editorial-muted">
+            Showing {filteredProperties.length} of {properties.length} Properties · {totalFiles} Documents
+          </span>
         </div>
-      )}
+
+        {loading ? (
+          <div className="py-20 text-center text-xs font-mono text-editorial-muted flex flex-col items-center justify-center gap-2">
+            <RefreshCw className="w-6 h-6 animate-spin text-contour-red" />
+            <span className="uppercase tracking-wider">Decrypting and assembling vault hierarchy...</span>
+          </div>
+        ) : viewMode === "GRID" ? (
+          <VaultPropertyGrid
+            properties={filteredProperties}
+            documents={documents}
+            members={members}
+            onOpenUpload={handleOpenUploadForProperty}
+            onOpenCollaborators={handleOpenCollaborators}
+            onSwitchToTree={() => setViewMode("TREE")}
+            onRefresh={loadVaultData}
+          />
+        ) : (
+          <VaultTree
+            documents={documents}
+            properties={filteredProperties}
+            members={members}
+            searchQuery={search}
+            selectedCategory={category}
+            onOpenUpload={handleOpenUploadForProperty}
+            onOpenCollaborators={handleOpenCollaborators}
+            onRefresh={loadVaultData}
+          />
+        )}
+      </div>
+
+      {/* Modals */}
+      <UploadDocumentModal
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onSuccess={loadVaultData}
+        properties={properties}
+        defaultPropertyId={uploadPropertyId}
+      />
+
+      <RequestDocumentModal
+        isOpen={isRequestOpen}
+        onClose={() => setIsRequestOpen(false)}
+        onSuccess={loadVaultData}
+        properties={properties}
+      />
+
+      <VaultAccessModal
+        isOpen={isAccessOpen}
+        onClose={() => setIsAccessOpen(false)}
+        onSuccess={loadVaultData}
+        properties={properties}
+      />
+
+      <FolderCollaboratorsModal
+        isOpen={isCollabsOpen}
+        onClose={() => {
+          setIsCollabsOpen(false);
+          setSelectedPropertyForCollabs(null);
+        }}
+        property={selectedPropertyForCollabs}
+        members={members}
+        onAccessUpdated={loadVaultData}
+      />
+
+      {/* Zambia DPA Compliance Information Modal */}
+      <Dialog open={isDpaModalOpen} onOpenChange={setIsDpaModalOpen}>
+        <DialogContent className="sm:max-w-[560px] bg-white border-editorial-border text-editorial-black rounded-none shadow-2xl">
+          <DialogHeader className="border-b border-editorial-border pb-3">
+            <DialogTitle className="flex items-center gap-2 text-base font-heading font-bold uppercase tracking-wider text-editorial-black">
+              <Scale className="w-4 h-4 text-contour-red" />
+              Zambia Data Protection & Land Registry Compliance
+            </DialogTitle>
+            <DialogDescription className="text-xs font-mono text-editorial-muted">
+              Statutory framework safeguarding property documents in the Contour ecosystem.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-3 text-xs leading-relaxed text-editorial-black">
+            <div className="p-3 bg-editorial-bg rounded-none border border-editorial-border">
+              <h4 className="font-heading font-bold uppercase text-[11px] tracking-wider text-editorial-black mb-1">
+                1. Data Protection Act No. 3 of 2021 (DPA)
+              </h4>
+              <p className="text-editorial-muted text-xs">
+                All personal information including National Registration Card (NRC) numbers, passport scans, and landlord banking details are classified as <strong>Confidential PII</strong>. Storage is encrypted with AES-256 in isolated tenant buckets.
+              </p>
+            </div>
+
+            <div className="p-3 bg-editorial-bg rounded-none border border-editorial-border">
+              <h4 className="font-heading font-bold uppercase text-[11px] tracking-wider text-editorial-black mb-1">
+                2. Electronic Communications & Transactions (ECT) Act No. 4 of 2021
+              </h4>
+              <p className="text-editorial-muted text-xs">
+                Authorizes electronic mandates and lease executions. Digital documents stored with SHA-256 verification hashes carry legal admissibility for real estate conveyancing.
+              </p>
+            </div>
+
+            <div className="p-3 bg-editorial-bg rounded-none border border-editorial-border">
+              <h4 className="font-heading font-bold uppercase text-[11px] tracking-wider text-editorial-black mb-1">
+                3. Lands and Deeds Registry Act (Cap 185)
+              </h4>
+              <p className="text-editorial-muted text-xs">
+                Certificates of Title are indexed by Ministry of Lands Folio numbers. Property records marked <em>ARCHIVED</em> enter read-only custodial preservation to ensure permanent auditability.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

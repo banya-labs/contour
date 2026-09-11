@@ -51,9 +51,8 @@ import {
   Crosshair
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import ContourGenUiModal from "@/components/ai/contour-genui-modal";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
-import { PropertyMapItem } from "@/components/map/interactive-property-map";
+import type { PropertyMapItem } from "@/types/property-map";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -62,7 +61,7 @@ const InteractivePropertyMap = dynamic(
     ssr: false,
     loading: () => (
       <div className="w-full h-[60vh] rounded-2xl bg-[#0F1B14] border border-emerald-900/50 flex flex-col items-center justify-center text-xs text-emerald-400 gap-2 animate-pulse">
-        <MapPin className="w-6 h-6 text-[#E57A1A] animate-bounce" />
+        <MapPin className="w-6 h-6 text-[#E57A1A]" />
         <span>Loading Lusaka Spatial Map...</span>
       </div>
     ),
@@ -110,11 +109,6 @@ function AgentKioskContent() {
   const [intakeDrawer, setIntakeDrawer] = useState<IntakeType>("NONE");
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
 
-  // AI Voice/Text Copilot State
-  const [isAiCopilotOpen, setIsAiCopilotOpen] = useState(false);
-  const [copilotInput, setCopilotInput] = useState("");
-  const [copilotMessage, setCopilotMessage] = useState<string | null>(null);
-  const [isParsingCopilot, setIsParsingCopilot] = useState(false);
 
   // Agent Persona State (Default: Tembo Mwape)
   const [currentAgent, setCurrentAgent] = useState({
@@ -446,46 +440,9 @@ function AgentKioskContent() {
     playSuccessTone();
   };
 
-  // AI Field Copilot Parser
-  const handleExecuteCopilot = () => {
-    if (!copilotInput.trim()) return;
-    setIsParsingCopilot(true);
-
-    setTimeout(() => {
-      const lower = copilotInput.toLowerCase();
-      if (lower.includes("offer") || lower.includes("k") || lower.includes("$")) {
-        const amountMatch = copilotInput.match(/(?:k|\$)\s*(\d+(?:,\d+)*(?:\.\d+)?|\d+k|\d+m)/i);
-        const nameMatch = copilotInput.match(/(?:mr|mrs|ms|dr)?\.?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
-
-        const newDeal = {
-          id: `deal_ai_${Date.now()}`,
-          propertyTitle: "Kabulonga Executive Villa Mandate",
-          suburb: "Kabulonga",
-          clientName: nameMatch ? nameMatch[0] : "Verified Client",
-          value: amountMatch ? amountMatch[0].toUpperCase() : "K 3,200,000",
-          stage: "OFFER_MADE",
-          stageLabel: "Formal Offer Submitted via Copilot",
-          agentSplitEst: "K 80,000 (50% Split)",
-          lockDaysRemaining: 30,
-          updatedAt: "Just now (AI Parsed)",
-        };
-
-        setAgentDeals((prev) => [newDeal, ...prev]);
-        setCopilotMessage(`✅ Successfully logged offer for ${newDeal.clientName} (${newDeal.value}) and attached to Kabulonga Mandate.`);
-      } else if (lower.includes("client") || lower.includes("buyer") || lower.includes("register")) {
-        setCopilotMessage("✅ Client registered with 30-Day Anti-Poaching Lock in Lusaka East zone.");
-      } else {
-        setCopilotMessage("✅ Note recorded and synced to Field Outbox.");
-      }
-
-      setIsParsingCopilot(false);
-      playSuccessTone();
-      setCopilotInput("");
-    }, 900);
-  };
 
   return (
-    <div className="min-h-screen bg-[#070D0A] text-slate-100 font-sans flex flex-col justify-between max-w-md mx-auto relative shadow-2xl border-x border-emerald-950/40">
+    <div className="min-h-dvh bg-[#070D0A] text-slate-100 font-sans flex flex-col justify-between max-w-md md:max-w-2xl mx-auto relative shadow-2xl border-x border-emerald-950/40">
       
       {/* 1. Top Fixed Field Bar */}
       <header className="sticky top-0 z-40 bg-[#0B1711]/95 backdrop-blur-md border-b border-emerald-900/40 px-4 py-3">
@@ -512,18 +469,8 @@ function AgentKioskContent() {
             </div>
           </button>
 
-          {/* Right Network & AI Triggers */}
+          {/* Right Network Trigger */}
           <div className="flex items-center gap-2">
-            
-            {/* AI Field Copilot Trigger */}
-            <button
-              onClick={() => setIsAiCopilotOpen(true)}
-              className="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-sm"
-              title="Open AI Field Copilot"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#E57A1A]" />
-              <span>Copilot</span>
-            </button>
 
             {/* Offline/Online PowerSync Badge */}
             <button
@@ -1121,7 +1068,7 @@ function AgentKioskContent() {
       </main>
 
       {/* 3. Dedicated Bottom Dock Navigation Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A140F]/95 backdrop-blur-md border-t border-emerald-900/40 max-w-md mx-auto">
+      <footer className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A140F]/95 backdrop-blur-md border-t border-emerald-900/40 max-w-md md:max-w-2xl mx-auto pb-safe">
         <div className="grid grid-cols-5 items-center px-2 py-2">
           
           {/* Properties (Catalog & Map) Tab */}
@@ -1199,7 +1146,7 @@ function AgentKioskContent() {
       {/* ================= MODAL: INTAKE DRAWER (FAB) ================= */}
       {intakeDrawer !== "NONE" && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-[#0B1711] border border-emerald-900/60 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 space-y-4 text-white max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-6">
+          <div className="bg-[#0B1711] border border-emerald-900/60 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 space-y-4 text-white max-h-[85dvh] overflow-y-auto animate-in slide-in-from-bottom-6">
             
             {/* Header */}
             <div className="flex items-center justify-between border-b border-emerald-900/40 pb-3">
@@ -1214,7 +1161,7 @@ function AgentKioskContent() {
               </div>
               <button
                 onClick={() => setIntakeDrawer("NONE")}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-emerald-950"
+                className="p-1.5 text-emerald-300 hover:text-white rounded-lg hover:bg-emerald-950"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1225,7 +1172,7 @@ function AgentKioskContent() {
               <button
                 onClick={() => setIntakeDrawer("PROPERTY")}
                 className={`py-1.5 rounded-lg font-semibold transition-colors ${
-                  intakeDrawer === "PROPERTY" ? "bg-emerald-900 text-white" : "text-slate-400"
+                  intakeDrawer === "PROPERTY" ? "bg-emerald-900 text-white" : "text-emerald-300 hover:text-white"
                 }`}
               >
                 🏡 Listing
@@ -1233,7 +1180,7 @@ function AgentKioskContent() {
               <button
                 onClick={() => setIntakeDrawer("CLIENT")}
                 className={`py-1.5 rounded-lg font-semibold transition-colors ${
-                  intakeDrawer === "CLIENT" ? "bg-emerald-900 text-white" : "text-slate-400"
+                  intakeDrawer === "CLIENT" ? "bg-emerald-900 text-white" : "text-emerald-300 hover:text-white"
                 }`}
               >
                 👤 Client
@@ -1241,7 +1188,7 @@ function AgentKioskContent() {
               <button
                 onClick={() => setIntakeDrawer("OFFER")}
                 className={`py-1.5 rounded-lg font-semibold transition-colors ${
-                  intakeDrawer === "OFFER" ? "bg-emerald-900 text-white" : "text-slate-400"
+                  intakeDrawer === "OFFER" ? "bg-emerald-900 text-white" : "text-emerald-300 hover:text-white"
                 }`}
               >
                 📝 Offer
@@ -1569,89 +1516,7 @@ function AgentKioskContent() {
         </div>
       )}
 
-      {/* ================= MODAL: AI FIELD COPILOT ================= */}
-      {isAiCopilotOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-[#0B1711] border border-emerald-800/60 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 space-y-4 text-white animate-in slide-in-from-bottom-6">
-            <div className="flex items-center justify-between border-b border-emerald-900/40 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#E57A1A] to-[#B3580B] text-white flex items-center justify-center shadow-sm">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold">Contour AI Field Copilot</h3>
-                  <p className="text-[10px] text-slate-400">Voice Note & Quick Text Intake</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsAiCopilotOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <p className="text-xs text-slate-300">
-              Speak or type a field update. The Copilot will extract clients, log offers, or advance deals automatically:
-            </p>
-
-            <div className="space-y-2">
-              <textarea
-                rows={3}
-                placeholder="e.g. Met Mr. Phiri at Kabulonga plot, offered K3.2M cash, needs title deed scan tomorrow."
-                value={copilotInput}
-                onChange={(e) => setCopilotInput(e.target.value)}
-                className="w-full bg-[#101D16] border border-emerald-900/60 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#E57A1A]"
-              />
-
-              {/* Sample Prompts */}
-              <div className="flex flex-wrap gap-1.5 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => setCopilotInput("Met Mr. Bwalya at Leopards Hill villa, offered K2.8M cash, schedule viewing tomorrow.")}
-                  className="bg-[#14261C] text-emerald-300 px-2 py-1 rounded-lg border border-emerald-800/40 hover:bg-emerald-900"
-                >
-                  ⚡ Offer: K2.8M Leopards Hill
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCopilotInput("Register new buyer Dr. Miti, budget $500k for Roma Park commercial.")}
-                  className="bg-[#14261C] text-emerald-300 px-2 py-1 rounded-lg border border-emerald-800/40 hover:bg-emerald-900"
-                >
-                  ⚡ Register: $500k Buyer
-                </button>
-              </div>
-            </div>
-
-            {copilotMessage && (
-              <div className="bg-emerald-950 p-3 rounded-xl border border-emerald-700/60 text-xs text-emerald-200 animate-in fade-in">
-                {copilotMessage}
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleExecuteCopilot}
-                disabled={isParsingCopilot || !copilotInput.trim()}
-                className="flex-1 py-3 rounded-xl bg-[#E57A1A] hover:bg-[#B3580B] text-white font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all shadow-md"
-              >
-                {isParsingCopilot ? (
-                  <>
-                    <Sparkles className="w-4 h-4 animate-spin" />
-                    <span>Parsing Field Note...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>Process Field Update</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ================= MODAL: PERSONA SWITCHER ================= */}
       {isPersonaModalOpen && (

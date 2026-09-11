@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
         earnedAgencyCommission: `$ ${earnedAgencyCommissionUsd.toLocaleString()} + K ${earnedAgencyCommissionZmw.toLocaleString()}`,
         agentSplitsPaid: `$ ${agentSplitsPaidUsd.toLocaleString()} + K ${agentSplitsPaidZmw.toLocaleString()}`,
         pipelineExpectedCommission: `K ${pipelineExpectedZmw.toLocaleString()}`,
-        closedDealsCount: transactions.filter((t) => t.status !== "EXPECTED").length,
-        pipelineDealsCount: transactions.filter((t) => t.status === "EXPECTED").length,
+        closedDealsCount: transactions.filter((t: any) => t.status !== "EXPECTED").length,
+        pipelineDealsCount: transactions.filter((t: any) => t.status === "EXPECTED").length,
       };
     } catch (dbError) {
       if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {

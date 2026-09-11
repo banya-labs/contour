@@ -31,7 +31,7 @@ const getHandler = createApiHandler({
     });
 
     const arrearsCount = inArrearsLeases.length;
-    const arrearsAmount = inArrearsLeases.reduce((acc, l) => acc + Number(l.monthlyRent), 0);
+    const arrearsAmount = inArrearsLeases.reduce((acc: number, l: any) => acc + Number(l.monthlyRent), 0);
 
     // Sum commissions & closed volumes
     const receivedTransactions = await db.transaction.findMany({
@@ -44,8 +44,8 @@ const getHandler = createApiHandler({
       select: { agencyCommissionAmount: true, agentSplitAmount: true }
     });
 
-    const earnedCommission = receivedTransactions.reduce((acc, t) => acc + Number(t.agencyCommissionAmount), 0);
-    const expectedCommission = expectedTransactions.reduce((acc, t) => acc + Number(t.agencyCommissionAmount), 0);
+    const earnedCommission = receivedTransactions.reduce((acc: number, t: any) => acc + Number(t.agencyCommissionAmount), 0);
+    const expectedCommission = expectedTransactions.reduce((acc: number, t: any) => acc + Number(t.agencyCommissionAmount), 0);
 
     return NextResponse.json({
       success: true,

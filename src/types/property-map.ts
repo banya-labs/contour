@@ -1,0 +1,26 @@
+export type PropertyMapItem = {
+  id: string;
+  title: string;
+  slug: string;
+  listingType: "FOR_SALE" | "FOR_RENT" | "BOTH";
+  status: "AVAILABLE" | "UNDER_OFFER" | "SOLD" | "RENTED" | "MAINTENANCE_HOLD" | "DRAFT";
+  ownershipType: "COMPANY_OWNED" | "MANAGED_ON_BEHALF";
+  askingPrice?: number | null;
+  rentalPrice?: number | null;
+  currency: "ZMW" | "USD" | "ZAR";
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  plotSizeSqm?: number | null;
+  suburb: string;
+  city: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  standBoundary?: [number, number][] | null;
+  landmarkDirections?: string | null;
+  photos: string[];
+  featuredPhoto?: string | null;
+  assignedAgentName?: string | null;
+  assignedAgentPhone?: string | null;
+  description?: string | null;
+  features?: string[] | null;
+};

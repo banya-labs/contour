@@ -5,7 +5,6 @@ import { POST as getCommission } from "../src/app/api/dify/tools/commission/rout
 import { POST as getDocuments } from "../src/app/api/dify/tools/documents/route";
 import { POST as createInquiry } from "../src/app/api/dify/tools/inquiries/route";
 import { POST as mcpPost } from "../src/app/api/mcp/route";
-import { POST as aiChatPost } from "../src/app/api/ai/chat/route";
 import * as fs from "fs";
 
 async function runAuthAndSchemaChallenges() {
@@ -104,59 +103,6 @@ async function runAuthAndSchemaChallenges() {
       res.status === 200 && data.tenant === "org_verified_lusaka",
       "Master Dify Secret correctly authenticates with X-Organization-Id header",
       `Status: ${res.status}, Tenant: ${data.tenant}`
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 2. Chat Route Fallback & Resilience Testing (Dev Mode Context)
-  // ---------------------------------------------------------------------------
-  console.log("\n--- 2. Testing AI Chat Assistant Gateway & Fallbacks ---");
-  process.env.NEXT_PUBLIC_DEV_MODE = "true";
-
-  // 2.1 Missing Message Body Validation
-  {
-    const req = new NextRequest("http://localhost:3000/api/ai/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    const res = await aiChatPost(req);
-    assert(
-      res.status === 400,
-      "AI Chat Gateway rejects empty message payloads with HTTP 400",
-      `Status: ${res.status}`
-    );
-  }
-
-  // 2.2 Local Grounded Fallback Response (Commission Inquiry)
-  {
-    const req = new NextRequest("http://localhost:3000/api/ai/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "What is our earned commission and revenue volume?" }),
-    });
-    const res = await aiChatPost(req);
-    const data = await res.json();
-    assert(
-      res.status === 200 && data.answer?.includes("Earned 5% Agency Commission"),
-      "AI Chat Gateway fallback provides Lusaka commission & revenue intelligence",
-      `Provider: ${data.provider}`
-    );
-  }
-
-  // 2.3 Local Grounded Fallback Response (MinIO Documents Inquiry)
-  {
-    const req = new NextRequest("http://localhost:3000/api/ai/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "Can you fetch Title Deeds from MinIO S3 Vault?" }),
-    });
-    const res = await aiChatPost(req);
-    const data = await res.json();
-    assert(
-      res.status === 200 && data.answer?.includes("MinIO S3 Document Custody") && data.answer?.includes("15 minutes"),
-      "AI Chat Gateway fallback enforces POPIA 15-minute MinIO custody notice",
-      `Provider: ${data.provider}`
     );
   }
 

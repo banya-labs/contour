@@ -43,54 +43,56 @@ export default function AdminMcpPage() {
   };
 
   return (
-    <div className="p-6 sm:p-8 space-y-6 max-w-6xl mx-auto w-full">
+    <div className="p-3 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto w-full font-geist pb-20 sm:pb-32">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-editorial-border pb-6">
         <div>
-          <span className="text-xs font-semibold text-contour-red uppercase tracking-wider">
-            Machine Interface
+          <span className="text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
+            MACHINE INTERFACE // BEARER TOKEN HUB
           </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink-900 mt-0.5">
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-1">
             Model Context Protocol (MCP) Studio
           </h1>
-          <p className="text-xs text-ink-600 mt-1">
+          <p className="text-xs text-editorial-neutral mt-1">
             Generate and manage user-scoped Bearer tokens for external AI agents with 1-click compromise revocation.
           </p>
         </div>
 
         <button
           onClick={handleGenerateKey}
-          className="px-4 py-2.5 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-semibold transition-transform active:scale-95 shadow-subtle flex items-center gap-1.5 self-start sm:self-auto"
+          className="px-5 py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 self-start sm:self-auto"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-3.5 h-3.5 text-editorial-red" />
           <span>Generate New API Key</span>
         </button>
       </div>
 
       {/* Keys List */}
-      <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-        <div className="p-5 border-b border-border flex items-center justify-between">
-          <h3 className="font-bold text-sm text-ink-900">Active Agent Keys ({keys.length})</h3>
-          <span className="text-xs text-ink-600">Endpoint: POST /api/mcp</span>
+      <div className="bg-white border border-editorial-border overflow-hidden">
+        <div className="p-4 border-b border-editorial-border flex items-center justify-between bg-editorial-paper/30">
+          <h3 className="font-mono font-bold text-xs uppercase tracking-wider text-editorial-black">
+            Active Agent Keys ({keys.length})
+          </h3>
+          <span className="text-xs font-mono text-editorial-neutral">POST /api/mcp</span>
         </div>
 
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-editorial-border">
           {keys.map((k) => (
-            <div key={k.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div key={k.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-editorial-paper/20 transition-colors">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-ink-900">{k.name}</span>
+                  <span className="font-serif font-bold text-base text-editorial-black">{k.name}</span>
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 border uppercase ${
                       k.status === "active"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-red-100 text-red-800"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                        : "bg-red-50 text-editorial-red border-red-200"
                     }`}
                   >
                     {k.status.toUpperCase()}
                   </span>
                 </div>
-                <div className="font-mono text-xs text-ink-600">
+                <div className="font-mono text-xs text-editorial-neutral">
                   {k.keyPreview} • Last active: {k.lastUsed}
                 </div>
               </div>
@@ -99,7 +101,7 @@ export default function AdminMcpPage() {
                 {k.status === "active" && (
                   <button
                     onClick={() => handleRevoke(k.id)}
-                    className="px-3 py-1.5 rounded-full bg-red-50 hover:bg-red-100 text-contour-red text-xs font-semibold border border-red-200 transition-colors flex items-center gap-1"
+                    className="px-3.5 py-1.5 rounded-none bg-white hover:bg-red-50 text-editorial-red text-xs font-mono font-bold uppercase tracking-wider border border-red-200 transition-colors flex items-center gap-1"
                   >
                     <ShieldAlert className="w-3.5 h-3.5" />
                     <span>Revoke Key</span>
@@ -112,12 +114,12 @@ export default function AdminMcpPage() {
       </div>
 
       {/* Client Configuration Snippet */}
-      <div className="bg-paper-200 rounded-2xl p-6 border border-border space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-ink-900">
-          <Terminal className="w-4 h-4 text-contour-red" />
-          <span>Antigravity & Claude Desktop Connection Configuration</span>
+      <div className="bg-editorial-paper/40 border border-editorial-border p-6 space-y-3">
+        <div className="flex items-center gap-2 text-xs font-mono font-bold text-editorial-black uppercase tracking-wider">
+          <Terminal className="w-4 h-4 text-editorial-red" />
+          <span>Antigravity &amp; Claude Desktop Connection Configuration</span>
         </div>
-        <pre className="p-4 rounded-xl bg-ink-950 text-paper-200 font-mono text-xs overflow-x-auto leading-relaxed">
+        <pre className="p-4 bg-editorial-black text-white font-mono text-xs overflow-x-auto leading-relaxed border border-editorial-black">
 {`{
   "mcpServers": {
     "contour": {

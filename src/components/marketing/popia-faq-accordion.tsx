@@ -46,7 +46,7 @@ const FAQS: FaqItem[] = [
     id: "faq-5",
     question: "What payment methods are supported for our Contour subscription?",
     answer:
-      "We integrate directly with Paystack to accept Zambian Kwacha (ZMW) via Mobile Money (MTN MoMo, Airtel Money, Zamtel) and credit/debit cards, as well as US Dollar (USD) international cards with instant VAT tax receipts.",
+      "We integrate directly with Lenco Zambia (https://lenco.co/zm) to accept Zambian Kwacha (ZMW) via Mobile Money (MTN MoMo, Airtel Money, Zamtel Kwacha) and credit/debit cards, as well as US Dollar (USD) international cards with instant VAT tax receipts.",
   },
   {
     id: "faq-6",

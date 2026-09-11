@@ -11,12 +11,12 @@ import {
   KeyRound,
   CheckCircle2,
   Bell,
-  Clock,
-  FileCheck,
-  ShieldCheck,
   BarChart3,
+  ArrowUpRight,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { NumberTicker } from "@/components/ui/animate/number-ticker";
+import { MotionCard } from "@/components/ui/animate/motion-card";
 
 export default function DashboardOverviewPage() {
   const [metrics, setMetrics] = useState<any>({
@@ -89,225 +89,294 @@ export default function DashboardOverviewPage() {
     alert(`[ACTION EXECUTED] ${actionMsg}`);
   };
 
-  // ────────────────────────────────────────────────────────────────────────────
   // Build real Daily Action Queue from DB results
-  // ────────────────────────────────────────────────────────────────────────────
   const dailyActionQueue: Array<{
     id: string;
-    icon: any;
-    color: string;
+    tag: string;
     title: string;
     detail: string;
     actionLabel: string;
     actionMsg: string;
   }> = [];
 
-  // Arrears leases
   arrearsLeases.forEach((lease) => {
     const propertyTitle = lease.property?.title || "Property";
     const suburb = lease.property?.suburb || "";
     dailyActionQueue.push({
       id: `arrears_${lease.id}`,
-      icon: AlertTriangle,
-      color: "text-contour-red bg-red-50",
+      tag: "ARREARS",
       title: `Rent Overdue — ${lease.tenantName}`,
       detail: `${propertyTitle}${suburb ? ` (${suburb})` : ""} • ${formatCurrency(Number(lease.monthlyRent), lease.currency)} pending`,
-      actionLabel: "Send WhatsApp Nudge",
+      actionLabel: "WhatsApp Nudge",
       actionMsg: `Tier-1 WhatsApp rent arrears reminder dispatched to ${lease.tenantName} (${lease.tenantPhone}) with 4-day cooldown key.`,
     });
   });
 
-  // New inquiries needing follow-up
   newInquiries.forEach((inq) => {
-    const budgetRange = inq.budgetMax
-      ? `Budget: ${formatCurrency(Number(inq.budgetMax), inq.currency)}`
-      : "Budget not specified";
     dailyActionQueue.push({
       id: `inq_${inq.id}`,
-      icon: Clock,
-      color: "text-contour-amber bg-amber-50",
-      title: `Follow-up Required — ${inq.clientName}`,
-      detail: `${inq.lookingFor === "FOR_SALE" ? "Looking to buy" : "Looking to rent"} • ${budgetRange} • Submitted ${new Date(inq.createdAt).toLocaleDateString("en-ZM")}`,
-      actionLabel: "Call Client",
-      actionMsg: `Opening phone dialer for ${inq.clientName} (${inq.clientPhone}).`,
+      tag: "INQUIRY",
+      title: `New Lead — ${inq.clientName}`,
+      detail: `${inq.property?.title || "General Inquiry"} • Phone: ${inq.clientPhone}`,
+      actionLabel: "Assign Agent",
+      actionMsg: `Lead ${inq.clientName} assigned to active on-duty broker with auto-reply flyer dispatched.`,
     });
   });
 
-  // Draft landlord statements awaiting authorization
   draftStatements.forEach((stmt) => {
     dailyActionQueue.push({
       id: `stmt_${stmt.id}`,
-      icon: ShieldCheck,
-      color: "text-contour-emerald bg-emerald-50",
-      title: `DocuSign Seam Authorization Needed`,
-      detail: `${stmt.statementMonth}/${stmt.statementYear} Landlord Remittance — ${stmt.landlordName} • ${formatCurrency(Number(stmt.netLandlordPayout), stmt.currency)} net`,
-      actionLabel: "Authorize Payout",
-      actionMsg: `DocuSign Seam signed! Landlord payout authorized for ${stmt.landlordName} — bank wire initiated.`,
+      tag: "STATEMENT",
+      title: `Approve Statement — ${stmt.landlordName}`,
+      detail: `${stmt.period} • Net Payout: ${formatCurrency(Number(stmt.netPayout), stmt.currency)}`,
+      actionLabel: "Sign & Release",
+      actionMsg: `Human-in-the-loop authorization granted. Statement locked and payment receipt generated.`,
     });
   });
 
-  // Pending (EXPECTED) transactions awaiting deed/title
   pendingTransactions.forEach((tx) => {
-    const propertyTitle = tx.property?.title || "Property";
     dailyActionQueue.push({
       id: `tx_${tx.id}`,
-      icon: FileCheck,
-      color: "text-blue-600 bg-blue-50",
-      title: `Ministry of Lands Title Pending`,
-      detail: `${propertyTitle} • Agent: ${tx.closingAgent?.name || "N/A"} • Commission: ${formatCurrency(Number(tx.agencyCommissionAmount), tx.currency)}`,
-      actionLabel: "View Registry",
-      actionMsg: `Opening Ministry of Lands folio tracking record for ${propertyTitle}.`,
+      tag: "CONVEYANCE",
+      title: `Sale in Escrow — ${tx.property?.title || "Property"}`,
+      detail: `Buyer: ${tx.buyerName} • Gross: ${formatCurrency(Number(tx.salePrice), tx.currency)}`,
+      actionLabel: "Check Deeds",
+      actionMsg: `Ministry of Lands verification status synced from MinIO legal documents vault.`,
     });
   });
 
-  // Leases expiring within 60 days
-  expiringSoonLeases.forEach((lease) => {
-    const propertyTitle = lease.property?.title || "Property";
-    const daysLeft = Math.ceil(
-      (new Date(lease.leaseEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    );
-    dailyActionQueue.push({
-      id: `expiring_${lease.id}`,
-      icon: Bell,
-      color: "text-purple-600 bg-purple-50",
-      title: `Lease Expiring in ${daysLeft} Days — ${lease.tenantName}`,
-      detail: `${propertyTitle} • ${formatCurrency(Number(lease.monthlyRent), lease.currency)}/mo • Ends ${new Date(lease.leaseEndDate).toLocaleDateString("en-ZM")}`,
-      actionLabel: "Initiate Renewal",
-      actionMsg: `Renewal conversation initiated for ${lease.tenantName} at ${propertyTitle}.`,
-    });
-  });
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // Build Lead Attribution from real inquiry status breakdown
-  // ────────────────────────────────────────────────────────────────────────────
-  const STATUS_LABELS: Record<string, { label: string; highlight: string; color: string }> = {
-    NEW_INQUIRY:        { label: "New Inquiries",        highlight: "Awaiting Contact",  color: "text-contour-amber" },
-    CONTACTED:          { label: "Contacted",            highlight: "In Progress",        color: "text-blue-600" },
-    VIEWING_SCHEDULED:  { label: "Viewing Scheduled",    highlight: "Hot Leads",          color: "text-purple-600" },
-    NEGOTIATING:        { label: "Negotiating",          highlight: "Near Close",         color: "text-contour-red" },
-    CLOSED_WON:         { label: "Closed Won",           highlight: "Commission Earned",  color: "text-contour-emerald" },
-    CLOSED_LOST:        { label: "Closed Lost",          highlight: "Churned",            color: "text-ink-600" },
+  // Pipeline breakdown calculation
+  const statusMeta: Record<string, { label: string; tag: string }> = {
+    NEW_INQUIRY: { label: "New Leads", tag: "RAW" },
+    CONTACTED: { label: "Contacted", tag: "ENGAGED" },
+    VIEWING_SCHEDULED: { label: "Site Viewings", tag: "FIELD" },
+    NEGOTIATING: { label: "Offers In", tag: "TERMS" },
+    CLOSED_WON: { label: "Closed Deals", tag: "ESCROW" },
+    CLOSED_LOST: { label: "Archived", tag: "LOST" },
   };
 
-  const pipelineBreakdown = inquiryStatusBreakdown.map((g) => {
-    const meta = STATUS_LABELS[g.status] || { label: g.status, highlight: "Other", color: "text-ink-600" };
+  const pipelineBreakdown = inquiryStatusBreakdown.map((g: any) => {
+    const meta = statusMeta[g.status] || { label: g.status, tag: "GEN" };
     const pct = totalInquiries > 0 ? ((g._count.status / totalInquiries) * 100).toFixed(0) + "%" : "0%";
     return {
       status: g.status,
       label: meta.label,
-      highlight: meta.highlight,
-      color: meta.color,
+      tag: meta.tag,
       count: g._count.status,
       conversionRate: pct,
     };
-  }).sort((a, b) => {
-    const order = ["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "CLOSED_WON", "CLOSED_LOST"];
-    return order.indexOf(a.status) - order.indexOf(b.status);
   });
 
   const closedWon = inquiryStatusBreakdown.find((g) => g.status === "CLOSED_WON")?._count?.status || 0;
-  const overallConversionRate = totalInquiries > 0
-    ? ((closedWon / totalInquiries) * 100).toFixed(1) + "%"
-    : "0%";
+  const overallConversionRate =
+    totalInquiries > 0 ? ((closedWon / totalInquiries) * 100).toFixed(1) + "%" : "0%";
 
   return (
-    <div className="p-6 sm:p-8 pb-32 sm:pb-40 space-y-8 max-w-7xl mx-auto w-full h-full overflow-y-auto">
+    <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-5 sm:space-y-8 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
-          <span className="text-xs font-semibold text-contour-red uppercase tracking-wider">
-            Executive Command Plane
-          </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink-900 mt-0.5">
-            Agency Operations & Intelligence
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] sm:text-[10px] font-geist font-bold px-1.5 sm:px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
+              Lusaka Operating HQ
+            </span>
+            <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
+              Real-Time Cadastral Sync
+            </span>
+          </div>
+          <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
+            Agency Command Center
           </h1>
-          <p className="text-xs text-ink-600 mt-1">
-            Real-time cashflow, daily work queue, deal velocity, and Lusaka market attribution.
+          <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
+            Real-time cashflow telemetry, daily prioritized action queue, 5% commission escrow, and Lusaka market velocity.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <Link
             href="/dashboard/pipeline"
-            className="px-4 py-2.5 rounded-full bg-paper-200 hover:bg-paper-300 text-ink-900 border border-border text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-subtle"
+            className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
           >
             <TrendingUp className="w-3.5 h-3.5 text-contour-red" />
             <span>Deal Pipeline</span>
           </Link>
           <Link
             href="/dashboard/map"
-            className="px-4 py-2.5 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-semibold transition-transform active:scale-95 shadow-subtle flex items-center gap-1.5"
+            className="px-3 sm:px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
           >
             <MapPin className="w-3.5 h-3.5" />
-            <span>Property Map</span>
+            <span>Cadastral Map</span>
           </Link>
         </div>
       </div>
 
-      {/* 1. The Daily Work Queue Widget */}
-      <div className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-contour-red/10 text-contour-red flex items-center justify-center font-bold">
-              <Bell className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-ink-900">
-                Daily Action Queue ({loading ? "…" : Math.max(0, dailyActionQueue.length - completedActions.length)} Actions Requiring Attention)
-              </h3>
-              <p className="text-[11px] text-ink-600">
-                Prioritized operational tasks compiled automatically from leases, client inquiries, and legal transfers.
-              </p>
-            </div>
+      {/* 1. Core Financial & Operating Metrics (Ruled Counter Boxes) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        {/* Actual Commission */}
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1.5">
+            <span className="font-heading font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-editorial-black">
+              Earned Commission
+            </span>
+            <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-contour-red" />
           </div>
-          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-paper-200 text-ink-800 uppercase tracking-wider">
-            Today's Dispatch
+          <div className="font-geist text-lg sm:text-2xl font-bold text-contour-red tracking-tight truncate">
+            {loading ? (
+              "..."
+            ) : (
+              <NumberTicker
+                value={Number(metrics.earnedCommission || 0)}
+                prefix="K "
+                decimals={0}
+              />
+            )}
+          </div>
+          <div className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <span>Pipeline:</span>
+            <span className="font-medium text-editorial-black truncate">
+              {formatCurrency(metrics.expectedCommission || 0, "ZMW")}
+            </span>
+          </div>
+        </MotionCard>
+
+        {/* Properties Catalog */}
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1.5">
+            <span className="font-heading font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-editorial-black">
+              Properties
+            </span>
+            <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-editorial-black" />
+          </div>
+          <div className="font-geist text-lg sm:text-2xl font-bold text-editorial-black tracking-tight truncate">
+            {loading ? (
+              "..."
+            ) : (
+              <NumberTicker value={Number(metrics.totalProperties || 0)} suffix=" Listings" />
+            )}
+          </div>
+          <div className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-1 flex items-center justify-between">
+            <span>Sale: {metrics.forSaleCount || 0}</span>
+            <span>Rent: {metrics.forRentCount || 0}</span>
+          </div>
+        </MotionCard>
+
+        {/* Rental Occupancy */}
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1.5">
+            <span className="font-heading font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-editorial-black">
+              Occupancy
+            </span>
+            <KeyRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700" />
+          </div>
+          <div className="font-geist text-lg sm:text-2xl font-bold text-emerald-800 tracking-tight truncate">
+            {metrics.forRentCount > 0
+              ? ((metrics.activeLeasesCount / metrics.forRentCount) * 100).toFixed(1) + "%"
+              : "0.0%"}
+          </div>
+          <div className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-1 flex items-center justify-between">
+            <span>Active: {metrics.activeLeasesCount || 0}</span>
+            <span>Vacant: {Math.max(0, (metrics.forRentCount || 0) - (metrics.activeLeasesCount || 0))}</span>
+          </div>
+        </MotionCard>
+
+        {/* Active Arrears */}
+        <MotionCard
+          withCorners
+          active={Boolean(metrics.arrearsAmount > 0)}
+          className="p-3.5 sm:p-5"
+        >
+          <div className="flex items-center justify-between text-xs text-editorial-muted mb-1.5">
+            <span className="font-heading font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-contour-red">
+              Active Arrears
+            </span>
+            <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-contour-red" />
+          </div>
+          <div className="font-geist text-lg sm:text-2xl font-bold text-contour-red tracking-tight truncate">
+            {loading ? (
+              "..."
+            ) : (
+              <NumberTicker
+                value={Number(metrics.arrearsAmount || 0)}
+                prefix="K "
+                decimals={0}
+              />
+            )}
+          </div>
+          <div className="text-[10px] sm:text-[11px] font-geist text-contour-red mt-1 flex items-center justify-between">
+            <span>{metrics.arrearsCount || 0} Overdue</span>
+            <span className="font-bold text-[9px] uppercase tracking-wider border border-contour-red/30 px-1 py-0.2">
+              Action
+            </span>
+          </div>
+        </MotionCard>
+      </div>
+
+      {/* 2. Daily Action Queue */}
+      <div className="bg-white border border-editorial-border p-6 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-editorial-border">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-contour-red" />
+            <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+              Daily Action Queue ({loading ? "…" : Math.max(0, dailyActionQueue.length - completedActions.length)} Items Requiring Decision)
+            </h3>
+          </div>
+          <span className="text-[10px] font-geist uppercase tracking-wider px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-muted">
+            Automated Operational Dispatch
           </span>
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-ink-600 text-xs font-medium animate-pulse">
+          <div className="text-center py-8 text-editorial-muted text-xs font-geist">
             Loading action queue from database…
           </div>
         ) : dailyActionQueue.length === 0 ? (
-          <div className="text-center py-8 text-contour-emerald text-xs font-semibold flex items-center justify-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            All clear — no pending actions today.
+          <div className="text-center py-8 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            All clear — no pending operational actions today.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="divide-y divide-editorial-border border border-editorial-border">
             {dailyActionQueue.map((item) => {
               const isDone = completedActions.includes(item.id);
-              const Icon = item.icon;
 
               return (
                 <div
                   key={item.id}
-                  className={`p-4 rounded-xl border transition-all flex items-start justify-between gap-3 ${
-                    isDone
-                      ? "bg-paper-100/40 border-border opacity-50"
-                      : "bg-paper-100 border-border hover:border-ink-600/40 shadow-subtle"
+                  className={`p-3.5 transition-colors flex items-center justify-between gap-4 ${
+                    isDone ? "bg-neutral-50/50 opacity-50" : "bg-white hover:bg-[#fff5f3]/40"
                   }`}
                 >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${item.color}`}>
-                      <Icon className="w-4 h-4" />
-                    </div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className={`text-[9px] font-geist font-bold px-1.5 py-0.5 border shrink-0 ${
+                        item.tag === "ARREARS"
+                          ? "border-red-300 bg-red-50 text-red-800"
+                          : item.tag === "STATEMENT"
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                          : "border-editorial-border bg-neutral-100 text-editorial-black"
+                      }`}
+                    >
+                      {item.tag}
+                    </span>
                     <div className="min-w-0">
-                      <h4 className="font-bold text-xs text-ink-900 truncate">{item.title}</h4>
-                      <p className="text-[11px] text-ink-600 mt-0.5 leading-snug">{item.detail}</p>
+                      <h4 className="font-heading font-bold text-xs text-editorial-black truncate">
+                        {item.title}
+                      </h4>
+                      <p className="text-[11px] font-geist text-editorial-muted truncate">
+                        {item.detail}
+                      </p>
                     </div>
                   </div>
 
                   {!isDone ? (
                     <button
                       onClick={() => handleCompleteAction(item.id, item.actionMsg)}
-                      className="px-3 py-1.5 rounded-full bg-white hover:bg-paper-200 border border-border text-ink-900 font-semibold text-[11px] shrink-0 transition-colors shadow-subtle"
+                      className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none"
                     >
                       {item.actionLabel}
                     </button>
                   ) : (
-                    <span className="text-[11px] font-bold text-contour-emerald flex items-center gap-1 shrink-0">
+                    <span className="text-xs font-geist font-bold text-emerald-700 flex items-center gap-1 shrink-0">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Done
                     </span>
                   )}
@@ -318,89 +387,32 @@ export default function DashboardOverviewPage() {
         )}
       </div>
 
-      {/* 2. Core Financial & Revenue KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <div className="flex items-center justify-between text-xs text-ink-600 mb-2">
-            <span className="font-semibold uppercase tracking-wider text-[10px]">Actual Agency Commission</span>
-            <DollarSign className="w-4 h-4 text-contour-red" />
-          </div>
-          <div className="font-mono text-xl font-bold text-contour-red">
-            {formatCurrency(metrics.earnedCommission || 0, "ZMW")}
-          </div>
-          <div className="text-[11px] text-ink-600 mt-1">
-            <span>+{formatCurrency(metrics.expectedCommission || 0, "ZMW")} expected pipeline</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <div className="flex items-center justify-between text-xs text-ink-600 mb-2">
-            <span className="font-semibold uppercase tracking-wider text-[10px]">Properties Catalog</span>
-            <Building2 className="w-4 h-4 text-ink-900" />
-          </div>
-          <div className="font-mono text-xl font-bold text-ink-900">
-            {metrics.totalProperties || 0} Listings
-          </div>
-          <div className="text-[11px] text-ink-600 mt-1">
-            <span>{metrics.forSaleCount || 0} For Sale • {metrics.forRentCount || 0} For Rent</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <div className="flex items-center justify-between text-xs text-ink-600 mb-2">
-            <span className="font-semibold uppercase tracking-wider text-[10px]">Rental Occupancy</span>
-            <KeyRound className="w-4 h-4 text-contour-emerald" />
-          </div>
-          <div className="font-mono text-xl font-bold text-contour-emerald">
-            {metrics.forRentCount > 0 ? ((metrics.activeLeasesCount / metrics.forRentCount) * 100).toFixed(1) + "%" : "0.0%"}
-          </div>
-          <div className="text-[11px] text-ink-600 mt-1">
-            <span>{metrics.activeLeasesCount || 0} Occupied • {Math.max(0, (metrics.forRentCount || 0) - (metrics.activeLeasesCount || 0))} Vacant</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-contour-red/30 shadow-card bg-red-50/20">
-          <div className="flex items-center justify-between text-xs text-ink-600 mb-2">
-            <span className="font-semibold uppercase tracking-wider text-[10px] text-contour-red">Active Arrears</span>
-            <AlertTriangle className="w-4 h-4 text-contour-red" />
-          </div>
-          <div className="font-mono text-xl font-bold text-contour-red">
-            {formatCurrency(metrics.arrearsAmount || 0, "ZMW")}
-          </div>
-          <div className="text-[11px] text-contour-red mt-1">
-            <span>{metrics.arrearsCount || 0} Tenant{metrics.arrearsCount === 1 ? "" : "s"} Overdue</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. CRM Pipeline & Inquiry Status Attribution */}
-      <div className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-contour-red" />
-              <h3 className="font-bold text-sm text-ink-900">CRM Pipeline & Lead Conversion Funnel</h3>
-            </div>
-            <p className="text-xs text-ink-600 mt-0.5">
-              Where are your leads in the pipeline? Real-time breakdown from your CRM database.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-xs font-semibold text-contour-emerald bg-emerald-50 px-3 py-1 rounded-full self-start sm:self-auto">
-              {loading ? "…" : `${totalInquiries} Total Inquiries`}
-            </div>
-            <div className="text-xs font-semibold text-contour-amber bg-amber-50 px-3 py-1 rounded-full self-start sm:self-auto">
-              {loading ? "…" : `${overallConversionRate} Close Rate`}
+      {/* 3. CRM Lead Conversion Funnel */}
+      <div className="bg-white border border-editorial-border p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-editorial-border">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-contour-red" />
+            <div>
+              <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                CRM Pipeline & Lead Conversion Funnel
+              </h3>
+              <p className="text-xs font-geist text-editorial-muted">
+                Real-time attribution and stage velocity from your client CRM database.
+              </p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-geist px-2 py-0.5 border border-editorial-border bg-neutral-50 text-editorial-black font-semibold">
+              {totalInquiries} Total Leads
+            </span>
+            <span className="text-[10px] font-geist px-2 py-0.5 border border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold">
+              {overallConversionRate} Close Rate
+            </span>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8 text-ink-600 text-xs font-medium animate-pulse">
-            Loading pipeline data…
-          </div>
-        ) : pipelineBreakdown.length === 0 ? (
-          <div className="text-center py-8 text-ink-600 text-xs font-medium">
+        {pipelineBreakdown.length === 0 ? (
+          <div className="text-center py-8 text-editorial-muted text-xs font-geist">
             No CRM inquiries recorded yet. Add clients via the{" "}
             <Link href="/dashboard/clients" className="text-contour-red underline">
               Clients module
@@ -410,75 +422,78 @@ export default function DashboardOverviewPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {pipelineBreakdown.map((item) => (
-              <div key={item.status} className="p-4 rounded-xl bg-paper-100 border border-border space-y-2">
+              <div
+                key={item.status}
+                className="p-3 bg-neutral-50/70 border border-editorial-border space-y-1.5"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-paper-200 text-ink-800 truncate max-w-[80px]">
-                    {item.highlight}
+                  <span className="text-[9px] font-geist font-bold uppercase tracking-wider text-editorial-muted">
+                    {item.tag}
                   </span>
-                  <span className={`font-mono font-bold text-xs ${item.color}`}>{item.conversionRate}</span>
+                  <span className="font-geist text-[10px] font-bold text-editorial-black">
+                    {item.conversionRate}
+                  </span>
                 </div>
-                <div className="font-bold text-xs text-ink-900 leading-tight">{item.label}</div>
-                <div className={`font-mono text-lg font-bold ${item.color}`}>
-                  {item.count} <span className="text-[10px] text-ink-600 font-sans font-normal">leads</span>
+                <div className="font-heading font-semibold text-xs text-editorial-black truncate">
+                  {item.label}
+                </div>
+                <div className="font-geist text-lg font-bold text-editorial-black">
+                  {item.count}
                 </div>
               </div>
             ))}
           </div>
         )}
-
-        {!loading && totalInquiries > 0 && (
-          <div className="p-4 rounded-xl bg-paper-200 border border-paper-300 text-xs text-ink-800 space-y-1">
-            <strong className="text-ink-900 font-bold">💡 Pipeline Intelligence:</strong>
-            <p className="text-ink-600 leading-relaxed">
-              You have <strong>{totalInquiries} total leads</strong> in the pipeline with a <strong>{overallConversionRate} close rate</strong>.
-              {(() => {
-                const newCount = inquiryStatusBreakdown.find(g => g.status === "NEW_INQUIRY")?._count?.status || 0;
-                return newCount > 0
-                  ? ` ${newCount} new inquir${newCount === 1 ? "y" : "ies"} require${newCount === 1 ? "s" : ""} immediate follow-up to prevent lead decay.`
-                  : " Great — all leads have been contacted.";
-              })()}
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* Two Column Grid: Recent Sales & Active Leases */}
+      {/* 4. Split Tabular Ledgers: Recent Sales & Active Leases */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Closed Sales */}
-        <div className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-ink-900">Recent Property Sales</h3>
-            <Link href="/dashboard/sales" className="text-xs font-semibold text-contour-red hover:underline">
-              View All Sales
+        {/* Recent Property Sales */}
+        <div className="bg-white border border-editorial-border p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-editorial-border">
+            <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+              Recent Closed Sales
+            </h3>
+            <Link
+              href="/dashboard/sales"
+              className="text-xs font-heading font-semibold text-contour-red hover:underline uppercase tracking-wider flex items-center gap-1"
+            >
+              <span>Full Registry</span>
+              <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-editorial-border border border-editorial-border">
             {recentSales.length === 0 ? (
-              <div className="text-center py-8 text-ink-600 text-xs font-medium">
-                No recent closed sales transactions found.
+              <div className="text-center py-6 text-editorial-muted text-xs font-geist">
+                No recent closed transactions found.
               </div>
             ) : (
               recentSales.map((tx) => {
                 const title = tx.property?.title || "Untitled Property";
-                const agentName = tx.closingAgent?.name || "N/A";
-                const displayDate = tx.closedAt 
-                  ? new Date(tx.closedAt).toISOString().split("T")[0] 
+                const agentName = tx.closingAgent?.name || "Broker";
+                const displayDate = tx.closedAt
+                  ? new Date(tx.closedAt).toISOString().split("T")[0]
                   : new Date(tx.createdAt).toISOString().split("T")[0];
 
                 return (
-                  <div key={tx.id} className="p-3.5 rounded-xl bg-paper-100 border border-border flex items-center justify-between text-xs">
+                  <div
+                    key={tx.id}
+                    className="p-3 flex items-center justify-between text-xs hover:bg-neutral-50/50 transition-colors"
+                  >
                     <div>
-                      <div className="font-semibold text-ink-900">{title}</div>
-                      <div className="text-[11px] text-ink-600 mt-0.5">
+                      <div className="font-heading font-semibold text-editorial-black truncate">
+                        {title}
+                      </div>
+                      <div className="text-[11px] font-geist text-editorial-muted mt-0.5">
                         Closed by {agentName} • {displayDate}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-contour-red">
+                      <div className="font-geist font-bold text-contour-red">
                         {formatCurrency(Number(tx.agencyCommissionAmount || 0), tx.currency)}
                       </div>
-                      <span className="inline-block mt-0.5 text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      <span className="text-[9px] font-geist uppercase tracking-wider px-1.5 py-0.2 border border-emerald-300 bg-emerald-50 text-emerald-800">
                         {tx.status}
                       </span>
                     </div>
@@ -489,19 +504,25 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* Rental Arrears & Watcher */}
-        <div className="bg-white rounded-2xl p-6 border border-border shadow-card space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-ink-900">Rental Yield & Arrears Tracker</h3>
-            <Link href="/dashboard/leases" className="text-xs font-semibold text-contour-red hover:underline">
-              Manage Leases
+        {/* Active Leases & Arrears Tracker */}
+        <div className="bg-white border border-editorial-border p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-editorial-border">
+            <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+              Rentals & Leases
+            </h3>
+            <Link
+              href="/dashboard/leases"
+              className="text-xs font-heading font-semibold text-contour-red hover:underline uppercase tracking-wider flex items-center gap-1"
+            >
+              <span>Manage Leases</span>
+              <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-editorial-border border border-editorial-border">
             {recentLeases.length === 0 ? (
-              <div className="text-center py-8 text-ink-600 text-xs font-medium">
-                No active leases logged.
+              <div className="text-center py-6 text-editorial-muted text-xs font-geist">
+                No active rental leases logged.
               </div>
             ) : (
               recentLeases.map((lease) => {
@@ -511,30 +532,30 @@ export default function DashboardOverviewPage() {
                 return (
                   <div
                     key={lease.id}
-                    className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
-                      isArrears
-                        ? "bg-red-50/40 border-red-200"
-                        : "bg-paper-100 border-border"
+                    className={`p-3 flex items-center justify-between text-xs transition-colors ${
+                      isArrears ? "bg-red-50/40" : "hover:bg-neutral-50/50"
                     }`}
                   >
                     <div>
-                      <div className="font-semibold text-ink-900">{title}</div>
-                      <div className="text-[11px] text-ink-600 mt-0.5">
+                      <div className="font-heading font-semibold text-editorial-black truncate">
+                        {title}
+                      </div>
+                      <div className="text-[11px] font-geist text-editorial-muted mt-0.5">
                         Tenant: {lease.tenantName} ({lease.tenantPhone})
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-ink-900">
+                      <div className="font-geist font-bold text-editorial-black">
                         {formatCurrency(Number(lease.monthlyRent || 0), lease.currency)} / mo
                       </div>
                       <span
-                        className={`inline-block mt-0.5 text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                        className={`text-[9px] font-geist uppercase tracking-wider px-1.5 py-0.2 border ${
                           isArrears
-                            ? "bg-red-100 text-red-800"
-                            : "bg-emerald-100 text-emerald-800"
+                            ? "border-red-300 bg-red-50 text-red-800 font-bold"
+                            : "border-emerald-300 bg-emerald-50 text-emerald-800"
                         }`}
                       >
-                        {isArrears ? "In Arrears" : "Paid on Time"}
+                        {isArrears ? "In Arrears" : "Current"}
                       </span>
                     </div>
                   </div>

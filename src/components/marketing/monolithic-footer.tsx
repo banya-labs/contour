@@ -205,7 +205,7 @@ export function MonolithicFooter() {
           <div className="flex items-center gap-6">
             <span>POPIA & PACRA Sovereign</span>
             <span>•</span>
-            <span>Paystack Certified</span>
+            <span>Lenco Zambia Certified</span>
             <span>•</span>
             <span>PowerSync Offline Engine</span>
           </div>

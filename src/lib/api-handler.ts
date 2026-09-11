@@ -26,8 +26,9 @@ export type ApiHandlerOptions<TBody, TQuery> = {
 export function createApiHandler<TBody = unknown, TQuery = unknown>(
   options: ApiHandlerOptions<TBody, TQuery>
 ) {
-  return async (req: NextRequest, { params }: { params?: Promise<Record<string, string | string[]>> | Record<string, string | string[]> } = {}) => {
+  return async (req: NextRequest, context?: any) => {
     try {
+      const params = context?.params;
       const resolvedParams = params instanceof Promise ? await params : params;
       let session: any = null;
       let organizationId: string | undefined = undefined;
@@ -44,8 +45,17 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
           session: { id: "sess_demo", organizationId },
         };
       } else {
-        const reqHeaders = await headers();
-        session = await auth.api.getSession({ headers: reqHeaders });
+        let reqHeaders: any;
+        try {
+          reqHeaders = await headers();
+        } catch {
+          reqHeaders = req.headers;
+        }
+        try {
+          session = await auth.api.getSession({ headers: reqHeaders });
+        } catch {
+          session = null;
+        }
         if (options.requireAuth && !session) {
           return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }

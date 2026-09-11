@@ -65,7 +65,7 @@ export function FilmScrollOverlays({ currentFrame, totalFrames }: FilmScrollOver
                 className="px-6 py-3.5 rounded-full bg-white hover:bg-stone-100 text-stone-950 text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shadow-xl hover:scale-105"
               >
                 <span>Scroll to Explore Mandates</span>
-                <ChevronDown className="w-4 h-4 animate-bounce" />
+                <ChevronDown className="w-4 h-4" />
               </Link>
             </div>
           </div>
@@ -146,7 +146,7 @@ export function FilmScrollOverlays({ currentFrame, totalFrames }: FilmScrollOver
             <div className="pt-2">
               <Link
                 href="/dashboard/map"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-bold transition-all shadow-md group"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white hover:bg-stone-100 text-stone-950 text-xs font-bold transition-all shadow-md group"
               >
                 <span>Explore Spatial Lusaka GIS</span>
                 <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />

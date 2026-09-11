@@ -1,6 +1,17 @@
-import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import type { Metadata, Viewport } from "next";
+import { clerkEditorialAppearance } from "@/lib/clerk-theme";
+import { CookieConsentBanner } from "@/components/ui/cookie-consent-banner";
 import "./globals.css";
-import DevModeBanner from "@/components/dev-mode-banner";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
+};
 
 export const metadata: Metadata = {
   title: "Contour — Real Estate Operations & Field Agent OS",
@@ -20,9 +31,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="font-sans">
-      <body className="bg-[#fdfbfa] text-[#27251e] min-h-screen flex flex-col antialiased">
-        <DevModeBanner />
-        <main className="flex-1 flex flex-col">{children}</main>
+      <body className="bg-white text-editorial-black min-h-screen flex flex-col antialiased selection:bg-contour-red selection:text-white">
+        <ClerkProvider appearance={clerkEditorialAppearance}>
+          <main className="flex-1 flex flex-col">{children}</main>
+        </ClerkProvider>
+        <CookieConsentBanner />
       </body>
     </html>
   );

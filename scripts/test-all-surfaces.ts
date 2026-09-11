@@ -2,12 +2,12 @@ import { chromium } from "playwright";
 import * as fs from "fs";
 import * as path from "path";
 
-const SCREENSHOT_DIR = "C:\\Users\\sewar\\.gemini\\antigravity\\brain\\930f1367-87af-4566-87d4-b28c3b890082\\screenshots";
-const BASE_URL = "http://localhost:3005";
+const SCREENSHOT_DIR = "C:\\Users\\sewar\\.gemini\\antigravity\\brain\\1cc8401e-3efd-4acd-a277-02296eec6491\\screenshots";
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
 const SURFACES = [
   { id: "01_marketing_hero", name: "Marketing Landing Page", path: "/" },
-  { id: "02_fast_dev_login", name: "Fast Dev Login", path: "/login" },
+  { id: "02_sign_in", name: "Clerk Sign In", path: "/sign-in" },
   { id: "03_dashboard_overview", name: "Operations Overview & Daily Queue", path: "/dashboard" },
   { id: "04_interactive_property_map", name: "Interactive Lusaka Map Hub", path: "/dashboard/map" },
   { id: "05_deal_pipeline_kanban", name: "Deal Pipeline Kanban Board", path: "/dashboard/pipeline" },
@@ -18,9 +18,12 @@ const SURFACES = [
   { id: "10_commissions_ledger", name: "Commissions & Splits Ledger", path: "/dashboard/commissions" },
   { id: "11_client_crm", name: "Client CRM & Anti-Poaching Lock", path: "/dashboard/clients" },
   { id: "12_landlord_statements", name: "Landlord Remittance Statements", path: "/dashboard/statements" },
-  { id: "13_public_property_card", name: "Public Shareable Property Card", path: "/p/executive-4-bed-kabulonga" },
-  { id: "14_field_agent_pwa_mobile", name: "Field Agent Mobile PWA", path: "/kiosk", isMobile: true },
-  { id: "15_admin_mcp_hub", name: "Admin MCP Studio & Key Hub", path: "/admin/mcp" },
+  { id: "13_agency_settings", name: "Tenant Settings & Team Governance", path: "/dashboard/settings" },
+  { id: "14_public_property_card", name: "Public Shareable Property Card", path: "/p/executive-4-bed-kabulonga" },
+  { id: "15_field_agent_pwa_mobile", name: "Field Agent Mobile PWA", path: "/kiosk", isMobile: true },
+  { id: "16_admin_overview", name: "Super Admin Control Plane", path: "/admin" },
+  { id: "17_admin_mcp_hub", name: "Admin MCP Studio & Key Hub", path: "/admin/mcp" },
+  { id: "18_billing_lenco", name: "Subscription & Lenco Zambia Billing", path: "/dashboard/billing" },
 ];
 
 async function main() {
@@ -42,8 +45,8 @@ async function main() {
     page.setDefaultTimeout(30000);
 
     try {
-      await page.goto(`${BASE_URL}${surface.path}`, { waitUntil: "networkidle", timeout: 30000 });
-      await page.waitForTimeout(1000);
+      await page.goto(`${BASE_URL}${surface.path}`, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.waitForTimeout(2000);
 
       // Extra verification for Map
       if (surface.id === "04_interactive_property_map") {

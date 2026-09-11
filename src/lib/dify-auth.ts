@@ -117,7 +117,7 @@ export async function authenticateDifyRequest(
       db.apiKey.update({
         where: { id: apiKeyRecord.id },
         data: { lastUsedAt: new Date() },
-      }).catch((e) => console.warn("Failed to update apiKey lastUsedAt:", e));
+      }).catch((e: unknown) => console.warn("Failed to update apiKey lastUsedAt:", e));
 
       return {
         context: {

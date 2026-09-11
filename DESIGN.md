@@ -66,7 +66,7 @@ Error / High Risk:        #DC2626 (Crimson)
 
 ## 5. Multi-Surface Application Standard
 
-1. **Public Marketing Surface (`/`)**: High-converting, image-heavy luxury property showcase with ROI calculator, interactive Lusaka map, and Paystack pricing.
-2. **Operations Dashboard (`/dashboard`)**: Full-featured agency workspace with property catalog, pipeline Kanban, sales registry, lease arrears bot, and landlord statements.
+1. **Public Marketing Surface (`/`)**: Follows the **Editorial Swiss Grid & Zambian Identity** documented in [`DESIGN-EDITORIAL.md`](file:///c:/Users/sewar/repos/Contour/DESIGN-EDITORIAL.md) — stark white canvas (`#ffffff`), near-black type (`#282828`), Contour Red accent (`#fa3600`), BT Grotesk + Geist Mono typography, zero border-radius, and ruled grid lines.
+2. **Operations Dashboard (`/dashboard`)**: Full-featured agency workspace with property catalog, pipeline Kanban, sales registry, lease arrears bot, and landlord statements (uses the warm alabaster `#FBF9F5` and Zambian evergreen `#16382B` palette documented above).
 3. **Field Agent Mobile PWA (`/kiosk`)**: Zero-latency offline-first field companion powered by PowerSync SQLite WASM for 12-hour ZESCO load-shedding resilience.
 4. **Machine Surface (`/api/mcp`)**: User-scoped MCP endpoints with 1-click compromise revocation and sliding-window rate limiting.

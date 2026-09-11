@@ -6,6 +6,7 @@ import { z } from "zod";
 
 const getHandler = createApiHandler({
   querySchema: z.object({
+    org: z.string().optional(),
     search: z.string().optional(),
     listingType: z.string().optional(),
     propertyType: z.string().optional(),
@@ -13,7 +14,19 @@ const getHandler = createApiHandler({
   }).partial(),
   handler: async (req, ctx) => {
     const { organizationId, query } = ctx;
-    const { search, listingType, propertyType, status } = query;
+    const { org, search, listingType, propertyType, status } = query;
+
+    if (process.env.NEXT_PUBLIC_DEV_MODE !== "true" && !org && !ctx.session) {
+      return NextResponse.json(
+        { success: false, error: "Missing required 'org' parameter in public request" },
+        { status: 400 }
+      );
+    }
+
+    let targetOrgId = org || organizationId;
+    if (targetOrgId === "org_demo_contour") {
+      targetOrgId = "org_contour_demo";
+    }
 
     const allowedStatuses = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
     let statusFilter: any = { in: allowedStatuses };
@@ -27,7 +40,7 @@ const getHandler = createApiHandler({
     }
 
     const whereClause: any = {
-      organizationId,
+      organizationId: targetOrgId,
       status: statusFilter
     };
 

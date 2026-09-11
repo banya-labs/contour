@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { OrganizationProfile, UserProfile } from "@clerk/nextjs";
 import {
   Building2,
   Phone,
@@ -12,21 +13,13 @@ import {
   Save,
   CheckCircle2,
   Sparkles,
-  Share2,
-  Instagram,
-  Facebook,
-  Image as ImageIcon,
   Palette,
-  Check,
-  HelpCircle,
-  Upload,
   Code,
   Key,
-  Terminal,
   Copy,
-  RefreshCw,
-  ExternalLink,
-  Lock,
+  Check,
+  Users,
+  UserCheck,
 } from "lucide-react";
 import {
   getAgencySettings,
@@ -34,19 +27,27 @@ import {
   AgencySettings,
   DEFAULT_AGENCY_SETTINGS,
 } from "@/lib/settings/agency-settings";
+import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 
 const COLOR_SWATCHES = [
-  { name: "Contour Burgundy", hex: "#8B1E1E" },
-  { name: "Executive Navy", hex: "#1E3A8A" },
+  { name: "Contour Red", hex: "#fa3600" },
+  { name: "Editorial Black", hex: "#282828" },
   { name: "Zambia Emerald", hex: "#065F46" },
-  { name: "Warm Amber", hex: "#D97706" },
-  { name: "Charcoal Black", hex: "#1C1C1A" },
+  { name: "Executive Navy", hex: "#1E3A8A" },
+  { name: "Warm Charcoal", hex: "#1C1C1A" },
 ];
 
-export default function AgencySettingsPage() {
+function SettingsContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab")?.toUpperCase() || "BRANDING";
+
   const [settings, setSettings] = useState<AgencySettings>(DEFAULT_AGENCY_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<"BRANDING" | "DEVELOPER">("BRANDING");
+  const [activeTab, setActiveTab] = useState<string>(
+    ["BRANDING", "ORGANIZATION", "ACCOUNT", "DEVELOPER"].includes(initialTab)
+      ? initialTab
+      : "BRANDING"
+  );
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Developer tab state
@@ -101,773 +102,610 @@ export default function AgencySettingsPage() {
     );
   };
 
+  const tabs = [
+    { id: "BRANDING", label: "Agency Profile & Brand", icon: Building2 },
+    { id: "ORGANIZATION", label: "Team & Permissions", icon: Users },
+    { id: "ACCOUNT", label: "My Account & Security", icon: UserCheck },
+    { id: "DEVELOPER", label: "API Keys & Integrations", icon: Code },
+  ];
+
   return (
-    <div className="p-4 sm:p-8 pb-32 sm:pb-40 space-y-8 max-w-7xl mx-auto w-full font-sans antialiased text-ink-900 h-full overflow-y-auto">
+    <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-6 w-full font-geist antialiased text-editorial-black h-full overflow-y-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-paper-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-editorial-border">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-contour-red/10 text-contour-red uppercase tracking-wider">
-              Agency Governance & Brand Engine
+            <span className="text-[10px] font-geist font-bold px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
+              Agency Governance
             </span>
-            <span className="text-[11px] font-medium text-ink-500">• Single Tenant Workspace</span>
+            <span className="text-[11px] font-geist text-editorial-muted">
+              Multi-Tenant Architecture
+            </span>
           </div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink-900 mt-1">
-            Agency Branding & Developer Settings
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
+            Agency Settings & Governance
           </h1>
-          <p className="text-xs sm:text-sm text-ink-600 mt-1 max-w-3xl">
-            Configure your brand identity and public API keys to easily showcase listings on your own corporate website and automate client inquiry ingestion.
+          <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
+            Manage your corporate real estate identity, invite agents with role-based access control, configure security, and manage API keys.
           </p>
         </div>
 
         {activeTab === "BRANDING" && (
           <div className="flex items-center gap-3 shrink-0">
             {isSaved && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold animate-in fade-in">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-heading font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Saved & Synced!</span>
+                <span>Saved & Synced</span>
               </div>
             )}
 
             <button
               onClick={() => handleSave()}
-              className="px-6 py-2.5 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-bold shadow-subtle flex items-center gap-2 active:scale-95 transition-all"
+              className="px-5 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-bold uppercase tracking-wider flex items-center gap-2 transition-colors shadow-none"
             >
-              <Save className="w-4 h-4 text-contour-red" />
-              <span>Save Agency Profile</span>
+              <Save className="w-4 h-4" />
+              <span>Save Changes</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Tabs Selector */}
-      <div className="flex border-b border-paper-300 gap-6 pb-px">
-        <button
-          onClick={() => setActiveTab("BRANDING")}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-            activeTab === "BRANDING"
-              ? "border-contour-red text-ink-900 border-b-[2px]"
-              : "border-transparent text-ink-500 hover:text-ink-900"
-          }`}
-        >
-          Agency Profile & Branding
-        </button>
-        <button
-          onClick={() => setActiveTab("DEVELOPER")}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-            activeTab === "DEVELOPER"
-              ? "border-contour-red text-ink-900 border-b-[2px]"
-              : "border-transparent text-ink-500 hover:text-ink-900"
-          }`}
-        >
-          API & Website Integration
-        </button>
-      </div>
+      {/* Animate-UI Inspired Sliding Tabs */}
+      <AnimatedTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId)}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {activeTab === "BRANDING" ? (
-          <>
-            {/* Left Column: Form Editor (7 Cols) */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* Section 1: Agency Trading Identity */}
-              <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
-                <div className="px-6 py-4 bg-paper-100/70 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-contour-red text-white flex items-center justify-center font-bold text-sm shadow-subtle">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="font-serif font-bold text-sm text-ink-900">
-                        Agency Trading Identity
-                      </h3>
-                      <p className="text-[11px] text-ink-600">Company name, logo, and brand colorway</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    Verified Mandate Firm
-                  </span>
-                </div>
-
-                <div className="p-6 space-y-4 text-xs">
-                  <div>
-                    <label className="block font-bold text-ink-900 mb-1.5">
-                      Agency Trading Name <span className="text-contour-red">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.agencyName}
-                      onChange={(e) => setSettings({ ...settings, agencyName: e.target.value })}
-                      placeholder="e.g. Contour Real Estate Zambia Ltd"
-                      className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 font-semibold focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-ink-900 mb-1.5">
-                      Tagline / Brand Slogan
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.tagline}
-                      onChange={(e) => setSettings({ ...settings, tagline: e.target.value })}
-                      placeholder="e.g. Lusaka's Premier Property Advisory & Mandate Vault"
-                      className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red transition-all"
-                    />
-                  </div>
-
-                  {/* Brand Accent Palette */}
-                  <div>
-                    <label className="block font-bold text-ink-900 mb-1.5">
-                      Brand Accent Banner Color
-                    </label>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {COLOR_SWATCHES.map((swatch) => (
-                          <button
-                            key={swatch.hex}
-                            type="button"
-                            onClick={() => setSettings({ ...settings, bannerAccentColor: swatch.hex })}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                              settings.bannerAccentColor.toLowerCase() === swatch.hex.toLowerCase()
-                                ? "border-ink-900 bg-paper-200 shadow-xs"
-                                : "border-border bg-white hover:bg-paper-100"
-                            }`}
-                          >
-                            <span
-                              style={{ backgroundColor: swatch.hex }}
-                              className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
-                            />
-                            <span className="text-[11px]">{swatch.name}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={settings.bannerAccentColor}
-                            onChange={(e) => setSettings({ ...settings, bannerAccentColor: e.target.value })}
-                            className="w-9 h-9 rounded-xl border border-border cursor-pointer p-0.5 bg-white shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={settings.bannerAccentColor}
-                            onChange={(e) => setSettings({ ...settings, bannerAccentColor: e.target.value })}
-                            className="w-28 bg-paper-100/60 px-3 py-2 rounded-xl border border-border text-ink-900 font-mono text-xs uppercase focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                          />
-                        </div>
-                        <span className="text-[11px] text-ink-500">
-                          Applied to social flyers, report headers, and statement stamps.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Logo URL */}
-                  <div>
-                    <label className="block font-bold text-ink-900 mb-1.5">
-                      Agency Logo URL / Asset
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-paper-200 border border-paper-300 shrink-0 flex items-center justify-center">
-                        {settings.logoUrl ? (
-                          <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-                        ) : (
-                          <ImageIcon className="w-5 h-5 text-ink-400" />
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        value={settings.logoUrl}
-                        onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
-                        placeholder="https://images.unsplash.com/..."
-                        className="flex-1 bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
+      {/* TAB 1: AGENCY BRANDING & METADATA */}
+      {activeTab === "BRANDING" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-2">
+          {/* Left Column: Form Fields (7 Cols) */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Identity Card */}
+            <div className="p-6 bg-white border border-editorial-border space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b border-editorial-border">
+                <Building2 className="w-4 h-4 text-contour-red" />
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Real Estate Agency Profile
+                </h3>
               </div>
 
-              {/* Section 2: Contact Channels & Social Handles */}
-              <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
-                <div className="px-6 py-4 bg-paper-100/70 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-subtle">
-                      <Phone className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="font-serif font-bold text-sm text-ink-900">
-                        Public Contact & Digital Channels
-                      </h3>
-                      <p className="text-[11px] text-ink-600">WhatsApp, official phone lines, and social links</p>
-                    </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Corporate Agency Name
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.agencyName}
+                    onChange={(e) =>
+                      setSettings({ ...settings, agencyName: e.target.value })
+                    }
+                    className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                      Zambian REA / Valuation License #
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.licenseNumber}
+                      onChange={(e) =>
+                        setSettings({ ...settings, licenseNumber: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                      PACRA Company Reg #
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.pacraNumber || "120240091823"}
+                      onChange={(e) =>
+                        setSettings({ ...settings, pacraNumber: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                    />
                   </div>
                 </div>
 
-                <div className="p-6 space-y-4 text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        WhatsApp Business Line <span className="text-contour-red">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.whatsApp}
-                        onChange={(e) => setSettings({ ...settings, whatsApp: e.target.value })}
-                        placeholder="+260 97 123 4567"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                        required
-                      />
-                      <span className="text-[10px] text-ink-500 mt-1 block">Primary CTA on all marketing flyers</span>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        Main Office Phone Line
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.phone}
-                        onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                        placeholder="+260 211 123456"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 font-mono focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        Official Inquiries Email
-                      </label>
-                      <input
-                        type="email"
-                        value={settings.email}
-                        onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                        placeholder="mandates@contour.co.zm"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        Official Agency Website
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.website}
-                        onChange={(e) => setSettings({ ...settings, website: e.target.value })}
-                        placeholder="www.contour.co.zm"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 font-mono focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        Instagram Handle
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.instagramHandle}
-                        onChange={(e) => setSettings({ ...settings, instagramHandle: e.target.value })}
-                        placeholder="@contour.zambia"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        Facebook Page
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.facebookPage}
-                        onChange={(e) => setSettings({ ...settings, facebookPage: e.target.value })}
-                        placeholder="Contour Real Estate Zambia"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-ink-900 mb-1.5">
-                      Office / Branch Address
-                    </label>
+                <div>
+                  <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Lusaka Office Physical Address
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-editorial-muted" />
                     <input
                       type="text"
                       value={settings.officeAddress}
-                      onChange={(e) => setSettings({ ...settings, officeAddress: e.target.value })}
-                      placeholder="e.g. Suite 402, Centro Mall Complex, Kabulonga, Lusaka"
-                      className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
+                      onChange={(e) =>
+                        setSettings({ ...settings, officeAddress: e.target.value })
+                      }
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
                     />
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Section 3: Legal & Regulatory Compliance */}
-              <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
-                <div className="px-6 py-4 bg-paper-100/70 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-ink-900 text-white flex items-center justify-center font-bold text-sm shadow-subtle">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-serif font-bold text-sm text-ink-900">
-                        Zambia Regulatory & Licensing Compliance
-                      </h3>
-                      <p className="text-[11px] text-ink-600">ZREIC & PACRA registration details</p>
-                    </div>
+            {/* Contact & Commission Rules */}
+            <div className="p-6 bg-white border border-editorial-border space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b border-editorial-border">
+                <Phone className="w-4 h-4 text-contour-red" />
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Contact Channels & Commission Protocol
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                      Official WhatsApp Number
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.whatsApp}
+                      onChange={(e) =>
+                        setSettings({ ...settings, whatsApp: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                      Support Email
+                    </label>
+                    <input
+                      type="email"
+                      value={settings.email}
+                      onChange={(e) =>
+                        setSettings({ ...settings, email: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                    />
                   </div>
                 </div>
 
-                <div className="p-6 space-y-4 text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        ZREIC License Number
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.licenseNumber}
-                        onChange={(e) => setSettings({ ...settings, licenseNumber: e.target.value })}
-                        placeholder="ZREIC/LUS/2026/0488"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red"
-                      />
-                      <span className="text-[10px] text-ink-500 mt-1 block">Printed on all legal mandate contracts</span>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-ink-900 mb-1.5">
-                        PACRA Registration Ref
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue="PACRA-ZAM-120993"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 font-mono focus:outline-none"
-                        disabled
-                      />
-                      <span className="text-[10px] text-emerald-700 font-semibold mt-1 block">Verified & Active ✅</span>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                      Default Sale Commission (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={settings.defaultSaleCommission || 5}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          defaultSaleCommission: parseFloat(e.target.value) || 5,
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                      Agent Commission Split (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={settings.defaultAgentSplit || 50}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          defaultAgentSplit: parseFloat(e.target.value) || 50,
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                    />
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Bottom Save Trigger */}
-              <div className="pt-2 flex justify-end">
+          {/* Right Column: Preview & Palette (5 Cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Color Swatches */}
+            <div className="p-6 bg-white border border-editorial-border space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-editorial-border">
+                <Palette className="w-4 h-4 text-contour-red" />
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Brand Color Accent
+                </h3>
+              </div>
+              <div className="flex items-center gap-3">
+                {COLOR_SWATCHES.map((swatch) => (
+                  <button
+                    key={swatch.hex}
+                    type="button"
+                    onClick={() =>
+                      setSettings({ ...settings, bannerAccentColor: swatch.hex })
+                    }
+                    className={`w-9 h-9 border flex items-center justify-center transition-all ${
+                      settings.bannerAccentColor === swatch.hex
+                        ? "border-editorial-black ring-2 ring-contour-red ring-offset-2"
+                        : "border-editorial-border hover:border-editorial-black"
+                    }`}
+                    style={{ backgroundColor: swatch.hex }}
+                    title={swatch.name}
+                  >
+                    {settings.bannerAccentColor === swatch.hex && (
+                      <Check className="w-4 h-4 text-white drop-shadow-md" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Agency Preview Card */}
+            <div className="p-6 bg-neutral-50 border border-editorial-border space-y-4">
+              <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">
+                Agency Card Preview
+              </span>
+              <div className="bg-white p-5 border border-editorial-border space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-editorial-black text-white flex items-center justify-center font-heading font-bold text-base">
+                    {settings.agencyName ? settings.agencyName[0] : "C"}
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-bold text-sm text-editorial-black uppercase">
+                      {settings.agencyName || "Lusaka Prime Properties"}
+                    </h4>
+                    <p className="text-[11px] font-geist text-editorial-muted">
+                      License #{settings.licenseNumber || "REA-ZM-8841"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-xs font-geist text-editorial-black pt-2 border-t border-editorial-border space-y-1">
+                  <p>📍 {settings.officeAddress || "Plot 4912, Great East Road, Lusaka"}</p>
+                  <p>💬 WhatsApp: {settings.whatsApp || "+260 97 100 2000"}</p>
+                  <p>⚖️ Default Commission: {settings.defaultSaleCommission || 5}% Standard</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: CLERK B2B MULTI-TENANT ORGANIZATION PROFILE */}
+      {activeTab === "ORGANIZATION" && (
+        <div className="pt-2">
+          <div className="bg-white border border-editorial-border p-4 sm:p-6">
+            <div className="mb-6 pb-4 border-b border-editorial-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-heading font-bold text-base text-editorial-black uppercase tracking-tight">
+                  Agency Workspace Members & Role-Based Permissions
+                </h3>
+                <p className="text-xs font-geist text-editorial-muted mt-1">
+                  Invite licensed agents, branch managers, and finance officers. Grant or revoke permissions in real time.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-geist px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
+                  Clerk B2B Engine
+                </span>
+              </div>
+            </div>
+
+            <OrganizationProfile
+              routing="hash"
+              appearance={{
+                elements: {
+                  rootBox: "w-full",
+                  card: "rounded-none border-0 shadow-none p-0 w-full",
+                  navbar: "border-b border-editorial-border bg-white mb-6 p-0",
+                  navbarButton:
+                    "rounded-none font-heading text-xs font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black py-2 px-3 data-[active=true]:text-contour-red data-[active=true]:border-b data-[active=true]:border-contour-red",
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: CLERK USER PROFILE & ACCOUNT SECURITY */}
+      {activeTab === "ACCOUNT" && (
+        <div className="pt-2">
+          <div className="bg-white border border-editorial-border p-4 sm:p-6">
+            <div className="mb-6 pb-4 border-b border-editorial-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-heading font-bold text-base text-editorial-black uppercase tracking-tight">
+                  Personal Account & Security Credentials
+                </h3>
+                <p className="text-xs font-geist text-editorial-muted mt-1">
+                  Manage your personal email addresses, phone verification, password, two-factor authentication, and active sessions.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-geist px-2 py-0.5 border border-emerald-300 bg-emerald-50 text-emerald-800 uppercase tracking-wider font-semibold">
+                  POPIA Encrypted
+                </span>
+              </div>
+            </div>
+
+            <UserProfile
+              routing="hash"
+              appearance={{
+                elements: {
+                  rootBox: "w-full",
+                  card: "rounded-none border-0 shadow-none p-0 w-full",
+                  navbar: "border-b border-editorial-border bg-white mb-6 p-0",
+                  navbarButton:
+                    "rounded-none font-heading text-xs font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black py-2 px-3 data-[active=true]:text-contour-red data-[active=true]:border-b data-[active=true]:border-contour-red",
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: DEVELOPER & MCP KEYS */}
+      {activeTab === "DEVELOPER" && (
+        <div className="space-y-6 pt-2">
+          {/* Key Generator */}
+          <div className="p-6 bg-white border border-editorial-border space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-editorial-border">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-contour-red" />
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Named Machine & API Keys
+                </h3>
+              </div>
+              <span className="text-[10px] font-geist text-editorial-muted">
+                HTTP Bearer Tokens
+              </span>
+            </div>
+
+            <form onSubmit={handleGenerateKey} className="flex flex-col sm:flex-row gap-2 max-w-lg">
+              <input
+                type="text"
+                placeholder="Key label (e.g. 'Marketing Website', 'Cursor IDE')..."
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                className="flex-1 px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black font-geist"
+              />
+              <button
+                type="submit"
+                disabled={!newKeyName.trim()}
+                className="px-4 py-2 bg-editorial-black hover:bg-contour-red disabled:opacity-40 text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors shadow-none shrink-0"
+              >
+                Generate Key
+              </button>
+            </form>
+
+            {/* Mobile Keys List (md:hidden) */}
+            <div className="md:hidden divide-y divide-editorial-border border border-editorial-border p-3 space-y-3 font-geist text-xs">
+              {apiKeys.map((k) => (
+                <div key={k.id} className="pt-2 first:pt-0 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-editorial-black">{k.name}</span>
+                    <span
+                      className={`text-[9px] font-heading font-bold uppercase tracking-wider px-1.5 py-0.5 border ${
+                        k.status === "active"
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                          : "bg-neutral-100 text-editorial-muted border-editorial-border"
+                      }`}
+                    >
+                      {k.status}
+                    </span>
+                  </div>
+                  <div className="font-mono text-[11px] text-editorial-muted break-all">
+                    {k.key.substring(0, 16)}••••••••
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-editorial-muted pt-1">
+                    <span>Created {k.createdAt}</span>
+                    {k.status === "active" && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeKey(k.id)}
+                        className="font-heading font-semibold text-contour-red hover:underline"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Keys Table (hidden md:block) */}
+            <div className="hidden md:block border border-editorial-border overflow-x-auto">
+              <table className="w-full text-left text-xs font-geist">
+                <thead className="bg-neutral-50 border-b border-editorial-border font-heading font-semibold text-[11px] uppercase tracking-wider text-editorial-muted">
+                  <tr>
+                    <th className="py-2.5 px-3">Name</th>
+                    <th className="py-2.5 px-3">Key Token</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3">Created</th>
+                    <th className="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-editorial-border">
+                  {apiKeys.map((k) => (
+                    <tr key={k.id} className="hover:bg-neutral-50/50">
+                      <td className="py-3 px-3 font-medium text-editorial-black">
+                        {k.name}
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[11px] text-editorial-muted">
+                        {k.key.substring(0, 16)}••••••••
+                      </td>
+                      <td className="py-3 px-3">
+                        <span
+                          className={`text-[9px] font-heading font-bold uppercase tracking-wider px-1.5 py-0.5 border ${
+                            k.status === "active"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                              : "bg-neutral-100 text-editorial-muted border-editorial-border"
+                          }`}
+                        >
+                          {k.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-editorial-muted">
+                        {k.createdAt}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        {k.status === "active" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRevokeKey(k.id)}
+                            className="text-xs font-heading font-semibold text-contour-red hover:underline"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* External Integration Code Snippets */}
+          <div className="p-4 sm:p-6 bg-white border border-editorial-border space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-editorial-border">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4 text-contour-red" />
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Public Integration Endpoints
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleSave()}
-                  className="w-full sm:w-auto px-8 py-3 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-bold shadow-floating flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  type="button"
+                  onClick={() => setDocSubTab("FETCH")}
+                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border ${
+                    docSubTab === "FETCH"
+                      ? "bg-editorial-black text-white border-editorial-black"
+                      : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
+                  }`}
                 >
-                  <Save className="w-4 h-4 text-contour-red" />
-                  <span>Save & Publish Agency Settings</span>
+                  1. GET Listings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocSubTab("INQUIRE")}
+                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border ${
+                    docSubTab === "INQUIRE"
+                      ? "bg-editorial-black text-white border-editorial-black"
+                      : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
+                  }`}
+                >
+                  2. POST Inquiries
                 </button>
               </div>
             </div>
 
-            {/* Right Column: Sticky Live Preview Canvas (5 Cols) */}
-            <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-serif font-bold text-sm text-ink-900 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-contour-red" />
-                  <span>Live Flyer Auto-Branding Preview</span>
-                </h3>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-paper-200 text-ink-800 border border-paper-300">
-                  Live Preview
-                </span>
-              </div>
-
-              {/* Rendered Social Flyer Card */}
-              <div className="p-5 rounded-3xl bg-ink-950 text-white shadow-2xl space-y-4 border border-ink-800">
-                {/* Top Brand Banner with Custom Accent Color */}
-                <div
-                  style={{ backgroundColor: settings.bannerAccentColor || "#8B1E1E" }}
-                  className="p-3.5 rounded-2xl flex items-center justify-between transition-colors shadow-subtle"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-serif font-bold text-sm text-white">
-                      C
-                    </div>
-                    <div>
-                      <div className="font-serif font-bold text-xs text-white tracking-wide uppercase leading-tight truncate max-w-[170px]">
-                        {settings.agencyName || "Contour Real Estate Zambia"}
-                      </div>
-                      <div className="text-[9px] text-white/80 font-mono">
-                        Lic: {settings.licenseNumber || "ZREIC/LUS/2026/0488"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-white text-ink-950 uppercase tracking-wider shadow-xs">
-                    FOR SALE 🔴
+            {docSubTab === "FETCH" ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                    GET /api/properties
+                  </span>
+                  <span className="text-[10px] font-geist text-emerald-800 font-semibold px-2 py-0.5 border border-emerald-300 bg-emerald-50">
+                    Public Read • Sandbox Safe
                   </span>
                 </div>
-
-                {/* Sample Property Image */}
-                <div className="relative h-44 rounded-2xl overflow-hidden bg-ink-900 group border border-ink-800">
-                  <img
-                    src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800"
-                    alt="Sample Property"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-2.5 left-2.5 bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                    Kabulonga, Lusaka
-                  </div>
-                  <div className="absolute bottom-2.5 right-2.5 bg-white/95 text-contour-red font-mono font-bold text-xs px-3 py-1 rounded-full shadow-subtle">
-                    K 3,500,000
-                  </div>
-                </div>
-
-                {/* Title & Specs */}
-                <div className="space-y-1.5 px-1">
-                  <h4 className="font-serif font-bold text-sm text-white line-clamp-1">
-                    Executive 4-Bedroom Standalone Residence
-                  </h4>
-                  <p className="text-[10px] text-ink-400 line-clamp-1">
-                    📍 200m off Kabulonga Road • 2,400 m² plot with private pool
-                  </p>
-                  <div className="flex items-center gap-3 text-[10px] text-ink-300 pt-2 border-t border-ink-800/80 font-mono">
-                    <span>🛏️ 4 Beds</span>
-                    <span>🛁 3.5 Baths</span>
-                    <span>📐 2,400 m²</span>
-                    <span>💧 Borehole</span>
-                  </div>
-                </div>
-
-                {/* Footer Contact Banner */}
-                <div className="p-3 bg-ink-900 rounded-2xl border border-ink-800 flex items-center justify-between text-[10px]">
-                  <div>
-                    <div className="font-bold text-white flex items-center gap-1">
-                      <span>💬 WhatsApp:</span>{" "}
-                      <span className="text-emerald-400 font-mono">{settings.whatsApp || "+260 97 123 4567"}</span>
-                    </div>
-                    <div className="text-ink-400 font-mono mt-0.5">{settings.website || "www.contour.co.zm"}</div>
-                  </div>
-                  <div className="text-right text-ink-400">
-                    <div className="font-medium">{settings.instagramHandle || "@contour.zambia"}</div>
-                    <div className="text-[9px] text-emerald-400 font-bold mt-0.5">Mandate Verified ✅</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-paper-100 border border-paper-200 text-xs text-ink-700 space-y-1.5">
-                <div className="font-bold text-ink-900 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>How this branding is used:</span>
-                </div>
-                <p className="text-[11px] text-ink-600 leading-relaxed">
-                  Every time an agent clicks <strong>"Social Card"</strong> on any property in the catalog, this agency profile, logo, WhatsApp line, and license details are automatically embedded into the 1:1, 4:5, and 9:16 flyers for social media.
+                <p className="text-editorial-muted text-xs">
+                  Call this endpoint directly from your corporate website or Webflow. It strictly filters out landlord PII and returns active listings.
                 </p>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Left Column: API Manager & Docs (7 Cols) */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* API Key Generation */}
-              <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
-                <div className="px-6 py-4 bg-paper-100/70 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-ink-900 text-white flex items-center justify-center font-bold text-sm shadow-subtle">
-                      <Key className="w-4 h-4 text-contour-red" />
-                    </div>
-                    <div>
-                      <h3 className="font-serif font-bold text-sm text-ink-900">
-                        Developer Access & API Credentials
-                      </h3>
-                      <p className="text-[11px] text-ink-600">Provide keys for external web developer integrations</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-5 text-xs">
-                  {/* Generate Key Form */}
-                  <form onSubmit={handleGenerateKey} className="flex gap-3">
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={newKeyName}
-                        onChange={(e) => setNewKeyName(e.target.value)}
-                        placeholder="e.g. Website Lead Form Integrator"
-                        className="w-full bg-paper-100/60 px-4 py-2.5 rounded-xl border border-border text-ink-900 focus:outline-none focus:ring-2 focus:ring-contour-red/20 focus:border-contour-red text-xs"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 bg-ink-900 hover:bg-ink-950 text-white rounded-xl font-bold transition-all shadow-subtle shrink-0"
-                    >
-                      Generate API Key
-                    </button>
-                  </form>
-
-                  {/* Keys list */}
-                  <div className="space-y-3 pt-2">
-                    <h4 className="font-bold text-ink-900 text-xs">Your Tenant API Keys</h4>
-                    {apiKeys.length === 0 ? (
-                      <p className="text-ink-500 italic py-2">No active API keys found. Generate one above.</p>
-                    ) : (
-                      <div className="divide-y divide-border border border-border rounded-2xl overflow-hidden bg-paper-50">
-                        {apiKeys.map((k) => (
-                          <div key={k.id} className="p-4 flex items-center justify-between gap-4">
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-ink-900 truncate">{k.name}</span>
-                                <span
-                                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                                    k.status === "active"
-                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                      : "bg-red-50 text-red-700 border border-red-100"
-                                  }`}
-                                >
-                                  {k.status.toUpperCase()}
-                                </span>
-                              </div>
-                              <div className="font-mono text-[10px] text-ink-500 truncate max-w-xs sm:max-w-md">
-                                {k.key}
-                              </div>
-                              <div className="text-[10px] text-ink-400">Created: {k.createdAt}</div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              {k.status === "active" ? (
-                                <>
-                                  <button
-                                    onClick={() => handleCopy(k.key, k.id)}
-                                    className="p-2 hover:bg-paper-200 text-ink-600 rounded-lg transition-colors border border-border bg-white"
-                                    title="Copy API Key"
-                                    type="button"
-                                  >
-                                    {copiedText === k.id ? (
-                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                    ) : (
-                                      <Copy className="w-3.5 h-3.5" />
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={() => handleRevokeKey(k.id)}
-                                    className="px-3 py-1.5 border border-red-200 text-red-700 bg-white hover:bg-red-50 text-[10px] font-bold rounded-lg transition-colors"
-                                    type="button"
-                                  >
-                                    Revoke
-                                  </button>
-                                </>
-                              ) : (
-                                <span className="text-[10px] text-ink-400 italic">Inactive</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Developer Documentation Swapper */}
-              <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
-                <div className="px-6 py-4 bg-paper-100/70 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-ink-900 text-white flex items-center justify-center font-bold text-sm shadow-subtle">
-                      <Terminal className="w-4 h-4 text-contour-red" />
-                    </div>
-                    <div>
-                      <h3 className="font-serif font-bold text-sm text-ink-900">
-                        Integration Guide & Code Snippets
-                      </h3>
-                      <p className="text-[11px] text-ink-600">Copy code to give to your developer for website sync</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-4 text-xs">
-                  {/* Doc Sub Tabs */}
-                  <div className="flex gap-2 border-b border-paper-200 pb-2">
-                    <button
-                      onClick={() => setDocSubTab("FETCH")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                        docSubTab === "FETCH"
-                          ? "bg-ink-900 text-white border-ink-900"
-                          : "bg-white text-ink-700 border-border hover:bg-paper-50"
-                      }`}
-                    >
-                      1. Show Listings (GET API)
-                    </button>
-                    <button
-                      onClick={() => setDocSubTab("INQUIRE")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                        docSubTab === "INQUIRE"
-                          ? "bg-ink-900 text-white border-ink-900"
-                          : "bg-white text-ink-700 border-border hover:bg-paper-50"
-                      }`}
-                    >
-                      2. Capture Inquiries (POST API)
-                    </button>
-                  </div>
-
-                  {docSubTab === "FETCH" ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-ink-800">Endpoint: GET /api/properties</span>
-                        <span className="text-[10px] text-emerald-700 font-semibold px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100">
-                          Public Read • Sandbox Safe
-                        </span>
-                      </div>
-                      <p className="text-ink-600 leading-relaxed text-[11px]">
-                        Call this endpoint directly from your browser JavaScript (e.g. in your Webflow Custom Code or custom theme). It strictly filters out landlord PII and sensitive info automatically.
-                      </p>
-
-                      <div className="relative">
-                        <pre className="p-4 bg-ink-950 text-white rounded-2xl font-mono text-[10px] overflow-x-auto leading-relaxed border border-ink-800">
-{`// Fetch your available properties from Contour
-fetch('https://app.contour.co.zm/api/properties?org=contour-demo&status=AVAILABLE')
+                <div className="relative">
+                  <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
+{`// Fetch available properties from Contour
+fetch('https://app.contour.co.zm/api/properties?status=AVAILABLE')
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      console.log('Listings fetched:', data.properties);
-      // Map listings into your HTML cards here
+      console.log('Active listings:', data.properties);
     }
   });`}
-                        </pre>
-                        <button
-                          onClick={() =>
-                            handleCopy(
-                              `fetch('https://app.contour.co.zm/api/properties?org=contour-demo&status=AVAILABLE')\n  .then(res => res.json())\n  .then(data => {\n    if (data.success) {\n      console.log('Listings fetched:', data.properties);\n    }\n  });`,
-                              "fetch_snippet"
-                            )
-                          }
-                          className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white"
-                          title="Copy Code"
-                          type="button"
-                        >
-                          {copiedText === "fetch_snippet" ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-ink-800">Endpoint: POST /api/inquiries</span>
-                        <span className="text-[10px] text-contour-red font-semibold px-2 py-0.5 rounded-full bg-contour-red/5 border border-contour-red/10">
-                          Rate Limited • Spam Guarded
-                        </span>
-                      </div>
-                      <p className="text-ink-600 leading-relaxed text-[11px]">
-                        Submit inquiries from your custom website forms. Inquiries will immediately enter your Contour CRM workspace and assign the property agent automatically.
-                      </p>
-
-                      <div className="relative">
-                        <pre className="p-4 bg-ink-950 text-white rounded-2xl font-mono text-[10px] overflow-x-auto leading-relaxed border border-ink-800">
+                  </pre>
+                  <button
+                    onClick={() =>
+                      handleCopy(
+                        `fetch('https://app.contour.co.zm/api/properties?status=AVAILABLE')\n  .then(res => res.json())\n  .then(data => {\n    if (data.success) {\n      console.log('Active listings:', data.properties);\n    }\n  });`,
+                        "fetch_code"
+                      )
+                    }
+                    className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 text-white"
+                    title="Copy Code"
+                  >
+                    {copiedText === "fetch_code" ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                    POST /api/inquiries
+                  </span>
+                  <span className="text-[10px] font-geist text-contour-red font-semibold px-2 py-0.5 border border-contour-red/30 bg-contour-red/5">
+                    Rate Limited • Lead Assigned
+                  </span>
+                </div>
+                <p className="text-editorial-muted text-xs">
+                  Submit inquiries directly from your website contact forms. Leads immediately route into your Contour CRM pipeline.
+                </p>
+                <div className="relative">
+                  <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
 {`// Submit lead from your website inquiry form to Contour
 fetch('https://app.contour.co.zm/api/inquiries', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    org: 'contour-demo',
-    clientName: 'John Banda',
+    clientName: 'Dr. Mutale Kapwepwe',
     clientPhone: '+260977112233',
-    clientEmail: 'john@example.com',
-    propertyId: 'prop_01', // Optional
+    clientEmail: 'mutale@example.com',
+    propertyId: 'prop_01',
     notes: 'Interested in viewing this house.'
   })
 })
 .then(res => res.json())
 .then(data => console.log('Lead submitted:', data));`}
-                        </pre>
-                        <button
-                          onClick={() =>
-                            handleCopy(
-                              `fetch('https://app.contour.co.zm/api/inquiries', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    org: 'contour-demo',\n    clientName: 'John Banda',\n    clientPhone: '+260977112233',\n    clientEmail: 'john@example.com',\n    propertyId: 'prop_01',\n    notes: 'Interested in viewing this house.'\n  })\n})\n.then(res => res.json())\n.then(data => console.log(data));`,
-                              "inquiry_snippet"
-                            )
-                          }
-                          className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white"
-                          title="Copy Code"
-                          type="button"
-                        >
-                          {copiedText === "inquiry_snippet" ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Interactive Card Preview (5 Cols) */}
-            <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-serif font-bold text-sm text-ink-900 flex items-center gap-2">
-                  <Code className="w-4 h-4 text-contour-red" />
-                  <span>External Website Card Preview</span>
-                </h3>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-paper-200 text-ink-800 border border-paper-300">
-                  Client Frontend
-                </span>
-              </div>
-
-              {/* Website Card Mock */}
-              <div className="p-4 rounded-3xl bg-white border border-border shadow-card space-y-3 text-ink-900">
-                {/* Image */}
-                <div className="relative h-40 rounded-2xl overflow-hidden bg-paper-100 border border-paper-200">
-                  <img
-                    src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800"
-                    alt="Sample Property"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                    Kabulonga, Lusaka
-                  </div>
-                  <div className="absolute bottom-2.5 right-2.5 bg-white text-ink-900 font-mono font-bold text-[10px] px-2 py-0.5 rounded-lg border border-border">
-                    K 3,500,000
-                  </div>
-                </div>
-
-                {/* Specs */}
-                <div className="space-y-1">
-                  <h4 className="font-bold text-xs line-clamp-1">
-                    Executive 4-Bedroom Standalone Residence
-                  </h4>
-                  <p className="text-[10px] text-ink-500 line-clamp-1">
-                    📍 200m off Kabulonga Road • 2,400 m² plot
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-paper-200 flex items-center justify-between">
-                  <div className="text-[10px] text-ink-500 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Auto-sync Status: Active</span>
-                  </div>
-                  <button className="px-3.5 py-1.5 bg-ink-900 hover:bg-ink-950 text-white text-[10px] font-bold rounded-xl transition-all shadow-subtle">
-                    Contact Agency
+                  </pre>
+                  <button
+                    onClick={() =>
+                      handleCopy(
+                        `fetch('https://app.contour.co.zm/api/inquiries', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    clientName: 'Dr. Mutale Kapwepwe',\n    clientPhone: '+260977112233',\n    clientEmail: 'mutale@example.com',\n    propertyId: 'prop_01',\n    notes: 'Interested in viewing this house.'\n  })\n})\n.then(res => res.json())\n.then(data => console.log('Lead submitted:', data));`,
+                        "inquiry_code"
+                      )
+                    }
+                    className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 text-white"
+                    title="Copy Code"
+                  >
+                    {copiedText === "inquiry_code" ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
-
-              <div className="p-4 rounded-2xl bg-paper-100 border border-paper-200 text-xs text-ink-700 space-y-1.5">
-                <div className="font-bold text-ink-900 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>Auto-Sync Details</span>
-                </div>
-                <p className="text-[11px] text-ink-600 leading-relaxed">
-                  Whenever an agent marks a listing as <strong>Sold</strong>, <strong>Rented</strong>, or edits pricing inside Contour, the client website updates its cards immediately on page reload.
-                </p>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function AgencySettingsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-xs font-geist text-editorial-muted">Loading settings...</div>}>
+      <SettingsContent />
+    </Suspense>
   );
 }

@@ -43,6 +43,9 @@ model User {
   visits             PropertyVisit[]
   transactions       Transaction[]       @relation("ClosingAgent")
   approvedStatements LandlordStatement[] @relation("ApprovedBy")
+  vaultGrants        VaultAccessGrant[]  @relation("VaultGrants")
+  grantedVaultAccess VaultAccessGrant[]  @relation("GrantedVaultAccess")
+  documentRequests   DocumentRequest[]
 
   @@map("user")
 }
@@ -97,6 +100,9 @@ model Organization {
   slug                String   @unique
   logo                String?
   currency            Currency @default(ZMW)
+  lencoCustomerId     String?
+  lencoSubscriptionId String?
+  lencoAccountReference String?
   paystackCustomerId  String?
   paystackSubCode     String?
   subscriptionTier    String   @default("STARTER") // STARTER, GROWTH, ENTERPRISE
@@ -119,6 +125,8 @@ model Organization {
   auditLogs           AuditLog[]
   aiUsageLogs         AiUsageLog[]
   vaultDocuments      VaultDocument[]
+  vaultAccessGrants   VaultAccessGrant[]
+  documentRequests    DocumentRequest[]
 
   @@map("organization")
 }
@@ -265,6 +273,7 @@ model Property {
   visits              PropertyVisit[]
   landlordStatements  LandlordStatement[]
   vaultDocuments      VaultDocument[]
+  documentRequests    DocumentRequest[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -511,6 +520,7 @@ model Inquiry {
   organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignedAgent          User?         @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
   visits                 PropertyVisit[]
+  documentRequests       DocumentRequest[]
 
   @@index([organizationId, status])
   @@map("inquiry")
@@ -595,6 +605,12 @@ enum DocumentType {
   MANDATE_AGREEMENT
   LEASE_CONTRACT
   SITE_SURVEY_DIAGRAM
+  PACRA_CERTIFICATE
+  VALUATION_REPORT
+  PROOF_OF_RESIDENCE
+  PAYMENT_RECEIPT
+  CLIENT_CORRESPONDENCE
+  OTHER
 }
 
 enum SecurityLevel {
@@ -603,37 +619,132 @@ enum SecurityLevel {
   AGENT_ACCESSIBLE
 }
 
+enum VaultAccessLevel {
+  FULL_VAULT
+  ASSIGNED_ONLY
+  SPECIFIC_FOLDERS
+}
+
+enum DocumentRequestStatus {
+  PENDING
+  PARTIALLY_FULFILLED
+  FULFILLED
+  EXPIRED
+  REVOKED
+}
+
 model VaultDocument {
-  id               String        @id @default(cuid())
-  organizationId   String
-  propertyId       String?
+  id                 String           @id @default(cuid())
+  organizationId     String
+  propertyId         String?
 
   // Document identity
-  title            String
-  docType          DocumentType
-  classification   SecurityLevel @default(RESTRICTED_MANAGEMENT)
+  title              String
+  description        String?          @db.Text
+  docType            DocumentType     @default(TITLE_DEED)
+  classification     SecurityLevel    @default(RESTRICTED_MANAGEMENT)
 
   // MinIO / S3 pointer — the objectKey is the full bucket path
   // e.g. "org_contour_demo/title_deed/1721234567890_deed.pdf"
-  objectKey        String
-  originalFileName String
-  fileSize         Int           // bytes
-  mimeType         String
-  fileType         String        // "PDF", "JPG", "PNG", etc.
+  objectKey          String           @unique
+  originalFileName   String
+  fileSize           Int              // bytes
+  mimeType           String
+  fileType           String           // "PDF", "JPG", "PNG", etc.
 
-  // Zambian land registry metadata
-  registryFolio    String?
+  // Zambian land registry metadata (Lands & Deeds Registry Act Cap 185)
+  registryFolio      String?
+  standPlotNumber    String?
+  nrcNumber          String?
 
-  // Audit
-  uploadedBy       String
-  isVerified       Boolean       @default(false)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  // Ingestion Source & Client Request Bridge
+  uploadedBy         String           // Display name or reference
+  uploadedByType     String           @default("STAFF") // "STAFF" | "CLIENT" | "SYSTEM"
+  uploadedById       String?          // User ID if STAFF
+  documentRequestId  String?          // Linked DocumentRequest if CLIENT
 
-  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property         Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  // Audit & Verification
+  isVerified         Boolean          @default(false)
+  verifiedAt         DateTime?
+  verifiedById       String?
+  sha256Checksum     String?
+
+  // Soft-Delete / Archival Guardrail
+  isDeleted          Boolean          @default(false)
+  deletedAt          DateTime?
+  deletedById        String?
+
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property           Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  documentRequest    DocumentRequest? @relation(fields: [documentRequestId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, docType])
+  @@index([organizationId, propertyId])
+  @@index([organizationId, isDeleted])
   @@index([organizationId, createdAt])
   @@map("vault_document")
+}
+
+model VaultAccessGrant {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  accessLevel    VaultAccessLevel @default(ASSIGNED_ONLY)
+  propertyIds    String[]         @default([]) // Whitelisted IDs when accessLevel = SPECIFIC_FOLDERS
+  canVerifyDocs  Boolean          @default(false)
+  canDeleteDocs  Boolean          @default(false)
+  grantedById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation("VaultGrants", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy      User             @relation("GrantedVaultAccess", fields: [grantedById], references: [id])
+
+  @@unique([organizationId, userId])
+  @@map("vault_access_grant")
+}
+
+model DocumentRequest {
+  id               String                @id @default(cuid())
+  organizationId   String
+  propertyId       String?
+  inquiryId        String?
+  requestedById    String
+
+  title            String
+  message          String?               @db.Text
+  requiredTypes    DocumentType[]        @default([NRC_PASSPORT_ID])
+  maxFiles         Int                   @default(5)
+  maxSizeMbPerFile Int                   @default(15)
+
+  token            String                @unique
+  pinHash          String?
+  expiresAt        DateTime
+  status           DocumentRequestStatus @default(PENDING)
+
+  // Zambia DPA Art. 21 Explicit Consent Record
+  clientName       String?
+  clientPhone      String?
+  clientEmail      String?
+  consentGiven     Boolean               @default(false)
+  consentTimestamp DateTime?
+  consentIp        String?
+  consentUserAgent String?
+
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  organization     Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property         Property?             @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  inquiry          Inquiry?              @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  requestedBy      User                  @relation(fields: [requestedById], references: [id])
+  documents        VaultDocument[]
+
+  @@index([token])
+  @@index([organizationId, status])
+  @@map("document_request")
 }

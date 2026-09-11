@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
       const today = new Date();
 
-      arrearsList = leasesInArrears.map((lease) => {
+      arrearsList = leasesInArrears.map((lease: any) => {
         // Calculate estimated days overdue
         const currentMonth = today.getMonth() + 1;
         const dueDay = lease.paymentDayOfMonth || 1;

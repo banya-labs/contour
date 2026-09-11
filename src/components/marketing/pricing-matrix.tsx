@@ -35,7 +35,7 @@ export function PricingMatrix() {
         "1-Click WhatsApp listing flyer generator",
         "30-Day anti-poaching client registration",
         "Public shareable property cards (/p/[slug])",
-        "Paystack Mobile Money & Card billing",
+        "Lenco Zambia Mobile Money & Card billing",
       ],
       ctaText: "Start 14-Day Free Pilot",
       popular: false,
@@ -101,7 +101,7 @@ export function PricingMatrix() {
         </h2>
         
         <p className="text-sm sm:text-base text-stone-600 leading-relaxed">
-          Priced for Southern African brokerages with seamless Paystack checkout. Pay in Zambian Kwacha (ZMW) or US Dollars (USD) via MTN MoMo, Airtel Money, Zamtel, or Visa/Mastercard.
+          Priced for Southern African brokerages with seamless Lenco Zambia checkout (<a href="https://lenco.co/zm" target="_blank" rel="noreferrer" className="underline text-[#16382B] font-medium">lenco.co/zm</a>). Pay in Zambian Kwacha (ZMW) or US Dollars (USD) via MTN MoMo, Airtel Money, Zamtel, or Visa/Mastercard.
         </p>
 
         {/* Billing & Currency Toggles */}
@@ -309,14 +309,14 @@ export function PricingMatrix() {
         })}
       </div>
 
-      {/* Paystack Payment Channels Banner */}
+      {/* Lenco Zambia Payment Channels Banner */}
       <div className="mt-12 p-6 rounded-3xl bg-white border border-[#E6E0D4] shadow-xs flex flex-col md:flex-row items-center justify-between gap-6 max-w-5xl mx-auto">
         <div className="space-y-1 text-center md:text-left">
           <p className="font-serif font-bold text-sm text-[#16382B]">
-            Local & Regional Payment Methods Supported via Paystack
+            Local & Regional Payment Methods Supported via Lenco Zambia
           </p>
           <p className="text-xs text-stone-500">
-            MTN Mobile Money, Airtel Money, Zamtel Kwacha, Visa, Mastercard, and Bank EFT.
+            MTN Mobile Money, Airtel Money, Zamtel Kwacha, Visa, Mastercard, and Bank Wire.
           </p>
         </div>
 

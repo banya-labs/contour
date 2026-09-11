@@ -1,6 +1,47 @@
+@import "leaflet/dist/leaflet.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* -------------------------------------------------------------------------- */
+/* Editorial Font-Face Declarations                                           */
+/* -------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'BT Grotesk';
+  src: url('/fonts/bt-grotesk-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BT Grotesk';
+  src: url('/fonts/bt-grotesk-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BT Grotesk';
+  src: url('/fonts/bt-grotesk-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BT Grotesk';
+  src: url('/fonts/bt-grotesk-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist-mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
 
 @layer base {
   :root {
@@ -24,6 +65,18 @@
     --input: 45 10% 90%;
     --ring: 45 13% 13%;
     --radius: 1rem;                /* 16px soft curve standard */
+
+    /* Editorial System Tokens (DESIGN-EDITORIAL.md) */
+    --cl-bg: #ffffff;
+    --cl-primary: #282828;
+    --cl-accent: #fa3600;
+    --cl-muted: #6b6b6b;
+    --cl-inactive: #9b9b9b;
+    --cl-border: #e0e0e0;
+    --cl-corner: #c0c0c0;
+    --cl-row-hover: #fff5f3;
+    --cl-dark-col: #282828;
+    --cl-logo-mark: #e8e8e8;
   }
 }
 
@@ -32,7 +85,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-[#8b1e1e]/20 selection:text-[#27251e];
+    @apply bg-background text-foreground antialiased selection:bg-[#fa3600] selection:text-white;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
@@ -65,4 +118,188 @@
 
 .leaflet-popup-tip {
   background: #ffffff !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Editorial Animation & Interaction Utility Classes                          */
+/* -------------------------------------------------------------------------- */
+
+/* Fill-wipe button hover (wipes up from bottom) */
+.btn-fill-wipe {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.btn-fill-wipe::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--cl-accent);
+  transform: translateY(102%);
+  transition: transform 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 0;
+}
+.btn-fill-wipe:hover::after {
+  transform: translateY(0%);
+}
+.btn-fill-wipe > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fill-wipe dark button hover (wipes dark up) */
+.btn-fill-wipe-dark {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.btn-fill-wipe-dark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--cl-primary);
+  transform: translateY(102%);
+  transition: transform 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 0;
+}
+.btn-fill-wipe-dark:hover::after {
+  transform: translateY(0%);
+}
+.btn-fill-wipe-dark:hover {
+  color: #ffffff;
+}
+.btn-fill-wipe-dark > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fill-wipe white button hover (wipes white up) */
+.btn-fill-wipe-white {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.btn-fill-wipe-white::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: #ffffff;
+  transform: translateY(102%);
+  transition: transform 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 0;
+}
+.btn-fill-wipe-white:hover::after {
+  transform: translateY(0%);
+}
+.btn-fill-wipe-white:hover {
+  color: var(--cl-accent);
+}
+.btn-fill-wipe-white > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Underline hover effect (scaleX from left) */
+.hover-un {
+  position: relative;
+  display: inline-block;
+}
+.hover-un::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.hover-un:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Continuous arrow pulse */
+@keyframes arrowPulse {
+  0%, 100% {
+    transform: translateX(0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(4px);
+    opacity: 1;
+  }
+}
+.arrow-pulse {
+  animation: arrowPulse 2s ease-in-out infinite;
+}
+
+/* Continuous float for subtle geometry */
+@keyframes geomFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.circle-float {
+  animation: geomFloat 6s ease-in-out infinite;
+}
+
+/* Topo background pattern generator (data URI) */
+.topo-pattern-bg {
+  background-image: radial-gradient(circle at 1px 1px, rgba(40, 40, 40, 0.08) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile First & Safe Area Utilities                                         */
+/* -------------------------------------------------------------------------- */
+.h-dvh {
+  height: 100dvh;
+}
+.min-h-dvh {
+  min-height: 100dvh;
+}
+.max-h-dvh {
+  max-height: 100dvh;
+}
+
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+.pl-safe {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+}
+.pr-safe {
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
+/* Hide scrollbar for clean horizontal swipe on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Touch manipulation optimization (avoids 300ms click delay) */
+button, a, input, select, textarea {
+  touch-action: manipulation;
 }

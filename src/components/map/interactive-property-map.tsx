@@ -16,8 +16,6 @@ import {
   Sparkles,
   MessageSquare,
   X,
-  Send,
-  Bot,
   Building2,
   TrendingUp,
   RotateCcw,
@@ -81,33 +79,8 @@ export function calculateGeodesicAreaSqm(vertices: [number, number][]): number {
   area = (Math.abs(area) * radius * radius) / 2;
   return Math.round(area);
 }
-
-export type PropertyMapItem = {
-  id: string;
-  title: string;
-  slug: string;
-  listingType: "FOR_SALE" | "FOR_RENT" | "BOTH";
-  status: "AVAILABLE" | "UNDER_OFFER" | "SOLD" | "RENTED" | "MAINTENANCE_HOLD" | "DRAFT";
-  ownershipType: "COMPANY_OWNED" | "MANAGED_ON_BEHALF";
-  askingPrice?: number | null;
-  rentalPrice?: number | null;
-  currency: "ZMW" | "USD" | "ZAR";
-  bedrooms?: number | null;
-  bathrooms?: number | null;
-  plotSizeSqm?: number | null;
-  suburb: string;
-  city: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  standBoundary?: [number, number][] | null;
-  landmarkDirections?: string | null;
-  photos: string[];
-  featuredPhoto?: string | null;
-  assignedAgentName?: string | null;
-  assignedAgentPhone?: string | null;
-  description?: string | null;
-  features?: string[] | null;
-};
+import type { PropertyMapItem } from "@/types/property-map";
+export type { PropertyMapItem } from "@/types/property-map";
 
 type InteractivePropertyMapProps = {
   properties: PropertyMapItem[];
@@ -147,13 +120,6 @@ function createMarkerIconSvg(color: string) {
   `;
 }
 
-type AiChatMessage = {
-  id: string;
-  sender: "user" | "assistant";
-  text: string;
-  matchedCount?: number;
-  timestamp: string;
-};
 
 const PRESET_BUTTONS = [
   { label: "🛏️ 3 Bedrooms", query: "3 bedroom" },
@@ -182,6 +148,7 @@ export default function InteractivePropertyMap({
 }: InteractivePropertyMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const leafletRef = useRef<any>(null);
   const markersGroupRef = useRef<any>(null);
   const markersMapRef = useRef<Map<string, any>>(new Map());
   const polygonsGroupRef = useRef<any>(null);
@@ -214,20 +181,8 @@ export default function InteractivePropertyMap({
   const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [mapLoaded, setMapLoaded] = useState(false);
-
-  // Floating AI Search & Popup Chat State
-  const [aiInput, setAiInput] = useState("");
-  const [isAiSearching, setIsAiSearching] = useState(false);
-  const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [aiActiveFilterText, setAiActiveFilterText] = useState<string | null>(null);
-  const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([
-    {
-      id: "ai_init",
-      sender: "assistant",
-      text: "👋 Ask me anything about Lusaka properties! E.g. *'3 bedroom'*, *'4 bedroom'*, *'swimming pool'*, or *'estate'*.",
-      timestamp: "Ready",
-    },
-  ]);
+  // Floating Map Keyword Filter State
+  const [filterInput, setFilterInput] = useState("");
 
   // Handle Search input change
   const handleSearchUpdate = (val: string) => {
@@ -283,15 +238,14 @@ export default function InteractivePropertyMap({
       if (!mapContainerRef.current || mapInstanceRef.current) return;
 
       const L = (await import("leaflet")).default;
-      if (!document.getElementById("leaflet-css")) {
-        const link = document.createElement("link");
-        link.id = "leaflet-css";
-        link.rel = "stylesheet";
-        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        document.head.appendChild(link);
-      }
+      leafletRef.current = L;
 
       if (!isMounted || !mapContainerRef.current) return;
+
+      // Ensure no stale _leaflet_id is attached to the DOM element
+      if ((mapContainerRef.current as any)._leaflet_id) {
+        delete (mapContainerRef.current as any)._leaflet_id;
+      }
 
       const map = L.map(mapContainerRef.current, {
         center: initialCenter,
@@ -311,6 +265,12 @@ export default function InteractivePropertyMap({
       polygonsGroupRef.current = polygonsGroup;
       markersGroupRef.current = markersGroup;
       setMapLoaded(true);
+
+      setTimeout(() => {
+        if (isMounted && mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 150);
     }
 
     initMap();
@@ -321,8 +281,32 @@ export default function InteractivePropertyMap({
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
+      if (mapContainerRef.current && (mapContainerRef.current as any)._leaflet_id) {
+        delete (mapContainerRef.current as any)._leaflet_id;
+      }
     };
   }, [initialCenter, initialZoom]);
+
+  // Handle mobile orientation changes & window resize to ensure full-bleed map without blank tiles
+  useEffect(() => {
+    if (!mapLoaded || !mapInstanceRef.current) return;
+
+    const handleResize = () => {
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 120);
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, [mapLoaded]);
 
   // Register map click listener for stand boundary node plotting
   useEffect(() => {
@@ -354,7 +338,7 @@ export default function InteractivePropertyMap({
   useEffect(() => {
     if (!mapLoaded || !mapInstanceRef.current) return;
     async function renderDrawnShape() {
-      const L = (await import("leaflet")).default;
+      const L = leafletRef.current || (await import("leaflet")).default;
       const map = mapInstanceRef.current;
       if (!drawingLayerGroupRef.current) {
         drawingLayerGroupRef.current = L.layerGroup().addTo(map);
@@ -394,7 +378,7 @@ export default function InteractivePropertyMap({
     if (!mapLoaded || !mapInstanceRef.current) return;
 
     async function renderChoropleth() {
-      const L = (await import("leaflet")).default;
+      const L = leafletRef.current || (await import("leaflet")).default;
       const map = mapInstanceRef.current;
 
       if (!choroplethLayerGroupRef.current) {
@@ -507,7 +491,7 @@ export default function InteractivePropertyMap({
     if (!mapLoaded || !mapInstanceRef.current || !markersGroupRef.current) return;
 
     async function updateMarkers() {
-      const L = (await import("leaflet")).default;
+      const L = leafletRef.current || (await import("leaflet")).default;
       const markersGroup = markersGroupRef.current;
       const polygonsGroup = polygonsGroupRef.current;
 
@@ -605,15 +589,15 @@ export default function InteractivePropertyMap({
           "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80";
 
         const popupContent = `
-          <div style="width: 240px; font-family: Inter, sans-serif;">
-            <div style="position: relative; width: 100%; height: 120px; border-radius: 12px; overflow: hidden; margin-bottom: 8px;">
+          <div style="width: 240px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+            <div style="position: relative; width: 100%; height: 120px; border-radius: 0px; overflow: hidden; margin-bottom: 8px; border: 1px solid #e0e0e0;">
               <img src="${heroImage}" alt="${property.title}" style="width:100%; height:100%; object-fit: cover;" />
-              <span style="position: absolute; top: 6px; left: 6px; background: rgba(39, 37, 30, 0.85); color: #fff; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px;">
+              <span style="position: absolute; top: 6px; left: 6px; background: #111111; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 0px; font-family: monospace;">
                 ${property.listingType === "FOR_RENT" ? "FOR RENT" : "FOR SALE"}
               </span>
-              ${property.standBoundary ? `<span style="position: absolute; top: 6px; right: 6px; background: #8b1e1e; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 9999px;">📐 STAND DEMARCATED</span>` : ""}
+              ${property.standBoundary ? `<span style="position: absolute; top: 6px; right: 6px; background: #fa3600; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 0px; font-family: monospace;">📐 DEMARCATED</span>` : ""}
             </div>
-            <div style="font-weight: 700; font-size: 14px; color: #27251e; line-height: 1.2; margin-bottom: 2px;">
+            <div style="font-weight: 700; font-size: 14px; color: #111111; line-height: 1.2; margin-bottom: 2px;">
               ${property.title}
             </div>
             <div style="font-size: 11px; color: #6a6860; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
@@ -750,98 +734,61 @@ export default function InteractivePropertyMap({
     }
   };
 
-  // Handle AI Search Submission
-  const handleAiSearch = (customPrompt?: string) => {
-    const prompt = (customPrompt || aiInput).trim();
-    if (!prompt) return;
-
-    setIsAiSearching(true);
-    setAiChatOpen(true);
-
-    const userMsg: AiChatMessage = {
-      id: `usr_${Date.now()}`,
-      sender: "user",
-      text: prompt,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    setAiMessages((prev) => [...prev, userMsg]);
-    setAiInput("");
-
-    setTimeout(() => {
-      handleSearchUpdate(prompt);
-      setAiActiveFilterText(prompt);
-
-      const matchedCount = properties.filter((p) => {
-        const lower = prompt.toLowerCase();
-        return (
-          p.title.toLowerCase().includes(lower) ||
-          p.suburb.toLowerCase().includes(lower) ||
-          (p.description && p.description.toLowerCase().includes(lower)) ||
-          (p.features && p.features.some((f) => f.toLowerCase().includes(lower)))
-        );
-      }).length;
-
-      const aiMsg: AiChatMessage = {
-        id: `ai_${Date.now()}`,
-        sender: "assistant",
-        text: `🔍 **Contour AI Geospatial Search**: Found **${matchedCount} matching mandates** for *"${prompt}"*.\n\nThe map markers and bottom cards have been updated to display these properties.`,
-        matchedCount,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-
-      setAiMessages((prev) => [...prev, aiMsg]);
-      setIsAiSearching(false);
-    }, 500);
+  // Handle Map Quick Search Filter Submission
+  const handleMapFilter = (customPrompt?: string) => {
+    const prompt = (customPrompt !== undefined ? customPrompt : filterInput).trim();
+    handleSearchUpdate(prompt);
+    setFilterInput(prompt);
   };
 
-  const handleClearAiFilter = () => {
+  const handleClearFilter = () => {
     handleSearchUpdate("");
-    setAiActiveFilterText(null);
+    setFilterInput("");
   };
 
   return (
     <div className={`relative w-full h-full flex flex-col rounded-2xl overflow-hidden border border-border shadow-card bg-paper-100 ${className}`}>
       
-      {/* 1. CENTERED TOP AI SEARCH BAR WITH PRESET BUTTONS BELOW */}
+      {/* 1. CENTERED TOP MAP SEARCH BAR WITH FILTER PRESETS */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xl w-full px-4 pointer-events-none font-sans flex flex-col items-center gap-2">
-        
-        {/* Glow & Capsule Input Bar */}
+        {/* Clean Input Bar */}
         <div className="relative w-full group pointer-events-auto">
-          {/* Ambient Iridescent Multi-Color Pastel Glow */}
-          <div className="absolute -inset-1.5 rounded-full bg-gradient-to-r from-amber-200/80 via-pink-300/80 via-purple-300/80 to-sky-300/80 blur-md opacity-80 group-hover:opacity-100 transition-opacity duration-500 animate-pulse" />
-
-          <div className="relative w-full flex items-center gap-2 bg-white/95 backdrop-blur-xl px-3.5 sm:px-4 py-2 rounded-full border border-paper-300 shadow-floating hover:border-paper-400 transition-all">
-            {/* Avatar / Sparkles Badge */}
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-white shadow-xs shrink-0 bg-contour-red/10 flex items-center justify-center text-contour-red">
-              <Sparkles className="w-4 h-4 animate-pulse" />
+          <div className="relative w-full flex items-center gap-2 bg-white/95 backdrop-blur-xl px-3.5 sm:px-4 py-2 rounded-none border border-editorial-border shadow-sm">
+            <div className="w-7 h-7 rounded-none shrink-0 bg-neutral-100 border border-editorial-border flex items-center justify-center text-editorial-black">
+              <Search className="w-3.5 h-3.5" />
             </div>
 
             <input
               type="text"
-              placeholder="Ask Contour AI (e.g. '3 bedroom', '4 bedroom', 'swimming pool', 'estate')..."
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
+              placeholder="Filter by suburb, stand #, bedrooms, features..."
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  handleAiSearch();
+                  handleMapFilter();
                 }
               }}
-              className="flex-1 bg-transparent text-xs sm:text-sm text-ink-900 placeholder:text-ink-500 focus:outline-none"
+              className="flex-1 bg-transparent text-xs sm:text-sm text-editorial-black placeholder:text-editorial-muted focus:outline-none font-geist"
             />
 
+            {filterInput && (
+              <button
+                type="button"
+                onClick={handleClearFilter}
+                className="p-1 hover:bg-neutral-100 text-editorial-muted hover:text-editorial-black"
+                title="Clear filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             <button
-              onClick={() => handleAiSearch()}
-              disabled={isAiSearching || !aiInput.trim()}
-              className="px-3.5 py-1.5 rounded-full bg-ink-900 hover:bg-ink-950 disabled:opacity-50 text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-transform active:scale-95 shrink-0"
+              onClick={() => handleMapFilter()}
+              className="px-3.5 py-1.5 rounded-none bg-editorial-black hover:bg-neutral-800 text-white text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors shrink-0"
             >
-              {isAiSearching ? (
-                <span className="animate-spin text-xs">⏳</span>
-              ) : (
-                <Send className="w-3.5 h-3.5" />
-              )}
-              <span className="hidden sm:inline">Ask AI</span>
+              <Search className="w-3 h-3" />
+              <span className="hidden sm:inline">Filter</span>
             </button>
           </div>
         </div>
@@ -851,63 +798,13 @@ export default function InteractivePropertyMap({
           {PRESET_BUTTONS.map((btn) => (
             <button
               key={btn.label}
-              onClick={() => handleAiSearch(btn.query)}
-              className="bg-white/95 hover:bg-white text-ink-900 px-3 py-1 rounded-full border border-border/80 text-[11px] font-semibold shadow-subtle hover:shadow-md transition-all hover:-translate-y-0.5 active:scale-95 flex items-center gap-1"
+              onClick={() => handleMapFilter(btn.query)}
+              className="bg-white/95 hover:bg-white text-editorial-black px-2.5 py-1 rounded-none border border-editorial-border text-[11px] font-mono shadow-xs hover:border-contour-red/40 transition-colors flex items-center gap-1"
             >
               <span>{btn.label}</span>
             </button>
           ))}
         </div>
-
-        {/* AI Chat Popup Window (Anchored Below Top Capsule) */}
-        {aiChatOpen && (
-          <div className="pointer-events-auto w-full mt-1 bg-white/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[340px] animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="bg-ink-900 text-white px-3.5 py-2 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 font-semibold">
-                <Bot className="w-4 h-4 text-contour-amber" />
-                <span>Contour AI Map Copilot</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {aiActiveFilterText && (
-                  <button
-                    onClick={handleClearAiFilter}
-                    className="text-[10px] bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded-full"
-                  >
-                    Reset Filter
-                  </button>
-                )}
-                <button
-                  onClick={() => setAiChatOpen(false)}
-                  className="p-1 hover:bg-white/20 rounded-full"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-3 overflow-y-auto space-y-2 text-xs flex-1">
-              {aiMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[88%] p-2.5 rounded-2xl text-xs leading-relaxed ${
-                      msg.sender === "user"
-                        ? "bg-contour-red text-white rounded-br-none font-medium"
-                        : "bg-paper-100 border border-border text-ink-900 rounded-bl-none"
-                    }`}
-                  >
-                    <p className="whitespace-pre-line">{msg.text}</p>
-                    <span className="block text-[9px] opacity-70 text-right mt-1">
-                      {msg.timestamp}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 2. RIGHT TOP MAP CONTROL TOOLS */}
@@ -1241,8 +1138,8 @@ export default function InteractivePropertyMap({
       {propertiesWithCoords.length > 0 && (
         <div className="absolute bottom-4 left-4 right-4 z-[1000] pointer-events-none">
           <div className="max-w-4xl mx-auto flex flex-col gap-2">
-            {/* Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pointer-events-auto">
+            {/* Cards Grid / Mobile Horizontal Swipe Carousel */}
+            <div className="flex md:grid md:grid-cols-3 gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pointer-events-auto pb-1">
               {paginatedProperties.map((property) => {
                 const isActive = activePropertyId === property.id;
                 const priceText =
@@ -1259,13 +1156,13 @@ export default function InteractivePropertyMap({
                   <div
                     key={property.id}
                     onClick={() => handleCardClick(property)}
-                    className={`cursor-pointer group flex bg-white/95 backdrop-blur-md rounded-2xl p-2.5 border transition-all duration-200 shadow-floating ${
+                    className={`cursor-pointer group flex bg-white/95 backdrop-blur-md rounded-2xl p-2.5 border transition-all duration-200 shadow-floating w-[82vw] max-w-[340px] md:w-auto shrink-0 snap-center md:shrink ${
                       isActive
                         ? "border-contour-red ring-2 ring-contour-red/20 scale-[1.02]"
                         : "border-border hover:border-ink-600/40"
                     }`}
                   >
-                    <div className="relative w-24 h-24 rounded-xl overflow-hidden shrink-0">
+                    <div className="relative w-20 sm:w-24 h-20 sm:h-24 rounded-xl overflow-hidden shrink-0">
                       <img
                         src={heroImage}
                         alt={property.title}

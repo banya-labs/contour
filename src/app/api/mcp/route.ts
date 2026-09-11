@@ -356,7 +356,7 @@ export async function POST(req: NextRequest) {
             where: { organizationId: tenantOrgId, status: "IN_ARREARS" },
             include: { property: true },
           });
-          arrears = leases.map((l) => ({
+          arrears = leases.map((l: any) => ({
             tenantName: l.tenantName,
             tenantPhone: l.tenantPhone,
             property: l.property.title,

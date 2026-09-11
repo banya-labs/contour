@@ -108,8 +108,12 @@ export function playErrorTone() {
 // Simulated IndexedDB storage helper
 function getLocalCache(key: string, defaultVal: any) {
   if (typeof window === "undefined") return defaultVal;
-  const cached = localStorage.getItem(`powersync_cache_${key}`);
-  return cached ? JSON.parse(cached) : defaultVal;
+  try {
+    const cached = localStorage.getItem(`powersync_cache_${key}`);
+    return cached ? JSON.parse(cached) : defaultVal;
+  } catch {
+    return defaultVal;
+  }
 }
 
 function setLocalCache(key: string, data: any) {

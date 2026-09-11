@@ -5,21 +5,15 @@ import Link from "next/link";
 import {
   DollarSign,
   TrendingUp,
-  CheckCircle2,
-  Clock,
   Building2,
-  FileText,
-  UserCheck,
   Search,
   Plus,
-  ShieldCheck,
-  ExternalLink,
   Landmark,
   X,
   Sparkles,
-  Bot,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { MotionCard } from "@/components/ui/animate/motion-card";
 
 export default function PropertySalesPage() {
   const [sales, setSales] = useState<any[]>([]);
@@ -98,9 +92,7 @@ export default function PropertySalesPage() {
 
         if (propsData.success) {
           const saleProps = propsData.properties.filter(
-            (p: any) =>
-              (p.listingType === "FOR_SALE" || p.listingType === "BOTH") &&
-              p.status !== "SOLD"
+            (p: any) => p.listingType === "FOR_SALE"
           );
           setProperties(saleProps);
           if (saleProps.length > 0) {
@@ -113,7 +105,7 @@ export default function PropertySalesPage() {
           }
         }
       } catch (err) {
-        console.error("Failed to load sales or properties:", err);
+        console.error("Failed to load sales data:", err);
       } finally {
         setLoading(false);
       }
@@ -121,82 +113,68 @@ export default function PropertySalesPage() {
     loadData();
   }, []);
 
-  const filteredSales = sales.filter((s) => {
-    const matchesSearch =
-      search.trim() === "" ||
-      s.propertyTitle.toLowerCase().includes(search.toLowerCase()) ||
-      s.buyerName.toLowerCase().includes(search.toLowerCase()) ||
-      s.suburb.toLowerCase().includes(search.toLowerCase());
-
-    const matchesStatus =
-      filterStatus === "ALL" || s.transferStatus === filterStatus;
-
-    return matchesSearch && matchesStatus;
-  });
-
   const handleRecordSale = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
     if (!formData.propertyId) {
-      setFormError("Please select a property for this sale.");
+      setFormError("Please select a property.");
       return;
     }
     if (!formData.buyerName.trim() || formData.buyerName.length < 3) {
-      setFormError("Buyer full name is required (at least 3 characters).");
+      setFormError("Buyer full name or company name is required.");
       return;
     }
     if (!formData.buyerContact.trim() || formData.buyerContact.length < 7) {
       setFormError("Valid buyer phone number is required.");
       return;
     }
-    if (!formData.buyerNrcPassport.trim()) {
-      setFormError("Buyer NRC or Passport number is required for Ministry Deeds registration.");
+    if (!formData.buyerNrcPassport.trim() || formData.buyerNrcPassport.length < 5) {
+      setFormError("Buyer NRC or Passport ID is required for legal Ministry transfer.");
       return;
     }
 
-    const priceNum = parseFloat(formData.salePrice);
-    if (!priceNum || priceNum <= 0) {
-      setFormError("Sale price must be greater than 0.");
+    const price = parseFloat(formData.salePrice);
+    if (!price || price <= 0) {
+      setFormError("Sale purchase price must be greater than zero.");
       return;
     }
 
-    const commissionPct = parseFloat(formData.agencyCommissionPct) || 5.0;
-    const agentSplitPct = parseFloat(formData.agentSplitPct) || 50.0;
+    const commPct = parseFloat(formData.agencyCommissionPct) || 5.0;
+    const splitPct = parseFloat(formData.agentSplitPct) || 50.0;
+    const commAmount = (price * commPct) / 100;
+    const splitAmount = (commAmount * splitPct) / 100;
 
-    const transactionPayload = {
+    const payload = {
       propertyId: formData.propertyId,
-      grossValue: priceNum,
+      grossValue: price,
       currency: formData.currency,
-      agencyCommissionPct: commissionPct,
-      agentSplitPct: agentSplitPct,
+      agencyCommissionPct: commPct,
+      agencyCommissionAmount: commAmount,
+      agentSplitPct: splitPct,
+      agentSplitAmount: splitAmount,
       status: "RECEIVED",
-      closingAgentId: "usr_field_agent",
       closedAt: new Date().toISOString(),
     };
 
     fetch("/api/sales", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(transactionPayload),
+      body: JSON.stringify(payload),
     })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.transaction) {
           const t = data.transaction;
-          const index = sales.length;
-          const buyerName = formData.buyerName || "Mwansa Mwape";
-          const buyerContact = formData.buyerContact || "+260 97 112 2334";
-          const buyerNrcPassport = formData.buyerNrcPassport || "111111/11/1";
-          const ministryRef = `LUS/LAND/2026/${t.id.slice(-4).toUpperCase()}-A`;
+          const ministryRef = formData.ministryReference;
 
           const newSale = {
             id: t.id,
-            propertyTitle: properties.find((p) => p.id === t.propertyId)?.title || "Untitled Property",
-            suburb: properties.find((p) => p.id === t.propertyId)?.suburb || "Lusaka",
-            buyerName,
-            buyerContact,
-            buyerNrcPassport,
+            propertyTitle: t.property?.title || "Untitled Property",
+            suburb: t.property?.suburb || "Lusaka",
+            buyerName: formData.buyerName,
+            buyerContact: formData.buyerContact,
+            buyerNrcPassport: formData.buyerNrcPassport,
             salePrice: Number(t.grossValue || 0),
             currency: t.currency || "ZMW",
             agencyCommissionEarned: Number(t.agencyCommissionAmount || 0),
@@ -224,7 +202,6 @@ export default function PropertySalesPage() {
             transferStatus: "PENDING_STATE_CONSENT",
             ministryReference: `LUS/LAND/2026/${Math.floor(1000 + Math.random() * 9000)}-A`,
           });
-          alert(`[SUCCESS] Property sale recorded! 5% Agency Commission (${formatCurrency(newSale.agencyCommissionEarned, newSale.currency)}) saved to Neon database.`);
         } else {
           setFormError(data.error || "Failed to save sale transaction.");
         }
@@ -234,7 +211,6 @@ export default function PropertySalesPage() {
       });
   };
 
-  // Compute real dynamic stats from sales data
   const stats = React.useMemo(() => {
     const totalsByCurrency: Record<string, number> = {};
     const commissionsByCurrency: Record<string, number> = {};
@@ -245,7 +221,7 @@ export default function PropertySalesPage() {
       const cur = s.currency || "ZMW";
       totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + (s.salePrice || 0);
       commissionsByCurrency[cur] = (commissionsByCurrency[cur] || 0) + (s.agencyCommissionEarned || 0);
-      
+
       if (s.transferStatus === "TRANSFER_COMPLETE") {
         completeTransfers++;
       } else {
@@ -253,13 +229,15 @@ export default function PropertySalesPage() {
       }
     });
 
-    const totalValStr = Object.entries(totalsByCurrency)
-      .map(([cur, val]) => formatCurrency(val, cur))
-      .join(" + ") || "K 0";
+    const totalValStr =
+      Object.entries(totalsByCurrency)
+        .map(([cur, val]) => formatCurrency(val, cur))
+        .join(" + ") || "K 0";
 
-    const commValStr = Object.entries(commissionsByCurrency)
-      .map(([cur, val]) => formatCurrency(val, cur))
-      .join(" + ") || "K 0";
+    const commValStr =
+      Object.entries(commissionsByCurrency)
+        .map(([cur, val]) => formatCurrency(val, cur))
+        .join(" + ") || "K 0";
 
     return {
       totalValStr,
@@ -269,87 +247,106 @@ export default function PropertySalesPage() {
     };
   }, [sales]);
 
+  const filteredSales = sales.filter((s) => {
+    const matchesSearch =
+      search.trim() === "" ||
+      s.propertyTitle?.toLowerCase().includes(search.toLowerCase()) ||
+      s.buyerName?.toLowerCase().includes(search.toLowerCase()) ||
+      s.suburb?.toLowerCase().includes(search.toLowerCase()) ||
+      s.ministryReference?.toLowerCase().includes(search.toLowerCase());
+
+    const matchesStatus =
+      filterStatus === "ALL" || s.transferStatus === filterStatus;
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
-    <div className="p-6 sm:p-8 pb-32 sm:pb-40 space-y-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
+    <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
-          <span className="text-xs font-semibold text-contour-red uppercase tracking-wider">
-            Closed Mandates & Transfers
-          </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink-900 mt-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] sm:text-[10px] font-geist font-bold px-1.5 sm:px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
+              Conveyance Registry
+            </span>
+            <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
+              Ministry of Lands Folio Sync
+            </span>
+          </div>
+          <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
             Property Sales & Deeds Registry
           </h1>
-          <p className="text-xs text-ink-600 mt-1">
-            Complete record of sold properties, buyer identities, Ministry of Lands transfer statuses, and earned 5% commissions.
+          <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
+            Complete registry of closed acquisitions, buyer NRC/passport identification, Lands transfer consent tracking, and 5% commissions.
           </p>
         </div>
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-semibold transition-transform active:scale-95 shadow-subtle flex items-center gap-1.5 self-start sm:self-auto"
+          className="px-3 sm:px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Record Property Sale</span>
+          <span>Record Sale</span>
         </button>
       </div>
 
       {/* KPI Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <span className="text-[10px] font-bold text-ink-600 uppercase tracking-wider">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <span className="text-[9px] sm:text-[10px] font-heading font-bold text-editorial-black uppercase tracking-wider">
             Total Closed Sales Value
           </span>
-          <div className="font-mono text-2xl font-bold text-ink-900 mt-1">
+          <div className="font-geist text-xl sm:text-2xl font-bold text-editorial-black mt-1 tracking-tight truncate">
             {loading ? "…" : stats.totalValStr}
           </div>
-          <span className="text-[11px] text-ink-600 mt-0.5 block">
-            Across {sales.length} closed acquisitions
+          <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
+            Across {sales.length} closed transactions
           </span>
-        </div>
+        </MotionCard>
 
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <span className="text-[10px] font-bold text-ink-600 uppercase tracking-wider">
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <span className="text-[9px] sm:text-[10px] font-heading font-bold text-contour-red uppercase tracking-wider">
             Agency Sales Commission (5%)
           </span>
-          <div className="font-mono text-2xl font-bold text-contour-red mt-1">
+          <div className="font-geist text-xl sm:text-2xl font-bold text-contour-red mt-1 tracking-tight truncate">
             {loading ? "…" : stats.commValStr}
           </div>
-          <span className="text-[11px] text-ink-600 mt-0.5 block">
+          <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
             Retained brokerage fee revenue
           </span>
-        </div>
+        </MotionCard>
 
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <span className="text-[10px] font-bold text-ink-600 uppercase tracking-wider">
+        <MotionCard withCorners className="p-5">
+          <span className="text-[10px] font-heading font-bold text-editorial-black uppercase tracking-wider">
             Ministry Title Transfers
           </span>
-          <div className="font-mono text-2xl font-bold text-contour-emerald mt-1">
+          <div className="font-geist text-2xl font-bold text-emerald-800 mt-1 tracking-tight">
             {loading ? "…" : `${stats.completeTransfers} Complete • ${stats.pendingTransfers} In Progress`}
           </div>
-          <span className="text-[11px] text-ink-600 mt-0.5 block">
-            Tracked with Lands Registry folio refs
+          <span className="text-[11px] font-geist text-editorial-muted mt-0.5 block">
+            Verified Lands Registry folio entries
           </span>
-        </div>
+        </MotionCard>
       </div>
 
       {/* Search & Status Filter */}
-      <div className="bg-white rounded-2xl p-4 border border-border shadow-card flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 bg-paper-100 px-3 py-2 rounded-xl border border-border flex-1 max-w-md">
-          <Search className="w-4 h-4 text-ink-600 shrink-0" />
+      <div className="bg-white p-3 border border-editorial-border flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 bg-neutral-50 px-3 py-1.5 border border-editorial-border flex-1 max-w-md">
+          <Search className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
           <input
             type="text"
             placeholder="Search by property, buyer name, or suburb..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-xs text-ink-900 placeholder:text-ink-600 focus:outline-none"
+            className="w-full bg-transparent text-xs text-editorial-black placeholder:text-editorial-muted focus:outline-none font-geist"
           />
         </div>
 
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-paper-100 border border-border text-ink-900 text-xs rounded-xl px-3 py-2 focus:outline-none"
+          className="bg-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider px-3 py-1.5 focus:outline-none"
         >
           <option value="ALL">All Transfer Statuses</option>
           <option value="PENDING_STATE_CONSENT">Pending State Consent</option>
@@ -359,123 +356,193 @@ export default function PropertySalesPage() {
       </div>
 
       {/* Sales Table Card */}
-      <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-        <div className="p-5 border-b border-border flex items-center justify-between">
-          <h3 className="font-bold text-sm text-ink-900">Property Sales Registry ({filteredSales.length})</h3>
-          <span className="text-xs text-ink-600 flex items-center gap-1">
-            <Landmark className="w-3.5 h-3.5 text-contour-red" /> Ministry of Lands Reference Tracking
+      <div className="bg-white border border-editorial-border">
+        <div className="p-4 border-b border-editorial-border flex items-center justify-between">
+          <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+            Property Sales Registry ({filteredSales.length})
+          </h3>
+          <span className="text-xs text-editorial-muted font-geist flex items-center gap-1">
+            <Landmark className="w-3.5 h-3.5 text-contour-red" />
+            <span>Ministry Lands Folio Tracking</span>
           </span>
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 text-ink-600 font-medium">
-            <Bot className="animate-spin w-8 h-8 mb-2 text-contour-red" />
-            <span>Loading sales transactions from Neon database...</span>
+          <div className="text-center py-12 text-editorial-muted text-xs font-geist">
+            Loading sales transactions from database...
           </div>
         ) : filteredSales.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white">
-            <DollarSign className="w-12 h-12 text-ink-400" />
-            <h3 className="font-semibold text-ink-900">No transactions recorded</h3>
-            <p className="text-sm text-ink-600 max-w-sm">No property acquisitions match your current filter or have been registered yet.</p>
+          <div className="py-16 text-center text-xs text-editorial-muted font-geist">
+            No property acquisitions match your current filter.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-paper-100 text-ink-600 uppercase tracking-wider text-[10px] border-b border-border">
-                <tr>
-                  <th className="p-4 font-semibold">Sold Property</th>
-                  <th className="p-4 font-semibold">Buyer Information</th>
-                  <th className="p-4 font-semibold">Purchase Price</th>
-                  <th className="p-4 font-semibold">5% Agency Fee</th>
-                  <th className="p-4 font-semibold">Closing Agent</th>
-                  <th className="p-4 font-semibold">Deeds Transfer Status</th>
-                  <th className="p-4 font-semibold text-right">Sale Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredSales.map((sale) => {
-                  const isComplete = sale.transferStatus === "TRANSFER_COMPLETE";
-                  const isLodged = sale.transferStatus === "DEEDS_LODGED";
+          <>
+            {/* Mobile Card List (< md) */}
+            <div className="md:hidden divide-y divide-editorial-border">
+              {filteredSales.map((sale) => {
+                const isComplete = sale.transferStatus === "TRANSFER_COMPLETE";
 
-                  return (
-                    <tr key={sale.id} className="hover:bg-paper-100/50 transition-colors">
-                      <td className="p-4">
-                        <div className="font-bold text-ink-900 max-w-xs">{sale.propertyTitle}</div>
-                        <div className="text-[11px] text-ink-600 mt-0.5">
-                          📍 {sale.suburb} • Ref: {sale.ministryReference}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-semibold text-ink-900">{sale.buyerName}</div>
-                        <div className="text-[11px] text-ink-600">{sale.buyerContact}</div>
-                        <div className="text-[10px] font-mono text-ink-600 mt-0.5">ID: {sale.buyerNrcPassport}</div>
-                      </td>
-                      <td className="p-4 font-mono font-bold text-ink-900 text-sm">
-                        {formatCurrency(sale.salePrice, sale.currency)}
-                      </td>
-                      <td className="p-4">
-                        <div className="font-mono font-bold text-contour-red">
-                          {formatCurrency(sale.agencyCommissionEarned, sale.currency)}
-                        </div>
-                        <div className="text-[10px] text-ink-600">
-                          Agent Split: {formatCurrency(sale.agentSplitPaid, sale.currency)}
-                        </div>
-                      </td>
-                      <td className="p-4 font-medium text-ink-800">
-                        {sale.closingAgent}
-                      </td>
-                      <td className="p-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            isComplete
-                              ? "bg-emerald-100 text-emerald-800"
-                              : isLodged
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {isComplete
-                            ? "Transfer Complete"
-                            : isLodged
-                            ? "Deeds Lodged"
-                            : "Pending Consent"}
+                return (
+                  <div key={sale.id} className="p-4 space-y-2.5 bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                          📍 {sale.suburb}
                         </span>
-                      </td>
-                      <td className="p-4 text-right font-mono text-ink-600">
-                        {sale.closedAt}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <h4 className="font-heading font-bold text-sm text-editorial-black truncate">
+                          {sale.propertyTitle}
+                        </h4>
+                      </div>
+                      <span
+                        className={`inline-block text-[9px] font-geist uppercase tracking-wider px-2 py-0.5 border shrink-0 ${
+                          isComplete
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold"
+                            : "border-amber-300 bg-amber-50 text-amber-800 font-semibold"
+                        }`}
+                      >
+                        {sale.transferStatus.replace(/_/g, " ")}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 bg-neutral-50 border border-editorial-border text-xs font-geist space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-editorial-muted">Buyer:</span>
+                        <strong className="text-editorial-black">{sale.buyerName}</strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-editorial-muted">Ref:</span>
+                        <span className="font-mono text-[10px] text-editorial-black">{sale.ministryReference}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-editorial-muted">Price:</span>
+                        <strong className="text-editorial-black">
+                          {formatCurrency(sale.salePrice, sale.currency)}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-editorial-muted">Agent:</span>
+                        <span className="text-editorial-black">{sale.closingAgent}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-editorial-border text-xs font-geist">
+                      <div>
+                        <span className="text-[9px] text-editorial-muted uppercase block">Sale Date</span>
+                        <span className="text-editorial-muted text-[11px]">{sale.closedAt}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] text-contour-red uppercase block">5% Commission</span>
+                        <strong className="text-contour-red font-bold">
+                          {formatCurrency(sale.agencyCommissionEarned, sale.currency)}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table (md+) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs font-geist">
+                <thead className="bg-neutral-50 text-editorial-muted uppercase tracking-wider text-[10px] font-heading font-semibold border-b border-editorial-border">
+                  <tr>
+                    <th className="py-3 px-4">Sold Property</th>
+                    <th className="py-3 px-4">Buyer Information</th>
+                    <th className="py-3 px-4">Purchase Price</th>
+                    <th className="py-3 px-4">5% Agency Fee</th>
+                    <th className="py-3 px-4">Closing Agent</th>
+                    <th className="py-3 px-4">Deeds Transfer Status</th>
+                    <th className="py-3 px-4 text-right">Sale Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-editorial-border">
+                  {filteredSales.map((sale) => {
+                    const isComplete = sale.transferStatus === "TRANSFER_COMPLETE";
+                    const isLodged = sale.transferStatus === "DEEDS_LODGED";
+
+                    return (
+                      <tr key={sale.id} className="hover:bg-[#fff5f3]/40 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <div className="font-heading font-bold text-editorial-black uppercase max-w-xs">
+                            {sale.propertyTitle}
+                          </div>
+                          <div className="text-[11px] font-geist text-editorial-muted mt-0.5">
+                            📍 {sale.suburb} • Ref: {sale.ministryReference}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-medium text-editorial-black">{sale.buyerName}</div>
+                          <div className="text-[11px] text-editorial-muted">{sale.buyerContact}</div>
+                          <div className="text-[10px] font-mono text-editorial-muted">NRC: {sale.buyerNrcPassport}</div>
+                        </td>
+                        <td className="py-3.5 px-4 font-geist font-bold text-editorial-black text-sm">
+                          {formatCurrency(sale.salePrice, sale.currency)}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-geist font-bold text-contour-red">
+                            {formatCurrency(sale.agencyCommissionEarned, sale.currency)}
+                          </div>
+                          <div className="text-[10px] font-geist text-editorial-muted">
+                            Agent Split: {formatCurrency(sale.agentSplitPaid, sale.currency)}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-editorial-black">
+                          {sale.closingAgent}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-block text-[9px] font-geist uppercase tracking-wider px-2 py-0.2 border ${
+                              isComplete
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold"
+                                : isLodged
+                                ? "border-amber-300 bg-amber-50 text-amber-800 font-semibold"
+                                : "border-editorial-border bg-neutral-100 text-editorial-black"
+                            }`}
+                          >
+                            {sale.transferStatus.replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono text-[11px] text-editorial-muted">
+                          {sale.closedAt}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
       {/* Interactive Modal: Record Property Sale */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-border shadow-floating space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 font-geist">
+          <div className="bg-white max-w-lg w-full p-4 sm:p-6 border border-editorial-border space-y-4 max-h-[90dvh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
               <div className="flex items-center gap-2">
-                <Landmark className="w-5 h-5 text-contour-red" />
-                <h3 className="font-bold text-base text-ink-900">Record Property Sale</h3>
+                <Landmark className="w-4 h-4 text-contour-red" />
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Record Property Sale & Conveyance
+                </h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-ink-600 hover:text-ink-900">
-                <X className="w-5 h-5" />
+              <button onClick={() => setIsModalOpen(false)} className="text-editorial-muted hover:text-contour-red">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {formError && (
-              <div className="p-3 rounded-xl bg-red-50 text-contour-red text-xs font-semibold">
+              <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">
                 ⚠️ {formError}
               </div>
             )}
 
             <form onSubmit={handleRecordSale} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-ink-800 mb-1">Property Sold *</label>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Property Sold *
+                </label>
                 <select
                   value={formData.propertyId}
                   onChange={(e) => {
@@ -488,7 +555,7 @@ export default function PropertySalesPage() {
                       currency: p?.currency || formData.currency,
                     });
                   }}
-                  className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                 >
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -503,25 +570,29 @@ export default function PropertySalesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Buyer Full Name / Company *</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Buyer Full Name / Company *
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. Dr. Mutale Kapwepwe"
                     value={formData.buyerName}
                     onChange={(e) => setFormData({ ...formData, buyerName: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Buyer Phone Number *</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Buyer Phone Number *
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. +260 97 889 0011"
                     value={formData.buyerContact}
                     onChange={(e) => setFormData({ ...formData, buyerContact: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none font-mono"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
                     required
                   />
                 </div>
@@ -529,23 +600,27 @@ export default function PropertySalesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Buyer NRC / Passport ID *</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Buyer NRC / Passport ID *
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. 194820/11/1"
                     value={formData.buyerNrcPassport}
                     onChange={(e) => setFormData({ ...formData, buyerNrcPassport: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none font-mono"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Closing Agent</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Closing Agent
+                  </label>
                   <select
                     value={formData.closingAgent}
                     onChange={(e) => setFormData({ ...formData, closingAgent: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                   >
                     <option value="Grace Banda (Principal Broker)">Grace Banda (Principal Broker)</option>
                     <option value="Tembo Mwape">Tembo Mwape</option>
@@ -556,22 +631,26 @@ export default function PropertySalesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Sale Purchase Price *</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Sale Purchase Price *
+                  </label>
                   <input
                     type="number"
                     value={formData.salePrice}
                     onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none font-mono"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Currency</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Currency
+                  </label>
                   <select
                     value={formData.currency}
                     onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none font-mono"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
                   >
                     <option value="ZMW">ZMW (K)</option>
                     <option value="USD">USD ($)</option>
@@ -581,11 +660,13 @@ export default function PropertySalesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Deeds Transfer Status</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Deeds Transfer Status
+                  </label>
                   <select
                     value={formData.transferStatus}
                     onChange={(e) => setFormData({ ...formData, transferStatus: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                   >
                     <option value="PENDING_STATE_CONSENT">Pending State Consent</option>
                     <option value="DEEDS_LODGED">Deeds Lodged at Registry</option>
@@ -594,30 +675,32 @@ export default function PropertySalesPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-ink-800 mb-1">Ministry Lands Reference</label>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Ministry Lands Reference
+                  </label>
                   <input
                     type="text"
                     value={formData.ministryReference}
                     onChange={(e) => setFormData({ ...formData, ministryReference: e.target.value })}
-                    className="w-full bg-paper-100 px-3 py-2 rounded-xl border border-border text-ink-900 focus:outline-none font-mono"
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
                   />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-full border border-border text-ink-800 hover:bg-paper-200"
+                  className="px-4 py-2 border border-editorial-border text-editorial-black hover:bg-neutral-50 text-xs font-heading font-semibold uppercase tracking-wider"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-full bg-ink-900 hover:bg-ink-950 text-white font-semibold shadow-subtle flex items-center gap-1.5"
+                  className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>Record Sale</span>
+                  <span>Record Conveyance</span>
                 </button>
               </div>
             </form>

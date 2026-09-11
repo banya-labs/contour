@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { DollarSign, TrendingUp, CheckCircle2, Clock, UserCheck, Bot } from "lucide-react";
+import { DollarSign, TrendingUp, CheckCircle2, Clock } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { MotionCard } from "@/components/ui/animate/motion-card";
 
 export default function CommissionsPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -25,7 +26,6 @@ export default function CommissionsPage() {
     loadData();
   }, []);
 
-  // Compute stats dynamically
   const stats = React.useMemo(() => {
     const earnedByCurrency: Record<string, number> = {};
     const agentSplitsByCurrency: Record<string, number> = {};
@@ -42,17 +42,20 @@ export default function CommissionsPage() {
       netByCurrency[cur] = (netByCurrency[cur] || 0) + (comm - split);
     });
 
-    const earnedStr = Object.entries(earnedByCurrency)
-      .map(([cur, val]) => formatCurrency(val, cur))
-      .join(" + ") || "K 0";
+    const earnedStr =
+      Object.entries(earnedByCurrency)
+        .map(([cur, val]) => formatCurrency(val, cur))
+        .join(" + ") || "K 0";
 
-    const agentSplitsStr = Object.entries(agentSplitsByCurrency)
-      .map(([cur, val]) => formatCurrency(val, cur))
-      .join(" + ") || "K 0";
+    const agentSplitsStr =
+      Object.entries(agentSplitsByCurrency)
+        .map(([cur, val]) => formatCurrency(val, cur))
+        .join(" + ") || "K 0";
 
-    const netStr = Object.entries(netByCurrency)
-      .map(([cur, val]) => formatCurrency(val, cur))
-      .join(" + ") || "K 0";
+    const netStr =
+      Object.entries(netByCurrency)
+        .map(([cur, val]) => formatCurrency(val, cur))
+        .join(" + ") || "K 0";
 
     return {
       earnedStr,
@@ -63,103 +66,165 @@ export default function CommissionsPage() {
   }, [transactions]);
 
   return (
-    <div className="p-6 sm:p-8 pb-32 sm:pb-40 space-y-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
+    <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
       {/* Header */}
-      <div>
-        <span className="text-xs font-semibold text-contour-red uppercase tracking-wider">
-          Revenue Intelligence
-        </span>
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink-900 mt-0.5">
-          Commission & Deal Splits
+      <div className="pb-4 sm:pb-6 border-b border-editorial-border">
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] sm:text-[10px] font-geist font-bold px-1.5 sm:px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
+            Financial Ledger
+          </span>
+          <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
+            5% Statutory Brokerage Model
+          </span>
+        </div>
+        <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
+          Commission & Deal Splits Ledger
         </h1>
-        <p className="text-xs text-ink-600 mt-1">
-          Distinguish gross asset value from true 5% agency revenue and 50% agent payouts.
+        <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
+          Distinguish gross asset conveyance volume from contracted 5% agency commission and 50% field agent payouts.
         </p>
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <span className="text-[10px] font-bold text-ink-600 uppercase tracking-wider">
-            Total Earned Agency Commission
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <span className="text-[9px] sm:text-[10px] font-heading font-bold text-contour-red uppercase tracking-wider">
+            Total 5% Agency Commission
           </span>
-          <div className="font-mono text-2xl font-bold text-contour-red mt-1">
+          <div className="font-geist text-xl sm:text-2xl font-bold text-contour-red mt-1 tracking-tight truncate">
             {loading ? "…" : stats.earnedStr}
           </div>
-          <span className="text-[11px] text-ink-600 mt-0.5 block">From {stats.totalDeals} deal{stats.totalDeals === 1 ? "" : "s"} in pipeline</span>
-        </div>
+          <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
+            Retained across {stats.totalDeals} transactions
+          </span>
+        </MotionCard>
 
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <span className="text-[10px] font-bold text-ink-600 uppercase tracking-wider">
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <span className="text-[9px] sm:text-[10px] font-heading font-bold text-editorial-black uppercase tracking-wider">
             Agent Split Payouts (50%)
           </span>
-          <div className="font-mono text-2xl font-bold text-ink-900 mt-1">
+          <div className="font-geist text-xl sm:text-2xl font-bold text-editorial-black mt-1 tracking-tight truncate">
             {loading ? "…" : stats.agentSplitsStr}
           </div>
-          <span className="text-[11px] text-ink-600 mt-0.5 block">Payable to closing field agents</span>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-border shadow-card">
-          <span className="text-[10px] font-bold text-ink-600 uppercase tracking-wider">
-            Net Agency Retained Profit
+          <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
+            Payable to closing field agents
           </span>
-          <div className="font-mono text-2xl font-bold text-contour-emerald mt-1">
+        </MotionCard>
+
+        <MotionCard withCorners className="p-3.5 sm:p-5">
+          <span className="text-[9px] sm:text-[10px] font-heading font-bold text-editorial-black uppercase tracking-wider">
+            Net Retained Cashflow
+          </span>
+          <div className="font-geist text-xl sm:text-2xl font-bold text-emerald-800 mt-1 tracking-tight truncate">
             {loading ? "…" : stats.netStr}
           </div>
-          <span className="text-[11px] text-ink-600 mt-0.5 block">Retained brokerage cash flow</span>
-        </div>
+          <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
+            Net operating agency margin
+          </span>
+        </MotionCard>
       </div>
 
-      {/* Transactions Ledger Table */}
-      <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-        <div className="p-5 border-b border-border">
-          <h3 className="font-bold text-sm text-ink-900">Deals & Commission Pipeline</h3>
+      {/* Transactions Ledger Table Card */}
+      <div className="bg-white border border-editorial-border">
+        <div className="p-3 sm:p-4 border-b border-editorial-border flex items-center justify-between">
+          <h3 className="font-heading font-bold text-xs sm:text-sm text-editorial-black uppercase tracking-wider">
+            Conveyance & Commission Pipeline
+          </h3>
+          <span className="text-[9px] sm:text-[10px] font-geist text-editorial-muted uppercase tracking-wider">
+            Lenco / Paystack Reconciled
+          </span>
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 text-ink-600 font-medium">
-            <Bot className="animate-spin w-8 h-8 mb-2 text-contour-red" />
-            <span>Loading commissions ledger from database...</span>
+          <div className="text-center py-12 text-editorial-muted text-xs font-geist">
+            Loading commissions ledger from database...
           </div>
         ) : transactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white">
-            <DollarSign className="w-12 h-12 text-ink-400" />
-            <h3 className="font-semibold text-ink-900">No transactions recorded</h3>
-            <p className="text-sm text-ink-600 max-w-sm">No commissions have been registered yet.</p>
+          <div className="py-16 text-center text-xs text-editorial-muted font-geist">
+            No closed sale commissions recorded yet.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-paper-100 text-ink-600 uppercase tracking-wider text-[10px] border-b border-border">
-                <tr>
-                  <th className="p-4 font-semibold">Property Deal</th>
-                  <th className="p-4 font-semibold">Gross Value</th>
-                  <th className="p-4 font-semibold">Agency Fee</th>
-                  <th className="p-4 font-semibold">Agent Split</th>
-                  <th className="p-4 font-semibold">Closing Agent</th>
-                  <th className="p-4 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+          <>
+            {/* Mobile Card List (< md) */}
+            <div className="md:hidden divide-y divide-editorial-border">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="p-4 space-y-2 bg-white text-xs font-geist">
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-heading font-bold text-sm text-editorial-black truncate">
+                      {tx.property?.title || "Untitled Property"}
+                    </h4>
+                    <span
+                      className={`inline-block text-[9px] uppercase tracking-wider px-2 py-0.2 border shrink-0 ${
+                        tx.status === "RECEIVED"
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold"
+                          : "border-amber-300 bg-amber-50 text-amber-800 font-semibold"
+                      }`}
+                    >
+                      {tx.status}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 bg-neutral-50 border border-editorial-border space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-editorial-muted">Asset Value:</span>
+                      <strong className="text-editorial-black">{formatCurrency(Number(tx.grossValue), tx.currency)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-editorial-muted">5% Agency Fee:</span>
+                      <strong className="text-contour-red">{formatCurrency(Number(tx.agencyCommissionAmount), tx.currency)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-editorial-muted">Agent Split (50%):</span>
+                      <strong className="text-editorial-black">{formatCurrency(Number(tx.agentSplitAmount), tx.currency)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-editorial-muted">Closing Agent:</span>
+                      <span>{tx.closingAgent?.name || "Unassigned"}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (md+) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs font-geist">
+                <thead className="bg-neutral-50 text-editorial-muted uppercase tracking-wider text-[10px] font-heading font-semibold border-b border-editorial-border">
+                  <tr>
+                    <th className="py-3 px-4">Property Deal</th>
+                    <th className="py-3 px-4">Gross Asset Value</th>
+                    <th className="py-3 px-4">5% Agency Fee</th>
+                    <th className="py-3 px-4">Agent Share (50%)</th>
+                    <th className="py-3 px-4">Closing Agent</th>
+                    <th className="py-3 px-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-editorial-border">
                 {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-paper-100/50 transition-colors">
-                    <td className="p-4 font-medium text-ink-900 max-w-xs">{tx.property?.title || "Untitled Property"}</td>
-                    <td className="p-4 font-mono text-ink-600">{formatCurrency(Number(tx.grossValue), tx.currency)}</td>
-                    <td className="p-4 font-mono font-bold text-contour-red">
+                  <tr key={tx.id} className="hover:bg-[#fff5f3]/40 transition-colors">
+                    <td className="py-3.5 px-4 font-medium text-editorial-black max-w-xs">
+                      {tx.property?.title || "Untitled Property"}
+                    </td>
+                    <td className="py-3.5 px-4 font-geist text-editorial-muted">
+                      {formatCurrency(Number(tx.grossValue), tx.currency)}
+                    </td>
+                    <td className="py-3.5 px-4 font-geist font-bold text-contour-red">
                       {formatCurrency(Number(tx.agencyCommissionAmount), tx.currency)} ({Number(tx.agencyCommissionPct)}%)
                     </td>
-                    <td className="p-4 font-mono font-bold text-ink-900">
+                    <td className="py-3.5 px-4 font-geist font-bold text-editorial-black">
                       {formatCurrency(Number(tx.agentSplitAmount), tx.currency)} ({Number(tx.agentSplitPct)}%)
                     </td>
-                    <td className="p-4 text-ink-800 font-medium">{tx.closingAgent?.name || "Unassigned"}</td>
-                    <td className="p-4">
+                    <td className="py-3.5 px-4 text-editorial-black font-medium">
+                      {tx.closingAgent?.name || "Unassigned"}
+                    </td>
+                    <td className="py-3.5 px-4">
                       <span
-                        className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                        className={`inline-block text-[9px] font-geist uppercase tracking-wider px-2 py-0.2 border ${
                           tx.status === "RECEIVED"
-                            ? "bg-emerald-100 text-emerald-800"
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-800"
                             : tx.status === "EXPECTED"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-red-100 text-red-800"
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : "border-red-300 bg-red-50 text-red-800"
                         }`}
                       >
                         {tx.status}
@@ -169,7 +234,8 @@ export default function CommissionsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>
