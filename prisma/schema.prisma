@@ -47,6 +47,8 @@ model User {
   grantedVaultAccess VaultAccessGrant[]  @relation("GrantedVaultAccess")
   documentRequests   DocumentRequest[]
   sentInvitations    Invitation[]        @relation("InvitationInviter")
+  createdBoundaries   PropertyBoundary[]  @relation("BoundaryCreatedBy")
+  verifiedBoundaries  PropertyBoundary[]  @relation("BoundaryVerifiedBy")
 
   @@map("user")
 }
@@ -139,6 +141,9 @@ model Organization {
   assets              OrganizationAsset[]
   roles               OrganizationRole[]
   uploadSessions      UploadSession[]
+  surveyExtractionJobs SurveyExtractionJob[]
+  boundaries          PropertyBoundary[]
+  boundaryEvidenceEvents BoundaryEvidenceEvent[]
 
   @@map("organization")
 }
@@ -431,6 +436,9 @@ model Property {
   landlordStatements  LandlordStatement[]
   vaultDocuments      VaultDocument[]
   documentRequests    DocumentRequest[]
+  surveyExtractionJobs SurveyExtractionJob[]
+  boundaries            PropertyBoundary[]
+  boundaryEvidenceEvents BoundaryEvidenceEvent[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -885,12 +893,125 @@ model VaultDocument {
   organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   property           Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   documentRequest    DocumentRequest? @relation(fields: [documentRequestId], references: [id], onDelete: SetNull)
+  surveyExtractionJobs SurveyExtractionJob[]
+  boundaries           PropertyBoundary[]
 
   @@index([organizationId, docType])
   @@index([organizationId, propertyId])
   @@index([organizationId, isDeleted])
   @@index([organizationId, createdAt])
   @@map("vault_document")
+}
+
+model SurveyExtractionJob {
+  id                String        @id @default(cuid())
+  organizationId    String
+  propertyId        String
+  sourceDocumentId  String
+  idempotencyKey    String?
+  status            String        @default("QUEUED")
+  engine            String?
+  engineVersion     String?
+  pageCount         Int?
+  processedPages    Int           @default(0)
+  rawOcrObjectKey   String?
+  extractionJson    Json?
+  errorCode         String?
+  errorMessage      String?
+  createdById       String
+  reviewedById      String?
+  reviewedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property          Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  sourceDocument    VaultDocument @relation(fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, propertyId])
+  @@index([sourceDocumentId])
+  @@unique([organizationId, idempotencyKey])
+  @@map("survey_extraction_job")
+}
+
+enum PropertyBoundarySourceType {
+  TITLE_DEED
+  GOVERNMENT_CADASTRE
+  GEOJSON
+  KML
+  SHAPEFILE
+  AGENT_DRAWN
+}
+
+enum PropertyBoundaryStatus {
+  PENDING
+  MATCHED
+  VERIFIED
+  REJECTED
+  SUPERSEDED
+}
+
+model PropertyBoundary {
+  id                    String                    @id @default(cuid())
+  organizationId        String
+  propertyId            String
+  sourceType            PropertyBoundarySourceType
+  status                PropertyBoundaryStatus   @default(PENDING)
+  geometryGeoJson       Json
+  sourceCrs             String?
+  targetCrs             String                    @default("EPSG:4326")
+  plotId                String?
+  surveyReference       String?
+  diagramNumber         String?
+  planNumber            String?
+  statedAreaSqm         Decimal?                  @db.Decimal(14, 3)
+  calculatedAreaSqm     Decimal?                  @db.Decimal(14, 3)
+  areaDifferencePct     Decimal?                  @db.Decimal(8, 3)
+  sourceDocumentId      String?
+  governmentSourceUrl   String?
+  governmentLayer       String?
+  governmentRecordId    String?
+  governmentFetchedAt   DateTime?
+  confidenceScore       Decimal?                  @db.Decimal(5, 4)
+  validationFlags       Json                      @default("[]")
+  createdById           String
+  verifiedById          String?
+  verifiedAt            DateTime?
+  rejectionReason       String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property              Property                  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  sourceDocument        VaultDocument?            @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  createdBy             User                       @relation("BoundaryCreatedBy", fields: [createdById], references: [id])
+  verifiedBy            User?                      @relation("BoundaryVerifiedBy", fields: [verifiedById], references: [id])
+  evidenceEvents        BoundaryEvidenceEvent[]
+
+  @@index([organizationId, propertyId, status])
+  @@index([sourceDocumentId])
+  @@map("property_boundary")
+}
+
+model BoundaryEvidenceEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  propertyId     String
+  boundaryId     String?
+  eventType      String
+  actorId        String?
+  details        Json?
+  sourceHash     String?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  boundary      PropertyBoundary? @relation(fields: [boundaryId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, propertyId, createdAt])
+  @@index([boundaryId, createdAt])
+  @@map("boundary_evidence_event")
 }
 
 model VaultAccessGrant {

@@ -1,6 +1,6 @@
 # Contour Cadastral Map and Title-Deed Boundary Extraction Plan
 
-**Status:** Proposed for review — planning only; no implementation or production data changes are included in this document.
+**Status:** Implementation in progress — Phases 1 and 2 complete; Phase 3 ingestion and Phase 4 provenance foundations complete; no production schema or production data changes have been applied.
 
 **Project:** Contour — Real Estate Operations & Field Agent Operating System
 
@@ -292,29 +292,29 @@ The extraction worker may initially be a controlled background job run by the ex
 
 ### Phase 1 — Data contract and fixtures
 
-- Add a sanitized fixture derived from the sample’s layout, with no real owner names or sensitive references.
-- Define extraction JSON schema, CRS model, validation flags, and status transitions.
-- Add coordinate conversion and polygon validation unit tests.
+- [x] Add a sanitized fixture derived from the sample’s layout, with no real owner names or sensitive references.
+- [x] Define extraction JSON schema, CRS model, validation flags, and status transitions.
+- [x] Add coordinate conversion and polygon validation unit tests.
 
 ### Phase 2 — Government overlay prototype
 
-- Query the Zambia `Lots` layer for a fixed Lusaka test area.
-- Convert/normalize geometry to WGS84.
-- Render the overlay in Leaflet without replacing the private deed boundary.
-- Add caching, source metadata, timeout, and no-match states.
+- [x] Query the Zambia `Lots` layer for a fixed Lusaka test area.
+- [x] Convert/normalize geometry to WGS84.
+- [x] Render the overlay in Leaflet without replacing the private deed boundary.
+- [x] Add caching, source metadata, timeout, and no-match states.
 
 ### Phase 3 — Private deed upload and OCR
 
-- Add secure upload session and job creation.
-- Add scan preprocessing and OCR extraction.
+- [x] Add secure upload session and tenant-scoped job creation.
+- [x] Add deterministic OCR text parsing and a controlled Tesseract worker primitive.
 - Build the extraction review screen with document preview and map polygon.
 - Add manual corrections and provenance tracking.
 
 ### Phase 4 — Boundary approval and property map integration
 
-- Add versioned `PropertyBoundary` records.
+- [x] Add versioned `PropertyBoundary` records.
 - Replace direct reliance on raw `standBoundary` with verified-boundary selection.
-- Add layer styling, evidence panel, audit events, and role permissions.
+- [x] Add boundary status transitions, evidence events, and role-protected API foundations.
 - Preserve manual drawing as an explicit approximation workflow.
 
 ### Phase 5 — Import formats and production hardening
@@ -366,3 +366,11 @@ Contour can make survey evidence easier to review and can display government cad
 ## 15. Definition of done
 
 An agency user can upload a title deed or survey diagram, Contour can extract coordinate candidates without sending sensitive documents to an unapproved third party, the user can review and correct the proposed polygon, the application can compare it with Zambia’s government cadastral reference where available, and the approved boundary renders on the map with transparent provenance, tenant isolation, audit history, and a clear non-legal-certification label.
+
+## 16. Implementation checkpoint
+
+- Phase 1 and Phase 2 code lives under `src/lib/cadastral/`, with the bounded government adapter at `src/app/api/cadastre/search/route.ts`.
+- The government overlay is reference-only, blue/dashed, independently toggleable, and never replaces `Property.standBoundary`.
+- `proj4` is used for CRS conversion; the default area tolerance is 10% in the validation helper and remains configurable per review workflow.
+- The official service currently reports EPSG:32735 and no pagination support; the adapter requests `outSR=4326`, bounds the query envelope to 0.2 degrees, and truncates the service response locally.
+- Decisions still required before production OCR/approval: exact role matrix, retention/legal hold policy, and whether the acceptable area tolerance should differ by survey type.

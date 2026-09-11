@@ -19,6 +19,8 @@ import type { PropertyMapItem } from "@/types/property-map";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
 import { MOCK_PROPERTIES } from "@/lib/mock-data";
+import type { GovernmentCadastreFeature } from "@/lib/cadastral";
+import { DEFAULT_LUSAKA_CADASTRE_BBOX } from "@/lib/cadastral";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -46,6 +48,7 @@ export default function DashboardMapPage() {
   const [filterType, setFilterType] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"STANDARD" | "CHOROPLETH">("STANDARD");
   const [suburbIntelOpen, setSuburbIntelOpen] = useState(false);
+  const [governmentCadastreFeatures, setGovernmentCadastreFeatures] = useState<GovernmentCadastreFeature[]>([]);
 
   useEffect(() => {
     async function loadProperties() {
@@ -93,6 +96,23 @@ export default function DashboardMapPage() {
       }
     }
     loadProperties();
+  }, []);
+
+  useEffect(() => {
+    async function loadGovernmentReference() {
+      try {
+        const response = await fetch("/api/cadastre/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bbox: DEFAULT_LUSAKA_CADASTRE_BBOX, maxFeatures: 100 }),
+        });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.features)) setGovernmentCadastreFeatures(data.features as GovernmentCadastreFeature[]);
+      } catch {
+        setGovernmentCadastreFeatures([]);
+      }
+    }
+    loadGovernmentReference();
   }, []);
 
   const selectedPriceText = selectedProperty
@@ -198,6 +218,7 @@ export default function DashboardMapPage() {
             suburbIntelOpen={suburbIntelOpen}
             onToggleSuburbIntel={() => setSuburbIntelOpen((prev) => !prev)}
             onSelectProperty={(property) => setSelectedProperty(property)}
+            governmentCadastreFeatures={governmentCadastreFeatures}
             onSaveStandBoundary={(vertices, areaSqm) => {
               console.log("[STAND BOUNDARY SAVED]", vertices, areaSqm);
             }}
