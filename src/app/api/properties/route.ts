@@ -24,7 +24,13 @@ const getHandler = createApiHandler({
       );
     }
 
-    let targetOrgId = org || organizationId;
+    // Authenticated dashboard/catalog requests are always scoped to the
+    // session tenant. The `org` query parameter is only for unauthenticated
+    // public listing requests and can never override an active session.
+    const targetOrgId = ctx.session ? organizationId : org;
+    if (!targetOrgId) {
+      return NextResponse.json({ success: false, error: "Organization context required" }, { status: 403 });
+    }
 
     const allowedStatuses = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
     let statusFilter: any = { in: allowedStatuses };

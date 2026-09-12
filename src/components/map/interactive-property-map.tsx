@@ -80,8 +80,6 @@ export function calculateGeodesicAreaSqm(vertices: [number, number][]): number {
   return Math.round(area);
 }
 import type { PropertyMapItem } from "@/types/property-map";
-import type { GovernmentCadastreFeature } from "@/lib/cadastral/types";
-import type { Layer } from "leaflet";
 export type { PropertyMapItem } from "@/types/property-map";
 
 type InteractivePropertyMapProps = {
@@ -101,7 +99,6 @@ type InteractivePropertyMapProps = {
   // Choropleth View Props
   viewMode?: "STANDARD" | "CHOROPLETH";
   onViewModeChange?: (mode: "STANDARD" | "CHOROPLETH") => void;
-  governmentCadastreFeatures?: GovernmentCadastreFeature[];
 };
 
 const DEFAULT_LUSAKA_CENTER: [number, number] = [-15.4167, 28.2833];
@@ -148,7 +145,6 @@ export default function InteractivePropertyMap({
   onSaveStandBoundary,
   viewMode: externalViewMode,
   onViewModeChange,
-  governmentCadastreFeatures = [],
 }: InteractivePropertyMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -159,7 +155,6 @@ export default function InteractivePropertyMap({
   const polygonsMapRef = useRef<Map<string, any>>(new Map());
   const drawingLayerGroupRef = useRef<any>(null);
   const choroplethLayerGroupRef = useRef<any>(null);
-  const governmentLayerGroupRef = useRef<any>(null);
 
   // Choropleth View Mode & Hierarchy State
   const [internalViewMode, setInternalViewMode] = useState<"STANDARD" | "CHOROPLETH">("STANDARD");
@@ -188,7 +183,6 @@ export default function InteractivePropertyMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   // Floating Map Keyword Filter State
   const [filterInput, setFilterInput] = useState("");
-  const [showGovernmentLayer, setShowGovernmentLayer] = useState(true);
 
   // Handle Search input change
   const handleSearchUpdate = (val: string) => {
@@ -465,29 +459,6 @@ export default function InteractivePropertyMap({
 
     renderChoropleth();
   }, [viewMode, choroplethLevel, selectedCountryId, selectedProvinceId, propertiesWithCoords, mapLoaded]);
-
-  // Government geometry is a separate reference overlay; it never replaces the private property boundary.
-  useEffect(() => {
-    if (!mapLoaded || !mapInstanceRef.current) return;
-    async function renderGovernmentLayer() {
-      const L = leafletRef.current || (await import("leaflet")).default;
-      const map = mapInstanceRef.current;
-      if (!governmentLayerGroupRef.current) governmentLayerGroupRef.current = L.layerGroup().addTo(map);
-      const group = governmentLayerGroupRef.current;
-      group.clearLayers();
-      if (!showGovernmentLayer) return;
-      governmentCadastreFeatures.forEach((feature) => {
-        if (!feature.geometry) return;
-        L.geoJSON(feature.geometry as GeoJSON.GeoJsonObject, {
-          style: { color: "#2563eb", weight: 2, dashArray: "8, 5", fillColor: "#2563eb", fillOpacity: 0.08 },
-          onEachFeature: (_geoJson: GeoJSON.GeoJsonObject, layer: Layer) => {
-            layer.bindTooltip(`Government cadastral reference${feature.plotId ? ` · Plot ${feature.plotId}` : ""}`, { sticky: true });
-          },
-        }).addTo(group);
-      });
-    }
-    renderGovernmentLayer();
-  }, [governmentCadastreFeatures, mapLoaded, showGovernmentLayer]);
 
   const LUSAKA_SUBURBS: Record<string, [number, number]> = {
     kabulonga: [-15.4211, 28.3341],
@@ -932,20 +903,6 @@ export default function InteractivePropertyMap({
           >
             <Navigation className="w-3.5 h-3.5 text-contour-red" />
           </button>
-
-          {governmentCadastreFeatures.length > 0 && (
-            <>
-              <div className="w-px h-4 bg-border" />
-              <button
-                onClick={() => setShowGovernmentLayer((visible) => !visible)}
-                title="Toggle government cadastral reference overlay"
-                className={`p-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${showGovernmentLayer ? "bg-blue-600 text-white" : "hover:bg-paper-200 text-ink-900"}`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Govt. Lots</span>
-              </button>
-            </>
-          )}
 
           {onToggleSuburbIntel && (
             <>

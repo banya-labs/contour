@@ -7,7 +7,6 @@ import {
   MapPin,
   Search,
   X,
-  Layers,
   Bed,
   Bath,
   Ruler,
@@ -18,9 +17,6 @@ import {
 import type { PropertyMapItem } from "@/types/property-map";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
-import { MOCK_PROPERTIES } from "@/lib/mock-data";
-import { DEFAULT_LUSAKA_CADASTRE_BBOX } from "@/lib/cadastral/types";
-import type { GovernmentCadastreFeature } from "@/lib/cadastral/types";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -42,13 +38,13 @@ export default function DashboardMapPage() {
   const [selectedProperty, setSelectedProperty] = useState<PropertyMapItem | null>(null);
   const [properties, setProperties] = useState<PropertyMapItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Unified Search, Filter & View Mode state for Page Header & Map
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"STANDARD" | "CHOROPLETH">("STANDARD");
   const [suburbIntelOpen, setSuburbIntelOpen] = useState(false);
-  const [governmentCadastreFeatures, setGovernmentCadastreFeatures] = useState<GovernmentCadastreFeature[]>([]);
 
   useEffect(() => {
     async function loadProperties() {
@@ -84,35 +80,19 @@ export default function DashboardMapPage() {
               description: p.description,
               features: [],
             }));
-          setProperties(mapped.length > 0 ? mapped : MOCK_PROPERTIES);
+          setProperties(mapped);
         } else {
-          setProperties(MOCK_PROPERTIES);
+          setProperties([]);
         }
       } catch (err) {
         console.error("Failed to load map properties:", err);
-        setProperties(MOCK_PROPERTIES);
+        setProperties([]);
+        setLoadError("We could not load this agency's property catalog.");
       } finally {
         setLoading(false);
       }
     }
     loadProperties();
-  }, []);
-
-  useEffect(() => {
-    async function loadGovernmentReference() {
-      try {
-        const response = await fetch("/api/cadastre/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bbox: DEFAULT_LUSAKA_CADASTRE_BBOX, maxFeatures: 100 }),
-        });
-        const data = await response.json();
-        if (data.success && Array.isArray(data.features)) setGovernmentCadastreFeatures(data.features as GovernmentCadastreFeature[]);
-      } catch {
-        setGovernmentCadastreFeatures([]);
-      }
-    }
-    loadGovernmentReference();
   }, []);
 
   const selectedPriceText = selectedProperty
@@ -218,11 +198,32 @@ export default function DashboardMapPage() {
             suburbIntelOpen={suburbIntelOpen}
             onToggleSuburbIntel={() => setSuburbIntelOpen((prev) => !prev)}
             onSelectProperty={(property) => setSelectedProperty(property)}
-            governmentCadastreFeatures={governmentCadastreFeatures}
             onSaveStandBoundary={(vertices, areaSqm) => {
               console.log("[STAND BOUNDARY SAVED]", vertices, areaSqm);
             }}
           />
+        )}
+        {!loading && loadError && (
+          <div className="absolute inset-0 z-[1200] flex items-center justify-center bg-white/90 p-6 text-center">
+            <div className="max-w-sm space-y-2">
+              <p className="font-heading text-sm font-bold uppercase tracking-tight text-editorial-black">Catalog unavailable</p>
+              <p className="text-xs text-editorial-muted">{loadError} Refresh the page and try again.</p>
+            </div>
+          </div>
+        )}
+        {!loading && !loadError && properties.length === 0 && (
+          <div className="absolute inset-0 z-[1200] flex items-center justify-center bg-white/90 p-6 text-center">
+            <div className="max-w-sm space-y-2">
+              <p className="font-heading text-sm font-bold uppercase tracking-tight text-editorial-black">No properties in your catalog</p>
+              <p className="text-xs text-editorial-muted">Add a property in the catalog and it will appear here automatically.</p>
+              <Link href="/dashboard/properties" className="inline-flex bg-editorial-black px-3 py-2 text-[11px] font-heading font-semibold uppercase tracking-wider text-white">Open property catalog</Link>
+            </div>
+          </div>
+        )}
+        {!loading && !loadError && properties.length > 0 && properties.every((property) => property.latitude == null || property.longitude == null) && (
+          <div className="absolute bottom-4 left-1/2 z-[1200] -translate-x-1/2 bg-white/95 px-3 py-2 text-center text-[11px] text-editorial-muted shadow-sm">
+            Your catalog has {properties.length} propert{properties.length === 1 ? "y" : "ies"}, but none have map coordinates yet.
+          </div>
         )}
       </div>
 

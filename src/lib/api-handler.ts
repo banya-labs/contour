@@ -3,7 +3,7 @@ import { z } from "zod";
 import { logger } from "./logger";
 import { getTenantContext, type TenantContext } from "./tenant-context";
 import { hasRequiredRole, roleHasPermission, resolveContourRole, type Permission } from "./authorization";
-import type { Session } from "./auth";
+import { auth, type Session } from "./auth";
 
 export type ApiContext = {
   params?: Record<string, string | string[]>;
@@ -54,7 +54,12 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         contourRole: "OWNER",
         permissions: [],
       };
-      const tenant = isLocalDevelopment ? demoTenant : await getTenantContext(req);
+      // Resolve the real session first. Demo mode is only a fallback for an
+      // unauthenticated local smoke test; it must never shadow a signed-in
+      // user's active organization.
+      const authenticatedSession = await auth.api.getSession({ headers: req.headers });
+      const resolvedTenant = await getTenantContext(req);
+      const tenant = resolvedTenant || (!authenticatedSession && isLocalDevelopment ? demoTenant : null);
 
       // API handlers are protected by default. Public endpoints should use a
       // dedicated handler so authentication is never accidentally omitted.

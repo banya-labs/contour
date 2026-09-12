@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
+import React, { useState, useMemo } from "react";
 import {
   TrendingUp,
   Clock,
-  DollarSign,
   Plus,
   X,
   Sparkles,
@@ -29,87 +27,6 @@ type Deal = {
   stage: "NEW_INQUIRY" | "VIEWING_SCHEDULED" | "NEGOTIATION" | "OFFER_MADE" | "CLOSED_WON";
 };
 
-const INITIAL_DEALS: Deal[] = [
-  {
-    id: "deal_01",
-    clientName: "John Banda",
-    clientPhone: "+260 97 788 9900",
-    propertyTitle: "Executive 4-Bedroom Residence",
-    suburb: "Kabulonga",
-    dealValue: 3500000,
-    currency: "ZMW",
-    agencyCommission: 175000,
-    agentName: "Tembo Mwape",
-    daysInStage: 3,
-    stage: "NEGOTIATION",
-  },
-  {
-    id: "deal_02",
-    clientName: "EU Diplomatic Mission Housing",
-    clientPhone: "+260 96 112 2334",
-    propertyTitle: "Modern 3-Bedroom Townhouse",
-    suburb: "Leopards Hill",
-    dealValue: 2200,
-    currency: "USD",
-    agencyCommission: 220,
-    agentName: "Chipo Banda",
-    daysInStage: 2,
-    stage: "VIEWING_SCHEDULED",
-  },
-  {
-    id: "deal_03",
-    clientName: "AfriCorp Logistics Zambia",
-    clientPhone: "+260 97 889 0011",
-    propertyTitle: "5-Acre Commercial Development Plot",
-    suburb: "Roma Park",
-    dealValue: 850000,
-    currency: "USD",
-    agencyCommission: 42500,
-    agentName: "Grace Banda",
-    daysInStage: 1,
-    stage: "CLOSED_WON",
-  },
-  {
-    id: "deal_04",
-    clientName: "Dr. Mutale Kapwepwe",
-    clientPhone: "+260 96 223 4455",
-    propertyTitle: "Luxury 3-Bedroom Villa",
-    suburb: "Sunningdale",
-    dealValue: 4200000,
-    currency: "ZMW",
-    agencyCommission: 210000,
-    agentName: "Tembo Mwape",
-    daysInStage: 14,
-    stage: "CLOSED_WON",
-  },
-  {
-    id: "deal_05",
-    clientName: "Chileshe Mwansa",
-    clientPhone: "+260 97 445 6677",
-    propertyTitle: "Prime Commercial Office Space",
-    suburb: "Mass Media",
-    dealValue: 35000,
-    currency: "ZMW",
-    agencyCommission: 3500,
-    agentName: "Tembo Mwape",
-    daysInStage: 1,
-    stage: "NEW_INQUIRY",
-  },
-  {
-    id: "deal_06",
-    clientName: "Zambezi Freight & Haulage",
-    clientPhone: "+260 97 554 3322",
-    propertyTitle: "Commercial Warehouse & Yard",
-    suburb: "Industrial Area",
-    dealValue: 1200000,
-    currency: "USD",
-    agencyCommission: 60000,
-    agentName: "Tembo Mwape",
-    daysInStage: 4,
-    stage: "OFFER_MADE",
-  },
-];
-
 const STAGES = [
   { id: "NEW_INQUIRY", label: "New Inquiry", tag: "RAW" },
   { id: "VIEWING_SCHEDULED", label: "Viewing Booked", tag: "VIEW" },
@@ -119,8 +36,9 @@ const STAGES = [
 ];
 
 export default function DealPipelinePage() {
-  const [deals, setDeals] = useState<Deal[]>(INITIAL_DEALS);
-  const [loading, setLoading] = useState(false);
+  // Deals are intentionally empty until they are loaded from a tenant-scoped
+  // deal source. Never seed the pipeline with development/demo records.
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -136,11 +54,11 @@ export default function DealPipelinePage() {
   const [formData, setFormData] = useState({
     clientName: "",
     clientPhone: "",
-    propertyTitle: "Executive 4-Bedroom Residence",
-    suburb: "Kabulonga",
-    dealValue: "3500000",
+    propertyTitle: "",
+    suburb: "",
+    dealValue: "",
     currency: "ZMW",
-    agentName: "Tembo Mwape",
+    agentName: "",
     stage: "NEW_INQUIRY" as Deal["stage"],
   });
 
@@ -216,11 +134,11 @@ export default function DealPipelinePage() {
     setFormData({
       clientName: "",
       clientPhone: "",
-      propertyTitle: "Executive 4-Bedroom Residence",
-      suburb: "Kabulonga",
-      dealValue: "3500000",
+      propertyTitle: "",
+      suburb: "",
+      dealValue: "",
       currency: "ZMW",
-      agentName: "Tembo Mwape",
+      agentName: "",
       stage: "NEW_INQUIRY",
     });
   };
@@ -337,10 +255,23 @@ export default function DealPipelinePage() {
             {deals.filter((d) => d.stage !== "CLOSED_WON").length} Open • {deals.filter((d) => d.stage === "CLOSED_WON").length} Won
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
-            {((deals.filter((d) => d.stage === "CLOSED_WON").length / deals.length) * 100).toFixed(0)}% Win rate
+            {deals.length > 0
+              ? ((deals.filter((d) => d.stage === "CLOSED_WON").length / deals.length) * 100).toFixed(0)
+              : "0"}% Win rate
           </span>
         </MotionCard>
       </div>
+
+      {deals.length === 0 && (
+        <div className="border border-dashed border-editorial-border bg-white p-8 text-center">
+          <h2 className="font-heading text-sm font-bold uppercase tracking-tight text-editorial-black">
+            No deals in your pipeline
+          </h2>
+          <p className="mt-2 text-xs text-editorial-muted">
+            Deals created for this workspace will appear here. Development data is not shown.
+          </p>
+        </div>
+      )}
 
       {/* ── Mobile Touch Stage Switcher & Cards View (< md) ── */}
       <div className="md:hidden space-y-3">
