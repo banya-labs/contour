@@ -1,4 +1,5 @@
 import "server-only";
+import net from "node:net";
 import tls from "node:tls";
 import { env } from "@/env";
 
@@ -15,7 +16,9 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] || character);
 }
 
-function readResponse(socket: tls.TLSSocket): Promise<string> {
+type SmtpSocket = net.Socket | tls.TLSSocket;
+
+function readResponse(socket: SmtpSocket): Promise<string> {
   return new Promise((resolve, reject) => {
     let buffer = "";
     const onData = (chunk: Buffer) => {
@@ -35,9 +38,40 @@ function readResponse(socket: tls.TLSSocket): Promise<string> {
   });
 }
 
-async function command(socket: tls.TLSSocket, value: string): Promise<void> {
+async function command(socket: SmtpSocket, value: string): Promise<void> {
   socket.write(`${value}\r\n`);
   await readResponse(socket);
+}
+
+async function connectToSmtp(): Promise<tls.TLSSocket> {
+  const tlsMode = env.SMTP_SECURE === "true" || env.SMTP_PORT === 465;
+
+  if (tlsMode) {
+    const socket = tls.connect({ host: env.SMTP_HOST, port: env.SMTP_PORT, servername: env.SMTP_HOST });
+    await new Promise<void>((resolve, reject) => {
+      socket.once("secureConnect", resolve);
+      socket.once("error", reject);
+    });
+    await readResponse(socket);
+    return socket;
+  }
+
+  const socket = net.createConnection({ host: env.SMTP_HOST, port: env.SMTP_PORT });
+  await new Promise<void>((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("error", reject);
+  });
+  await readResponse(socket);
+  await command(socket, "EHLO contour.banyalabs.com");
+  await command(socket, "STARTTLS");
+
+  const secureSocket = tls.connect({ socket, servername: env.SMTP_HOST });
+  await new Promise<void>((resolve, reject) => {
+    secureSocket.once("secureConnect", resolve);
+    secureSocket.once("error", reject);
+  });
+  await command(secureSocket, "EHLO contour.banyalabs.com");
+  return secureSocket;
 }
 
 export async function sendOrganizationInvitation(data: InvitationEmail): Promise<void> {
@@ -45,13 +79,10 @@ export async function sendOrganizationInvitation(data: InvitationEmail): Promise
     throw new Error("SMTP_USER and SMTP_PASSWORD are required to send organization invitations");
   }
 
-  const socket = tls.connect({ host: env.SMTP_HOST, port: env.SMTP_PORT, servername: env.SMTP_HOST });
-  await new Promise<void>((resolve, reject) => {
-    socket.once("secureConnect", resolve);
-    socket.once("error", reject);
-  });
-  await readResponse(socket);
-  await command(socket, "EHLO contour.banyalabs.com");
+  const socket = await connectToSmtp();
+  if (env.SMTP_SECURE === "true" || env.SMTP_PORT === 465) {
+    await command(socket, "EHLO contour.banyalabs.com");
+  }
   await command(socket, "AUTH LOGIN");
   await command(socket, Buffer.from(env.SMTP_USER).toString("base64"));
   await command(socket, Buffer.from(env.SMTP_PASSWORD).toString("base64"));
