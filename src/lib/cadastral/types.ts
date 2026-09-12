@@ -134,6 +134,31 @@ export const geoJsonPolygonSchema = z.object({
 });
 export type GeoJsonPolygon = z.infer<typeof geoJsonPolygonSchema>;
 
+// Shared client-safe reference data. Keep server-only fetch/cache code out of this module.
+export const DEFAULT_LUSAKA_CADASTRE_BBOX = {
+  xmin: 28.20,
+  ymin: -15.50,
+  xmax: 28.38,
+  ymax: -15.35,
+} as const;
+
+export type GovernmentCadastreFeature = {
+  sourceType: "GOVERNMENT_CADASTRE";
+  sourceUrl: string;
+  sourceLayer: string;
+  sourceFetchedAt: string;
+  responseHash: string;
+  recordId: string;
+  plotId: string | null;
+  mapName: string | null;
+  surveyReference: string | null;
+  surveyArea: number | null;
+  surveyUnit: string | null;
+  surveyDate: string | null;
+  landUse: string | null;
+  geometry: GeoJsonPolygon | null;
+};
+
 export const boundaryStatusTransitions: Readonly<Record<BoundaryStatus, readonly BoundaryStatus[]>> = {
   PENDING: ["MATCHED", "VERIFIED", "REJECTED", "SUPERSEDED"],
   MATCHED: ["VERIFIED", "REJECTED", "SUPERSEDED"],

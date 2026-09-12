@@ -80,7 +80,7 @@ export function calculateGeodesicAreaSqm(vertices: [number, number][]): number {
   return Math.round(area);
 }
 import type { PropertyMapItem } from "@/types/property-map";
-import type { GovernmentCadastreFeature } from "@/lib/cadastral";
+import type { GovernmentCadastreFeature } from "@/lib/cadastral/types";
 import type { Layer } from "leaflet";
 export type { PropertyMapItem } from "@/types/property-map";
 

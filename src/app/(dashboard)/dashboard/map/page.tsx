@@ -19,8 +19,8 @@ import type { PropertyMapItem } from "@/types/property-map";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
 import { MOCK_PROPERTIES } from "@/lib/mock-data";
-import type { GovernmentCadastreFeature } from "@/lib/cadastral";
-import { DEFAULT_LUSAKA_CADASTRE_BBOX } from "@/lib/cadastral";
+import { DEFAULT_LUSAKA_CADASTRE_BBOX } from "@/lib/cadastral/types";
+import type { GovernmentCadastreFeature } from "@/lib/cadastral/types";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(

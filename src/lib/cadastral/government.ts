@@ -1,15 +1,10 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { smartCache } from "@/lib/cache";
-import type { GeoJsonPolygon } from "./types";
+import { DEFAULT_LUSAKA_CADASTRE_BBOX } from "./types";
+import type { GeoJsonPolygon, GovernmentCadastreFeature } from "./types";
 
 export const CADASTRE_LAYER_URL = "https://www.map.gov.zm/arcgis/rest/services/NSDI_Vector/CadasterNew/MapServer/0";
-export const DEFAULT_LUSAKA_CADASTRE_BBOX = {
-  xmin: 28.20,
-  ymin: -15.50,
-  xmax: 28.38,
-  ymax: -15.35,
-} as const;
 
 export const cadastreSearchSchema = z.object({
   bbox: z.object({
@@ -35,23 +30,6 @@ export const cadastreSearchSchema = z.object({
 });
 export type CadastreSearch = z.output<typeof cadastreSearchSchema>;
 export type CadastreSearchInput = z.input<typeof cadastreSearchSchema>;
-
-export type GovernmentCadastreFeature = {
-  sourceType: "GOVERNMENT_CADASTRE";
-  sourceUrl: string;
-  sourceLayer: string;
-  sourceFetchedAt: string;
-  responseHash: string;
-  recordId: string;
-  plotId: string | null;
-  mapName: string | null;
-  surveyReference: string | null;
-  surveyArea: number | null;
-  surveyUnit: string | null;
-  surveyDate: string | null;
-  landUse: string | null;
-  geometry: GeoJsonPolygon | null;
-};
 
 type ArcGisFeature = {
   type?: string;
