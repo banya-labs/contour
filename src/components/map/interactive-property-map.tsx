@@ -848,10 +848,9 @@ export default function InteractivePropertyMap({
 
           {/* Fit All */}
           <button
-            className="map-fit-control"
             onClick={handleFitBounds}
             title="Reset Map Fit (See All Properties)"
-            className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors flex items-center gap-1 text-xs font-medium px-2.5"
+            className="map-fit-control p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors flex items-center gap-1 text-xs font-medium px-2.5"
           >
             <Maximize2 className="w-3.5 h-3.5 text-contour-red" />
             <span className="hidden sm:inline">Fit All</span>
