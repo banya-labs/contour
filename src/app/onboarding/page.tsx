@@ -28,6 +28,7 @@ function OnboardingContent() {
   const [currency, setCurrency] = useState("ZMW");
   const [agencyType, setAgencyType] = useState("BROKERAGE");
   const [city, setCity] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +116,18 @@ function OnboardingContent() {
         setIsSubmitting(false);
         return;
       }
+
+      if (logoFile) {
+        const logoForm = new FormData();
+        logoForm.append("file", logoFile);
+        const logoResponse = await fetch("/api/organization/logo", { method: "POST", body: logoForm });
+        if (!logoResponse.ok) {
+          const logoError = await logoResponse.json().catch(() => null) as { error?: string } | null;
+          setError(logoError?.error || "Workspace created, but the logo upload needs to be retried.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
     }
 
     router.replace(redirectUrl);
@@ -145,6 +158,17 @@ function OnboardingContent() {
               placeholder="Lusaka Property Group"
               className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black outline-none focus:border-editorial-black"
             />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">Workspace logo (optional)</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={(event) => setLogoFile(event.target.files?.[0] || null)}
+              className="w-full border border-editorial-border px-3 py-2.5 text-xs text-editorial-black file:mr-3 file:border-0 file:bg-editorial-black file:px-3 file:py-2 file:text-[10px] file:font-bold file:uppercase file:text-white"
+            />
+            <span className="block text-[11px] text-editorial-muted">PNG, JPG, WebP, or SVG up to 2 MB.</span>
           </label>
 
           <div className="grid grid-cols-2 gap-4">

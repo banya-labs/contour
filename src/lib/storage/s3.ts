@@ -3,6 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
 
 export type StorageCategory =
+  | "ORGANIZATION_LOGO"
   | "PROPERTY_PHOTO"
   | "SITE_SURVEY_DIAGRAM"
   | "TITLE_DEED"

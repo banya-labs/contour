@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { organization, bearer } from "better-auth/plugins";
 import { db } from "./db";
 import { env } from "@/env";
+import { sendOrganizationInvitation } from "./email";
 
 export const auth = betterAuth({
   database: prismaAdapter(db, {
@@ -21,7 +22,20 @@ export const auth = betterAuth({
         }
       : undefined,
   plugins: [
-    organization(),
+    organization({
+      requireEmailVerificationOnInvitation: true,
+      async sendInvitationEmail(data) {
+        const inviteLink = `${env.BETTER_AUTH_URL}/accept-invitation/${data.id}`;
+        await sendOrganizationInvitation({
+          email: data.email,
+          invitedByUsername: data.inviter.user.name,
+          invitedByEmail: data.inviter.user.email,
+          teamName: data.organization.name,
+          inviteLink,
+          role: Array.isArray(data.role) ? data.role.join(", ") : data.role,
+        });
+      },
+    }),
     bearer(),
   ],
   emailAndPassword: {

@@ -20,6 +20,9 @@ import {
   Check,
   Users,
   UserCheck,
+  UserPlus,
+  Upload,
+  CreditCard,
 } from "lucide-react";
 import {
   getAgencySettings,
@@ -37,6 +40,13 @@ const COLOR_SWATCHES = [
   { name: "Warm Charcoal", hex: "#1C1C1A" },
 ];
 
+type WorkspaceMember = {
+  id: string;
+  role: string;
+  user: { id: string; name: string; email: string; image?: string | null };
+  roleAssignments: Array<{ role: { key: string; displayName: string } }>;
+};
+
 function SettingsContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab")?.toUpperCase() || "BRANDING";
@@ -44,7 +54,7 @@ function SettingsContent() {
   const [settings, setSettings] = useState<AgencySettings>(DEFAULT_AGENCY_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(
-    ["BRANDING", "ORGANIZATION", "ACCOUNT", "DEVELOPER"].includes(initialTab)
+    ["BRANDING", "ORGANIZATION", "ACCOUNT", "DEVELOPER", "BILLING"].includes(initialTab)
       ? initialTab
       : "BRANDING"
   );
@@ -63,16 +73,90 @@ function SettingsContent() {
   const [newKeyName, setNewKeyName] = useState("");
   const [docSubTab, setDocSubTab] = useState<"FETCH" | "INQUIRE">("FETCH");
   const { data: session } = authClient.useSession();
+  const [workspace, setWorkspace] = useState<{ name: string; subscriptionTier: string; subscriptionStatus: string; trialEndsAt: string } | null>(null);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [roles, setRoles] = useState<Array<{ key: string; displayName: string }>>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("FIELD_AGENT");
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setSettings(getAgencySettings());
+    void fetch("/api/organization/profile")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success) return;
+        setWorkspace(data.organization);
+        setSettings((current) => ({
+          ...current,
+          agencyName: data.organization.name,
+          officeAddress: data.organization.profile?.primaryOfficeAddress || current.officeAddress,
+          phone: data.organization.profile?.primaryPhone || current.phone,
+          email: data.organization.profile?.primaryEmail || current.email,
+        }));
+      })
+      .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "ORGANIZATION") return;
+    void fetch("/api/organization/members")
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          setMembers(data.members || []);
+          setRoles(data.roles || []);
+        }
+      })
+      .catch(() => undefined);
+  }, [activeTab]);
 
   const handleSave = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     saveAgencySettings(settings);
+    void fetch("/api/organization/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: settings.agencyName, primaryOfficeAddress: settings.officeAddress, primaryPhone: settings.phone, primaryEmail: settings.email }),
+    });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    const response = await fetch("/api/organization/logo", { method: "POST", body });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Logo upload failed");
+    setSettings((current) => ({ ...current, logoUrl: data.logoUrl }));
+    setSettingsMessage("Workspace logo updated.");
+  };
+
+  const handleInvite = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSettingsMessage(null);
+    const result = await authClient.organization.inviteMember({ email: inviteEmail.trim(), role: "member" });
+    if (result.error) {
+      setSettingsMessage(result.error.message || "Unable to send invitation.");
+      return;
+    }
+    setInviteEmail("");
+    setSettingsMessage(`Invitation sent to ${inviteEmail.trim()}. Assign ${inviteRole.replaceAll("_", " ").toLowerCase()} after they accept.`);
+  };
+
+  const handleRoleChange = async (memberId: string, roleKey: string) => {
+    const response = await fetch("/api/organization/members", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId, roleKey }),
+    });
+    const data = await response.json();
+    setSettingsMessage(response.ok ? "Member permissions updated." : data.error || "Unable to update permissions.");
+    if (response.ok) {
+      const refreshed = await fetch("/api/organization/members").then((res) => res.json());
+      if (refreshed.success) setMembers(refreshed.members || []);
+    }
   };
 
   const handleCopy = (text: string, label: string) => {
@@ -108,6 +192,7 @@ function SettingsContent() {
     { id: "ORGANIZATION", label: "Team & Permissions", icon: Users },
     { id: "ACCOUNT", label: "My Account & Security", icon: UserCheck },
     { id: "DEVELOPER", label: "API Keys & Integrations", icon: Code },
+    { id: "BILLING", label: "Plans & Subscription", icon: CreditCard },
   ];
 
   return (
@@ -173,6 +258,24 @@ function SettingsContent() {
               </div>
 
               <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Workspace logo
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden border border-editorial-border bg-editorial-black text-xl font-heading font-bold text-white">
+                      {settings.logoUrl ? <img src={settings.logoUrl} alt="Workspace logo" className="h-full w-full object-contain" /> : settings.agencyName?.[0] || "C"}
+                    </div>
+                    <label className="inline-flex cursor-pointer items-center gap-2 border border-editorial-black px-3 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50">
+                      <Upload className="h-3.5 w-3.5" /> Upload logo
+                      <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void handleLogoUpload(file).catch((error: Error) => setSettingsMessage(error.message));
+                      }} />
+                    </label>
+                  </div>
+                  <p className="mt-1 text-[11px] text-editorial-muted">Used on listing flyers, statements, and your workspace shell.</p>
+                </div>
                 <div>
                   <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
                     Corporate Agency Name
@@ -353,8 +456,8 @@ function SettingsContent() {
               </span>
               <div className="bg-white p-5 border border-editorial-border space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-editorial-black text-white flex items-center justify-center font-heading font-bold text-base">
-                    {settings.agencyName ? settings.agencyName[0] : "C"}
+                  <div className="w-10 h-10 overflow-hidden bg-editorial-black text-white flex items-center justify-center font-heading font-bold text-base">
+                    {settings.logoUrl ? <img src={settings.logoUrl} alt="" className="h-full w-full object-contain" /> : settings.agencyName ? settings.agencyName[0] : "C"}
                   </div>
                   <div>
                     <h4 className="font-heading font-bold text-sm text-editorial-black uppercase">
@@ -396,6 +499,37 @@ function SettingsContent() {
               </div>
             </div>
 
+            {settingsMessage && <p className="mb-4 border border-editorial-border bg-neutral-50 px-3 py-2 text-xs text-editorial-black">{settingsMessage}</p>}
+            <form onSubmit={handleInvite} className="mb-6 flex flex-col gap-2 border border-editorial-border bg-neutral-50 p-4 sm:flex-row sm:items-end">
+              <label className="flex-1 text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">
+                Add user by email
+                <input required type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="agent@agency.co.zm" className="mt-1 w-full border border-editorial-border bg-white px-3 py-2.5 text-xs font-geist font-normal normal-case tracking-normal outline-none focus:border-editorial-black" />
+              </label>
+              <label className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">
+                Role
+                <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)} className="mt-1 w-full border border-editorial-border bg-white px-3 py-2.5 text-xs font-geist font-normal normal-case tracking-normal outline-none sm:w-44">
+                  {roles.filter((role) => role.key !== "OWNER").map((role) => <option key={role.key} value={role.key}>{role.displayName}</option>)}
+                </select>
+              </label>
+              <button type="submit" className="inline-flex items-center justify-center gap-2 bg-editorial-black px-4 py-2.5 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red"><UserPlus className="h-3.5 w-3.5" /> Invite user</button>
+            </form>
+
+            <div className="mb-6 divide-y divide-editorial-border border border-editorial-border">
+              {members.map((member) => (
+                <div key={member.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-editorial-black">{member.user.name}</p>
+                    <p className="text-xs text-editorial-muted">{member.user.email}</p>
+                  </div>
+                  <select value={member.roleAssignments[0]?.role.key || (member.role === "owner" ? "OWNER" : "FIELD_AGENT")} disabled={member.role === "owner"} onChange={(event) => void handleRoleChange(member.id, event.target.value)} className="border border-editorial-border bg-white px-3 py-2 text-xs text-editorial-black disabled:bg-neutral-100">
+                    {member.role === "owner" && <option value="OWNER">Owner</option>}
+                    {roles.filter((role) => role.key !== "OWNER").map((role) => <option key={role.key} value={role.key}>{role.displayName}</option>)}
+                  </select>
+                </div>
+              ))}
+              {members.length === 0 && <p className="p-4 text-xs text-editorial-muted">No active members found yet.</p>}
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="border border-editorial-border bg-neutral-50 p-4">
                 <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Authenticated user</p>
@@ -405,7 +539,7 @@ function SettingsContent() {
               <div className="border border-editorial-border bg-neutral-50 p-4">
                 <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Workspace membership</p>
                 <p className="mt-2 text-sm font-semibold text-editorial-black">Contour Agency Workspace</p>
-                <p className="text-xs text-editorial-muted">Organization administration will be enabled in the tenancy phase.</p>
+                <p className="text-xs text-editorial-muted">Invite users and assign workspace roles from this panel.</p>
               </div>
             </div>
           </div>
@@ -442,6 +576,32 @@ function SettingsContent() {
                 <p className="mt-2 text-xs text-editorial-muted">Email/password is enabled. Google OAuth is available when the server Google credentials are configured.</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "BILLING" && (
+        <div className="space-y-6 pt-2">
+          <div className="border border-editorial-border bg-white p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="font-heading text-base font-bold uppercase tracking-tight text-editorial-black">Subscription & trial</h3>
+                <p className="mt-1 text-xs text-editorial-muted">Your workspace plan, trial window, and billing controls.</p>
+              </div>
+              <a href="/dashboard/billing" className="inline-flex items-center justify-center bg-editorial-black px-4 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red">Manage billing</a>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="border border-editorial-border p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Current plan</p><p className="mt-2 text-lg font-semibold text-editorial-black">{workspace?.subscriptionTier || "STARTER"}</p></div>
+              <div className="border border-editorial-border p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Status</p><p className="mt-2 text-lg font-semibold text-editorial-black">{workspace?.subscriptionStatus || "trialing"}</p></div>
+              <div className="border border-editorial-border p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Trial ends</p><p className="mt-2 text-lg font-semibold text-editorial-black">{workspace?.trialEndsAt ? new Date(workspace.trialEndsAt).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" }) : "14 days"}</p></div>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              ["STARTER", "For a focused agency launch", "Core catalog, map, and field workflows"],
+              ["GROWTH", "For active brokerages", "Team permissions, automation, and reporting"],
+              ["ENTERPRISE", "For multi-branch operations", "Advanced controls and dedicated support"],
+            ].map(([name, title, description]) => <div key={name} className="border border-editorial-border bg-white p-5"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-contour-red">{name}</p><h4 className="mt-2 font-heading font-bold text-editorial-black">{title}</h4><p className="mt-2 text-xs leading-5 text-editorial-muted">{description}</p></div>)}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CreditCard,
@@ -29,7 +29,9 @@ import {
 } from "@/lib/lenco";
 
 export default function BillingPage() {
-  const [currentPlan, setCurrentPlan] = useState<"starter" | "growth" | "enterprise">("growth");
+  const [currentPlan, setCurrentPlan] = useState<"starter" | "growth" | "enterprise">("starter");
+  const [subscriptionStatus, setSubscriptionStatus] = useState("trialing");
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("MONTHLY");
   const [currency, setCurrency] = useState<SupportedCurrency>("ZMW");
   const [paymentChannel, setPaymentChannel] = useState<PaymentChannel>("mobile_money");
@@ -39,36 +41,20 @@ export default function BillingPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Mock past invoices
-  const [invoices, setInvoices] = useState([
-    {
-      id: "INV-2026-08-01",
-      date: "01 Aug 2026",
-      amount: "K 3,200",
-      plan: "Growth Agency Plan",
-      status: "PAID",
-      gateway: "Lenco Zambia",
-      receiptUrl: "#",
-    },
-    {
-      id: "INV-2026-07-01",
-      date: "01 Jul 2026",
-      amount: "K 3,200",
-      plan: "Growth Agency Plan",
-      status: "PAID",
-      gateway: "Lenco Zambia",
-      receiptUrl: "#",
-    },
-    {
-      id: "INV-2026-06-01",
-      date: "01 Jun 2026",
-      amount: "K 3,200",
-      plan: "Growth Agency Plan",
-      status: "PAID",
-      gateway: "Lenco Zambia",
-      receiptUrl: "#",
-    },
-  ]);
+  const [invoices, setInvoices] = useState<Array<{ id: string; date: string; amount: string; plan: string; status: string; gateway: string; receiptUrl: string }>>([]);
+
+  useEffect(() => {
+    void fetch("/api/organization/profile")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success) return;
+        const plan = String(data.organization.subscriptionTier || "STARTER").toLowerCase();
+        if (plan === "starter" || plan === "growth" || plan === "enterprise") setCurrentPlan(plan);
+        setSubscriptionStatus(data.organization.subscriptionStatus || "trialing");
+        setTrialEndsAt(data.organization.trialEndsAt || null);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const handleUpgrade = async (planId: "starter" | "growth" | "enterprise") => {
     setIsProcessing(true);
@@ -220,11 +206,11 @@ export default function BillingPage() {
                 {CONTOUR_PLANS[currentPlan].name}
               </h2>
               <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-mono font-bold tracking-wide">
-                ACTIVE STATUS
+                {subscriptionStatus.toUpperCase()}
               </span>
             </div>
             <p className="text-xs text-editorial-neutral mt-0.5 font-mono">
-              Settled via <strong className="text-editorial-black">Lenco Zambia</strong> (<a href="https://lenco.co/zm" target="_blank" rel="noreferrer" className="underline text-editorial-red">lenco.co/zm</a>). Next renewal on <span className="font-semibold text-editorial-black">01 October 2026</span>.
+              {subscriptionStatus === "trialing" ? <>Your 14-day trial ends on <span className="font-semibold text-editorial-black">{trialEndsAt ? new Date(trialEndsAt).toLocaleDateString("en-ZM", { day: "numeric", month: "long", year: "numeric" }) : "the trial end date"}</span>.</> : <>Billing is managed through Lenco Zambia. Your next renewal date will appear after the first successful payment.</>}
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-3 text-xs font-mono text-editorial-neutral">
               <span className="flex items-center gap-1.5">
@@ -445,6 +431,7 @@ export default function BillingPage() {
               </div>
             </div>
           ))}
+          {invoices.length === 0 && <p className="py-6 text-editorial-neutral">No invoices yet. Completed payments will appear here.</p>}
         </div>
 
         {/* Desktop Table (hidden md:block) */}
@@ -485,6 +472,7 @@ export default function BillingPage() {
                   </td>
                 </tr>
               ))}
+              {invoices.length === 0 && <tr><td colSpan={7} className="py-8 px-2 text-editorial-neutral">No invoices yet. Completed payments will appear here.</td></tr>}
             </tbody>
           </table>
         </div>

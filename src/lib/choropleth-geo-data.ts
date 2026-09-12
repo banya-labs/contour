@@ -294,7 +294,7 @@ export function getChoroplethColor(count: number, maxCount: number): string | nu
   if (ratio <= 0.4) return "#fca582"; // Coral Warm Orange
   if (ratio <= 0.65) return "#fb6a4a"; // Bright Contour Coral
   if (ratio <= 0.85) return "#de2d26"; // Contour Red
-  return "#8b1e1e"; // Deep Burgundy Ink (Maximum Density)
+  return "#FA3600"; // Deep Burgundy Ink (Maximum Density)
 }
 
 export function getChoroplethOpacity(count: number): number {

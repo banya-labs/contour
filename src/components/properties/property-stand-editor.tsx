@@ -167,7 +167,7 @@ export default function PropertyStandEditor({
       if (!isNaN(numLat) && !isNaN(numLng) && vertices.length === 0) {
         const centerIcon = L.divIcon({
           className: "center-pin-icon",
-          html: `<div style="background:#8b1e1e; width:16px; height:16px; border-radius:9999px; border:3px solid #ffffff; box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>`,
+          html: `<div style="background:#FA3600; width:16px; height:16px; border-radius:9999px; border:3px solid #ffffff; box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>`,
           iconSize: [16, 16],
           iconAnchor: [8, 8],
         });
@@ -178,7 +178,7 @@ export default function PropertyStandEditor({
 
       vertices.forEach((v, idx) => {
         const label = getVertexLabel(idx); // A, B, C, D...
-        const nodeHtml = `<div style="background:#8b1e1e; color:#ffffff; font-weight:800; font-size:11px; padding:2px 7px; border-radius:9999px; border:2px solid #ffffff; box-shadow:0 2px 8px rgba(0,0,0,0.4); white-space:nowrap; font-family:sans-serif;">${label}</div>`;
+        const nodeHtml = `<div style="background:#FA3600; color:#ffffff; font-weight:800; font-size:11px; padding:2px 7px; border-radius:9999px; border:2px solid #ffffff; box-shadow:0 2px 8px rgba(0,0,0,0.4); white-space:nowrap; font-family:sans-serif;">${label}</div>`;
         const nodeIcon = L.divIcon({
           className: "custom-vertex-node-icon",
           html: nodeHtml,
@@ -189,12 +189,12 @@ export default function PropertyStandEditor({
       });
 
       if (vertices.length === 2) {
-        L.polyline(vertices, { color: "#8b1e1e", weight: 3, dashArray: "6,6" }).addTo(group);
+        L.polyline(vertices, { color: "#FA3600", weight: 3, dashArray: "6,6" }).addTo(group);
       } else if (vertices.length >= 3) {
         L.polygon(vertices, {
-          color: "#8b1e1e",
+          color: "#FA3600",
           weight: 3,
-          fillColor: "#8b1e1e",
+          fillColor: "#FA3600",
           fillOpacity: 0.25,
         }).addTo(group);
       }

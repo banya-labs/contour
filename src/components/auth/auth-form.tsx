@@ -6,6 +6,17 @@ import { authClient } from "@/lib/auth-client";
 
 type AuthMode = "sign-in" | "sign-up";
 
+function GoogleLogo() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0">
+      <path fill="#4285F4" d="M21.35 12.23c0-.72-.06-1.42-.18-2.09H12v3.96h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.15c1.85-1.7 2.9-4.2 2.9-7.26Z" />
+      <path fill="#34A853" d="M12 21.6c2.64 0 4.86-.87 6.48-2.36l-3.15-2.45c-.87.58-1.98.92-3.33.92-2.56 0-4.73-1.73-5.51-4.05H3.23v2.53A9.79 9.79 0 0 0 12 21.6Z" />
+      <path fill="#FBBC05" d="M6.49 13.66a5.88 5.88 0 0 1 0-3.32V7.81H3.23a9.6 9.6 0 0 0 0 8.38l3.26-2.53Z" />
+      <path fill="#EA4335" d="M12 6.29c1.44 0 2.73.5 3.75 1.48l2.81-2.81C16.85 3.38 14.63 2.4 12 2.4a9.79 9.79 0 0 0-8.77 5.41l3.26 2.53C7.27 8.02 9.44 6.29 12 6.29Z" />
+    </svg>
+  );
+}
+
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -77,9 +88,10 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          className="w-full border border-editorial-black bg-white px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
+          className="flex w-full items-center justify-center gap-2 border border-editorial-black bg-white px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
         >
-          Continue with Google
+          <GoogleLogo />
+          <span>Continue with Google</span>
         </button>
       )}
 

@@ -461,7 +461,7 @@ export function AgencyInteractiveMap() {
                     <span>{selectedProperty.status}</span>
                   </span>
 
-                  <span className="text-xs font-mono font-bold text-[#8B1E1E] uppercase px-2 py-0.5 rounded-md bg-[#8B1E1E]/10">
+                  <span className="text-xs font-mono font-bold text-[#FA3600] uppercase px-2 py-0.5 rounded-md bg-[#FA3600]/10">
                     {selectedProperty.type}
                   </span>
                 </div>

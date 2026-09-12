@@ -28,7 +28,7 @@ const config: Config = {
           400: "#9e9a90",
         },
         contour: {
-          red: "#8b1e1e",    // Primary Burgundy Accent from Contour/DESIGN.md
+          red: "#FA3600",    // Primary Burgundy Accent from Contour/DESIGN.md
           dark: "#271a00",   // Dark Accent
           amber: "#e57a1a",  // Banya Amber
           emerald: "#10b981",// Confirmed / Sold

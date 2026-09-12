@@ -23,7 +23,7 @@
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 15 (App Router), TypeScript (Strict Mode)
-- **Design System**: Warm Paper (`#fdfbfa`), Ink Charcoal (`#27251e`), Burgundy (`#8b1e1e`), TailwindCSS
+- **Design System**: Warm Paper (`#fdfbfa`), Ink Charcoal (`#27251e`), Burgundy (`#FA3600`), TailwindCSS
 - **Database**: PostgreSQL with `pgvector` (Prisma ORM)
 - **Object Storage**: **Self-Hosted MinIO (S3-Compatible)**
 - **Authentication**: Better Auth (Multi-tenancy & API Key plugins)

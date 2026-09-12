@@ -24,14 +24,14 @@ export type AgencySettings = {
 export const DEFAULT_AGENCY_SETTINGS: AgencySettings = {
   agencyName: "Contour Real Estate Zambia",
   tagline: "Lusaka's Premier Property Advisory & Mandate Vault",
-  logoUrl: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=150&auto=format&fit=crop&q=80",
+  logoUrl: "",
   phone: "+260 97 123 4567",
   whatsApp: "+260 97 123 4567",
   email: "mandates@contour.co.zm",
   website: "www.contour.co.zm",
   licenseNumber: "ZREIC/LUS/2026/0488",
   officeAddress: "Suite 402, Centro Mall Complex, Kabulonga, Lusaka",
-  bannerAccentColor: "#8B1E1E",
+  bannerAccentColor: "#FA3600",
   instagramHandle: "@contour.zambia",
   facebookPage: "Contour Real Estate Zambia",
 };

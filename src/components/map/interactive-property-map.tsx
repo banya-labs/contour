@@ -108,7 +108,7 @@ function getStatusColor(listingType: string, status: string): string {
   if (status === "SOLD") return "#10b981"; // Emerald
   if (status === "RENTED") return "#3b82f6"; // Cobalt
   if (listingType === "FOR_RENT") return "#f59e0b"; // Amber Yellow
-  return "#8b1e1e"; // Contour Burgundy / Red
+  return "#FA3600"; // Contour Burgundy / Red
 }
 
 function createMarkerIconSvg(color: string) {
@@ -349,7 +349,7 @@ export default function InteractivePropertyMap({
       if (drawnVertices.length === 0) return;
 
       drawnVertices.forEach((v, idx) => {
-        const nodeHtml = `<div style="background:#8b1e1e; color:#ffffff; font-weight:800; font-size:10px; padding:2px 8px; border-radius:9999px; border:2px solid #ffffff; box-shadow:0 2px 8px rgba(0,0,0,0.4); white-space:nowrap; font-family:sans-serif;">P${idx + 1}</div>`;
+        const nodeHtml = `<div style="background:#FA3600; color:#ffffff; font-weight:800; font-size:10px; padding:2px 8px; border-radius:9999px; border:2px solid #ffffff; box-shadow:0 2px 8px rgba(0,0,0,0.4); white-space:nowrap; font-family:sans-serif;">P${idx + 1}</div>`;
         const nodeIcon = L.divIcon({
           className: "custom-vertex-node-icon",
           html: nodeHtml,
@@ -360,12 +360,12 @@ export default function InteractivePropertyMap({
       });
 
       if (drawnVertices.length === 2) {
-        L.polyline(drawnVertices, { color: "#8b1e1e", weight: 3, dashArray: "6,6" }).addTo(group);
+        L.polyline(drawnVertices, { color: "#FA3600", weight: 3, dashArray: "6,6" }).addTo(group);
       } else if (drawnVertices.length >= 3) {
         L.polygon(drawnVertices, {
-          color: "#8b1e1e",
+          color: "#FA3600",
           weight: 3,
-          fillColor: "#8b1e1e",
+          fillColor: "#FA3600",
           fillOpacity: 0.25,
         }).addTo(group);
       }
@@ -411,14 +411,14 @@ export default function InteractivePropertyMap({
         const opacity = getChoroplethOpacity(stats.totalCount);
 
         const polygon = L.polygon(region.coordinates, {
-          color: stats.totalCount > 0 ? "#8b1e1e" : "#cccccc",
+          color: stats.totalCount > 0 ? "#FA3600" : "#cccccc",
           weight: stats.totalCount > 0 ? 2 : 1,
           fillColor: fillColor || undefined,
           fillOpacity: opacity,
         }).addTo(group);
 
         // Render Region Center Label Badge
-        const badgeHtml = `<div style="background:rgba(39,37,30,0.92); color:#ffffff; font-weight:800; font-size:11px; padding:3px 10px; border-radius:9999px; border:1px solid #E57A1A; box-shadow:0 2px 8px rgba(0,0,0,0.3); white-space:nowrap; text-align:center;">${region.name} <span style="background:#8b1e1e; padding:1px 6px; border-radius:9999px; font-size:10px; margin-left:4px;">${stats.totalCount} Mandates</span></div>`;
+        const badgeHtml = `<div style="background:rgba(39,37,30,0.92); color:#ffffff; font-weight:800; font-size:11px; padding:3px 10px; border-radius:9999px; border:1px solid #E57A1A; box-shadow:0 2px 8px rgba(0,0,0,0.3); white-space:nowrap; text-align:center;">${region.name} <span style="background:#FA3600; padding:1px 6px; border-radius:9999px; font-size:10px; margin-left:4px;">${stats.totalCount} Mandates</span></div>`;
         const badgeIcon = L.divIcon({
           className: "choropleth-badge-label",
           html: badgeHtml,
@@ -434,7 +434,7 @@ export default function InteractivePropertyMap({
         });
 
         polygon.on("mouseout", () => {
-          polygon.setStyle({ weight: 2, color: "#8b1e1e", fillOpacity: opacity });
+          polygon.setStyle({ weight: 2, color: "#FA3600", fillOpacity: opacity });
         });
 
         // Click drill-down event
@@ -514,7 +514,7 @@ export default function InteractivePropertyMap({
         if (property.standBoundary && property.standBoundary.length >= 3) {
           const isSelected = property.id === activePropertyId;
           polygon = L.polygon(property.standBoundary, {
-            color: isSelected ? "#8b1e1e" : color,
+            color: isSelected ? "#FA3600" : color,
             weight: isSelected ? 3 : 2,
             dashArray: isSelected ? undefined : "4, 4",
             fillColor: isSelected ? "#E57A1A" : color,
@@ -611,7 +611,7 @@ export default function InteractivePropertyMap({
                 : ""
             }
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #ece5d8; padding-top: 8px;">
-              <span style="font-weight: 800; font-size: 13px; color: #8b1e1e;">
+              <span style="font-weight: 800; font-size: 13px; color: #FA3600;">
                 ${priceText}
               </span>
               <a href="/p/${property.slug}" style="display: inline-flex; align-items: center; gap: 4px; background: #27251e; color: #ffffff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 9999px;">
@@ -677,8 +677,8 @@ export default function InteractivePropertyMap({
         weight: isSelected ? 3 : 2,
         dashArray: isSelected ? undefined : "4, 4",
         fillOpacity: isSelected ? 0.45 : 0.15,
-        color: isSelected ? "#8b1e1e" : "#4b5563",
-        fillColor: isSelected ? "#E57A1A" : "#8b1e1e",
+        color: isSelected ? "#FA3600" : "#4b5563",
+        fillColor: isSelected ? "#E57A1A" : "#FA3600",
       });
       if (isSelected) {
         polygon.bringToFront();

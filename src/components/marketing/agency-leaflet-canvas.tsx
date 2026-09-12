@@ -138,7 +138,7 @@ export default function AgencyLeafletCanvas({
               ? "bg-[#16382B] text-[#E8C265] border-[#E8C265] scale-110 ring-4 ring-[#C89B3C]/30 z-50 shadow-xl"
               : isForSale
               ? "bg-white text-[#16382B] border-stone-300 hover:border-[#16382B] hover:scale-105"
-              : "bg-[#FDFBF7] text-[#8B1E1E] border-stone-300 hover:border-[#8B1E1E] hover:scale-105"
+              : "bg-[#FDFBF7] text-[#FA3600] border-stone-300 hover:border-[#FA3600] hover:scale-105"
           }">
             <span class="w-2 h-2 rounded-full shrink-0 ${
               isSelected ? "bg-[#E8C265] animate-ping" : isForSale ? "bg-emerald-500" : "bg-amber-500"

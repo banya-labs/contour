@@ -72,16 +72,16 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File | null;
     const title = (formData.get("title") as string) || "Uploaded Document";
     const requestedCategory = String(formData.get("docType") || "TITLE_DEED");
-    const storageCategories: StorageCategory[] = [
+    const storageCategories = [
       "PROPERTY_PHOTO",
       "SITE_SURVEY_DIAGRAM",
       "TITLE_DEED",
       "NRC_PASSPORT_ID",
       "MANDATE_AGREEMENT",
       "LEASE_CONTRACT",
-    ];
-    const storageCategory: StorageCategory = storageCategories.includes(requestedCategory as StorageCategory)
-      ? (requestedCategory as StorageCategory)
+    ] as const;
+    const storageCategory: StorageCategory = storageCategories.includes(requestedCategory as typeof storageCategories[number])
+      ? (requestedCategory as typeof storageCategories[number])
       : "TITLE_DEED";
     const docType: DocumentType = storageCategory === "PROPERTY_PHOTO" ? DocumentType.OTHER : storageCategory;
     const requestedClassification = String(formData.get("classification") || "RESTRICTED_MANAGEMENT");
