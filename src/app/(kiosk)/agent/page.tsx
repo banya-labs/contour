@@ -134,6 +134,7 @@ function AgentKioskContent() {
   });
 
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -548,7 +549,7 @@ function AgentKioskContent() {
     <div data-field-console className="field-shell min-h-dvh bg-[#070D0A] text-slate-100 font-sans flex flex-col justify-between max-w-md md:max-w-2xl mx-auto relative shadow-2xl border-x border-emerald-950/40">
       
       {/* 1. Top Fixed Field Bar */}
-      <header className="field-header sticky top-0 z-40 bg-[#0B1711]/95 backdrop-blur-md border-b border-emerald-900/40 px-4 py-3">
+      <header className="field-header relative sticky top-0 z-40 bg-[#0B1711]/95 backdrop-blur-md border-b border-emerald-900/40 px-4 py-3">
         <div className="flex items-center justify-between">
           
           {/* Agent Identity & Persona Switcher */}
@@ -556,7 +557,7 @@ function AgentKioskContent() {
             <div className="field-brand-mark w-9 h-9 rounded-xl bg-gradient-to-br from-[#E57A1A] to-[#B3580B] text-white flex items-center justify-center font-serif font-bold text-sm shadow-md ring-1 ring-white/20 group-hover:scale-105 transition-transform">
               {currentAgent.name.charAt(0)}
             </div>
-            <div>
+            <div className="field-agent-identity-details">
               <div className="flex items-center gap-1 text-xs font-bold text-white leading-tight group-hover:text-[#E57A1A] transition-colors">
                 <span>{currentAgent.name}</span>
                 <span className="text-[9px] bg-emerald-900/60 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-700/50">
@@ -575,7 +576,7 @@ function AgentKioskContent() {
           {/* Right Network Trigger */}
           <div className="flex items-center gap-1.5">
 
-            <Link href="/dashboard" aria-label="Open operations dashboard" title="Dashboard" className="inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
+            <Link href="/dashboard" aria-label="Open operations dashboard" title="Dashboard" className="field-desktop-action inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
               <Home className="h-4 w-4" />
             </Link>
 
@@ -594,19 +595,38 @@ function AgentKioskContent() {
               onClick={() => setIsPersonaModalOpen(true)}
               aria-label={`Open profile for ${currentAgent.name}`}
               title={currentAgent.name}
-              className="inline-flex h-10 w-10 items-center justify-center border-l border-editorial-border text-editorial-black hover:bg-neutral-100"
+              className="field-desktop-action inline-flex h-10 w-10 items-center justify-center border-l border-editorial-border text-editorial-black hover:bg-neutral-100"
             >
               <User className="h-4 w-4" />
             </button>
 
-            <Link href="/dashboard/settings?tab=ACCOUNT" aria-label="Open settings" title="Settings" className="inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
+            <Link href="/dashboard/settings?tab=ACCOUNT" aria-label="Open settings" title="Settings" className="field-desktop-action inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
               <SlidersHorizontal className="h-4 w-4" />
             </Link>
 
-            <button onClick={() => void handleSignOut()} aria-label="Sign out" title="Sign out" className="inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
+            <button onClick={() => void handleSignOut()} aria-label="Sign out" title="Sign out" className="field-desktop-action inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
               <LogOut className="h-4 w-4" />
             </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="field-mobile-menu"
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              className="field-mobile-menu-trigger hidden h-10 w-10 items-center justify-center border-l border-editorial-border text-editorial-black hover:bg-neutral-100"
+            >
+              {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
           </div>
+        </div>
+
+        <div id="field-mobile-menu" className={`${isMobileMenuOpen ? "block" : "hidden"} field-mobile-menu-panel absolute left-3 right-3 top-full border border-editorial-border bg-white p-2 text-editorial-black shadow-lg`}>
+          <p className="border-b border-editorial-border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-editorial-muted">{currentAgent.name}</p>
+          <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 px-3 text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><Home className="h-4 w-4" /> Dashboard</Link>
+          <button type="button" onClick={() => { setIsMobileMenuOpen(false); setIsPersonaModalOpen(true); }} className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><User className="h-4 w-4" /> Profile</button>
+          <Link href="/dashboard/settings?tab=ACCOUNT" onClick={() => setIsMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 px-3 text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><SlidersHorizontal className="h-4 w-4" /> Settings</Link>
+          <button type="button" onClick={() => void handleSignOut()} className="flex min-h-11 w-full items-center gap-3 border-t border-editorial-border px-3 text-left text-xs font-bold uppercase tracking-wider text-contour-red hover:bg-neutral-100"><LogOut className="h-4 w-4" /> Sign out</button>
         </div>
       </header>
 

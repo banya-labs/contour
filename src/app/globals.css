@@ -710,3 +710,18 @@ button, a, input, select, textarea {
 [data-map-minimal="true"] .map-fit-control {
   display: none;
 }
+
+@media (max-width: 767px) {
+  [data-field-console] .field-agent-identity-details,
+  [data-field-console] .field-desktop-action {
+    display: none !important;
+  }
+
+  [data-field-console] .field-mobile-menu-trigger {
+    display: inline-flex !important;
+  }
+
+  [data-field-console] .field-header {
+    padding: 0.625rem 0.75rem !important;
+  }
+}
