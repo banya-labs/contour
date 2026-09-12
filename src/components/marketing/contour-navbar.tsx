@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export function ContourNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -53,10 +54,9 @@ export function ContourNavbar() {
         {/* Left: Brand Wordmark */}
         <Link
           href="/"
-          className="font-heading font-bold text-2xl sm:text-3xl tracking-tight text-editorial-black flex items-center gap-2 group"
+          className="group"
         >
-          <span>CONTOUR</span>
-          <span className="inline-block w-2 h-2 rounded-full bg-editorial-red opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ContourLogo size="lg" />
         </Link>
 
         {/* Center: Desktop Nav Links */}

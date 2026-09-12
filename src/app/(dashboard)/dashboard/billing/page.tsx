@@ -1,482 +1,65 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import {
-  CreditCard,
-  CheckCircle2,
-  Sparkles,
-  Zap,
-  Building2,
-  ShieldCheck,
-  Smartphone,
-  ArrowRight,
-  Download,
-  AlertCircle,
-  RefreshCw,
-  Clock,
-  Receipt,
-  Layers,
-  Check,
-} from "lucide-react";
-import {
-  CONTOUR_PLANS,
-  BillingCycle,
-  SupportedCurrency,
-  getPlanPrice,
-  MobileMoneyOperator,
-  PaymentChannel,
-} from "@/lib/lenco";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Check, CheckCircle2, Clock3, CreditCard, Download, FileText, Loader2, ShieldCheck, TriangleAlert } from "lucide-react";
+import { CONTOUR_PLANS, getPlanPrice, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
+
+type BillingData = {
+  subscription: { planId: "starter" | "growth" | "enterprise"; planName: string; status: string; trialEndsAt: string; nextPaymentAt: string | null; nextPayment: { amount: number; formatted: string; currency: string; cycle: string } | null; lastPayment: { id: string; amount: number; currency: string; completedAt: string | null; createdAt: string } | null };
+  payments: Array<{ id: string; reference: string; planId: string; billingCycle: string; amount: number; currency: string; status: string; failureReason: string | null; completedAt: string | null; createdAt: string; provider: string }>;
+};
+
+const date = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 export default function BillingPage() {
-  const [currentPlan, setCurrentPlan] = useState<"starter" | "growth" | "enterprise">("starter");
-  const [subscriptionStatus, setSubscriptionStatus] = useState("trialing");
-  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("MONTHLY");
+  const [billing, setBilling] = useState<BillingData | null>(null);
+  const [cycle, setCycle] = useState<BillingCycle>("MONTHLY");
   const [currency, setCurrency] = useState<SupportedCurrency>("ZMW");
-  const [paymentChannel, setPaymentChannel] = useState<PaymentChannel>("mobile_money");
-  const [momoOperator, setMomoOperator] = useState<MobileMoneyOperator>("mtn");
-  const [phone, setPhone] = useState("+260971234567");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [invoices, setInvoices] = useState<Array<{ id: string; date: string; amount: string; plan: string; status: string; gateway: string; receiptUrl: string }>>([]);
-
-  useEffect(() => {
-    void fetch("/api/organization/profile")
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data.success) return;
-        const plan = String(data.organization.subscriptionTier || "STARTER").toLowerCase();
-        if (plan === "starter" || plan === "growth" || plan === "enterprise") setCurrentPlan(plan);
-        setSubscriptionStatus(data.organization.subscriptionStatus || "trialing");
-        setTrialEndsAt(data.organization.trialEndsAt || null);
-      })
-      .catch(() => undefined);
-  }, []);
-
-  const handleUpgrade = async (planId: "starter" | "growth" | "enterprise") => {
-    setIsProcessing(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
+  const loadBilling = async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({
-          planId,
-          billingCycle,
-          currency,
-          channel: paymentChannel,
-          mobileMoneyOperator: momoOperator,
-          phone,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to initiate payment via Lenco.");
-      }
-
-      setCurrentPlan(planId);
-      const planName = CONTOUR_PLANS[planId].name;
-      const price = getPlanPrice(planId, billingCycle, currency).formatted;
-
-      setSuccessMsg(data.message || `Successfully activated ${planName} (${price}/${billingCycle.toLowerCase()})!`);
-
-      // Append new invoice
-      const newInv = {
-        id: `INV-${new Date().toISOString().slice(0, 10)}-${Math.floor(Math.random() * 900 + 100)}`,
-        date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-        amount: price,
-        plan: `${planName} (${billingCycle})`,
-        status: "PAID",
-        gateway: "Lenco Zambia (ZMW)",
-        receiptUrl: "#",
-      };
-      setInvoices((prev) => [newInv, ...prev]);
-
-      if (data.checkoutUrl) {
-        window.open(data.checkoutUrl, "_blank");
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || "An unexpected billing error occurred.");
-    } finally {
-      setIsProcessing(false);
-      setTimeout(() => {
-        setSuccessMsg(null);
-        setErrorMsg(null);
-      }, 7000);
-    }
+      const response = await fetch("/api/billing/summary", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to load billing.");
+      setBilling(data);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to load billing."); }
+    finally { setLoading(false); }
   };
 
-  return (
-    <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-6 sm:space-y-8 w-full h-full overflow-y-auto font-geist">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-editorial-border pb-6">
-        <div>
-          <span className="text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
-            LENCO ZAMBIA COMMERCIAL GATEWAY // BILLING &amp; SEATS
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-editorial-black tracking-tight mt-1">
-            Subscription &amp; Payment Gateway
-          </h1>
-          <p className="text-xs text-editorial-neutral mt-1">
-            Manage your agency subscription, active plan seats, Lenco Zambia billing, and historical tax receipts.
-          </p>
-        </div>
+  useEffect(() => { void loadBilling(); }, []);
 
-        {/* Currency & Billing Cycle Toggles */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Currency Switcher */}
-          <div className="inline-flex items-center p-1 bg-white border border-editorial-border text-xs font-mono">
-            <button
-              onClick={() => setCurrency("ZMW")}
-              className={`px-3 py-1.5 transition-colors ${
-                currency === "ZMW" ? "bg-editorial-black text-white font-bold" : "text-editorial-neutral hover:text-editorial-black"
-              }`}
-            >
-              ZMW (K)
-            </button>
-            <button
-              onClick={() => setCurrency("USD")}
-              className={`px-3 py-1.5 transition-colors ${
-                currency === "USD" ? "bg-editorial-black text-white font-bold" : "text-editorial-neutral hover:text-editorial-black"
-              }`}
-            >
-              USD ($)
-            </button>
-          </div>
+  const currentPlan = billing ? CONTOUR_PLANS[billing.subscription.planId] : CONTOUR_PLANS.starter;
+  const status = billing?.subscription.status?.toLowerCase() || "trialing";
+  const trialActive = status === "trialing";
+  const trialEnded = trialActive && billing ? new Date(billing.subscription.trialEndsAt).getTime() < Date.now() : false;
+  const plans = useMemo(() => Object.values(CONTOUR_PLANS), []);
+  const nextPayment = billing?.subscription.nextPayment;
 
-          {/* Billing Cycle Switcher */}
-          <div className="inline-flex items-center p-1 bg-white border border-editorial-border text-xs font-mono">
-            <button
-              onClick={() => setBillingCycle("MONTHLY")}
-              className={`px-3 py-1.5 transition-colors ${
-                billingCycle === "MONTHLY" ? "bg-editorial-black text-white font-bold" : "text-editorial-neutral hover:text-editorial-black"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle("ANNUAL")}
-              className={`px-3 py-1.5 transition-colors flex items-center gap-1.5 ${
-                billingCycle === "ANNUAL" ? "bg-editorial-black text-white font-bold" : "text-editorial-neutral hover:text-editorial-black"
-              }`}
-            >
-              <span>Annual</span>
-              <span className="text-[10px] bg-editorial-red text-white px-1.5 py-0.2 font-mono font-bold">
-                2 Mo Free
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
+  const checkout = async (planId: "starter" | "growth" | "enterprise") => {
+    setProcessingPlan(planId); setError(null); setMessage(null);
+    try {
+      const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ planId, billingCycle: cycle, currency, channel: "mobile_money", mobileMoneyOperator: "mtn", phone: "+260971234567" }) });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || data.message || "Payment could not be started.");
+      setMessage(data.message || "Payment started. Complete the authorization request to activate your plan.");
+      if (data.checkoutUrl) window.open(data.checkoutUrl, "_blank", "noopener,noreferrer");
+      await loadBilling();
+    } catch (err) { setError(err instanceof Error ? err.message : "Payment could not be started."); }
+    finally { setProcessingPlan(null); }
+  };
 
-      {/* Success / Error Banners */}
-      {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-900 flex items-center gap-3 text-xs font-mono">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
+  if (loading) return <div className="flex h-full items-center justify-center p-8 text-sm text-editorial-muted"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading billing details…</div>;
 
-      {errorMsg && (
-        <div className="p-4 bg-red-50 border border-red-300 text-editorial-red flex items-center gap-3 text-xs font-mono">
-          <AlertCircle className="w-5 h-5 text-editorial-red shrink-0" />
-          <span>[BILLING ERROR] {errorMsg}</span>
-        </div>
-      )}
-
-      {/* Current Active Subscription Status Card */}
-      <div className="bg-white border border-editorial-border p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 bg-editorial-black text-white flex items-center justify-center font-serif text-xl font-bold shrink-0">
-            {currentPlan === "growth" ? "G" : currentPlan === "starter" ? "S" : "E"}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-serif font-bold text-editorial-black">
-                {CONTOUR_PLANS[currentPlan].name}
-              </h2>
-              <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-mono font-bold tracking-wide">
-                {subscriptionStatus.toUpperCase()}
-              </span>
-            </div>
-            <p className="text-xs text-editorial-neutral mt-0.5 font-mono">
-              {subscriptionStatus === "trialing" ? <>Your 14-day trial ends on <span className="font-semibold text-editorial-black">{trialEndsAt ? new Date(trialEndsAt).toLocaleDateString("en-ZM", { day: "numeric", month: "long", year: "numeric" }) : "the trial end date"}</span>.</> : <>Billing is managed through Lenco Zambia. Your next renewal date will appear after the first successful payment.</>}
-            </p>
-            <div className="flex flex-wrap items-center gap-4 mt-3 text-xs font-mono text-editorial-neutral">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Max Agents: <strong className="text-editorial-black">{CONTOUR_PLANS[currentPlan].maxAgents}</strong></span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Listings: <strong className="text-editorial-black">{CONTOUR_PLANS[currentPlan].maxListings}</strong></span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Managed Units: <strong className="text-editorial-black">{CONTOUR_PLANS[currentPlan].maxRentalUnits}</strong></span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Accepted Payment Channels */}
-        <div className="bg-editorial-paper/40 p-4 border border-editorial-border text-xs space-y-2 shrink-0 font-mono">
-          <div className="font-bold text-editorial-black uppercase text-[11px]">Lenco Zambia Payment Rails:</div>
-          <div className="flex items-center gap-2 text-editorial-neutral">
-            <Smartphone className="w-4 h-4 text-editorial-red" />
-            <span>MTN MoMo, Airtel Money &amp; Zamtel Kwacha</span>
-          </div>
-          <div className="flex items-center gap-2 text-editorial-neutral">
-            <CreditCard className="w-4 h-4 text-editorial-black" />
-            <span>Visa &amp; Mastercard (ZMW &amp; USD)</span>
-          </div>
-          <div className="flex items-center gap-2 text-editorial-neutral">
-            <Building2 className="w-4 h-4 text-emerald-700" />
-            <span>Direct Bank Transfer &amp; Virtual Accounts</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Payment Channel Selector for Upgrades */}
-      <div className="bg-white p-4 border border-editorial-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-editorial-black">
-          <span>Preferred Payment Method:</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => setPaymentChannel("mobile_money")}
-            className={`px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider border transition-colors flex items-center gap-1.5 ${
-              paymentChannel === "mobile_money"
-                ? "bg-editorial-black text-white border-editorial-black"
-                : "bg-white border-editorial-border text-editorial-black hover:bg-editorial-paper"
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Mobile Money (ZMW)</span>
-          </button>
-
-          {paymentChannel === "mobile_money" && (
-            <div className="inline-flex items-center gap-1 bg-editorial-paper/40 p-1 border border-editorial-border text-xs">
-              {(["mtn", "airtel", "zamtel"] as MobileMoneyOperator[]).map((op) => (
-                <button
-                  key={op}
-                  onClick={() => setMomoOperator(op)}
-                  className={`px-2.5 py-1 uppercase text-[10px] font-mono font-bold transition-colors ${
-                    momoOperator === op
-                      ? "bg-editorial-red text-white"
-                      : "text-editorial-neutral hover:text-editorial-black"
-                  }`}
-                >
-                  {op}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={() => setPaymentChannel("card")}
-            className={`px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider border transition-colors flex items-center gap-1.5 ${
-              paymentChannel === "card"
-                ? "bg-editorial-black text-white border-editorial-black"
-                : "bg-white border-editorial-border text-editorial-black hover:bg-editorial-paper"
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>Card (Visa / Mastercard)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Plan Selection Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {Object.values(CONTOUR_PLANS).map((plan) => {
-          const isSelected = currentPlan === plan.id;
-          const priceObj = getPlanPrice(plan.id, billingCycle, currency);
-
-          return (
-            <div
-              key={plan.id}
-              className={`p-6 transition-colors flex flex-col justify-between border ${
-                isSelected
-                  ? "bg-white border-editorial-black ring-1 ring-editorial-black"
-                  : "bg-white border-editorial-border hover:border-editorial-black"
-              }`}
-            >
-              <div className="space-y-4">
-                {/* Plan Header */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-editorial-neutral">
-                    {plan.badge}
-                  </span>
-                  {isSelected && (
-                    <span className="text-[10px] font-mono font-bold bg-editorial-black text-white px-2 py-0.5 uppercase tracking-wider">
-                      CURRENT PLAN
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-serif font-bold text-editorial-black">{plan.name}</h3>
-                  <p className="text-xs text-editorial-neutral mt-1 min-h-[32px]">{plan.description}</p>
-                </div>
-
-                {/* Price Display */}
-                <div className="pt-3 border-t border-editorial-border">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-mono font-bold text-editorial-black">
-                      {priceObj.formatted}
-                    </span>
-                    <span className="text-xs font-mono text-editorial-neutral">
-                      / {billingCycle === "ANNUAL" ? "yr" : "mo"}
-                    </span>
-                  </div>
-                  <div className="text-[11px] font-mono text-editorial-neutral mt-0.5">
-                    {billingCycle === "ANNUAL" ? "Billed annually (includes 2 months free)" : "Billed monthly via Lenco Zambia"}
-                  </div>
-                </div>
-
-                {/* Feature List */}
-                <div className="space-y-2.5 pt-3 border-t border-editorial-border">
-                  <div className="text-xs font-mono font-bold text-editorial-black uppercase tracking-wider">
-                    Included Features:
-                  </div>
-                  {plan.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-editorial-black">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div className="pt-6 mt-6 border-t border-editorial-border">
-                {isSelected ? (
-                  <button
-                    disabled
-                    className="w-full py-2.5 px-4 bg-editorial-paper text-editorial-neutral text-xs font-mono font-bold uppercase tracking-wider cursor-not-allowed text-center border border-editorial-border"
-                  >
-                    Active Plan
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleUpgrade(plan.id)}
-                    disabled={isProcessing}
-                    className="w-full py-2.5 px-4 bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-editorial-red" />
-                        <span>Connecting to Lenco...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Upgrade to {plan.name}</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-editorial-red" />
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Historical Invoices & Receipts Section */}
-      <div className="bg-white border border-editorial-border p-4 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-editorial-border pb-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-serif font-bold text-editorial-black">Billing History &amp; Tax Receipts</h2>
-            <p className="text-xs text-editorial-neutral mt-0.5">
-              Download formal VAT / ZRA receipts for your agency bookkeeping.
-            </p>
-          </div>
-          <Receipt className="w-5 h-5 text-editorial-neutral shrink-0" />
-        </div>
-
-        {/* Mobile Cards (md:hidden) */}
-        <div className="md:hidden divide-y divide-editorial-border font-mono text-xs">
-          {invoices.map((inv) => (
-            <div key={inv.id} className="py-3.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-editorial-black">{inv.id}</span>
-                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-[10px]">
-                  {inv.status}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-editorial-neutral">
-                <span>{inv.plan}</span>
-                <span className="font-bold text-editorial-black">{inv.amount}</span>
-              </div>
-              <div className="flex items-center justify-between pt-1 text-[11px]">
-                <span className="text-editorial-neutral">{inv.date} • {inv.gateway}</span>
-                <button
-                  onClick={() => alert(`Downloading PDF Receipt for ${inv.id}`)}
-                  className="inline-flex items-center gap-1 text-editorial-red hover:underline font-bold"
-                >
-                  <Download className="w-3 h-3" />
-                  <span>PDF</span>
-                </button>
-              </div>
-            </div>
-          ))}
-          {invoices.length === 0 && <p className="py-6 text-editorial-neutral">No invoices yet. Completed payments will appear here.</p>}
-        </div>
-
-        {/* Desktop Table (hidden md:block) */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-editorial-border text-editorial-neutral font-mono font-bold uppercase tracking-wider">
-                <th className="pb-3 px-2">Invoice ID</th>
-                <th className="pb-3 px-2">Date</th>
-                <th className="pb-3 px-2">Plan Details</th>
-                <th className="pb-3 px-2">Amount</th>
-                <th className="pb-3 px-2">Gateway</th>
-                <th className="pb-3 px-2">Status</th>
-                <th className="pb-3 px-2 text-right">Receipt</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-editorial-border text-editorial-black font-mono">
-              {invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-editorial-paper/40 transition-colors">
-                  <td className="py-3 px-2 font-bold text-editorial-black">{inv.id}</td>
-                  <td className="py-3 px-2 text-editorial-neutral">{inv.date}</td>
-                  <td className="py-3 px-2 font-medium">{inv.plan}</td>
-                  <td className="py-3 px-2 font-bold">{inv.amount}</td>
-                  <td className="py-3 px-2 text-editorial-neutral">{inv.gateway}</td>
-                  <td className="py-3 px-2">
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-[10px]">
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-right">
-                    <button
-                      onClick={() => alert(`Downloading PDF Receipt for ${inv.id}`)}
-                      className="inline-flex items-center gap-1 text-editorial-red hover:underline font-bold"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>PDF</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {invoices.length === 0 && <tr><td colSpan={7} className="py-8 px-2 text-editorial-neutral">No invoices yet. Completed payments will appear here.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="h-full w-full overflow-y-auto bg-[#f8f8f6] p-4 pb-24 font-geist text-editorial-black sm:p-6 lg:p-8"><div className="mx-auto max-w-7xl space-y-8">
+    <header className="flex flex-col gap-4 border-b border-editorial-border pb-6 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-[11px] font-bold uppercase tracking-[0.2em] text-contour-red">Workspace billing</p><h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">Plans that make the next step obvious.</h1><p className="mt-2 max-w-2xl text-sm text-editorial-muted">See exactly where your workspace stands, compare what each plan unlocks, and keep a clean record of payments.</p></div><div className="flex flex-wrap gap-2"><div className="inline-flex border border-editorial-border bg-white p-1 text-xs">{(["ZMW", "USD"] as SupportedCurrency[]).map((item) => <button key={item} onClick={() => setCurrency(item)} className={`px-3 py-2 font-semibold ${currency === item ? "bg-editorial-black text-white" : "text-editorial-muted"}`}>{item}</button>)}</div><div className="inline-flex border border-editorial-border bg-white p-1 text-xs">{(["MONTHLY", "ANNUAL"] as BillingCycle[]).map((item) => <button key={item} onClick={() => setCycle(item)} className={`px-3 py-2 font-semibold ${cycle === item ? "bg-editorial-black text-white" : "text-editorial-muted"}`}>{item === "ANNUAL" ? "Annual · 2 months free" : "Monthly"}</button>)}</div></div></header>
+    {message && <div className="flex items-center gap-3 border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900"><CheckCircle2 className="h-5 w-5" />{message}</div>}{error && <div className="flex items-center gap-3 border border-red-300 bg-red-50 p-4 text-sm text-red-900"><TriangleAlert className="h-5 w-5" />{error}</div>}
+    <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr]"><div className="border border-editorial-black bg-editorial-black p-6 text-white"><div className="flex items-start justify-between"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">You are on</p><h2 className="mt-2 font-heading text-2xl font-bold">{currentPlan.name}</h2></div><span className="border border-white/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider">{status.replace("_", " ")}</span></div><p className="mt-4 max-w-md text-sm leading-6 text-white/70">{trialActive ? `Your trial ends ${date(billing?.subscription.trialEndsAt)}. Pick a paid plan before then to keep your workspace active.` : trialEnded ? "Your trial has ended. Choose a plan to restore paid workspace access." : "Your paid workspace is active. Plan changes take effect through the billing flow."}</p><a href="#plans" className="mt-6 inline-flex items-center gap-2 bg-contour-red px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">{trialActive || trialEnded ? "Choose a paid plan" : "Change plan"}<ArrowRight className="h-4 w-4" /></a></div><div className="border border-editorial-border bg-white p-6"><p className="text-[11px] font-bold uppercase tracking-wider text-editorial-muted">Next payment</p><p className="mt-3 font-heading text-2xl font-bold">{nextPayment?.formatted || "Not scheduled"}</p><p className="mt-2 text-sm text-editorial-muted">{billing?.subscription.nextPaymentAt && nextPayment ? `Expected ${date(billing.subscription.nextPaymentAt)} · ${nextPayment.cycle.toLowerCase()}` : "It will appear after your first successful payment."}</p><div className="mt-6 flex items-center gap-2 text-xs text-editorial-muted"><Clock3 className="h-4 w-4" /> Estimates update from successful payments.</div></div><div className="border border-editorial-border bg-white p-6"><p className="text-[11px] font-bold uppercase tracking-wider text-editorial-muted">Last payment</p><p className="mt-3 font-heading text-2xl font-bold">{billing?.subscription.lastPayment ? `${billing.subscription.lastPayment.currency} ${billing.subscription.lastPayment.amount.toLocaleString()}` : "No payments yet"}</p><p className="mt-2 text-sm text-editorial-muted">{billing?.subscription.lastPayment ? `Paid ${date(billing.subscription.lastPayment.completedAt || billing.subscription.lastPayment.createdAt)}` : "Your first receipt will appear here after checkout."}</p><div className="mt-6 flex items-center gap-2 text-xs text-editorial-muted"><ShieldCheck className="h-4 w-4" /> Payment records are workspace-scoped.</div></div></section>
+    <section id="plans" className="scroll-mt-6"><div className="mb-4 flex items-end justify-between"><div><h2 className="font-heading text-xl font-bold">Compare plans</h2><p className="mt-1 text-sm text-editorial-muted">Every card shows what changes when you move.</p></div><span className="text-xs font-semibold text-editorial-muted">{cycle === "ANNUAL" ? "Annual billing" : "Monthly billing"} · {currency}</span></div><div className="grid gap-4 lg:grid-cols-3">{plans.map((plan) => { const active = plan.id === currentPlan.id; const price = getPlanPrice(plan.id, cycle, currency); return <article key={plan.id} className={`flex flex-col border bg-white p-6 ${active ? "border-editorial-black ring-2 ring-editorial-black/10" : "border-editorial-border"}`}><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-contour-red">{plan.badge}</p><h3 className="mt-2 font-heading text-xl font-bold">{plan.name}</h3></div>{active && <span className="bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">Current</span>}</div><p className="mt-3 min-h-10 text-sm leading-5 text-editorial-muted">{plan.description}</p><div className="mt-5 border-y border-editorial-border py-4"><span className="font-heading text-3xl font-bold">{price.formatted}</span><span className="ml-1 text-xs text-editorial-muted">/ {cycle === "ANNUAL" ? "year" : "month"}</span></div><div className="mt-5 space-y-3 text-sm">{plan.features.map((feature) => <div key={feature} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>{feature}</span></div>)}</div><button disabled={active || processingPlan !== null} onClick={() => void checkout(plan.id)} className={`mt-6 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider ${active ? "cursor-default bg-[#f0f0ed] text-editorial-muted" : "bg-editorial-black text-white hover:bg-contour-red"}`}>{processingPlan === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : active ? "Current plan" : `Move to ${plan.name}`} {!active && processingPlan !== plan.id && <ArrowRight className="h-4 w-4" />}</button></article>; })}</div></section>
+    <section className="border border-editorial-border bg-white p-5 sm:p-6"><div className="flex flex-col gap-2 border-b border-editorial-border pb-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-heading text-xl font-bold">Payment history</h2><p className="mt-1 text-sm text-editorial-muted">Completed payments have a downloadable receipt. Pending and failed attempts stay visible for clarity.</p></div><CreditCard className="h-5 w-5 text-editorial-muted" /></div><div className="divide-y divide-editorial-border">{billing?.payments.length ? billing.payments.map((payment) => <div key={payment.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{payment.currency} {payment.amount.toLocaleString()}</span><span className="rounded-full bg-[#f0f0ed] px-2 py-1 text-[10px] font-bold uppercase">{payment.status}</span></div><p className="mt-1 text-xs text-editorial-muted">{CONTOUR_PLANS[payment.planId]?.name || payment.planId} · {payment.billingCycle.toLowerCase()} · {date(payment.completedAt || payment.createdAt)}</p>{payment.failureReason && <p className="mt-1 text-xs text-red-700">{payment.failureReason}</p>}</div>{payment.status === "SUCCESS" ? <a href={`/api/billing/payments/${payment.id}/receipt?download=1`} className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-contour-red"><Download className="h-4 w-4" /> Download receipt</a> : <span className="text-xs text-editorial-muted">Receipt available after payment</span>}</div>) : <div className="py-10 text-center"><FileText className="mx-auto h-8 w-8 text-editorial-muted" /><p className="mt-3 text-sm font-semibold">No payment history yet</p><p className="mt-1 text-sm text-editorial-muted">Your completed payments and receipts will appear here.</p></div>}</div></section>
+  </div></div>;
 }

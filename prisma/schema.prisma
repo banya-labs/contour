@@ -47,6 +47,8 @@ model User {
   grantedVaultAccess VaultAccessGrant[]  @relation("GrantedVaultAccess")
   documentRequests   DocumentRequest[]
   sentInvitations    Invitation[]        @relation("InvitationInviter")
+  accessRequests     AccessRequest[]
+  createdAccessRequestLinks AccessRequestLink[] @relation("AccessRequestLinkCreator")
   createdBoundaries   PropertyBoundary[]  @relation("BoundaryCreatedBy")
   verifiedBoundaries  PropertyBoundary[]  @relation("BoundaryVerifiedBy")
 
@@ -141,6 +143,8 @@ model Organization {
   assets              OrganizationAsset[]
   roles               OrganizationRole[]
   uploadSessions      UploadSession[]
+  accessRequestLink   AccessRequestLink?
+  accessRequests      AccessRequest[]
   surveyExtractionJobs SurveyExtractionJob[]
   boundaries          PropertyBoundary[]
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
@@ -188,6 +192,44 @@ model Invitation {
   inviter        User?        @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
 
   @@map("invitation")
+}
+
+model AccessRequestLink {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  tokenHash      String   @unique
+  createdById    String
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User @relation("AccessRequestLinkCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@map("access_request_link")
+}
+
+model AccessRequest {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  firstName      String
+  lastName       String
+  email          String
+  roleKey        String   @default("FIELD_AGENT")
+  status         String   @default("PENDING")
+  reviewedById   String?
+  reviewedAt     DateTime?
+  declineReason  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, status, createdAt])
+  @@map("access_request")
 }
 
 model OrganizationProfile {

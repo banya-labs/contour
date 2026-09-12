@@ -303,3 +303,173 @@
 button, a, input, select, textarea {
   touch-action: manipulation;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Field Agent Console                                                        */
+/* -------------------------------------------------------------------------- */
+:root {
+  --field-canvas: #f7f4ee;
+  --field-surface: #ffffff;
+  --field-surface-muted: #f0ece4;
+  --field-ink: #1c1c1a;
+  --field-muted: #6d6a62;
+  --field-line: #ded8cd;
+  --field-forest: #16382b;
+  --field-forest-deep: #0f291e;
+  --field-bronze: #b6812f;
+  --field-bronze-soft: #f3e6c8;
+  --field-red: #fa3600;
+}
+
+[data-field-console] {
+  background: var(--field-canvas) !important;
+  color: var(--field-ink) !important;
+  border-color: var(--field-line) !important;
+  box-shadow: none !important;
+  max-width: 1180px !important;
+  width: 100%;
+}
+
+[data-field-console] header,
+[data-field-console] footer {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: var(--field-line) !important;
+  color: var(--field-ink) !important;
+  box-shadow: 0 1px 0 rgba(28, 28, 26, 0.04) !important;
+}
+
+[data-field-console] main {
+  background: var(--field-canvas);
+}
+
+[data-field-console] [class*="bg-[#0F1B14]"],
+[data-field-console] [class*="bg-[#0B1711]"],
+[data-field-console] [class*="bg-[#0A140F]"],
+[data-field-console] [class*="bg-[#09130D]"],
+[data-field-console] [class*="bg-[#0B150F]"],
+[data-field-console] [class*="bg-[#070E0A]"],
+[data-field-console] [class*="bg-[#060C08]"],
+[data-field-console] [class*="bg-[#101D16]"],
+[data-field-console] [class*="bg-[#14261C]"],
+[data-field-console] [class*="bg-[#0F1E16]"] {
+  background: var(--field-surface) !important;
+}
+
+[data-field-console] [class*="bg-[#10241A]"],
+[data-field-console] [class*="bg-[#163325]"],
+[data-field-console] [class*="from-emerald-900"],
+[data-field-console] [class*="to-[#10241A]"] {
+  background: var(--field-forest) !important;
+}
+
+[data-field-console] [class*="from-emerald-900"] {
+  color: #ffffff !important;
+}
+
+[data-field-console] [class*="text-white"],
+[data-field-console] [class*="text-slate-100"],
+[data-field-console] [class*="text-slate-200"],
+[data-field-console] [class*="text-slate-300"] {
+  color: var(--field-ink) !important;
+}
+
+[data-field-console] [class*="text-slate-400"],
+[data-field-console] [class*="text-slate-500"],
+[data-field-console] [class*="text-slate-600"] {
+  color: var(--field-muted) !important;
+}
+
+[data-field-console] [class*="text-emerald-300"],
+[data-field-console] [class*="text-emerald-400"],
+[data-field-console] [class*="text-emerald-500"],
+[data-field-console] [class*="text-emerald-600"] {
+  color: var(--field-forest) !important;
+}
+
+[data-field-console] [class*="text-[#E57A1A]"],
+[data-field-console] [class*="text-amber-300"],
+[data-field-console] [class*="text-amber-400"] {
+  color: var(--field-bronze) !important;
+}
+
+[data-field-console] [class*="from-emerald-900"],
+[data-field-console] [class*="bg-emerald-800"] {
+  color: #ffffff !important;
+}
+
+[data-field-console] [class*="border-emerald-900"],
+[data-field-console] [class*="border-emerald-950"],
+[data-field-console] [class*="border-emerald-800"],
+[data-field-console] [class*="border-emerald-700"],
+[data-field-console] [class*="border-emerald-600"] {
+  border-color: var(--field-line) !important;
+}
+
+[data-field-console] [class*="rounded-2xl"],
+[data-field-console] [class*="rounded-xl"],
+[data-field-console] [class*="rounded-lg"] {
+  border-radius: 0.35rem !important;
+}
+
+[data-field-console] input,
+[data-field-console] select,
+[data-field-console] textarea {
+  background: var(--field-surface) !important;
+  color: var(--field-ink) !important;
+  border-color: var(--field-line) !important;
+  border-radius: 0.35rem !important;
+  min-height: 44px;
+}
+
+[data-field-console] button,
+[data-field-console] a {
+  min-height: 44px;
+}
+
+[data-field-console] button:focus-visible,
+[data-field-console] a:focus-visible,
+[data-field-console] input:focus-visible,
+[data-field-console] select:focus-visible,
+[data-field-console] textarea:focus-visible {
+  outline: 2px solid var(--field-red);
+  outline-offset: 2px;
+}
+
+[data-field-console] .field-brand-mark {
+  background: var(--field-forest) !important;
+  border-radius: 0.35rem !important;
+  box-shadow: none !important;
+}
+
+[data-field-console] .field-primary-action {
+  background: var(--field-forest) !important;
+  color: #ffffff !important;
+  border-color: var(--field-forest) !important;
+  border-radius: 0.35rem !important;
+  box-shadow: none !important;
+}
+
+[data-field-console] .field-primary-action:hover {
+  background: var(--field-red) !important;
+  border-color: var(--field-red) !important;
+}
+
+[data-field-console] .field-sync-notice button:hover {
+  background: #ffffff !important;
+}
+
+[data-field-console] .field-capture-drawer {
+  color: var(--field-ink) !important;
+}
+
+[data-field-console] .field-capture-drawer .field-capture-note {
+  border-color: var(--field-line) !important;
+  background: var(--field-surface-muted) !important;
+}
+
+@media (min-width: 768px) {
+  [data-field-console] main {
+    padding-left: clamp(1.5rem, 4vw, 4rem) !important;
+    padding-right: clamp(1.5rem, 4vw, 4rem) !important;
+  }
+}

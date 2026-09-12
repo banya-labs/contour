@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { AuthForm } from "@/components/auth/auth-form";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export default function SignInPage() {
   return (
@@ -10,10 +11,9 @@ export default function SignInPage() {
       <header className="w-full border-b border-editorial-border py-4 px-6 sm:px-12 flex items-center justify-between">
         <Link
           href="/"
-          className="font-heading font-bold text-2xl tracking-tight text-editorial-black flex items-center gap-2 group"
+          className="group"
         >
-          <span>CONTOUR</span>
-          <span className="w-2 h-2 rounded-full bg-editorial-red inline-block" />
+          <ContourLogo size="md" />
         </Link>
         <div className="flex items-center gap-6">
           <span className="hidden sm:inline-block font-geist text-xs text-editorial-muted uppercase tracking-wider">

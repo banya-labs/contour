@@ -23,7 +23,6 @@ export const GET = createApiHandler({
       },
       orderBy: { createdAt: "asc" },
     });
-
     return NextResponse.json({
       success: true,
       roles: Object.entries(ROLE_DESCRIPTIONS).filter(([key]) => key !== "OWNER").map(([key, value]) => ({ key, ...value, permissions: ROLE_PRESETS[key as keyof typeof ROLE_PRESETS] })),

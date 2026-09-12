@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import {
   MapPin,
@@ -48,11 +49,14 @@ import {
   Sparkle,
   Map as MapIcon,
   Navigation,
-  Crosshair
+  Crosshair,
+  ClipboardList,
+  CalendarClock
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
 import type { PropertyMapItem } from "@/types/property-map";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -76,7 +80,7 @@ export default function FieldAgentPwaPage() {
   );
 }
 
-type TabType = "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
+type TabType = "QUEUE" | "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
 
 function AgentKioskContent() {
@@ -94,7 +98,7 @@ function AgentKioskContent() {
   } = usePowerSync();
 
   // Active Bottom Navigation Tab & Sub-View
-  const [activeTab, setActiveTab] = useState<TabType>("PROPERTIES");
+  const [activeTab, setActiveTab] = useState<TabType>("QUEUE");
   const [propertyViewMode, setPropertyViewMode] = useState<"LIST" | "MAP">("LIST");
 
   // Search & Filters
@@ -106,7 +110,9 @@ function AgentKioskContent() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [matchedProperty, setMatchedProperty] = useState<any | null>(null);
   const [selectedMapProperty, setSelectedMapProperty] = useState<any | null>(null);
+  const [selectedPropertyDetail, setSelectedPropertyDetail] = useState<any | null>(null);
   const [intakeDrawer, setIntakeDrawer] = useState<IntakeType>("NONE");
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
 
 
@@ -125,6 +131,39 @@ function AgentKioskContent() {
   });
 
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+
+  const activeTabMeta: Record<TabType, { eyebrow: string; title: string; description: string }> = {
+    QUEUE: {
+      eyebrow: "Today in the field",
+      title: "Your work queue",
+      description: "The next actions that keep viewings, offers, and commissions moving.",
+    },
+    PROPERTIES: {
+      eyebrow: "Field inventory",
+      title: "Active mandates",
+      description: "Search listings, confirm title status, and move buyers forward.",
+    },
+    MAP: {
+      eyebrow: "Spatial view",
+      title: "Lusaka field map",
+      description: "Navigate active mandates by suburb and location.",
+    },
+    CLIENTS: {
+      eyebrow: "Protected registry",
+      title: "Your clients",
+      description: "Keep every inquiry protected and ready for follow-up.",
+    },
+    DEALS: {
+      eyebrow: "Deal velocity",
+      title: "Move deals forward",
+      description: "Track the next action from viewing to settlement.",
+    },
+    EARNINGS: {
+      eyebrow: "Commission ledger",
+      title: "Your earnings",
+      description: "See cleared splits and what is still in the pipeline.",
+    },
+  };
 
   // Deals State with optimistic transitions
   const [agentDeals, setAgentDeals] = useState([
@@ -343,12 +382,21 @@ function AgentKioskContent() {
   // Submit Intake: New Property
   const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPropTitle || !newPropPrice) return;
+    const price = Number(newPropPrice);
+    if (newPropTitle.trim().length < 5) {
+      setCaptureError("Add a property title with at least 5 characters.");
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      setCaptureError("Enter a property price greater than zero.");
+      return;
+    }
+    setCaptureError(null);
 
     const payload = {
       title: newPropTitle,
       suburb: newPropSuburb,
-      price: Number(newPropPrice),
+      price,
       currency: newPropCurrency,
       propertyType: newPropType === "SALE" ? "RESIDENTIAL_SALE" : "RESIDENTIAL_RENTAL",
       listingType: newPropType === "SALE" ? "FOR_SALE" : "FOR_RENT",
@@ -372,7 +420,19 @@ function AgentKioskContent() {
   // Submit Intake: New Client
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClientName || !newClientPhone) return;
+    if (newClientName.trim().length < 2) {
+      setCaptureError("Enter the client or company name.");
+      return;
+    }
+    if (!/^[+\d][\d\s()-]{7,}$/.test(newClientPhone.trim())) {
+      setCaptureError("Enter a valid WhatsApp phone number, including the country code where possible.");
+      return;
+    }
+    if (newClientBudget && Number(newClientBudget) < 0) {
+      setCaptureError("Budget cannot be negative.");
+      return;
+    }
+    setCaptureError(null);
 
     const payload = {
       clientName: newClientName,
@@ -395,17 +455,33 @@ function AgentKioskContent() {
   // Submit Intake: Formal Offer
   const handleCreateOffer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!offerClientName || !offerAmount) return;
+    const selectedOfferProperty = displayProperties.find((p: any) => p.id === offerPropertyId);
+    const amount = Number(offerAmount);
+    if (!selectedOfferProperty) {
+      setCaptureError("Select the mandate connected to this offer.");
+      return;
+    }
+    if (offerClientName.trim().length < 2) {
+      setCaptureError("Enter the buyer or client name.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setCaptureError("Enter an offer amount greater than zero.");
+      return;
+    }
+    setCaptureError(null);
+
+    const offerCurrency = selectedOfferProperty.currency || "ZMW";
 
     const newDeal = {
       id: `deal_${Date.now()}`,
-      propertyTitle: offerPropertyId ? displayProperties.find((p: any) => p.id === offerPropertyId)?.title || "Executive Mandate" : "Lusaka Mandate",
-      suburb: newPropSuburb,
+      propertyTitle: selectedOfferProperty.title,
+      suburb: selectedOfferProperty.suburb || "Lusaka",
       clientName: offerClientName,
-      value: `${newClientCurrency === "USD" ? "$" : "K"} ${Number(offerAmount).toLocaleString()}`,
+      value: `${offerCurrency === "USD" ? "$" : "K"} ${amount.toLocaleString()}`,
       stage: "OFFER_MADE",
       stageLabel: "Formal Offer Submitted",
-      agentSplitEst: `${newClientCurrency === "USD" ? "$" : "K"} ${(Number(offerAmount) * 0.025).toLocaleString()} (50% Split)`,
+      agentSplitEst: `${offerCurrency === "USD" ? "$" : "K"} ${(amount * 0.025).toLocaleString()} (50% Split)`,
       lockDaysRemaining: 30,
       updatedAt: "Just now",
     };
@@ -442,18 +518,19 @@ function AgentKioskContent() {
 
 
   return (
-    <div className="min-h-dvh bg-[#070D0A] text-slate-100 font-sans flex flex-col justify-between max-w-md md:max-w-2xl mx-auto relative shadow-2xl border-x border-emerald-950/40">
+    <div data-field-console className="field-shell min-h-dvh bg-[#070D0A] text-slate-100 font-sans flex flex-col justify-between max-w-md md:max-w-2xl mx-auto relative shadow-2xl border-x border-emerald-950/40">
       
       {/* 1. Top Fixed Field Bar */}
-      <header className="sticky top-0 z-40 bg-[#0B1711]/95 backdrop-blur-md border-b border-emerald-900/40 px-4 py-3">
+      <header className="field-header sticky top-0 z-40 bg-[#0B1711]/95 backdrop-blur-md border-b border-emerald-900/40 px-4 py-3">
         <div className="flex items-center justify-between">
           
           {/* Agent Identity & Persona Switcher */}
           <button
             onClick={() => setIsPersonaModalOpen(true)}
+            aria-label={`Open agent profile for ${currentAgent.name}`}
             className="flex items-center gap-2.5 text-left group"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E57A1A] to-[#B3580B] text-white flex items-center justify-center font-serif font-bold text-sm shadow-md ring-1 ring-white/20 group-hover:scale-105 transition-transform">
+            <div className="field-brand-mark w-9 h-9 rounded-xl bg-gradient-to-br from-[#E57A1A] to-[#B3580B] text-white flex items-center justify-center font-serif font-bold text-sm shadow-md ring-1 ring-white/20 group-hover:scale-105 transition-transform">
               {currentAgent.name.charAt(0)}
             </div>
             <div>
@@ -466,6 +543,9 @@ function AgentKioskContent() {
               <p className="text-[10px] text-slate-400 font-mono leading-tight">
                 {currentAgent.zone.split("(")[0]}
               </p>
+              <p className="text-[9px] text-slate-500 font-mono uppercase tracking-[0.18em] mt-1">
+                <ContourLogo size="sm" variant="dark" />
+              </p>
             </div>
           </button>
 
@@ -475,6 +555,8 @@ function AgentKioskContent() {
             {/* Offline/Online PowerSync Badge */}
             <button
               onClick={toggleNetwork}
+              aria-label={isOnline ? "Switch to offline preview" : "Switch to live connection"}
+              aria-pressed={!isOnline}
               className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1.5 border ${
                 isOnline
                   ? "bg-emerald-950/70 text-emerald-400 border-emerald-700/60"
@@ -494,8 +576,113 @@ function AgentKioskContent() {
       </header>
 
       {/* 2. Main Scrollable Canvas */}
-      <main className="flex-1 px-4 py-4 space-y-4 pb-28 overflow-y-auto">
+      <main className="field-main flex-1 px-4 py-4 space-y-4 pb-28 overflow-y-auto">
+        <section className="border-b border-stone-300 pb-4 pt-1">
+          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#B6812F] font-bold">
+            {activeTabMeta[activeTab].eyebrow}
+          </p>
+          <div className="mt-1 flex items-end justify-between gap-4">
+            <div>
+              <h1 className="font-serif text-2xl font-bold tracking-tight text-[#16382B]">
+                {activeTabMeta[activeTab].title}
+              </h1>
+              <p className="mt-1 max-w-xl text-xs leading-relaxed text-stone-600">
+                {activeTabMeta[activeTab].description}
+              </p>
+            </div>
+            <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-stone-500 sm:block">
+              {isOnline ? "Synced workspace" : "Local workspace"}
+            </span>
+          </div>
+        </section>
+
+        {(!isOnline || outboxCount > 0 || loading) && (
+          <section className="field-sync-notice flex items-center justify-between gap-3 border border-[#E8C265]/70 bg-[#FFF8E8] px-3 py-3 text-xs">
+            <div className="flex items-start gap-2">
+              <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${loading ? "bg-[#B6812F] animate-pulse" : isOnline ? "bg-emerald-600" : "bg-[#B6812F]"}`} />
+              <div>
+                <p className="font-bold text-[#16382B]">
+                  {loading ? "Refreshing field data" : isOnline ? "Actions queued for sync" : "Working offline"}
+                </p>
+                <p className="mt-0.5 text-[10px] leading-relaxed text-stone-600">
+                  {loading ? "Keep working; the local workspace remains available." : outboxCount > 0 ? `${outboxCount} action${outboxCount === 1 ? "" : "s"} saved locally and waiting for confirmation.` : "New captures will be stored on this device until the connection returns."}
+                </p>
+              </div>
+            </div>
+            {isOnline && outboxCount > 0 && (
+              <button onClick={() => syncData()} className="shrink-0 border border-[#16382B] px-2.5 py-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#16382B] hover:bg-white">
+                Sync now
+              </button>
+            )}
+          </section>
+        )}
         
+        {/* ================= TAB 0: WORK QUEUE ================= */}
+        {activeTab === "QUEUE" && (
+          <div className="space-y-4">
+            <section className="bg-[#16382B] text-white p-4 sm:p-5 border border-[#16382B]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#E8C265] font-bold">Good morning, {currentAgent.name.split(" ")[0]}</p>
+                  <h2 className="mt-2 font-serif text-2xl font-bold leading-tight">Keep the day moving.</h2>
+                  <p className="mt-2 max-w-md text-xs leading-relaxed text-white/75">Your field actions stay protected locally and sync when the connection returns.</p>
+                </div>
+                <ClipboardList className="h-7 w-7 shrink-0 text-[#E8C265]" />
+              </div>
+              <div className="mt-5 flex items-center justify-between border-t border-white/15 pt-3 font-mono text-[10px] uppercase tracking-wider text-white/65">
+                <span>{isOnline ? "Workspace synced" : "Working locally"}</span>
+                <span>{outboxCount > 0 ? `${outboxCount} queued` : "No queued actions"}</span>
+              </div>
+            </section>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Viewings", value: "02", tone: "text-[#16382B]" },
+                { label: "Follow-ups", value: "03", tone: "text-[#B6812F]" },
+                { label: "Active deals", value: String(agentDeals.length).padStart(2, "0"), tone: "text-[#FA3600]" },
+              ].map((stat) => (
+                <div key={stat.label} className="border border-stone-300 bg-white p-3">
+                  <p className="font-mono text-[9px] uppercase tracking-wider text-stone-500">{stat.label}</p>
+                  <p className={`mt-1 font-serif text-2xl font-bold ${stat.tone}`}>{stat.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <section className="border border-stone-300 bg-white">
+              <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#B6812F] font-bold">Next actions</p>
+                  <h2 className="mt-1 font-serif text-lg font-bold text-[#16382B]">Start here</h2>
+                </div>
+                <CalendarClock className="h-5 w-5 text-[#B6812F]" />
+              </div>
+              <div className="divide-y divide-stone-200">
+                <button onClick={() => setActiveTab("DEALS")} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left hover:bg-stone-50">
+                  <span>
+                    <span className="block text-sm font-bold text-[#1C1C1A]">Advance Nchimunya&apos;s offer</span>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-stone-500">Kabulonga · Offer accepted</span>
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[#16382B]" />
+                </button>
+                <button onClick={() => setActiveTab("PROPERTIES")} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left hover:bg-stone-50">
+                  <span>
+                    <span className="block text-sm font-bold text-[#1C1C1A]">Prepare tomorrow&apos;s viewing</span>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-stone-500">Ibex Hill · 14:00 · 3-bedroom townhouse</span>
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[#16382B]" />
+                </button>
+                <button onClick={() => setIntakeDrawer("CLIENT")} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left hover:bg-stone-50">
+                  <span>
+                    <span className="block text-sm font-bold text-[#1C1C1A]">Capture a new field inquiry</span>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-stone-500">Protect the client relationship for 30 days</span>
+                  </span>
+                  <Plus className="h-4 w-4 shrink-0 text-[#FA3600]" />
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
         {/* ================= TAB 1: PROPERTIES (CATALOG & SPATIAL MAP) ================= */}
         {(activeTab === "PROPERTIES" || activeTab === "MAP") && (
           <div className="space-y-4">
@@ -533,7 +720,7 @@ function AgentKioskContent() {
                   <button
                     onClick={() => {
                       setPropertyViewMode("MAP");
-                      setActiveTab("PROPERTIES");
+                      setActiveTab("MAP");
                       playNeutralTone();
                     }}
                     className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all ${
@@ -655,6 +842,13 @@ function AgentKioskContent() {
                     {/* Action Bar on Map Card */}
                     <div className="grid grid-cols-2 gap-2 pt-0.5">
                       <button
+                        onClick={() => setSelectedPropertyDetail(selectedMapProperty)}
+                        className="col-span-2 py-2 px-3 rounded-xl bg-white hover:bg-stone-50 text-[#16382B] text-xs font-bold border border-stone-300 flex items-center justify-center gap-1.5"
+                      >
+                        <FileCheck className="w-3.5 h-3.5 text-[#B6812F]" />
+                        <span>Open mandate record</span>
+                      </button>
+                      <button
                         onClick={() => copyWhatsAppFlyer(selectedMapProperty)}
                         className="py-2 px-3 rounded-xl bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 text-xs font-bold border border-emerald-700/50 flex items-center justify-center gap-1.5 shadow-sm"
                       >
@@ -694,6 +888,17 @@ function AgentKioskContent() {
                       key={p.id}
                       className="bg-[#0F1B14] border border-emerald-900/50 rounded-2xl p-4 space-y-3 shadow-md hover:border-emerald-700/60 transition-all"
                     >
+                      {p.photos?.[0] && (
+                        <div className="relative h-32 overflow-hidden border-b border-stone-200 bg-[#F7F4EE]">
+                          <Image
+                            src={p.photos[0]}
+                            alt=""
+                            fill
+                            className="h-full w-full object-cover opacity-90 transition-transform duration-500 hover:scale-105"
+                          />
+                        </div>
+                      )}
+
                       {/* Header: Title & Suburb */}
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -738,6 +943,13 @@ function AgentKioskContent() {
                         </span>
                         <span className="font-mono text-slate-500">ID: {p.id.slice(0, 8)}</span>
                       </div>
+
+                      <button
+                        onClick={() => setSelectedPropertyDetail(p)}
+                        className="w-full border-b border-stone-300 pb-2 text-left text-[10px] font-mono uppercase tracking-wider text-[#16382B] hover:text-[#FA3600]"
+                      >
+                        Open full mandate record →
+                      </button>
 
                       {/* Action Bar */}
                       <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1068,8 +1280,23 @@ function AgentKioskContent() {
       </main>
 
       {/* 3. Dedicated Bottom Dock Navigation Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A140F]/95 backdrop-blur-md border-t border-emerald-900/40 max-w-md md:max-w-2xl mx-auto pb-safe">
-        <div className="grid grid-cols-5 items-center px-2 py-2">
+      <footer className="field-footer fixed bottom-0 left-0 right-0 z-40 bg-[#0A140F]/95 backdrop-blur-md border-t border-emerald-900/40 max-w-md md:max-w-2xl mx-auto pb-safe">
+        <div className="grid grid-cols-6 items-center px-1 py-2">
+
+          {/* Work Queue Tab */}
+          <button
+            onClick={() => {
+              setActiveTab("QUEUE");
+              playNeutralTone();
+            }}
+            aria-current={activeTab === "QUEUE" ? "page" : undefined}
+            className={`flex flex-col items-center gap-1 py-1 transition-colors ${
+              activeTab === "QUEUE" ? "text-[#E57A1A]" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            <span className="text-[9px] font-semibold">Today</span>
+          </button>
           
           {/* Properties (Catalog & Map) Tab */}
           <button
@@ -1077,8 +1304,9 @@ function AgentKioskContent() {
               setActiveTab("PROPERTIES");
               playNeutralTone();
             }}
+            aria-current={activeTab === "PROPERTIES" || activeTab === "MAP" ? "page" : undefined}
             className={`flex flex-col items-center gap-1 py-1 transition-colors ${
-              activeTab === "PROPERTIES" ? "text-[#E57A1A]" : "text-slate-400 hover:text-slate-200"
+              activeTab === "PROPERTIES" || activeTab === "MAP" ? "text-[#E57A1A]" : "text-slate-400 hover:text-slate-200"
             }`}
           >
             <Home className="w-5 h-5" />
@@ -1091,6 +1319,7 @@ function AgentKioskContent() {
               setActiveTab("CLIENTS");
               playNeutralTone();
             }}
+            aria-current={activeTab === "CLIENTS" ? "page" : undefined}
             className={`flex flex-col items-center gap-1 py-1 transition-colors ${
               activeTab === "CLIENTS" ? "text-[#E57A1A]" : "text-slate-400 hover:text-slate-200"
             }`}
@@ -1106,7 +1335,8 @@ function AgentKioskContent() {
                 setIntakeDrawer("PROPERTY");
                 playSuccessTone();
               }}
-              className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#E57A1A] to-[#F59E0B] text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all ring-4 ring-[#070D0A]"
+              aria-label="Open field capture menu"
+              className="field-primary-action w-12 h-12 rounded-full bg-gradient-to-tr from-[#E57A1A] to-[#F59E0B] text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all ring-4 ring-[#070D0A]"
               title="Add Listing / Client / Offer"
             >
               <Plus className="w-6 h-6 stroke-[2.5]" />
@@ -1119,6 +1349,7 @@ function AgentKioskContent() {
               setActiveTab("DEALS");
               playNeutralTone();
             }}
+            aria-current={activeTab === "DEALS" ? "page" : undefined}
             className={`flex flex-col items-center gap-1 py-1 transition-colors ${
               activeTab === "DEALS" ? "text-[#E57A1A]" : "text-slate-400 hover:text-slate-200"
             }`}
@@ -1133,6 +1364,7 @@ function AgentKioskContent() {
               setActiveTab("EARNINGS");
               playNeutralTone();
             }}
+            aria-current={activeTab === "EARNINGS" ? "page" : undefined}
             className={`flex flex-col items-center gap-1 py-1 transition-colors ${
               activeTab === "EARNINGS" ? "text-[#E57A1A]" : "text-slate-400 hover:text-slate-200"
             }`}
@@ -1146,7 +1378,7 @@ function AgentKioskContent() {
       {/* ================= MODAL: INTAKE DRAWER (FAB) ================= */}
       {intakeDrawer !== "NONE" && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-[#0B1711] border border-emerald-900/60 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 space-y-4 text-white max-h-[85dvh] overflow-y-auto animate-in slide-in-from-bottom-6">
+          <div className="field-capture-drawer bg-[#0B1711] border border-emerald-900/60 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 space-y-4 text-white max-h-[85dvh] overflow-y-auto animate-in slide-in-from-bottom-6">
             
             {/* Header */}
             <div className="flex items-center justify-between border-b border-emerald-900/40 pb-3">
@@ -1160,7 +1392,7 @@ function AgentKioskContent() {
                 </div>
               </div>
               <button
-                onClick={() => setIntakeDrawer("NONE")}
+              onClick={() => setIntakeDrawer("NONE")}
                 className="p-1.5 text-emerald-300 hover:text-white rounded-lg hover:bg-emerald-950"
               >
                 <X className="w-4 h-4" />
@@ -1170,7 +1402,10 @@ function AgentKioskContent() {
             {/* Intake Mode Switcher */}
             <div className="grid grid-cols-3 gap-1 bg-[#060C08] p-1 rounded-xl border border-emerald-950 text-xs">
               <button
-                onClick={() => setIntakeDrawer("PROPERTY")}
+                onClick={() => {
+                  setCaptureError(null);
+                  setIntakeDrawer("PROPERTY");
+                }}
                 className={`py-1.5 rounded-lg font-semibold transition-colors ${
                   intakeDrawer === "PROPERTY" ? "bg-emerald-900 text-white" : "text-emerald-300 hover:text-white"
                 }`}
@@ -1178,7 +1413,10 @@ function AgentKioskContent() {
                 🏡 Listing
               </button>
               <button
-                onClick={() => setIntakeDrawer("CLIENT")}
+                onClick={() => {
+                  setCaptureError(null);
+                  setIntakeDrawer("CLIENT");
+                }}
                 className={`py-1.5 rounded-lg font-semibold transition-colors ${
                   intakeDrawer === "CLIENT" ? "bg-emerald-900 text-white" : "text-emerald-300 hover:text-white"
                 }`}
@@ -1186,7 +1424,10 @@ function AgentKioskContent() {
                 👤 Client
               </button>
               <button
-                onClick={() => setIntakeDrawer("OFFER")}
+                onClick={() => {
+                  setCaptureError(null);
+                  setIntakeDrawer("OFFER");
+                }}
                 className={`py-1.5 rounded-lg font-semibold transition-colors ${
                   intakeDrawer === "OFFER" ? "bg-emerald-900 text-white" : "text-emerald-300 hover:text-white"
                 }`}
@@ -1194,6 +1435,17 @@ function AgentKioskContent() {
                 📝 Offer
               </button>
             </div>
+
+            <div className="field-capture-note flex items-start gap-2 border border-stone-300 bg-[#F7F4EE] p-3 text-[11px] leading-relaxed text-stone-600">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#B6812F]" />
+              <span>{isOnline ? "This capture will sync to the agency workspace after you save it." : "You are offline. Save confidently; this capture will remain in the local field outbox until the connection returns."}</span>
+            </div>
+
+            {captureError && (
+              <div role="alert" className="border border-red-200 bg-red-50 px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-red-700">
+                {captureError}
+              </div>
+            )}
 
             {/* 1. Property Intake Form */}
             {intakeDrawer === "PROPERTY" && (
@@ -1406,6 +1658,87 @@ function AgentKioskContent() {
                 </button>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= SHEET: PROPERTY DETAIL ================= */}
+      {selectedPropertyDetail && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="w-full max-w-lg space-y-5 border border-stone-300 bg-white p-5 text-[#1C1C1A] shadow-2xl sm:p-6">
+            <div className="flex items-start justify-between gap-4 border-b border-stone-200 pb-4">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#B6812F] font-bold">
+                  {selectedPropertyDetail.suburb || "Lusaka"} · {selectedPropertyDetail.listingType === "FOR_RENT" ? "For rent" : "For sale"}
+                </p>
+                <h2 className="mt-1 font-serif text-2xl font-bold leading-tight text-[#16382B]">
+                  {selectedPropertyDetail.title}
+                </h2>
+                <p className="mt-2 font-mono text-xs font-bold text-[#16382B]">
+                  {formatCurrency(Number(selectedPropertyDetail.price || selectedPropertyDetail.askingPrice || selectedPropertyDetail.rentalPrice || 0), selectedPropertyDetail.currency || "ZMW")}
+                  <span className="ml-2 text-[10px] uppercase font-normal text-stone-500">
+                    {selectedPropertyDetail.listingType === "FOR_RENT" ? "/ month" : "asking price"}
+                  </span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedPropertyDetail(null)}
+                aria-label="Close mandate record"
+                className="shrink-0 border border-stone-300 p-2 text-stone-500 hover:border-[#16382B] hover:text-[#16382B]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Bedrooms", value: selectedPropertyDetail.bedrooms || 0 },
+                { label: "Bathrooms", value: selectedPropertyDetail.bathrooms || 0 },
+                { label: "Plot sqm", value: selectedPropertyDetail.plotSizeSqm || "—" },
+              ].map((item) => (
+                <div key={item.label} className="border border-stone-200 bg-[#F7F4EE] p-3">
+                  <p className="font-mono text-[9px] uppercase tracking-wider text-stone-500">{item.label}</p>
+                  <p className="mt-1 font-serif text-xl font-bold text-[#16382B]">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2 border-y border-stone-200 py-3 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-stone-600"><ShieldCheck className="h-4 w-4 text-[#B6812F]" /> Title status</span>
+                <span className="font-mono font-bold text-emerald-700">Verified reference</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-stone-600"><Lock className="h-4 w-4 text-[#B6812F]" /> Privacy</span>
+                <span className="font-mono font-bold text-[#16382B]">Landlord PII masked</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-stone-600"><Navigation className="h-4 w-4 text-[#B6812F]" /> Coordinates</span>
+                <span className="font-mono text-[10px] text-stone-600">
+                  {Number(selectedPropertyDetail.latitude || 0).toFixed(4)}, {Number(selectedPropertyDetail.longitude || 0).toFixed(4)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => copyWhatsAppFlyer(selectedPropertyDetail)}
+                className="field-primary-action flex items-center justify-center gap-2 border px-3 py-3 text-xs font-bold"
+              >
+                <MessageSquare className="h-4 w-4" />
+                {copiedId === selectedPropertyDetail.id ? "Pitch copied" : "WhatsApp pitch"}
+              </button>
+              <button
+                onClick={() => {
+                  setMatchedProperty(selectedPropertyDetail);
+                  setSelectedPropertyDetail(null);
+                }}
+                className="flex items-center justify-center gap-2 border border-[#16382B] bg-white px-3 py-3 text-xs font-bold text-[#16382B] hover:bg-[#F7F4EE]"
+              >
+                <Users className="h-4 w-4" />
+                Match buyers
+              </button>
+            </div>
           </div>
         </div>
       )}

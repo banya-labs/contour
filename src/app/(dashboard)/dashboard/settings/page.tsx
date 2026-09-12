@@ -20,9 +20,10 @@ import {
   Check,
   Users,
   UserCheck,
-  UserPlus,
+  Link as LinkIcon,
   Upload,
   CreditCard,
+  ArrowRight,
 } from "lucide-react";
 import {
   getAgencySettings,
@@ -31,6 +32,7 @@ import {
   DEFAULT_AGENCY_SETTINGS,
 } from "@/lib/settings/agency-settings";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -46,6 +48,8 @@ type WorkspaceMember = {
   user: { id: string; name: string; email: string; image?: string | null };
   roleAssignments: Array<{ role: { key: string; displayName: string } }>;
 };
+
+type AccessRequest = { id: string; firstName: string; lastName: string; email: string; roleKey: string; createdAt: string };
 
 function SettingsContent() {
   const searchParams = useSearchParams();
@@ -76,9 +80,12 @@ function SettingsContent() {
   const [workspace, setWorkspace] = useState<{ name: string; subscriptionTier: string; subscriptionStatus: string; trialEndsAt: string } | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [roles, setRoles] = useState<Array<{ key: string; displayName: string }>>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("FIELD_AGENT");
+  const [accessLink, setAccessLink] = useState<string | null>(null);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const [billingSummary, setBillingSummary] = useState<{
+    subscription: { planName: string; status: string; trialEndsAt: string; nextPaymentAt: string | null; nextPayment: { formatted: string } | null; lastPayment: { amount: number; currency: string; completedAt: string | null; createdAt: string } | null };
+  } | null>(null);
 
   useEffect(() => {
     setSettings(getAgencySettings());
@@ -100,14 +107,22 @@ function SettingsContent() {
 
   useEffect(() => {
     if (activeTab !== "ORGANIZATION") return;
-    void fetch("/api/organization/members")
+    void Promise.all([fetch("/api/organization/members"), fetch("/api/organization/access-link"), fetch("/api/organization/access-requests")])
+      .then(async ([membersResponse, linkResponse, requestsResponse]) => {
+        const membersData = await membersResponse.json();
+        const linkData = await linkResponse.json();
+        const requestsData = await requestsResponse.json();
+        if (membersData.success) { setMembers(membersData.members || []); setRoles(membersData.roles || []); }
+        if (requestsData.success) setAccessRequests(requestsData.requests || membersData.accessRequests || []);
+        if (linkData.active) setAccessLink("active");
+      }).catch(() => undefined);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "BILLING") return;
+    void fetch("/api/billing/summary", { cache: "no-store" })
       .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          setMembers(data.members || []);
-          setRoles(data.roles || []);
-        }
-      })
+      .then((data) => { if (data.success) setBillingSummary(data); })
       .catch(() => undefined);
   }, [activeTab]);
 
@@ -133,16 +148,22 @@ function SettingsContent() {
     setSettingsMessage("Workspace logo updated.");
   };
 
-  const handleInvite = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleCreateAccessLink = async () => {
     setSettingsMessage(null);
-    const result = await authClient.organization.inviteMember({ email: inviteEmail.trim(), role: "member" });
-    if (result.error) {
-      setSettingsMessage(result.error.message || "Unable to send invitation.");
-      return;
-    }
-    setInviteEmail("");
-    setSettingsMessage(`Invitation sent to ${inviteEmail.trim()}. Assign ${inviteRole.replaceAll("_", " ").toLowerCase()} after they accept.`);
+    const response = await fetch("/api/organization/access-link", { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) { setSettingsMessage(data.error || "Unable to create access link."); return; }
+    const fullLink = `${window.location.origin}/request-access/${data.token}`;
+    setAccessLink(fullLink);
+    await navigator.clipboard.writeText(fullLink);
+    setSettingsMessage("Access link created and copied. Requests still require admin approval.");
+  };
+
+  const handleReviewRequest = async (requestId: string, decision: "APPROVE" | "DECLINE") => {
+    const response = await fetch("/api/organization/access-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId, decision }) });
+    const data = await response.json();
+    setSettingsMessage(response.ok ? `Access request ${decision === "APPROVE" ? "approved" : "declined"}.` : data.error || "Unable to review access request.");
+    if (response.ok) window.location.reload();
   };
 
   const handleRoleChange = async (memberId: string, roleKey: string) => {
@@ -207,7 +228,8 @@ function SettingsContent() {
             <span className="text-[11px] font-geist text-editorial-muted">
               Multi-Tenant Architecture
             </span>
-          </div>
+            </div>
+
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
             Agency Settings & Governance
           </h1>
@@ -264,7 +286,7 @@ function SettingsContent() {
                   </label>
                   <div className="flex items-center gap-3">
                     <div className="flex h-14 w-14 items-center justify-center overflow-hidden border border-editorial-border bg-editorial-black text-xl font-heading font-bold text-white">
-                      {settings.logoUrl ? <img src={settings.logoUrl} alt="Workspace logo" className="h-full w-full object-contain" /> : settings.agencyName?.[0] || "C"}
+                      {settings.logoUrl ? <img src={settings.logoUrl} alt="Workspace logo" className="h-full w-full object-contain" /> : <ContourLogo size="md" variant="dark" />}
                     </div>
                     <label className="inline-flex cursor-pointer items-center gap-2 border border-editorial-black px-3 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50">
                       <Upload className="h-3.5 w-3.5" /> Upload logo
@@ -457,7 +479,7 @@ function SettingsContent() {
               <div className="bg-white p-5 border border-editorial-border space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 overflow-hidden bg-editorial-black text-white flex items-center justify-center font-heading font-bold text-base">
-                    {settings.logoUrl ? <img src={settings.logoUrl} alt="" className="h-full w-full object-contain" /> : settings.agencyName ? settings.agencyName[0] : "C"}
+                    {settings.logoUrl ? <img src={settings.logoUrl} alt="" className="h-full w-full object-contain" /> : <ContourLogo size="sm" variant="dark" compact />}
                   </div>
                   <div>
                     <h4 className="font-heading font-bold text-sm text-editorial-black uppercase">
@@ -500,19 +522,12 @@ function SettingsContent() {
             </div>
 
             {settingsMessage && <p className="mb-4 border border-editorial-border bg-neutral-50 px-3 py-2 text-xs text-editorial-black">{settingsMessage}</p>}
-            <form onSubmit={handleInvite} className="mb-6 flex flex-col gap-2 border border-editorial-border bg-neutral-50 p-4 sm:flex-row sm:items-end">
-              <label className="flex-1 text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">
-                Add user by email
-                <input required type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="agent@agency.co.zm" className="mt-1 w-full border border-editorial-border bg-white px-3 py-2.5 text-xs font-geist font-normal normal-case tracking-normal outline-none focus:border-editorial-black" />
-              </label>
-              <label className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">
-                Role
-                <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)} className="mt-1 w-full border border-editorial-border bg-white px-3 py-2.5 text-xs font-geist font-normal normal-case tracking-normal outline-none sm:w-44">
-                  {roles.filter((role) => role.key !== "OWNER").map((role) => <option key={role.key} value={role.key}>{role.displayName}</option>)}
-                </select>
-              </label>
-              <button type="submit" className="inline-flex items-center justify-center gap-2 bg-editorial-black px-4 py-2.5 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red"><UserPlus className="h-3.5 w-3.5" /> Invite user</button>
-            </form>
+            <div className="mb-6 border border-editorial-border bg-neutral-50 p-4">
+              <p className="mb-3 text-xs text-editorial-muted">Share a secure link. People create an account and submit a request for your approval.</p>
+              <button type="button" onClick={() => void handleCreateAccessLink()} className="inline-flex items-center justify-center gap-2 bg-editorial-black px-4 py-2.5 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red"><LinkIcon className="h-3.5 w-3.5" /> Create & copy link</button>
+              {accessLink && accessLink !== "active" && <p className="mt-3 break-all border border-editorial-border bg-white px-3 py-2 text-xs text-editorial-black">{accessLink}</p>}
+            </div>
+            {accessRequests.length > 0 && <div className="mb-6 border border-amber-200 bg-amber-50 p-4"><p className="mb-3 text-[10px] font-heading font-bold uppercase tracking-wider text-amber-900">Pending access requests</p>{accessRequests.map((request) => <div key={request.id} className="mb-2 flex flex-col gap-3 border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-editorial-black">{request.firstName} {request.lastName}</p><p className="text-xs text-editorial-muted">{request.email} · requested {request.roleKey.replaceAll("_", " ").toLowerCase()}</p></div><div className="flex gap-2"><button type="button" onClick={() => void handleReviewRequest(request.id, "DECLINE")} className="border border-editorial-border px-3 py-2 text-[10px] font-bold uppercase">Decline</button><button type="button" onClick={() => void handleReviewRequest(request.id, "APPROVE")} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase text-white">Approve</button></div></div>)}</div>}
 
             <div className="mb-6 divide-y divide-editorial-border border border-editorial-border">
               {members.map((member) => (
@@ -539,7 +554,7 @@ function SettingsContent() {
               <div className="border border-editorial-border bg-neutral-50 p-4">
                 <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Workspace membership</p>
                 <p className="mt-2 text-sm font-semibold text-editorial-black">Contour Agency Workspace</p>
-                <p className="text-xs text-editorial-muted">Invite users and assign workspace roles from this panel.</p>
+                <p className="text-xs text-editorial-muted">Share an access link, then approve or decline requests from this panel.</p>
               </div>
             </div>
           </div>
@@ -582,27 +597,14 @@ function SettingsContent() {
 
       {activeTab === "BILLING" && (
         <div className="space-y-6 pt-2">
-          <div className="border border-editorial-border bg-white p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h3 className="font-heading text-base font-bold uppercase tracking-tight text-editorial-black">Subscription & trial</h3>
-                <p className="mt-1 text-xs text-editorial-muted">Your workspace plan, trial window, and billing controls.</p>
-              </div>
-              <a href="/dashboard/billing" className="inline-flex items-center justify-center bg-editorial-black px-4 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red">Manage billing</a>
+          <div className="border border-editorial-black bg-editorial-black p-6 text-white">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div><p className="text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-white/60">Workspace billing</p><h3 className="mt-2 font-heading text-2xl font-bold">Know what you have, what is next, and what it costs.</h3><p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">{billingSummary?.subscription.status === "trialing" ? `You are on ${billingSummary.subscription.planName}. Your trial ends ${billingSummary.subscription.trialEndsAt ? new Date(billingSummary.subscription.trialEndsAt).toLocaleDateString("en-ZM", { day: "numeric", month: "long", year: "numeric" }) : "soon"}.` : `You are on ${billingSummary?.subscription.planName || workspace?.subscriptionTier || "Starter"}. Your billing status is ${billingSummary?.subscription.status || workspace?.subscriptionStatus || "trialing"}.`}</p></div>
+              <a href="/dashboard/billing" className="inline-flex shrink-0 items-center justify-center bg-contour-red px-4 py-3 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-white hover:text-editorial-black">View plans & billing</a>
             </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="border border-editorial-border p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Current plan</p><p className="mt-2 text-lg font-semibold text-editorial-black">{workspace?.subscriptionTier || "STARTER"}</p></div>
-              <div className="border border-editorial-border p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Status</p><p className="mt-2 text-lg font-semibold text-editorial-black">{workspace?.subscriptionStatus || "trialing"}</p></div>
-              <div className="border border-editorial-border p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Trial ends</p><p className="mt-2 text-lg font-semibold text-editorial-black">{workspace?.trialEndsAt ? new Date(workspace.trialEndsAt).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" }) : "14 days"}</p></div>
-            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3"><div className="border border-white/20 p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/60">Current plan</p><p className="mt-2 text-lg font-semibold">{billingSummary?.subscription.planName || workspace?.subscriptionTier || "Loading…"}</p></div><div className="border border-white/20 p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/60">Next payment</p><p className="mt-2 text-lg font-semibold">{billingSummary?.subscription.nextPayment?.formatted || "Not scheduled"}</p><p className="mt-1 text-xs text-white/60">{billingSummary?.subscription.nextPaymentAt ? new Date(billingSummary.subscription.nextPaymentAt).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" }) : "After first payment"}</p></div><div className="border border-white/20 p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/60">Last payment</p><p className="mt-2 text-lg font-semibold">{billingSummary?.subscription.lastPayment ? `${billingSummary.subscription.lastPayment.currency} ${billingSummary.subscription.lastPayment.amount.toLocaleString()}` : "No payments yet"}</p><p className="mt-1 text-xs text-white/60">Receipts are available in billing.</p></div></div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              ["STARTER", "For a focused agency launch", "Core catalog, map, and field workflows"],
-              ["GROWTH", "For active brokerages", "Team permissions, automation, and reporting"],
-              ["ENTERPRISE", "For multi-branch operations", "Advanced controls and dedicated support"],
-            ].map(([name, title, description]) => <div key={name} className="border border-editorial-border bg-white p-5"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-contour-red">{name}</p><h4 className="mt-2 font-heading font-bold text-editorial-black">{title}</h4><p className="mt-2 text-xs leading-5 text-editorial-muted">{description}</p></div>)}
-          </div>
+          <div className="border border-editorial-border bg-white p-5"><p className="text-sm font-semibold text-editorial-black">Need to change your plan?</p><p className="mt-1 text-xs leading-5 text-editorial-muted">Compare all three tiers, see their features and limits, choose monthly or annual billing, and start payment from the billing workspace.</p><a href="/dashboard/billing#plans" className="mt-4 inline-flex items-center gap-2 text-[10px] font-heading font-bold uppercase tracking-wider text-contour-red">Compare plans <ArrowRight className="h-3.5 w-3.5" /></a></div>
         </div>
       )}
 

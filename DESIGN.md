@@ -70,3 +70,17 @@ Error / High Risk:        #DC2626 (Crimson)
 2. **Operations Dashboard (`/dashboard`)**: Full-featured agency workspace with property catalog, pipeline Kanban, sales registry, lease arrears bot, and landlord statements (uses the warm alabaster `#FBF9F5` and Zambian evergreen `#16382B` palette documented above).
 3. **Field Agent Mobile PWA (`/kiosk`)**: Zero-latency offline-first field companion powered by PowerSync SQLite WASM for 12-hour ZESCO load-shedding resilience.
 4. **Machine Surface (`/api/mcp`)**: User-scoped MCP endpoints with 1-click compromise revocation and sliding-window rate limiting.
+
+---
+
+## 6. Field Agent Console (`/agent`, aliased by `/kiosk`)
+
+The field PWA is an operational extension of the dashboard system, optimized for mobile use in Lusaka field conditions. `/agent` is the canonical route; `/kiosk` remains a compatibility alias. It shares Contour's forest/bronze trust language while retaining the editorial system's ruled structure and disciplined red accent.
+
+- Canvas: warm alabaster (`#F7F4EE`) with white working surfaces.
+- Primary action: deep forest (`#16382B`), with Contour red (`#FA3600`) reserved for focus, urgent, or destructive states.
+- Secondary accent: architectural bronze (`#B6812F`) for mandate, location, and commission cues.
+- Structure: restrained borders and square-to-soft corners; no heavy shadows or decorative neon gradients.
+- Interaction: minimum 44px touch targets, visible focus rings, safe-area-aware bottom navigation, and explicit offline/sync states.
+- Data language: mono typography for coordinates, IDs, currency, timestamps, and sync metadata; editorial serif headings for screen hierarchy.
+- Product truth: PowerSync remains the offline-first source for local field actions; the UI must distinguish local queueing from server confirmation.

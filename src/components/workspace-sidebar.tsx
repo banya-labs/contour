@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Building,
 } from "lucide-react";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 type NavItem = {
   name: string;
@@ -115,12 +116,8 @@ export default function WorkspaceSidebar() {
         <div className="border-b border-editorial-border pb-2 lg:pb-3 mb-2 lg:mb-3 shrink-0">
           <div className="flex items-center justify-center lg:justify-between mb-2">
             <Link href="/" className="flex items-center gap-2 group" title="Contour Real Estate OS">
-              <span className="w-6 h-6 lg:w-5 lg:h-5 bg-editorial-black text-white flex items-center justify-center font-heading font-bold text-xs tracking-tighter">
-                C
-              </span>
-              <span className="hidden lg:inline font-heading font-bold text-sm tracking-tight text-editorial-black group-hover:text-contour-red transition-colors">
-                CONTOUR
-              </span>
+              <ContourLogo size="sm" compact className="lg:hidden" />
+              <ContourLogo size="sm" className="hidden lg:inline-flex" />
             </Link>
             <span className="hidden lg:inline-block font-geist text-[9px] uppercase tracking-wider text-editorial-muted bg-neutral-100 px-1.5 py-0.5 border border-editorial-border">
               OS 2.0

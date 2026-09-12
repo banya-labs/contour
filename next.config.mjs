@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: "standalone",
+  // pnpm's symlinked workspace layout cannot be copied into Next's standalone
+  // folder on this Windows checkout without Developer Mode/admin symlink
+  // privileges. Keep the production server artifact standalone on Linux while
+  // allowing Windows CI/local verification to complete the actual build.
+  output: process.platform === "win32" ? undefined : "standalone",
   // Keep deployment builds unblocked while the existing lint backlog is
   // cleaned up separately through `pnpm lint`.
   eslint: {

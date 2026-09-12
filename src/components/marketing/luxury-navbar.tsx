@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { LogIn, ArrowRight, Menu, X, Sparkles } from "lucide-react";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export function LuxuryNavbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -25,19 +26,10 @@ export function LuxuryNavbar() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Brand Monogram & Name */}
+        {/* Brand Wordmark */}
         <Link href="/" className="flex items-center gap-3 group">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-serif font-bold text-lg shadow-sm group-hover:scale-105 transition-all duration-200 ${
-            isScrolled ? "bg-[#141715] text-[#FAF8F5]" : "bg-white/15 backdrop-blur-md text-white border border-white/20"
-          }`}>
-            C
-          </div>
           <div className="flex flex-col">
-            <span className={`font-serif font-bold text-xl tracking-tight transition-colors leading-none ${
-              isScrolled ? "text-[#141715] group-hover:text-[#E57A1A]" : "text-white group-hover:text-[#E57A1A]"
-            }`}>
-              CONTOUR
-            </span>
+            <ContourLogo size="md" variant={isScrolled ? "light" : "dark"} />
             <span className={`text-[9px] font-mono uppercase tracking-widest font-semibold mt-0.5 ${
               isScrolled ? "text-stone-500" : "text-stone-300"
             }`}>

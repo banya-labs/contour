@@ -1,0 +1,80 @@
+import { NextResponse } from "next/server";
+import { createApiHandler } from "@/lib/api-handler";
+import { db } from "@/lib/db";
+import { CONTOUR_PLANS, getPlanPrice, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
+
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+export const GET = createApiHandler({
+  requireAuth: true,
+  requirePermissions: ["org.read"],
+  handler: async (_req, { organizationId }) => {
+    const organization = await db.organization.findUnique({
+      where: { id: organizationId! },
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        subscriptionTier: true,
+        subscriptionStatus: true,
+        createdAt: true,
+      },
+    });
+
+    if (!organization) return NextResponse.json({ success: false, error: "Workspace not found" }, { status: 404 });
+
+    const payments = await db.payment.findMany({
+      where: { organizationId: organization.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        reference: true,
+        planId: true,
+        billingCycle: true,
+        amount: true,
+        currency: true,
+        status: true,
+        failureReason: true,
+        completedAt: true,
+        createdAt: true,
+        provider: true,
+      },
+    });
+
+    const currentPlanId = (organization.subscriptionTier || "STARTER").toLowerCase() as keyof typeof CONTOUR_PLANS;
+    const currentPlan = CONTOUR_PLANS[currentPlanId] || CONTOUR_PLANS.starter;
+    const successfulPayment = payments.find((payment) => payment.status === "SUCCESS");
+    const trialEndsAt = addMonths(organization.createdAt, 0);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+    const lastPayment = successfulPayment
+      ? { ...successfulPayment, amount: Number(successfulPayment.amount) }
+      : null;
+    const cycle = successfulPayment?.billingCycle === "ANNUAL" ? "ANNUAL" : "MONTHLY" as BillingCycle;
+    const nextPaymentAt = successfulPayment?.completedAt
+      ? addMonths(successfulPayment.completedAt, cycle === "ANNUAL" ? 12 : 1)
+      : null;
+    const currency = (successfulPayment?.currency || organization.currency || "ZMW") as SupportedCurrency;
+
+    return NextResponse.json({
+      success: true,
+      workspace: { id: organization.id, name: organization.name },
+      subscription: {
+        planId: currentPlan.id,
+        planName: currentPlan.name,
+        status: organization.subscriptionStatus || "trialing",
+        trialEndsAt,
+        nextPaymentAt,
+        nextPayment: nextPaymentAt
+          ? { ...getPlanPrice(currentPlan.id, cycle, currency), currency, cycle }
+          : null,
+        lastPayment,
+      },
+      payments: payments.map((payment) => ({ ...payment, amount: Number(payment.amount) })),
+    });
+  },
+});

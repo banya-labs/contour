@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { ease } from "@/lib/animation-variants";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export function CtaFooter() {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -170,6 +171,8 @@ export function CtaFooter() {
       <div className="w-full bg-white">
         <div className="max-w-[1400px] mx-auto border-x border-editorial-border px-6 sm:px-10 lg:px-16 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 font-geist text-xs text-editorial-muted">
           <div className="flex items-center gap-3">
+            <ContourLogo size="sm" />
+            <span className="hidden sm:inline text-editorial-border">|</span>
             <span>© 2026 Contour · Part of Banya Labs · Zambia DPA No. 3 of 2021 Compliant</span>
             <span className="hidden sm:inline text-editorial-border">|</span>
             <Link href="/privacy" className="hover:text-editorial-black underline">
