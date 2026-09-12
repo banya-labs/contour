@@ -46,20 +46,20 @@ export function PricingGrid() {
   ];
 
   const features = [
-    { name: "Up to 50 active listings", starter: true, growth: false, enterprise: false },
-    { name: "20 managed rental units", starter: true, growth: false, enterprise: false },
-    { name: "Interactive Lusaka Leaflet property map", starter: true, growth: false, enterprise: false },
-    { name: "1-Click WhatsApp listing flyer generator", starter: true, growth: false, enterprise: false },
-    { name: "30-Day anti-poaching client registration", starter: true, growth: false, enterprise: false },
-    { name: "Public shareable property cards (/p/[slug])", starter: true, growth: false, enterprise: false },
-    { name: "Lenco Mobile Money (MTN, Airtel, Zamtel) & Card billing", starter: true, growth: false, enterprise: false },
+    { name: "Up to 50 active listings", starter: true, growth: true, enterprise: true },
+    { name: "20 managed rental units", starter: true, growth: true, enterprise: true },
+    { name: "Interactive Lusaka Leaflet property map", starter: true, growth: true, enterprise: true },
+    { name: "1-Click WhatsApp listing flyer generator", starter: true, growth: true, enterprise: true },
+    { name: "30-Day anti-poaching client registration", starter: true, growth: true, enterprise: true },
+    { name: "Public shareable property cards (/p/[slug])", starter: true, growth: true, enterprise: true },
+    { name: "Lenco Mobile Money (MTN, Airtel, Zamtel) & Card billing", starter: true, growth: true, enterprise: true },
     { name: "Up to 250 active listings & 100 rental units", starter: false, growth: true, enterprise: false },
-    { name: "True 5% Commission & Agent Split Ledger", starter: false, growth: true, enterprise: false },
-    { name: "1-Click Landlord Remittance Statements", starter: false, growth: true, enterprise: false },
-    { name: "The DocuSign Human Approval Seam", starter: false, growth: true, enterprise: false },
-    { name: "PowerSync Offline-First Field PWA (/kiosk)", starter: false, growth: true, enterprise: false },
-    { name: "Public REST API for Corporate Website listings", starter: false, growth: true, enterprise: false },
-    { name: "Reverse Matchmaker buyer-to-property AI alerts", starter: false, growth: true, enterprise: false },
+    { name: "True 5% Commission & Agent Split Ledger", starter: false, growth: true, enterprise: true },
+    { name: "1-Click Landlord Remittance Statements", starter: false, growth: true, enterprise: true },
+    { name: "The DocuSign Human Approval Seam", starter: false, growth: true, enterprise: true },
+    { name: "PowerSync Offline-First Field PWA (/kiosk)", starter: false, growth: true, enterprise: true },
+    { name: "Public REST API for Corporate Website listings", starter: false, growth: true, enterprise: true },
+    { name: "Reverse Matchmaker buyer-to-property AI alerts", starter: false, growth: true, enterprise: true },
     { name: "Unlimited listings, agents & rental units", starter: false, growth: false, enterprise: true },
     { name: "Multi-branch RBAC (Lusaka, Ndola, Livingstone)", starter: false, growth: false, enterprise: true },
     { name: "Dedicated MinIO S3 object storage partition", starter: false, growth: false, enterprise: true },
@@ -187,7 +187,7 @@ export function PricingGrid() {
 
           {/* Comparison Table Rows Framed in 1400px Grid */}
           <div className="divide-y divide-editorial-border bg-white border-t border-editorial-border">
-            <div className="hidden md:grid grid-cols-4 px-6 sm:px-10 py-3 bg-neutral-50/70 font-geist text-[11px] font-bold text-editorial-muted uppercase tracking-wider">
+            <div className="hidden md:grid grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] px-6 sm:px-10 py-3 bg-neutral-50/70 font-geist text-[11px] font-bold text-editorial-muted uppercase tracking-wider">
               <div aria-hidden="true" />
               <div className="text-center">Starter Broker</div>
               <div className="text-center bg-neutral-100/70 -my-3 py-3 border-x border-editorial-border">Growth Agency</div>
@@ -197,24 +197,22 @@ export function PricingGrid() {
             {features.map((row) => (
               <div
                 key={row.name}
-                className="grid grid-cols-1 md:grid-cols-4 px-4 sm:px-10 py-3 sm:py-4 font-geist text-xs sm:text-sm items-center hover:bg-editorial-hover/40 transition-colors"
+                className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] px-4 sm:px-10 py-3 sm:py-4 font-geist text-xs sm:text-sm items-center hover:bg-editorial-hover/40 transition-colors"
               >
                 <div className="font-medium text-editorial-black mb-1 md:mb-0">
                   {row.name}
                 </div>
-                <div className="flex items-center justify-between md:contents gap-2 pt-1 md:pt-0">
-                  <div className="text-left md:text-center text-editorial-muted">
-                    <span className="md:hidden text-[10px] uppercase mr-1">Starter:</span>
-                    {row.starter ? <span className="text-editorial-black font-bold">✓</span> : <span className="text-neutral-300">—</span>}
-                  </div>
-                  <div className="text-left md:text-center font-bold text-editorial-black md:bg-neutral-50/80 md:-my-4 md:py-4 md:border-x md:border-editorial-border">
-                    <span className="md:hidden text-[10px] uppercase mr-1">Growth Agency:</span>
-                    {row.growth ? <span className="text-editorial-red font-bold text-base">✓</span> : <span className="text-neutral-300">—</span>}
-                  </div>
-                  <div className="text-left md:text-center text-editorial-muted">
-                    <span className="md:hidden text-[10px] uppercase mr-1">Enterprise Brokerage:</span>
-                    {row.enterprise ? <span className="text-editorial-black font-bold">✓</span> : <span className="text-neutral-300">—</span>}
-                  </div>
+                <div className="text-left md:text-center text-editorial-muted pt-1 md:pt-0">
+                  <span className="md:hidden text-[10px] uppercase mr-1">Starter:</span>
+                  {row.starter ? <span className="text-editorial-black font-bold">✓</span> : <span className="text-neutral-300">—</span>}
+                </div>
+                <div className="text-left md:text-center font-bold text-editorial-black md:bg-neutral-50/80 md:-my-4 md:py-4 md:border-x md:border-editorial-border pt-1 md:pt-0">
+                  <span className="md:hidden text-[10px] uppercase mr-1">Growth Agency:</span>
+                  {row.growth ? <span className="text-editorial-red font-bold text-base">✓</span> : <span className="text-neutral-300">—</span>}
+                </div>
+                <div className="text-left md:text-center text-editorial-muted pt-1 md:pt-0">
+                  <span className="md:hidden text-[10px] uppercase mr-1">Enterprise Brokerage:</span>
+                  {row.enterprise ? <span className="text-editorial-black font-bold">✓</span> : <span className="text-neutral-300">—</span>}
                 </div>
               </div>
             ))}
