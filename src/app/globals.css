@@ -676,3 +676,37 @@ button, a, input, select, textarea {
   background: var(--field-ink) !important;
   border-color: var(--field-ink) !important;
 }
+
+/* Full-screen agent map mode: preserve only the controls needed to search,
+   navigate, locate, select a pin, and exit back to the catalog. */
+[data-map-minimal="true"] {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-map-minimal="true"] .map-search-shell {
+  left: 4.75rem;
+  right: 4.75rem;
+  width: auto;
+  max-width: none;
+  transform: none;
+  padding: 0;
+}
+
+[data-map-minimal="true"] .map-search-presets,
+[data-map-minimal="true"] .map-view-controls,
+[data-map-minimal="true"] .map-property-carousel {
+  display: none;
+}
+
+[data-map-minimal="true"] .map-utility-controls {
+  top: auto;
+  right: 1rem;
+  bottom: 1rem;
+}
+
+[data-map-minimal="true"] .map-stand-control,
+[data-map-minimal="true"] .map-fit-control {
+  display: none;
+}

@@ -40,7 +40,8 @@ export async function middleware(request: NextRequest) {
 
   // Local manual testing uses the same demo tenant as the API handler. This
   // can never activate in production, even if the public flag is mis-set.
-  if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
+  const isFieldAgentSurface = request.nextUrl.pathname.startsWith("/agent") || request.nextUrl.pathname.startsWith("/kiosk");
+  if (!isFieldAgentSurface && process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     response.headers.set(CORRELATION_HEADER, correlationId);
     return response;

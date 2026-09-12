@@ -12,33 +12,33 @@ export function PricingGrid() {
   const plans = [
     {
       id: "starter",
-      name: "STARTER",
-      priceZMW: "K 599",
-      priceUSD: "$27",
+      name: "STARTER BROKER",
+      priceZMW: "K 1,200",
+      priceUSD: "$49",
       period: "/mo",
-      tagline: "For solo agents just getting started",
+      tagline: "For boutique agencies & solo principals (1–3 agents)",
       isAgency: false,
       cta: "Start Free Trial →",
       href: "/sign-up",
     },
     {
-      id: "agency",
-      name: "AGENCY",
-      priceZMW: "K 1,499",
-      priceUSD: "$69",
+      id: "growth",
+      name: "GROWTH AGENCY",
+      priceZMW: "K 3,200",
+      priceUSD: "$129",
       period: "/mo",
-      tagline: "For growing agencies up to 5 agents",
+      tagline: "For scaling mid-sized brokerages (4–15 agents)",
       isAgency: true,
       cta: "Start Free Trial →",
       href: "/sign-up",
     },
     {
       id: "enterprise",
-      name: "ENTERPRISE",
-      priceZMW: "K 3,999",
-      priceUSD: "$185",
+      name: "ENTERPRISE BROKERAGE",
+      priceZMW: "K 7,500",
+      priceUSD: "$299",
       period: "/mo",
-      tagline: "For established agencies, unlimited everything",
+      tagline: "For multi-branch firms & commercial developers",
       isAgency: false,
       cta: "Contact Sales →",
       href: "#contact",
@@ -46,14 +46,26 @@ export function PricingGrid() {
   ];
 
   const features = [
-    { name: "Mandate Capture", starter: true, agency: true, enterprise: true },
-    { name: "Deal Pipeline", starter: true, agency: true, enterprise: true },
-    { name: "Commission Tracking", starter: true, agency: true, enterprise: true },
-    { name: "Lease & Arrears Automation", starter: false, agency: true, enterprise: true },
-    { name: "WhatsApp Syndication", starter: false, agency: true, enterprise: true },
-    { name: "Document Vault", starter: false, agency: true, enterprise: true },
-    { name: "Field Agent PWA", starter: false, agency: false, enterprise: true },
-    { name: "API & MCP Access", starter: false, agency: false, enterprise: true },
+    { name: "Up to 50 active listings", starter: true, growth: false, enterprise: false },
+    { name: "20 managed rental units", starter: true, growth: false, enterprise: false },
+    { name: "Interactive Lusaka Leaflet property map", starter: true, growth: false, enterprise: false },
+    { name: "1-Click WhatsApp listing flyer generator", starter: true, growth: false, enterprise: false },
+    { name: "30-Day anti-poaching client registration", starter: true, growth: false, enterprise: false },
+    { name: "Public shareable property cards (/p/[slug])", starter: true, growth: false, enterprise: false },
+    { name: "Lenco Mobile Money (MTN, Airtel, Zamtel) & Card billing", starter: true, growth: false, enterprise: false },
+    { name: "Up to 250 active listings & 100 rental units", starter: false, growth: true, enterprise: false },
+    { name: "True 5% Commission & Agent Split Ledger", starter: false, growth: true, enterprise: false },
+    { name: "1-Click Landlord Remittance Statements", starter: false, growth: true, enterprise: false },
+    { name: "The DocuSign Human Approval Seam", starter: false, growth: true, enterprise: false },
+    { name: "PowerSync Offline-First Field PWA (/kiosk)", starter: false, growth: true, enterprise: false },
+    { name: "Public REST API for Corporate Website listings", starter: false, growth: true, enterprise: false },
+    { name: "Reverse Matchmaker buyer-to-property AI alerts", starter: false, growth: true, enterprise: false },
+    { name: "Unlimited listings, agents & rental units", starter: false, growth: false, enterprise: true },
+    { name: "Multi-branch RBAC (Lusaka, Ndola, Livingstone)", starter: false, growth: false, enterprise: true },
+    { name: "Dedicated MinIO S3 object storage partition", starter: false, growth: false, enterprise: true },
+    { name: "Full JSON-RPC 2.0 /api/mcp AI agent tools", starter: false, growth: false, enterprise: true },
+    { name: "Unlimited public API keys & custom webhooks", starter: false, growth: false, enterprise: true },
+    { name: "Dedicated SLA & technical account architect", starter: false, growth: false, enterprise: true },
   ];
 
   return (
@@ -176,10 +188,10 @@ export function PricingGrid() {
           {/* Comparison Table Rows Framed in 1400px Grid */}
           <div className="divide-y divide-editorial-border bg-white border-t border-editorial-border">
             <div className="hidden md:grid grid-cols-4 px-6 sm:px-10 py-3 bg-neutral-50/70 font-geist text-[11px] font-bold text-editorial-muted uppercase tracking-wider">
-              <div>Feature</div>
-              <div className="text-center">Starter</div>
-              <div className="text-center bg-neutral-100/70 -my-3 py-3 border-x border-editorial-border">Agency</div>
-              <div className="text-center">Enterprise</div>
+              <div aria-hidden="true" />
+              <div className="text-center">Starter Broker</div>
+              <div className="text-center bg-neutral-100/70 -my-3 py-3 border-x border-editorial-border">Growth Agency</div>
+              <div className="text-center">Enterprise Brokerage</div>
             </div>
 
             {features.map((row) => (
@@ -196,11 +208,11 @@ export function PricingGrid() {
                     {row.starter ? <span className="text-editorial-black font-bold">✓</span> : <span className="text-neutral-300">—</span>}
                   </div>
                   <div className="text-left md:text-center font-bold text-editorial-black md:bg-neutral-50/80 md:-my-4 md:py-4 md:border-x md:border-editorial-border">
-                    <span className="md:hidden text-[10px] uppercase mr-1">Agency:</span>
-                    {row.agency ? <span className="text-editorial-red font-bold text-base">✓</span> : <span className="text-neutral-300">—</span>}
+                    <span className="md:hidden text-[10px] uppercase mr-1">Growth Agency:</span>
+                    {row.growth ? <span className="text-editorial-red font-bold text-base">✓</span> : <span className="text-neutral-300">—</span>}
                   </div>
                   <div className="text-left md:text-center text-editorial-muted">
-                    <span className="md:hidden text-[10px] uppercase mr-1">Enterprise:</span>
+                    <span className="md:hidden text-[10px] uppercase mr-1">Enterprise Brokerage:</span>
                     {row.enterprise ? <span className="text-editorial-black font-bold">✓</span> : <span className="text-neutral-300">—</span>}
                   </div>
                 </div>

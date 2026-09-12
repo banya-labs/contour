@@ -99,6 +99,7 @@ type InteractivePropertyMapProps = {
   // Choropleth View Props
   viewMode?: "STANDARD" | "CHOROPLETH";
   onViewModeChange?: (mode: "STANDARD" | "CHOROPLETH") => void;
+  minimal?: boolean;
 };
 
 const DEFAULT_LUSAKA_CENTER: [number, number] = [-15.4167, 28.2833];
@@ -145,6 +146,7 @@ export default function InteractivePropertyMap({
   onSaveStandBoundary,
   viewMode: externalViewMode,
   onViewModeChange,
+  minimal = false,
 }: InteractivePropertyMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -747,10 +749,10 @@ export default function InteractivePropertyMap({
   };
 
   return (
-    <div className={`relative w-full h-full flex flex-col rounded-2xl overflow-hidden border border-border shadow-card bg-paper-100 ${className}`}>
+    <div data-map-minimal={minimal ? "true" : undefined} className={`relative w-full h-full flex flex-col rounded-2xl overflow-hidden border border-border shadow-card bg-paper-100 ${className}`}>
       
       {/* 1. CENTERED TOP MAP SEARCH BAR WITH FILTER PRESETS */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xl w-full px-4 pointer-events-none font-sans flex flex-col items-center gap-2">
+      <div className="map-search-shell absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xl w-full px-4 pointer-events-none font-sans flex flex-col items-center gap-2">
         {/* Clean Input Bar */}
         <div className="relative w-full group pointer-events-auto">
           <div className="relative w-full flex items-center gap-2 bg-white/95 backdrop-blur-xl px-3.5 sm:px-4 py-2 rounded-none border border-editorial-border shadow-sm">
@@ -794,7 +796,7 @@ export default function InteractivePropertyMap({
         </div>
 
         {/* Preset Buttons BELOW Search Bar */}
-        <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5">
+        <div className="map-search-presets pointer-events-auto flex flex-wrap items-center justify-center gap-1.5">
           {PRESET_BUTTONS.map((btn) => (
             <button
               key={btn.label}
@@ -807,53 +809,14 @@ export default function InteractivePropertyMap({
         </div>
       </div>
 
-      {/* 2. RIGHT TOP MAP CONTROL TOOLS */}
-      <div className="absolute top-4 right-4 z-[1000] flex items-center gap-1.5 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-full border border-border shadow-subtle">
-          {/* View Mode Switcher (Standard Pins vs Choropleth Density) */}
-          <div className="flex items-center gap-0.5 bg-paper-200/90 p-0.5 rounded-full border border-border">
-            <button
-              onClick={() => {
-                setInternalViewMode("STANDARD");
-                if (onViewModeChange) onViewModeChange("STANDARD");
-              }}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-full flex items-center gap-1 transition-all ${
-                viewMode === "STANDARD"
-                  ? "bg-ink-900 text-white shadow-subtle"
-                  : "text-ink-700 hover:text-ink-900"
-              }`}
-              title="Standard Property Pins & Stand Boundaries View"
-            >
-              <MapPin className="w-3.5 h-3.5 text-contour-red" />
-              <span className="hidden sm:inline">Pins</span>
-            </button>
-            <button
-              onClick={() => {
-                setInternalViewMode("CHOROPLETH");
-                if (onViewModeChange) onViewModeChange("CHOROPLETH");
-              }}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-full flex items-center gap-1 transition-all ${
-                viewMode === "CHOROPLETH"
-                  ? "bg-contour-red text-white shadow-subtle"
-                  : "text-ink-700 hover:text-ink-900"
-              }`}
-              title="Choropleth Inventory Density & Drill-Down View"
-            >
-              <Layers className="w-3.5 h-3.5 text-contour-amber" />
-              <span className="hidden sm:inline">Choropleth</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. RIGHT SECOND ROW — UTILITY ACTIONS (Stand Draw, Zoom, Fit, Locate, Suburb Intel) */}
-      <div className="absolute top-16 right-4 z-[1000] pointer-events-none">
+      {/* 2. RIGHT TOP — UTILITY ACTIONS (Stand Draw, Zoom, Fit, Locate, Suburb Intel) */}
+      <div className="map-utility-controls absolute top-16 right-4 z-[1000] pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-full border border-border shadow-subtle">
           {/* Stand Drawer Toggle */}
           <button
             onClick={() => setIsDrawingStand((prev) => !prev)}
             title="Interactive Stand Boundary Polygon Drawer"
-            className={`p-2 rounded-full text-xs font-bold flex items-center gap-1 transition-all ${
+            className={`map-stand-control p-2 rounded-full text-xs font-bold flex items-center gap-1 transition-all ${
               isDrawingStand
                 ? "bg-contour-red text-white shadow-subtle animate-pulse"
                 : "hover:bg-paper-200 text-ink-900"
@@ -885,6 +848,7 @@ export default function InteractivePropertyMap({
 
           {/* Fit All */}
           <button
+            className="map-fit-control"
             onClick={handleFitBounds}
             title="Reset Map Fit (See All Properties)"
             className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors flex items-center gap-1 text-xs font-medium px-2.5"
@@ -923,7 +887,7 @@ export default function InteractivePropertyMap({
       </div>
 
       {/* 🗺️ CHOROPLETH DRILL-DOWN BREADCRUMB & CONTROL BAR */}
-      {viewMode === "CHOROPLETH" && (
+      {viewMode === "CHOROPLETH" && !minimal && (
         <div className="absolute top-4 left-4 z-[1100] bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-full border border-border shadow-floating flex items-center gap-2 text-xs font-sans">
           <span className="font-bold text-contour-red flex items-center gap-1">
             <Layers className="w-3.5 h-3.5 text-contour-amber" />
@@ -971,7 +935,7 @@ export default function InteractivePropertyMap({
       )}
 
       {/* 📊 CHOROPLETH HOVER TOOLTIP LEGEND CARD */}
-      {viewMode === "CHOROPLETH" && hoveredRegionStats && (
+      {viewMode === "CHOROPLETH" && hoveredRegionStats && !minimal && (
         <div className="absolute bottom-6 left-4 z-[1100] w-72 bg-ink-900/95 text-white backdrop-blur-xl p-3.5 rounded-2xl border border-paper-300 shadow-2xl space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
           <div className="flex items-center justify-between border-b border-white/10 pb-2">
             <div>
@@ -1080,7 +1044,7 @@ export default function InteractivePropertyMap({
       <div ref={mapContainerRef} className="w-full flex-1 z-0 min-h-0" />
 
       {/* Dockable Suburb Intelligence Drawer Overlay */}
-      {suburbIntelOpen && (
+      {suburbIntelOpen && !minimal && (
         <div className="absolute top-16 right-4 bottom-24 z-[1000] w-80 bg-white/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl p-4 flex flex-col space-y-3 overflow-y-auto animate-in slide-in-from-right duration-200">
           <div className="flex items-center justify-between border-b border-border pb-2">
             <div className="flex items-center gap-2">
@@ -1135,8 +1099,8 @@ export default function InteractivePropertyMap({
       )}
 
       {/* Bottom Floating Property Cards Carousel */}
-      {propertiesWithCoords.length > 0 && (
-        <div className="absolute bottom-4 left-4 right-4 z-[1000] pointer-events-none">
+      {propertiesWithCoords.length > 0 && !minimal && (
+        <div className="map-property-carousel absolute bottom-4 left-4 right-4 z-[1000] pointer-events-none">
           <div className="max-w-4xl mx-auto flex flex-col gap-2">
             {/* Cards Grid / Mobile Horizontal Swipe Carousel */}
             <div className="flex md:grid md:grid-cols-3 gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pointer-events-auto pb-1">

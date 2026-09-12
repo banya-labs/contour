@@ -71,7 +71,6 @@ export const CONTOUR_PLANS: Record<string, PlanConfig> = {
       "1-Click Landlord Remittance Statements",
       "The DocuSign Human Approval Seam",
       "PowerSync Offline-First Field PWA (/kiosk)",
-      "Automated WhatsApp rent arrears bot",
       "Public REST API for Corporate Website listings",
       "Reverse Matchmaker buyer-to-property AI alerts",
     ],
@@ -91,8 +90,6 @@ export const CONTOUR_PLANS: Record<string, PlanConfig> = {
     features: [
       "Unlimited listings, agents & rental units",
       "Multi-branch RBAC (Lusaka, Ndola, Livingstone)",
-      "WhatsApp Voice note ingestion & transcription",
-      "Custom domain & white-labeled Field PWA",
       "Dedicated MinIO S3 object storage partition",
       "Full JSON-RPC 2.0 /api/mcp AI agent tools",
       "Unlimited public API keys & custom webhooks",

@@ -30,7 +30,10 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const onboardingUrl = `/onboarding?redirect_url=${encodeURIComponent(redirectUrl)}`;
   const isSignUp = mode === "sign-up";
   const isLocalDevelopment =
-    process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true";
+    !redirectUrl.startsWith("/agent") &&
+    !redirectUrl.startsWith("/kiosk") &&
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

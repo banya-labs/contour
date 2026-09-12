@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   MapPin,
   MessageSquare,
@@ -17,7 +18,6 @@ import {
   Sparkles,
   ChevronLeft,
   Bot,
-  UserCheck,
   Menu,
   X,
   User,
@@ -57,6 +57,7 @@ import { formatCurrency } from "@/lib/utils";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
 import type { PropertyMapItem } from "@/types/property-map";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { authClient } from "@/lib/auth-client";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -84,6 +85,8 @@ type TabType = "QUEUE" | "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS"
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
 
 function AgentKioskContent() {
+  const router = useRouter();
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
   const {
     isOnline,
     loading,
@@ -131,6 +134,22 @@ function AgentKioskContent() {
   });
 
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    setCurrentAgent((current) => ({
+      ...current,
+      id: session.user.id,
+      name: session.user.name || current.name,
+      email: session.user.email || current.email,
+    }));
+  }, [session]);
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    router.replace(`/sign-in?redirect_url=${encodeURIComponent("/agent")}`);
+    router.refresh();
+  };
 
   const activeTabMeta: Record<TabType, { eyebrow: string; title: string; description: string }> = {
     QUEUE: {
@@ -517,6 +536,14 @@ function AgentKioskContent() {
   };
 
 
+  if (isSessionPending) {
+    return <main className="flex min-h-dvh items-center justify-center bg-white px-6 text-sm text-editorial-muted">Checking your Contour session…</main>;
+  }
+
+  if (!session) {
+    return <main className="flex min-h-dvh items-center justify-center bg-white px-6 text-sm text-editorial-muted">Redirecting to secure sign-in…</main>;
+  }
+
   return (
     <div data-field-console className="field-shell min-h-dvh bg-[#070D0A] text-slate-100 font-sans flex flex-col justify-between max-w-md md:max-w-2xl mx-auto relative shadow-2xl border-x border-emerald-950/40">
       
@@ -525,11 +552,7 @@ function AgentKioskContent() {
         <div className="flex items-center justify-between">
           
           {/* Agent Identity & Persona Switcher */}
-          <button
-            onClick={() => setIsPersonaModalOpen(true)}
-            aria-label={`Open agent profile for ${currentAgent.name}`}
-            className="flex items-center gap-2.5 text-left group"
-          >
+          <div className="flex items-center gap-2.5 text-left">
             <div className="field-brand-mark w-9 h-9 rounded-xl bg-gradient-to-br from-[#E57A1A] to-[#B3580B] text-white flex items-center justify-center font-serif font-bold text-sm shadow-md ring-1 ring-white/20 group-hover:scale-105 transition-transform">
               {currentAgent.name.charAt(0)}
             </div>
@@ -547,29 +570,41 @@ function AgentKioskContent() {
                 <ContourLogo size="sm" variant="dark" />
               </p>
             </div>
-          </button>
+          </div>
 
           {/* Right Network Trigger */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+
+            <Link href="/dashboard" aria-label="Open operations dashboard" title="Dashboard" className="inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
+              <Home className="h-4 w-4" />
+            </Link>
 
             {/* Offline/Online PowerSync Badge */}
             <button
               onClick={toggleNetwork}
               aria-label={isOnline ? "Switch to offline preview" : "Switch to live connection"}
               aria-pressed={!isOnline}
-              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1.5 border ${
-                isOnline
-                  ? "bg-emerald-950/70 text-emerald-400 border-emerald-700/60"
-                  : "bg-amber-950/70 text-amber-300 border-amber-700/60 animate-pulse"
-              }`}
+              className="inline-flex h-10 w-10 items-center justify-center"
+              title={isOnline ? "Live · synced with Contour" : "Offline · changes are queued locally"}
             >
-              <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-emerald-400" : "bg-amber-400"}`} />
-              <span>{isOnline ? "Live" : "Offline"}</span>
-              {outboxCount > 0 && (
-                <span className="ml-0.5 px-1 py-0.2 bg-amber-500 text-black text-[9px] rounded-full font-bold">
-                  {outboxCount}
-                </span>
-              )}
+              <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500"}`} />
+            </button>
+
+            <button
+              onClick={() => setIsPersonaModalOpen(true)}
+              aria-label={`Open profile for ${currentAgent.name}`}
+              title={currentAgent.name}
+              className="inline-flex h-10 w-10 items-center justify-center border-l border-editorial-border text-editorial-black hover:bg-neutral-100"
+            >
+              <User className="h-4 w-4" />
+            </button>
+
+            <Link href="/dashboard/settings?tab=ACCOUNT" aria-label="Open settings" title="Settings" className="inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
+              <SlidersHorizontal className="h-4 w-4" />
+            </Link>
+
+            <button onClick={() => void handleSignOut()} aria-label="Sign out" title="Sign out" className="inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -685,10 +720,10 @@ function AgentKioskContent() {
 
         {/* ================= TAB 1: PROPERTIES (CATALOG & SPATIAL MAP) ================= */}
         {(activeTab === "PROPERTIES" || activeTab === "MAP") && (
-          <div className="space-y-4">
+          <div className={activeTab === "MAP" ? "field-map-viewport fixed inset-0 z-[60] bg-white" : "space-y-4"}>
             
             {/* Search, Suburb Chips & Layout Switcher */}
-            <div className="space-y-2.5">
+            <div className={activeTab === "MAP" ? "hidden" : "space-y-2.5"}>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -783,7 +818,22 @@ function AgentKioskContent() {
             {(propertyViewMode === "MAP" || activeTab === "MAP") && (
               <div className="space-y-3">
                 {/* Embedded Mobile Map Container */}
-                <div className="h-[52vh] rounded-2xl overflow-hidden border border-emerald-900/60 relative shadow-lg bg-[#0F1B14]">
+                <div className={activeTab === "MAP" ? "h-dvh w-full overflow-hidden relative bg-white" : "h-[52vh] rounded-2xl overflow-hidden border border-emerald-900/60 relative shadow-lg bg-[#0F1B14]"}>
+                  {activeTab === "MAP" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("PROPERTIES");
+                        setPropertyViewMode("LIST");
+                        setSelectedMapProperty(null);
+                      }}
+                      className="absolute left-4 top-4 z-[1100] inline-flex h-11 items-center gap-2 border border-editorial-border bg-white/95 px-3 text-xs font-bold uppercase tracking-wider text-editorial-black shadow-sm backdrop-blur"
+                      aria-label="Exit full-screen map"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Back
+                    </button>
+                  )}
                   <InteractivePropertyMap
                     properties={mapItems}
                     onSelectProperty={(prop) => {
@@ -791,12 +841,14 @@ function AgentKioskContent() {
                       playSuccessTone();
                     }}
                     searchQuery={search}
+                    onSearchChange={setSearch}
                     filterType={propertyTypeFilter}
+                    minimal={activeTab === "MAP"}
                     className="w-full h-full"
                   />
 
                   {/* Floating Map Helper Badge */}
-                  <div className="absolute top-2.5 left-2.5 z-[1000] bg-[#0B1711]/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-800/60 text-[10px] text-emerald-300 font-mono flex items-center gap-1.5 shadow">
+                  <div className={`${activeTab === "MAP" ? "hidden" : "flex"} absolute top-2.5 left-2.5 z-[1000] bg-[#0B1711]/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-800/60 text-[10px] text-emerald-300 font-mono items-center gap-1.5 shadow`}>
                     <Compass className="w-3 h-3 text-[#E57A1A] animate-spin" />
                     <span>Tap any pin to view Mandate</span>
                   </div>
@@ -804,7 +856,7 @@ function AgentKioskContent() {
 
                 {/* Selected Property Floating Detail Card on Map */}
                 {selectedMapProperty ? (
-                  <div className="bg-[#0F1B14] border border-emerald-700/80 rounded-2xl p-4 space-y-3 shadow-xl animate-in slide-in-from-bottom-3">
+                  <div className={`${activeTab === "MAP" ? "fixed bottom-4 left-4 right-4 z-[70]" : ""} bg-[#0F1B14] border border-emerald-700/80 rounded-2xl p-4 space-y-3 shadow-xl animate-in slide-in-from-bottom-3`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-[#E57A1A] bg-[#E57A1A]/10 px-2 py-0.5 rounded border border-[#E57A1A]/20">
@@ -869,7 +921,7 @@ function AgentKioskContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-[#0B150F] p-3 rounded-xl border border-emerald-950 text-center text-xs text-slate-400">
+                  <div className={`${activeTab === "MAP" ? "hidden" : "block"} bg-[#0B150F] p-3 rounded-xl border border-emerald-950 text-center text-xs text-slate-400`}>
                     <span>💡 Tap any property pin on the Lusaka map above to preview mandating specs, generate WhatsApp copy, or match registered buyers.</span>
                   </div>
                 )}
@@ -1281,22 +1333,7 @@ function AgentKioskContent() {
 
       {/* 3. Dedicated Bottom Dock Navigation Bar */}
       <footer className="field-footer fixed bottom-0 left-0 right-0 z-40 bg-[#0A140F]/95 backdrop-blur-md border-t border-emerald-900/40 max-w-md md:max-w-2xl mx-auto pb-safe">
-        <div className="grid grid-cols-6 items-center px-1 py-2">
-
-          {/* Work Queue Tab */}
-          <button
-            onClick={() => {
-              setActiveTab("QUEUE");
-              playNeutralTone();
-            }}
-            aria-current={activeTab === "QUEUE" ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 py-1 transition-colors ${
-              activeTab === "QUEUE" ? "text-[#E57A1A]" : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <ClipboardList className="w-5 h-5" />
-            <span className="text-[9px] font-semibold">Today</span>
-          </button>
+        <div className="grid grid-cols-5 items-center px-1 py-2">
           
           {/* Properties (Catalog & Map) Tab */}
           <button
@@ -1851,88 +1888,34 @@ function AgentKioskContent() {
 
 
 
-      {/* ================= MODAL: PERSONA SWITCHER ================= */}
+      {/* ================= MODAL: AUTHENTICATED PROFILE ================= */}
       {isPersonaModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0B1711] border border-emerald-900/60 rounded-3xl w-full max-w-md p-5 space-y-4 text-white animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-emerald-900/40 pb-3">
+          <div className="bg-white border border-editorial-border w-full max-w-md p-5 space-y-4 text-editorial-black animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-[#E57A1A]" />
-                <h3 className="text-sm font-bold">Field Agent Persona Switch</h3>
+                <User className="w-5 h-5 text-contour-red" />
+                <h3 className="text-sm font-bold">Signed-in profile</h3>
               </div>
               <button
                 onClick={() => setIsPersonaModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg"
+                className="p-1.5 text-editorial-muted hover:text-editorial-black"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-2 text-xs">
-              {[
-                {
-                  id: "agt_tembo",
-                  name: "Tembo Mwape",
-                  role: "Senior Field Broker",
-                  zone: "Lusaka East (Kabulonga, Leopards Hill, Woodlands)",
-                  phone: "+260 97 123 4567",
-                  email: "tembo.mwape@contour.co.zm",
-                  earnedSplitUsd: 18500,
-                  earnedSplitZmw: 45000,
-                  pendingSplitZmw: 125000,
-                  pendingSplitUsd: 21250,
-                },
-                {
-                  id: "agt_grace",
-                  name: "Grace Banda",
-                  role: "Commercial Lands Specialist",
-                  zone: "Lusaka North (Roma Park, Foxdale, Mass Media)",
-                  phone: "+260 96 987 6543",
-                  email: "grace.banda@contour.co.zm",
-                  earnedSplitUsd: 32000,
-                  earnedSplitZmw: 95000,
-                  pendingSplitZmw: 240000,
-                  pendingSplitUsd: 45000,
-                },
-              ].map((agent) => (
-                <button
-                  key={agent.id}
-                  onClick={() => {
-                    setCurrentAgent(agent);
-                    setIsPersonaModalOpen(false);
-                    playSuccessTone();
-                  }}
-                  className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
-                    currentAgent.id === agent.id
-                      ? "bg-emerald-900/60 border-emerald-600 text-white font-bold"
-                      : "bg-[#0F1B14] border-emerald-900/40 text-slate-300 hover:border-emerald-700"
-                  }`}
-                >
-                  <div>
-                    <div className="text-xs font-bold text-white">{agent.name}</div>
-                    <div className="text-[11px] text-emerald-400">{agent.role}</div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{agent.zone}</div>
-                  </div>
-                  {currentAgent.id === agent.id && (
-                    <Check className="w-4 h-4 text-emerald-400" />
-                  )}
-                </button>
-              ))}
+            <div className="space-y-3 text-xs">
+              <div className="border border-editorial-border bg-neutral-50 p-3">
+                <p className="font-bold">{session.user.name}</p>
+                <p className="mt-1 text-editorial-muted">{session.user.email}</p>
+              </div>
+              <p className="leading-5 text-editorial-muted">Your access is tied to your authenticated Contour organization membership. Contact an organization admin to change your role or workspace access.</p>
             </div>
 
-            <div className="pt-2 border-t border-emerald-900/40 flex justify-between items-center text-xs">
-              <Link
-                href="/dashboard"
-                className="text-slate-400 hover:text-slate-200 text-[11px] underline"
-              >
-                Switch to Desktop Operations Dashboard
-              </Link>
-              <button
-                onClick={() => setIsPersonaModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-emerald-800 text-white font-bold text-xs"
-              >
-                Done
-              </button>
+            <div className="flex items-center justify-between border-t border-editorial-border pt-3">
+              <Link href="/dashboard/settings?tab=ACCOUNT" className="text-xs font-bold uppercase tracking-wider text-contour-red">Account settings</Link>
+              <button onClick={() => setIsPersonaModalOpen(false)} className="bg-editorial-black px-4 py-2 text-xs font-bold text-white">Done</button>
             </div>
           </div>
         </div>

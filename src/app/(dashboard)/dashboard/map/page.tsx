@@ -43,8 +43,6 @@ export default function DashboardMapPage() {
   // Unified Search, Filter & View Mode state for Page Header & Map
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<"STANDARD" | "CHOROPLETH">("STANDARD");
-  const [suburbIntelOpen, setSuburbIntelOpen] = useState(false);
 
   useEffect(() => {
     async function loadProperties() {
@@ -193,10 +191,6 @@ export default function DashboardMapPage() {
             onSearchChange={(q) => setSearchQuery(q)}
             filterType={filterType}
             onFilterChange={(f) => setFilterType(f)}
-            viewMode={viewMode}
-            onViewModeChange={(m) => setViewMode(m)}
-            suburbIntelOpen={suburbIntelOpen}
-            onToggleSuburbIntel={() => setSuburbIntelOpen((prev) => !prev)}
             onSelectProperty={(property) => setSelectedProperty(property)}
             onSaveStandBoundary={(vertices, areaSqm) => {
               console.log("[STAND BOUNDARY SAVED]", vertices, areaSqm);
