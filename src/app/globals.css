@@ -330,6 +330,38 @@ button, a, input, select, textarea {
   width: 100%;
 }
 
+/* The agent surface is an extension of the editorial app, not a separate
+   dark theme. Keep the existing JSX utility classes functional while
+   translating legacy kiosk styling into the shared Contour visual language. */
+[data-field-console] [class*="bg-[#"],
+[data-field-console] [class*="bg-emerald-9"],
+[data-field-console] [class*="bg-emerald-8"],
+[data-field-console] [class*="bg-emerald-7"] {
+  background-color: var(--field-surface) !important;
+}
+
+[data-field-console] [class*="text-[#16382B]"],
+[data-field-console] [class*="text-[#16382b]"],
+[data-field-console] [class*="text-white"],
+[data-field-console] [class*="text-slate-"] {
+  color: var(--field-ink) !important;
+}
+
+[data-field-console] [class*="text-[#E57A1A]"],
+[data-field-console] [class*="text-[#e57a1a]"],
+[data-field-console] [class*="text-emerald-"] {
+  color: var(--field-red) !important;
+}
+
+[data-field-console] [class*="border-emerald-"],
+[data-field-console] [class*="border-[#"] {
+  border-color: var(--field-line) !important;
+}
+
+[data-field-console] [class*="rounded-"]:not([class*="rounded-full"]) {
+  border-radius: 0 !important;
+}
+
 [data-field-console] header,
 [data-field-console] footer {
   background: rgba(255, 255, 255, 0.96) !important;
@@ -408,7 +440,7 @@ button, a, input, select, textarea {
 [data-field-console] [class*="rounded-2xl"],
 [data-field-console] [class*="rounded-xl"],
 [data-field-console] [class*="rounded-lg"] {
-  border-radius: 0.35rem !important;
+  border-radius: 0 !important;
 }
 
 [data-field-console] input,
@@ -468,8 +500,179 @@ button, a, input, select, textarea {
 }
 
 @media (min-width: 768px) {
+  [data-field-console] {
+    max-width: none !important;
+    margin-inline: 0 !important;
+    border-inline: 0 !important;
+  }
+
+  [data-field-console] .field-header,
+  [data-field-console] .field-main {
+    margin-left: 15rem;
+  }
+
+  [data-field-console] .field-header {
+    padding-left: clamp(1.5rem, 4vw, 4rem) !important;
+    padding-right: clamp(1.5rem, 4vw, 4rem) !important;
+  }
+
+  [data-field-console] .field-footer {
+    left: 0 !important;
+    right: auto !important;
+    top: 0;
+    bottom: 0 !important;
+    width: 15rem;
+    max-width: none !important;
+    padding: 1.25rem 0.75rem max(1.25rem, env(safe-area-inset-bottom));
+    border-top: 0 !important;
+    border-right: 1px solid var(--field-line);
+  }
+
+  [data-field-console] .field-footer > div {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.25rem;
+    padding: 0 !important;
+  }
+
+  [data-field-console] .field-footer > div > button,
+  [data-field-console] .field-footer > div > div {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+  }
+
+  [data-field-console] .field-footer > div > button {
+    flex-direction: row;
+    gap: 0.75rem;
+    border-left: 2px solid transparent;
+  }
+
+  [data-field-console] .field-footer > div > button[aria-current="page"] {
+    color: var(--field-red) !important;
+    background: #fff5f3;
+    border-left-color: var(--field-red);
+  }
+
+  [data-field-console] .field-footer > div > div {
+    order: -1;
+    justify-content: flex-start;
+    margin: 0 0 1rem;
+    border-bottom: 1px solid var(--field-line);
+    padding: 0 1rem 1rem;
+  }
+
+  [data-field-console] .field-footer .field-primary-action {
+    width: 100%;
+    height: 48px;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-field-console] main {
+    padding-bottom: 2rem !important;
+  }
+}
+
+/* A phone held sideways gets the same rail treatment, keeping the canvas
+   usable instead of forcing a cramped six-item bottom dock. */
+@media (orientation: landscape) and (max-width: 767px) {
+  [data-field-console] .field-header,
+  [data-field-console] .field-main {
+    margin-left: 5.25rem;
+  }
+
+  [data-field-console] .field-header {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  [data-field-console] .field-footer {
+    left: 0 !important;
+    right: auto !important;
+    top: 0;
+    bottom: 0 !important;
+    width: 5.25rem;
+    max-width: none !important;
+    padding: 0.75rem 0.35rem max(0.75rem, env(safe-area-inset-bottom));
+    border-top: 0 !important;
+    border-right: 1px solid var(--field-line);
+  }
+
+  [data-field-console] .field-footer > div {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0 !important;
+  }
+
+  [data-field-console] .field-footer > div > button,
+  [data-field-console] .field-footer > div > div {
+    width: 100%;
+    min-height: 46px;
+    padding: 0.5rem 0.25rem;
+  }
+
+  [data-field-console] .field-footer > div > button {
+    flex-direction: column;
+    gap: 0.2rem;
+    border-left: 2px solid transparent;
+  }
+
+  [data-field-console] .field-footer > div > button span {
+    font-size: 8px;
+  }
+
+  [data-field-console] .field-footer > div > div {
+    order: -1;
+    margin: 0 0 0.5rem;
+    border-bottom: 1px solid var(--field-line);
+    padding-bottom: 0.75rem;
+  }
+
+  [data-field-console] .field-footer .field-primary-action {
+    width: 42px;
+    height: 42px;
+    margin-inline: auto;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-field-console] main {
+    padding-bottom: 1rem !important;
+  }
+}
+
+@media (min-width: 768px) {
   [data-field-console] main {
     padding-left: clamp(1.5rem, 4vw, 4rem) !important;
     padding-right: clamp(1.5rem, 4vw, 4rem) !important;
   }
+}
+
+/* Final cascade guard: legacy dark utility selectors above must not leak back
+   into the agent surface after the editorial translation. */
+[data-field-console] [class*="from-emerald-900"],
+[data-field-console] [class*="to-[#10241A]"],
+[data-field-console] [class*="bg-[#10241A]"],
+[data-field-console] [class*="bg-[#163325]"],
+[data-field-console] [class*="bg-emerald-800"] {
+  background: var(--field-surface) !important;
+  color: var(--field-ink) !important;
+}
+
+[data-field-console] .field-primary-action {
+  background: var(--field-red) !important;
+  color: #ffffff !important;
+  border-color: var(--field-red) !important;
+}
+
+[data-field-console] .field-primary-action:hover {
+  background: var(--field-ink) !important;
+  border-color: var(--field-ink) !important;
 }
