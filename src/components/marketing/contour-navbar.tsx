@@ -76,13 +76,13 @@ export function ContourNavbar() {
         <div className="flex items-center gap-4">
           <Link
             href="/sign-in"
-            className="hidden sm:inline-flex font-geist text-xs uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover-un px-2 py-1"
+            className="hidden md:inline-flex font-geist text-xs uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover-un px-2 py-1"
           >
             Log In
           </Link>
           <Link
             href="/sign-up"
-            className="btn-fill-wipe bg-editorial-black text-white px-5 sm:px-6 py-2.5 sm:py-3 font-heading text-xs sm:text-sm font-semibold tracking-wide border-none rounded-none"
+            className="hidden md:inline-flex btn-fill-wipe bg-editorial-black text-white px-5 sm:px-6 py-2.5 sm:py-3 font-heading text-xs sm:text-sm font-semibold tracking-wide border-none rounded-none"
           >
             <span>Get Started</span>
           </Link>
@@ -128,7 +128,7 @@ export function ContourNavbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full bg-editorial-black text-white text-center py-3 font-heading text-sm font-semibold"
               >
-                Get Started Free
+                Get Started
               </Link>
             </div>
           </motion.div>

@@ -30,7 +30,7 @@ export function ContourLogo({
       <span aria-hidden="true">C</span>
       <span
         aria-hidden="true"
-        className="inline-block h-[0.78em] w-[0.78em] shrink-0 rounded-full bg-editorial-red"
+        className="inline-block h-[1em] w-[1em] shrink-0 rounded-full bg-editorial-red"
       />
       {!compact && <span aria-hidden="true">NTOUR</span>}
     </span>
