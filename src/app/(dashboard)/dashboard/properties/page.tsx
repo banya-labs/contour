@@ -20,6 +20,8 @@ import {
   Image as ImageIcon,
   Trash2,
   Share2,
+  ShieldCheck,
+  Scale,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { evaluatePropertyAgainstAlerts, AlertMatchResult } from "@/lib/alerts/matchmaker";
@@ -119,6 +121,9 @@ function PropertiesCatalogContent() {
       "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200&auto=format&fit=crop&q=80",
     ],
     standBoundary: undefined as any,
+    mandateType: "SOLE_MANDATE",
+    mandateReference: "",
+    mandateDeclarationAgreed: false,
   });
 
   const [newPhotoInput, setNewPhotoInput] = useState("");
@@ -144,6 +149,11 @@ function PropertiesCatalogContent() {
   const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!formData.mandateDeclarationAgreed) {
+      setFormError("Statutory Mandate & Title Warranty required: You must confirm that your agency holds an active mandate from the lawful owner before publishing.");
+      return;
+    }
 
     try {
       const res = await fetch("/api/properties", {
@@ -172,6 +182,9 @@ function PropertiesCatalogContent() {
           landmarkDirections: formData.landmarkDirections,
           photos: formData.photos,
           standBoundary: formData.standBoundary,
+          mandateType: formData.mandateType,
+          mandateReference: formData.mandateReference || undefined,
+          mandateDeclarationAgreed: formData.mandateDeclarationAgreed,
         }),
       });
 

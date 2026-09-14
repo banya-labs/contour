@@ -149,6 +149,25 @@ const postHandler = createApiHandler({
       }
     });
 
+    // Record statutory mandate declaration in immutable AuditLog (ECT Act 2021 & Estate Agents Act Cap 187)
+    await db.auditLog.create({
+      data: {
+        organizationId: organizationId!,
+        userId,
+        action: "PROPERTY_PUBLISHED_WITH_MANDATE_DECLARATION",
+        entityType: "Property",
+        entityId: property.id,
+        details: {
+          title: property.title,
+          suburb: property.suburb,
+          mandateType: body.mandateType || "SOLE_MANDATE",
+          mandateReference: body.mandateReference || null,
+          mandateDeclarationAgreed: true,
+          statutoryFramework: "Estate Agents Act Cap 187 & Penal Code Cap 87",
+        },
+      },
+    });
+
     return NextResponse.json({ success: true, property });
   }
 });

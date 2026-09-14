@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download } from "lucide-react";
 import Link from "next/link";
 import { ContourReportPayload } from "@/lib/analytics/types";
 import { formatCurrency } from "@/lib/utils";
@@ -12,9 +12,11 @@ function AnalyticsPrintContent() {
   const preset = searchParams?.get("preset") || "this_month";
   const fromParam = searchParams?.get("from");
   const toParam = searchParams?.get("to");
+  const customTitle = searchParams?.get("title") || "Business Intelligence & Performance Report";
 
   const [report, setReport] = useState<ContourReportPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   useEffect(() => {
     async function loadReport() {
@@ -39,16 +41,20 @@ function AnalyticsPrintContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white text-xs font-mono text-neutral-500">
-        Preparing executive print document...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#2B2D31] text-xs font-mono text-neutral-300">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mb-3" />
+        Preparing multi-page executive PDF report...
       </div>
     );
   }
 
   if (!report) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white text-xs font-mono text-red-600">
-        Unable to load report for print generation.
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#2B2D31] text-xs font-mono text-red-400">
+        <p className="mb-3">Unable to extract analytics data for print generation.</p>
+        <Link href="/dashboard/analytics" className="text-white underline">
+          Return to Dashboard
+        </Link>
       </div>
     );
   }
@@ -56,411 +62,731 @@ function AnalyticsPrintContent() {
   const currency = report.meta.currency || "ZMW";
 
   return (
-    <div className="min-h-screen bg-neutral-100 print:bg-white py-6 print:py-0 font-geist text-[#111]">
-      {/* Top Floating Control Bar (Hidden on Print) */}
-      <div className="max-w-4xl mx-auto mb-4 px-4 flex items-center justify-between print:hidden">
-        <Link
-          href="/dashboard/analytics"
-          className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700 hover:text-black"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Analytics Dashboard
-        </Link>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-[#16382B] text-white text-xs font-semibold hover:bg-black transition-colors"
-        >
-          <Printer className="w-3.5 h-3.5" /> Print / Save as PDF
-        </button>
+    <div className="min-h-screen bg-[#323639] print:bg-white text-[#111] font-geist antialiased selection:bg-neutral-200">
+      
+      {/* 1. Sticky PDF Viewer Navigation Bar (Hidden during actual Print) */}
+      <div className="sticky top-0 z-50 bg-[#202124] text-white border-b border-white/10 px-4 lg:px-8 py-2.5 flex items-center justify-between gap-4 shadow-md print:hidden">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/analytics"
+            className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded border border-white/10"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
+          </Link>
+          <div className="h-4 w-[1px] bg-white/20 hidden sm:block" />
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-semibold text-white truncate max-w-xs">
+              {report.meta.companyName} — {report.period.label} Report
+            </span>
+            <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
+              5 Pages • A4
+            </span>
+          </div>
+        </div>
+
+        {/* Viewer Controls */}
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center bg-black/40 rounded border border-white/10 px-1 py-0.5 text-xs text-neutral-300">
+            <button
+              onClick={() => setZoomLevel((z) => Math.max(75, z - 10))}
+              className="p-1 hover:text-white"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <span className="px-2 font-mono text-[11px] text-white">{zoomLevel}%</span>
+            <button
+              onClick={() => setZoomLevel((z) => Math.min(150, z + 10))}
+              className="p-1 hover:text-white"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#16382B] hover:bg-[#1E4D3B] text-white text-xs font-semibold rounded shadow transition-all border border-emerald-500/30"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print / Save as PDF</span>
+          </button>
+        </div>
       </div>
 
-      {/* Main Print Container (A4 Printable Canvas) */}
-      <div className="max-w-4xl mx-auto bg-white p-8 sm:p-12 print:p-0 shadow-sm print:shadow-none border border-neutral-200 print:border-none text-xs leading-relaxed">
-        
-        {/* Document Header */}
-        <div className="border-b-2 border-black pb-4 mb-6">
-          <div className="flex justify-between items-start">
+      {/* 2. Vertically Scrollable Multi-Page Document View */}
+      <div className="py-8 print:py-0 px-4 overflow-y-auto flex flex-col items-center gap-8 print:gap-0">
+        <div
+          style={{ zoom: `${zoomLevel}%` }}
+          className="transition-transform duration-150 flex flex-col items-center gap-8 print:gap-0 w-full"
+        >
+
+          {/* ================================================================= */}
+          {/* PAGE 1: EXECUTIVE BRIEFING, KPIS & FINANCIAL PERFORMANCE          */}
+          {/* ================================================================= */}
+          <div className="pdf-page w-full max-w-[210mm] min-h-[297mm] bg-white text-[#111] p-10 sm:p-14 shadow-2xl print:shadow-none border border-neutral-300 print:border-none flex flex-col justify-between relative">
             <div>
-              <div className="text-xl font-heading font-black tracking-wider uppercase">CONTOUR</div>
-              <div className="text-sm font-heading font-bold text-neutral-800 uppercase tracking-wide">
-                BUSINESS INTELLIGENCE & PERFORMANCE REPORT
+              {/* Document Letterhead */}
+              <div className="border-b-2 border-black pb-4 mb-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-2xl font-heading font-black tracking-widest uppercase text-black">
+                      CONTOUR
+                    </div>
+                    <div className="text-xs font-heading font-bold text-neutral-800 uppercase tracking-wider mt-0.5">
+                      {customTitle}
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] font-mono text-neutral-600">
+                    <div className="font-bold text-black">REF: BI-{report.period.from.replace(/-/g, "")}</div>
+                    <div>{report.meta.reportType}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-neutral-200 grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="font-semibold text-neutral-600">Company: </span>
+                    <span className="font-bold text-black">{report.meta.companyName}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold text-neutral-600">Reporting Window: </span>
+                    <span className="font-bold text-black">{report.period.from} – {report.period.to}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-neutral-600">Prepared By: </span>
+                    <span>{report.meta.preparedBy}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold text-neutral-600">Generated: </span>
+                    <span>{new Date(report.meta.generatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span>
+                  </div>
+                </div>
+
+                <div className="mt-2 text-center text-[9px] font-mono font-bold uppercase tracking-widest text-neutral-500">
+                  *** CONFIDENTIAL • FOR MANAGEMENT & PRINCIPAL BROKER USE ONLY ***
+                </div>
+              </div>
+
+              {/* Section 1: Executive Summary */}
+              <div className="mb-6">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  1. Executive Summary
+                </h2>
+                <p className="text-[11px] leading-relaxed text-neutral-800 mb-4">
+                  {report.aiNarrative.executiveSummaryText}
+                </p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Operational Activity Table */}
+                  <div>
+                    <h3 className="font-bold text-[10px] uppercase text-neutral-700 mb-1">Business Performance — {report.period.label}</h3>
+                    <table className="w-full border-collapse border border-neutral-300 text-[10px]">
+                      <thead>
+                        <tr className="bg-neutral-100 border-b border-neutral-300">
+                          <th className="p-1 text-left font-bold">Operational KPI</th>
+                          <th className="p-1 text-right font-bold">{report.period.label}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200 font-mono">
+                        <tr><td className="p-1 font-sans">Total Properties</td><td className="p-1 text-right">{report.executiveKpis.totalProperties}</td></tr>
+                        <tr><td className="p-1 font-sans">Active Properties</td><td className="p-1 text-right">{report.executiveKpis.activeProperties}</td></tr>
+                        <tr><td className="p-1 font-sans">New Properties Added</td><td className="p-1 text-right">{report.executiveKpis.newPropertiesAdded}</td></tr>
+                        <tr><td className="p-1 font-sans">Properties Sold</td><td className="p-1 text-right">{report.executiveKpis.propertiesSold}</td></tr>
+                        <tr><td className="p-1 font-sans">Properties Rented</td><td className="p-1 text-right">{report.executiveKpis.propertiesRented}</td></tr>
+                        <tr><td className="p-1 font-sans">New Inquiries</td><td className="p-1 text-right">{report.executiveKpis.newInquiries}</td></tr>
+                        <tr><td className="p-1 font-sans">Matched Inquiries</td><td className="p-1 text-right">{report.executiveKpis.matchedInquiries}</td></tr>
+                        <tr><td className="p-1 font-sans">Unmatched Inquiries</td><td className="p-1 text-right">{report.executiveKpis.unmatchedInquiries}</td></tr>
+                        <tr><td className="p-1 font-sans">Viewings Completed</td><td className="p-1 text-right">{report.executiveKpis.viewingsCompleted}</td></tr>
+                        <tr><td className="p-1 font-sans">Active Negotiations</td><td className="p-1 text-right">{report.executiveKpis.activeNegotiations}</td></tr>
+                        <tr><td className="p-1 font-sans font-bold">Completed Transactions</td><td className="p-1 text-right font-bold">{report.executiveKpis.completedTransactions}</td></tr>
+                        <tr><td className="p-1 font-sans text-neutral-600">Failed / Lost Deals</td><td className="p-1 text-right">{report.executiveKpis.failedDeals}</td></tr>
+                        <tr><td className="p-1 font-sans">Follow-ups Due</td><td className="p-1 text-right">{report.executiveKpis.followUpsDue}</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Financial KPIs Table */}
+                  <div>
+                    <h3 className="font-bold text-[10px] uppercase text-neutral-700 mb-1">Financial & Commission Telemetry</h3>
+                    <table className="w-full border-collapse border border-neutral-300 text-[10px] mb-3">
+                      <thead>
+                        <tr className="bg-neutral-100 border-b border-neutral-300">
+                          <th className="p-1 text-left font-bold">Financial KPI</th>
+                          <th className="p-1 text-right font-bold">Amount ({currency})</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200 font-mono">
+                        <tr><td className="p-1 font-sans">Total Transaction Volume</td><td className="p-1 text-right">{formatCurrency(report.financialKpis.totalTransactionValue, currency)}</td></tr>
+                        <tr><td className="p-1 font-sans">Gross Company Commission</td><td className="p-1 text-right font-bold">{formatCurrency(report.financialKpis.companyCommission, currency)}</td></tr>
+                        <tr><td className="p-1 font-sans">Closing Agent Splits</td><td className="p-1 text-right">{formatCurrency(report.financialKpis.agentCommissions, currency)}</td></tr>
+                        <tr className="bg-neutral-50 font-bold"><td className="p-1 font-sans text-black">Net Agency Retained</td><td className="p-1 text-right text-black">{formatCurrency(report.financialKpis.netCompanyCommission, currency)}</td></tr>
+                        <tr><td className="p-1 font-sans text-red-700">Outstanding Rental Arrears</td><td className="p-1 text-right text-red-700 font-bold">{formatCurrency(report.financialKpis.outstandingRentalPayments, currency)}</td></tr>
+                      </tbody>
+                    </table>
+
+                    {/* Section 2: Management Snapshot Alert */}
+                    <div className="p-2.5 bg-neutral-50 border border-neutral-300 text-[10px]">
+                      <div className="font-bold text-[10px] uppercase text-black mb-1">2. Management Attention Flags:</div>
+                      <ul className="list-disc pl-4 space-y-0.5 text-neutral-800">
+                        {report.managementAttentionRequired.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="text-right text-[11px] font-mono text-neutral-600">
-              <div>Ref: BI-{report.period.from.replace(/-/g, "")}</div>
-              <div>{report.meta.reportType}</div>
+
+            {/* Page Footer */}
+            <div className="border-t border-neutral-300 pt-2 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+              <span>CONTOUR REAL ESTATE MANAGEMENT PLATFORM • REF: BI-{report.period.from.replace(/-/g, "")}</span>
+              <span>PAGE 1 OF 5</span>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-neutral-200 grid grid-cols-2 gap-2 text-[11px]">
+
+          {/* ================================================================= */}
+          {/* PAGE 2: PROPERTY PORTFOLIO, NEW LISTINGS & STALE INVENTORY       */}
+          {/* ================================================================= */}
+          <div className="pdf-page w-full max-w-[210mm] min-h-[297mm] bg-white text-[#111] p-10 sm:p-14 shadow-2xl print:shadow-none border border-neutral-300 print:border-none flex flex-col justify-between relative">
             <div>
-              <span className="font-semibold text-neutral-700">Company: </span>
-              <span className="font-bold">{report.meta.companyName}</span>
-            </div>
-            <div className="text-right">
-              <span className="font-semibold text-neutral-700">Reporting Period: </span>
-              <span className="font-bold">{report.period.from} – {report.period.to}</span>
-            </div>
-            <div>
-              <span className="font-semibold text-neutral-700">Prepared By: </span>
-              <span>{report.meta.preparedBy}</span>
-            </div>
-            <div className="text-right">
-              <span className="font-semibold text-neutral-700">Generated: </span>
-              <span>{new Date(report.meta.generatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span>
-            </div>
-          </div>
+              {/* Header */}
+              <div className="border-b border-neutral-200 pb-2 mb-4 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+                <span>CONTOUR BUSINESS INTELLIGENCE • {report.meta.companyName}</span>
+                <span>SECTION 3, 4 & 21: PORTFOLIO TELEMETRY</span>
+              </div>
 
-          <div className="mt-2 text-center text-[10px] font-mono font-bold uppercase tracking-widest text-neutral-500">
-            ***CONFIDENTIAL FOR MANAGEMENT USE ONLY***
-          </div>
-        </div>
+              {/* Section 3: Portfolio Summary */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  3. Property Portfolio Breakdown
+                </h2>
+                <table className="w-full border-collapse border border-neutral-300 text-[10px]">
+                  <thead>
+                    <tr className="bg-neutral-100 border-b border-neutral-300">
+                      <th className="p-1 text-left font-bold">Property Status</th>
+                      <th className="p-1 text-right font-bold">Number</th>
+                      <th className="p-1 text-right font-bold">Distribution %</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 font-mono">
+                    <tr><td className="p-1 font-sans">For Sale</td><td className="p-1 text-right">{report.portfolioSummary.forSale}</td><td className="p-1 text-right">{report.portfolioSummary.total > 0 ? Math.round((report.portfolioSummary.forSale / report.portfolioSummary.total) * 100) : 0}%</td></tr>
+                    <tr><td className="p-1 font-sans">For Rent</td><td className="p-1 text-right">{report.portfolioSummary.forRent}</td><td className="p-1 text-right">{report.portfolioSummary.total > 0 ? Math.round((report.portfolioSummary.forRent / report.portfolioSummary.total) * 100) : 0}%</td></tr>
+                    <tr><td className="p-1 font-sans">Under Offer / Negotiation</td><td className="p-1 text-right">{report.portfolioSummary.underNegotiation}</td><td className="p-1 text-right">{report.portfolioSummary.total > 0 ? Math.round((report.portfolioSummary.underNegotiation / report.portfolioSummary.total) * 100) : 0}%</td></tr>
+                    <tr><td className="p-1 font-sans">Sold</td><td className="p-1 text-right">{report.portfolioSummary.sold}</td><td className="p-1 text-right">{report.portfolioSummary.total > 0 ? Math.round((report.portfolioSummary.sold / report.portfolioSummary.total) * 100) : 0}%</td></tr>
+                    <tr><td className="p-1 font-sans">Rented</td><td className="p-1 text-right">{report.portfolioSummary.rented}</td><td className="p-1 text-right">{report.portfolioSummary.total > 0 ? Math.round((report.portfolioSummary.rented / report.portfolioSummary.total) * 100) : 0}%</td></tr>
+                    <tr className="bg-neutral-50 font-bold"><td className="p-1 font-sans">Total Properties Registered</td><td className="p-1 text-right">{report.portfolioSummary.total}</td><td className="p-1 text-right">100%</td></tr>
+                  </tbody>
+                </table>
+              </div>
 
-        {/* Section 1: Executive Summary */}
-        <div className="mb-8">
-          <h2 className="text-sm font-heading font-bold uppercase border-b border-neutral-300 pb-1 mb-2">
-            1. Executive Summary
-          </h2>
-          <p className="mb-4 leading-normal">
-            {report.aiNarrative.executiveSummaryText}
-          </p>
+              {/* Section 4: New Properties Added */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  4. New Properties Added During Period
+                </h2>
+                {report.newPropertiesAdded.length === 0 ? (
+                  <p className="text-[10px] text-neutral-500 italic py-2">No new properties added during this reporting period.</p>
+                ) : (
+                  <table className="w-full border-collapse border border-neutral-300 text-[10px]">
+                    <thead>
+                      <tr className="bg-neutral-100 border-b border-neutral-300">
+                        <th className="p-1 text-left font-bold">Property Title</th>
+                        <th className="p-1 text-left font-bold">Location</th>
+                        <th className="p-1 text-left font-bold">Type</th>
+                        <th className="p-1 text-right font-bold">Price ({currency})</th>
+                        <th className="p-1 text-center font-bold">Listing</th>
+                        <th className="p-1 text-left font-bold">Assigned Agent</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {report.newPropertiesAdded.slice(0, 7).map((p) => (
+                        <tr key={p.id}>
+                          <td className="p-1 font-semibold truncate max-w-[140px]">{p.title}</td>
+                          <td className="p-1">{p.location}</td>
+                          <td className="p-1">{p.type}</td>
+                          <td className="p-1 text-right font-mono">{formatCurrency(p.price, currency)}</td>
+                          <td className="p-1 text-center">{p.listingType}</td>
+                          <td className="p-1 truncate max-w-[100px]">{p.agentAssigned}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Operational KPIs Table */}
-            <div>
-              <h3 className="font-bold text-[11px] mb-1.5">Business Performance — {report.period.label}</h3>
-              <table className="w-full border-collapse border border-neutral-300 text-[11px]">
-                <thead>
-                  <tr className="bg-neutral-100 border-b border-neutral-300">
-                    <th className="p-1 text-left font-bold">KPI</th>
-                    <th className="p-1 text-right font-bold">{report.period.label}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  <tr><td className="p-1">Total Properties</td><td className="p-1 text-right font-mono">{report.executiveKpis.totalProperties}</td></tr>
-                  <tr><td className="p-1">Active Properties</td><td className="p-1 text-right font-mono">{report.executiveKpis.activeProperties}</td></tr>
-                  <tr><td className="p-1">New Properties Added</td><td className="p-1 text-right font-mono">{report.executiveKpis.newPropertiesAdded}</td></tr>
-                  <tr><td className="p-1">Properties Sold</td><td className="p-1 text-right font-mono">{report.executiveKpis.propertiesSold}</td></tr>
-                  <tr><td className="p-1">Properties Rented</td><td className="p-1 text-right font-mono">{report.executiveKpis.propertiesRented}</td></tr>
-                  <tr><td className="p-1">New Inquiries</td><td className="p-1 text-right font-mono">{report.executiveKpis.newInquiries}</td></tr>
-                  <tr><td className="p-1">Matched Inquiries</td><td className="p-1 text-right font-mono">{report.executiveKpis.matchedInquiries}</td></tr>
-                  <tr><td className="p-1">Unmatched Inquiries</td><td className="p-1 text-right font-mono">{report.executiveKpis.unmatchedInquiries}</td></tr>
-                  <tr><td className="p-1">Viewings Completed</td><td className="p-1 text-right font-mono">{report.executiveKpis.viewingsCompleted}</td></tr>
-                  <tr><td className="p-1">Active Negotiations</td><td className="p-1 text-right font-mono">{report.executiveKpis.activeNegotiations}</td></tr>
-                  <tr><td className="p-1">Completed Transactions</td><td className="p-1 text-right font-mono">{report.executiveKpis.completedTransactions}</td></tr>
-                  <tr><td className="p-1">Failed/Lost Deals</td><td className="p-1 text-right font-mono">{report.executiveKpis.failedDeals}</td></tr>
-                  <tr><td className="p-1">Follow-ups Due</td><td className="p-1 text-right font-mono">{report.executiveKpis.followUpsDue}</td></tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Financial Performance Table */}
-            <div>
-              <h3 className="font-bold text-[11px] mb-1.5">Financial Performance</h3>
-              <table className="w-full border-collapse border border-neutral-300 text-[11px]">
-                <thead>
-                  <tr className="bg-neutral-100 border-b border-neutral-300">
-                    <th className="p-1 text-left font-bold">Financial KPI</th>
-                    <th className="p-1 text-right font-bold">Amount ({currency})</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200 font-mono">
-                  <tr><td className="p-1 font-sans">Total Transaction Value</td><td className="p-1 text-right">{formatCurrency(report.financialKpis.totalTransactionValue, currency)}</td></tr>
-                  <tr><td className="p-1 font-sans">Company Commission</td><td className="p-1 text-right">{formatCurrency(report.financialKpis.companyCommission, currency)}</td></tr>
-                  <tr><td className="p-1 font-sans">Agent Commissions</td><td className="p-1 text-right">{formatCurrency(report.financialKpis.agentCommissions, currency)}</td></tr>
-                  <tr className="bg-neutral-50 font-bold"><td className="p-1 font-sans">Net Company Commission</td><td className="p-1 text-right">{formatCurrency(report.financialKpis.netCompanyCommission, currency)}</td></tr>
-                  <tr><td className="p-1 font-sans text-red-700">Outstanding Rental Payments</td><td className="p-1 text-right text-red-700">{formatCurrency(report.financialKpis.outstandingRentalPayments, currency)}</td></tr>
-                </tbody>
-              </table>
-
-              <div className="mt-4 p-2.5 bg-neutral-50 border border-neutral-200">
-                <div className="font-bold text-[10px] uppercase text-neutral-600 mb-1">Management Attention Required:</div>
-                <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
-                  {report.managementAttentionRequired.map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
+              {/* Section 21: Old / Underperforming Properties (> 90 Days) */}
+              <div>
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2 text-red-800">
+                  21. Stale Inventory Analysis (&gt; 90 Days on Market)
+                </h2>
+                {report.staleProperties.length === 0 ? (
+                  <p className="text-[10px] text-neutral-500 italic py-2">Zero listings older than 90 days. Portfolio velocity optimal.</p>
+                ) : (
+                  <table className="w-full border-collapse border border-neutral-300 text-[9.5px]">
+                    <thead>
+                      <tr className="bg-neutral-100 border-b border-neutral-300">
+                        <th className="p-1 text-left font-bold">Property</th>
+                        <th className="p-1 text-left font-bold">Location</th>
+                        <th className="p-1 text-center font-bold">Days</th>
+                        <th className="p-1 text-center font-bold">Inq / View</th>
+                        <th className="p-1 text-right font-bold">Price ({currency})</th>
+                        <th className="p-1 text-left font-bold">Management Recommendation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {report.staleProperties.slice(0, 6).map((sp) => (
+                        <tr key={sp.id}>
+                          <td className="p-1 font-semibold truncate max-w-[130px]">{sp.title}</td>
+                          <td className="p-1">{sp.suburb}</td>
+                          <td className="p-1 text-center font-mono font-bold text-red-700">{sp.daysListed}d</td>
+                          <td className="p-1 text-center font-mono">{sp.inquiries} / {sp.viewings}</td>
+                          <td className="p-1 text-right font-mono">{formatCurrency(sp.price, currency)}</td>
+                          <td className="p-1 text-neutral-700 italic">{sp.recommendation}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
+
+            {/* Page Footer */}
+            <div className="border-t border-neutral-300 pt-2 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+              <span>CONTOUR REAL ESTATE MANAGEMENT PLATFORM • REF: BI-{report.period.from.replace(/-/g, "")}</span>
+              <span>PAGE 2 OF 5</span>
+            </div>
           </div>
-        </div>
 
-        {/* Section 3 & 4: Property Portfolio & Performance */}
-        <div className="mb-8 print:break-before-page">
-          <h2 className="text-sm font-heading font-bold uppercase border-b border-neutral-300 pb-1 mb-2">
-            3. Property Portfolio & Performance
-          </h2>
-          
-          <table className="w-full border-collapse border border-neutral-300 text-[11px] mb-4">
-            <thead>
-              <tr className="bg-neutral-100 border-b border-neutral-300">
-                <th className="p-1 text-left font-bold">Property Status</th>
-                <th className="p-1 text-right font-bold">Number</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              <tr><td className="p-1">For Sale</td><td className="p-1 text-right font-mono">{report.portfolioSummary.forSale}</td></tr>
-              <tr><td className="p-1">For Rent</td><td className="p-1 text-right font-mono">{report.portfolioSummary.forRent}</td></tr>
-              <tr><td className="p-1">Under Negotiation</td><td className="p-1 text-right font-mono">{report.portfolioSummary.underNegotiation}</td></tr>
-              <tr><td className="p-1">Sold</td><td className="p-1 text-right font-mono">{report.portfolioSummary.sold}</td></tr>
-              <tr><td className="p-1">Rented</td><td className="p-1 text-right font-mono">{report.portfolioSummary.rented}</td></tr>
-              <tr className="font-bold bg-neutral-50"><td className="p-1">Total Properties</td><td className="p-1 text-right font-mono">{report.portfolioSummary.total}</td></tr>
-            </tbody>
-          </table>
 
-          {report.newPropertiesAdded.length > 0 && (
-            <>
-              <h3 className="font-bold text-[11px] mb-1.5">New Properties Added During Period</h3>
-              <table className="w-full border-collapse border border-neutral-300 text-[10px] mb-4">
-                <thead>
-                  <tr className="bg-neutral-100 border-b border-neutral-300">
-                    <th className="p-1 text-left font-bold">Property</th>
-                    <th className="p-1 text-left font-bold">Location</th>
-                    <th className="p-1 text-left font-bold">Type</th>
-                    <th className="p-1 text-right font-bold">Price ({currency})</th>
-                    <th className="p-1 text-center font-bold">Type</th>
-                    <th className="p-1 text-left font-bold">Agent Assigned</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  {report.newPropertiesAdded.slice(0, 6).map((p) => (
-                    <tr key={p.id}>
-                      <td className="p-1 font-semibold">{p.title}</td>
-                      <td className="p-1">{p.location}</td>
-                      <td className="p-1">{p.type}</td>
-                      <td className="p-1 text-right font-mono">{formatCurrency(p.price, currency)}</td>
-                      <td className="p-1 text-center">{p.listingType}</td>
-                      <td className="p-1">{p.agentAssigned}</td>
+          {/* ================================================================= */}
+          {/* PAGE 3: CLIENT DEMAND, MATCHING PERFORMANCE & UNMATCHED QUEUE     */}
+          {/* ================================================================= */}
+          <div className="pdf-page w-full max-w-[210mm] min-h-[297mm] bg-white text-[#111] p-10 sm:p-14 shadow-2xl print:shadow-none border border-neutral-300 print:border-none flex flex-col justify-between relative">
+            <div>
+              {/* Header */}
+              <div className="border-b border-neutral-200 pb-2 mb-4 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+                <span>CONTOUR BUSINESS INTELLIGENCE • {report.meta.companyName}</span>
+                <span>SECTION 7, 8 & 9: CLIENT DEMAND & MATCHING</span>
+              </div>
+
+              {/* Section 7: Demand Analysis */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  7. Client Demand Analysis (Suburbs & Property Types)
+                </h2>
+
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <h3 className="font-bold text-[10px] uppercase text-neutral-700 mb-1">Most Requested Suburbs</h3>
+                    <table className="w-full border-collapse border border-neutral-300 text-[10px]">
+                      <thead>
+                        <tr className="bg-neutral-100 border-b border-neutral-300">
+                          <th className="p-1 text-left font-bold">Location</th>
+                          <th className="p-1 text-right font-bold">Inquiries</th>
+                          <th className="p-1 text-right font-bold">Demand %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200 font-mono">
+                        {report.demandByLocation.slice(0, 6).map((l) => (
+                          <tr key={l.name}>
+                            <td className="p-1 font-sans">{l.name}</td>
+                            <td className="p-1 text-right">{l.inquiries}</td>
+                            <td className="p-1 text-right">{l.percentage}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-[10px] uppercase text-neutral-700 mb-1">Most Requested Property Types</h3>
+                    <table className="w-full border-collapse border border-neutral-300 text-[10px]">
+                      <thead>
+                        <tr className="bg-neutral-100 border-b border-neutral-300">
+                          <th className="p-1 text-left font-bold">Property Type</th>
+                          <th className="p-1 text-right font-bold">Inquiries</th>
+                          <th className="p-1 text-right font-bold">Demand %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200 font-mono">
+                        {report.demandByPropertyType.slice(0, 6).map((t) => (
+                          <tr key={t.name}>
+                            <td className="p-1 font-sans">{t.name}</td>
+                            <td className="p-1 text-right">{t.inquiries}</td>
+                            <td className="p-1 text-right">{t.percentage}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="p-2 bg-neutral-50 border-l-2 border-black text-[10px] text-neutral-700">
+                  <strong>Strategic Insight: </strong> {report.demandInsight}
+                </div>
+              </div>
+
+              {/* Section 8: Matching Performance */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  8. Property Matching Performance
+                </h2>
+                <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Total Inquiries</div>
+                    <div className="text-sm font-bold font-mono text-black mt-0.5">{report.matching.totalInquiries}</div>
+                  </div>
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Fully Matched</div>
+                    <div className="text-sm font-bold font-mono text-emerald-700 mt-0.5">{report.matching.fullyMatched}</div>
+                  </div>
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Unmatched Clients</div>
+                    <div className="text-sm font-bold font-mono text-red-700 mt-0.5">{report.matching.unmatched}</div>
+                  </div>
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Match Efficiency</div>
+                    <div className="text-sm font-bold font-mono text-black mt-0.5">{report.matching.matchRatePct}%</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 9: Unmatched Inquiries Queue */}
+              <div>
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2 text-red-800">
+                  9. Unmatched Demand Queue (Awaiting Inventory)
+                </h2>
+                {report.unmatchedQueue.length === 0 ? (
+                  <p className="text-[10px] text-neutral-500 italic py-2">Zero unmatched inquiries. All active clients paired to listings.</p>
+                ) : (
+                  <table className="w-full border-collapse border border-neutral-300 text-[9.5px]">
+                    <thead>
+                      <tr className="bg-neutral-100 border-b border-neutral-300">
+                        <th className="p-1 text-left font-bold">Client Name</th>
+                        <th className="p-1 text-left font-bold">Requirement</th>
+                        <th className="p-1 text-left font-bold">Desired Suburb</th>
+                        <th className="p-1 text-right font-bold">Budget ({currency})</th>
+                        <th className="p-1 text-center font-bold">Days Waiting</th>
+                        <th className="p-1 text-left font-bold">Assigned Agent</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {report.unmatchedQueue.slice(0, 8).map((u) => (
+                        <tr key={u.id}>
+                          <td className="p-1 font-semibold">{u.clientName}</td>
+                          <td className="p-1 truncate max-w-[120px]">{u.requirement}</td>
+                          <td className="p-1">{u.location}</td>
+                          <td className="p-1 text-right font-mono">{formatCurrency(u.budget, currency)}</td>
+                          <td className="p-1 text-center font-mono font-bold text-red-700">{u.daysWaiting}d</td>
+                          <td className="p-1">{u.agent}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            {/* Page Footer */}
+            <div className="border-t border-neutral-300 pt-2 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+              <span>CONTOUR REAL ESTATE MANAGEMENT PLATFORM • REF: BI-{report.period.from.replace(/-/g, "")}</span>
+              <span>PAGE 3 OF 5</span>
+            </div>
+          </div>
+
+
+          {/* ================================================================= */}
+          {/* PAGE 4: VIEWING VELOCITY, PIPELINE FUNNEL & TRANSACTIONS          */}
+          {/* ================================================================= */}
+          <div className="pdf-page w-full max-w-[210mm] min-h-[297mm] bg-white text-[#111] p-10 sm:p-14 shadow-2xl print:shadow-none border border-neutral-300 print:border-none flex flex-col justify-between relative">
+            <div>
+              {/* Header */}
+              <div className="border-b border-neutral-200 pb-2 mb-4 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+                <span>CONTOUR BUSINESS INTELLIGENCE • {report.meta.companyName}</span>
+                <span>SECTION 10, 11, 12 & 13: PIPELINE & TRANSACTIONS</span>
+              </div>
+
+              {/* Section 10: Viewing Performance */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  10. Viewing Performance & Conversion Rates
+                </h2>
+                <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Scheduled Viewings</div>
+                    <div className="text-sm font-bold font-mono text-black mt-0.5">{report.viewings.scheduled}</div>
+                  </div>
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Completed Viewings</div>
+                    <div className="text-sm font-bold font-mono text-emerald-700 mt-0.5">{report.viewings.completed}</div>
+                  </div>
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Completion Rate</div>
+                    <div className="text-sm font-bold font-mono text-black mt-0.5">{report.viewings.completionRatePct}%</div>
+                  </div>
+                  <div className="p-2 border border-neutral-200 bg-neutral-50">
+                    <div className="text-[9px] font-mono uppercase text-neutral-500">Viewing → Negotiation</div>
+                    <div className="text-sm font-bold font-mono text-emerald-700 mt-0.5">{report.viewings.viewingToNegotiationPct}%</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 11: Sales Pipeline Funnel */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  11. Sales & Deal Pipeline Funnel
+                </h2>
+                <table className="w-full border-collapse border border-neutral-300 text-[10px]">
+                  <thead>
+                    <tr className="bg-neutral-100 border-b border-neutral-300">
+                      <th className="p-1 text-left font-bold">Pipeline Stage</th>
+                      <th className="p-1 text-center font-bold">Active Opportunities</th>
+                      <th className="p-1 text-right font-bold">Estimated Pipeline Value ({currency})</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </div>
-
-        {/* Section 7 & 8: Demand Analysis & Matching */}
-        <div className="mb-8">
-          <h2 className="text-sm font-heading font-bold uppercase border-b border-neutral-300 pb-1 mb-2">
-            7. Client Demand Analysis & Matching Performance
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <h3 className="font-bold text-[11px] mb-1">Most Requested Property Types</h3>
-              <table className="w-full border-collapse border border-neutral-300 text-[11px]">
-                <thead>
-                  <tr className="bg-neutral-100 border-b border-neutral-300">
-                    <th className="p-1 text-left font-bold">Type</th>
-                    <th className="p-1 text-right font-bold">Inquiries</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  {report.demandByPropertyType.slice(0, 5).map((d) => (
-                    <tr key={d.name}><td className="p-1">{d.name}</td><td className="p-1 text-right font-mono">{d.inquiries}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-[11px] mb-1">Most Requested Locations</h3>
-              <table className="w-full border-collapse border border-neutral-300 text-[11px]">
-                <thead>
-                  <tr className="bg-neutral-100 border-b border-neutral-300">
-                    <th className="p-1 text-left font-bold">Location</th>
-                    <th className="p-1 text-right font-bold">Inquiries</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  {report.demandByLocation.slice(0, 5).map((l) => (
-                    <tr key={l.name}><td className="p-1">{l.name}</td><td className="p-1 text-right font-mono">{l.inquiries}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="p-2 bg-neutral-50 border border-neutral-200 text-[11px] mb-4">
-            <strong>Matching Efficiency: </strong>
-            Total Inquiries: {report.matching.totalInquiries} | Fully Matched: {report.matching.fullyMatched} | Partially Matched: {report.matching.partiallyMatched} | Unmatched: {report.matching.unmatched} | <strong>Match Rate: {report.matching.matchRatePct}%</strong>
-          </div>
-        </div>
-
-        {/* Section 11 & 12: Sales Pipeline & Completed Transactions */}
-        <div className="mb-8 print:break-before-page">
-          <h2 className="text-sm font-heading font-bold uppercase border-b border-neutral-300 pb-1 mb-2">
-            11. Sales Pipeline & Completed Deals
-          </h2>
-
-          <h3 className="font-bold text-[11px] mb-1.5">Deal Funnel Snapshot</h3>
-          <table className="w-full border-collapse border border-neutral-300 text-[11px] mb-4">
-            <thead>
-              <tr className="bg-neutral-100 border-b border-neutral-300">
-                <th className="p-1 text-left font-bold">Stage</th>
-                <th className="p-1 text-center font-bold">Opportunities</th>
-                <th className="p-1 text-right font-bold">Potential Value ({currency})</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200 font-mono">
-              {report.pipelineFunnel.stages.map((s) => (
-                <tr key={s.stage}>
-                  <td className="p-1 font-sans">{s.label}</td>
-                  <td className="p-1 text-center">{s.opportunities}</td>
-                  <td className="p-1 text-right">{formatCurrency(s.potentialValue, currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {report.completedTransactions.length > 0 && (
-            <>
-              <h3 className="font-bold text-[11px] mb-1.5">Completed Transactions Detail</h3>
-              <table className="w-full border-collapse border border-neutral-300 text-[10px] mb-4">
-                <thead>
-                  <tr className="bg-neutral-100 border-b border-neutral-300">
-                    <th className="p-1 text-left font-bold">Client / Suburb</th>
-                    <th className="p-1 text-left font-bold">Property</th>
-                    <th className="p-1 text-left font-bold">Agent</th>
-                    <th className="p-1 text-center font-bold">Type</th>
-                    <th className="p-1 text-right font-bold">Value ({currency})</th>
-                    <th className="p-1 text-right font-bold">Commission</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  {report.completedTransactions.map((t) => (
-                    <tr key={t.id}>
-                      <td className="p-1 font-semibold">{t.client}</td>
-                      <td className="p-1">{t.property}</td>
-                      <td className="p-1">{t.agent}</td>
-                      <td className="p-1 text-center">{t.transactionType}</td>
-                      <td className="p-1 text-right font-mono">{formatCurrency(t.value, currency)}</td>
-                      <td className="p-1 text-right font-mono font-bold">{formatCurrency(t.commission, currency)}</td>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 font-mono">
+                    {report.pipelineFunnel.stages.map((st) => (
+                      <tr key={st.stage}>
+                        <td className="p-1 font-sans">{st.label}</td>
+                        <td className="p-1 text-center">{st.opportunities}</td>
+                        <td className="p-1 text-right">{formatCurrency(st.potentialValue, currency)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-neutral-50 font-bold">
+                      <td className="p-1 font-sans">Total Pipeline In-Flight</td>
+                      <td className="p-1 text-center">{report.pipelineFunnel.stages.reduce((a, s) => a + s.opportunities, 0)}</td>
+                      <td className="p-1 text-right">{formatCurrency(report.pipelineFunnel.totalActivePipelineValue, currency)}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </div>
+                  </tbody>
+                </table>
+              </div>
 
-        {/* Section 14: Agent Performance Leaderboard */}
-        <div className="mb-8">
-          <h2 className="text-sm font-heading font-bold uppercase border-b border-neutral-300 pb-1 mb-2">
-            14. Agent Performance & Activity
-          </h2>
+              {/* Section 12: Completed Transactions */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2 text-emerald-800">
+                  12. Completed Transactions Detail
+                </h2>
+                {report.completedTransactions.length === 0 ? (
+                  <p className="text-[10px] text-neutral-500 italic py-2">No closed transactions recorded in this window.</p>
+                ) : (
+                  <table className="w-full border-collapse border border-neutral-300 text-[9.5px]">
+                    <thead>
+                      <tr className="bg-neutral-100 border-b border-neutral-300">
+                        <th className="p-1 text-left font-bold">Property / Suburb</th>
+                        <th className="p-1 text-left font-bold">Agent</th>
+                        <th className="p-1 text-center font-bold">Type</th>
+                        <th className="p-1 text-right font-bold">Gross Value ({currency})</th>
+                        <th className="p-1 text-right font-bold">Gross Comm</th>
+                        <th className="p-1 text-right font-bold">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {report.completedTransactions.slice(0, 6).map((t) => (
+                        <tr key={t.id}>
+                          <td className="p-1 font-semibold">{t.property} ({t.suburb})</td>
+                          <td className="p-1">{t.agent}</td>
+                          <td className="p-1 text-center">{t.transactionType}</td>
+                          <td className="p-1 text-right font-mono">{formatCurrency(t.value, currency)}</td>
+                          <td className="p-1 text-right font-mono font-bold text-emerald-800">{formatCurrency(t.commission, currency)}</td>
+                          <td className="p-1 text-right font-mono text-neutral-500">{t.closedAt}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
 
-          <table className="w-full border-collapse border border-neutral-300 text-[10px] mb-4">
-            <thead>
-              <tr className="bg-neutral-100 border-b border-neutral-300">
-                <th className="p-1 text-left font-bold">Agent</th>
-                <th className="p-1 text-center font-bold">Inquiries</th>
-                <th className="p-1 text-center font-bold">Matches</th>
-                <th className="p-1 text-center font-bold">Viewings</th>
-                <th className="p-1 text-center font-bold">Negotiations</th>
-                <th className="p-1 text-center font-bold">Closed</th>
-                <th className="p-1 text-center font-bold">Lost</th>
-                <th className="p-1 text-center font-bold">Conv. %</th>
-                <th className="p-1 text-right font-bold">Commission ({currency})</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200 font-mono">
-              {report.agentPerformance.map((ag) => (
-                <tr key={ag.agentId}>
-                  <td className="p-1 font-sans font-semibold text-left">{ag.name}</td>
-                  <td className="p-1 text-center">{ag.inquiries}</td>
-                  <td className="p-1 text-center">{ag.matches}</td>
-                  <td className="p-1 text-center">{ag.viewings}</td>
-                  <td className="p-1 text-center">{ag.negotiations}</td>
-                  <td className="p-1 text-center font-bold text-black">{ag.completed}</td>
-                  <td className="p-1 text-center text-neutral-500">{ag.lost}</td>
-                  <td className="p-1 text-center font-sans">{ag.conversionRatePct}%</td>
-                  <td className="p-1 text-right font-bold">{formatCurrency(ag.grossCommissionGenerated, currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Section 23: Month-on-Month Trends */}
-        <div className="mb-8">
-          <h2 className="text-sm font-heading font-bold uppercase border-b border-neutral-300 pb-1 mb-2">
-            23. Month-on-Month Trend Analysis
-          </h2>
-
-          <table className="w-full border-collapse border border-neutral-300 text-[11px] mb-4">
-            <thead>
-              <tr className="bg-neutral-100 border-b border-neutral-300">
-                <th className="p-1 text-left font-bold">KPI</th>
-                <th className="p-1 text-right font-bold">Prior Period</th>
-                <th className="p-1 text-right font-bold">Current Period</th>
-                <th className="p-1 text-right font-bold">Change %</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200 font-mono">
-              {report.momComparison.map((m) => (
-                <tr key={m.label}>
-                  <td className="p-1 font-sans font-semibold text-left">{m.label}</td>
-                  <td className="p-1 text-right">{m.format === "CURRENCY" ? formatCurrency(m.previous, currency) : m.previous}</td>
-                  <td className="p-1 text-right font-bold">{m.format === "CURRENCY" ? formatCurrency(m.current, currency) : m.current}</td>
-                  <td className={`p-1 text-right font-bold ${m.trend === "UP" ? "text-emerald-800" : "text-neutral-600"}`}>
-                    {m.changePct > 0 ? `+${m.changePct}%` : `${m.changePct}%`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Section 25 & 27: Management Action Plan & Conclusion */}
-        <div className="print:break-before-page">
-          <h2 className="text-sm font-heading font-bold uppercase border-b border-neutral-300 pb-1 mb-2">
-            25. Management Action Plan & Recommendations
-          </h2>
-
-          <div className="space-y-3 mb-6">
-            <div>
-              <div className="font-bold text-[11px] uppercase text-neutral-800 mb-1">Priority 1 — Immediate (24–48h)</div>
-              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
-                {report.aiNarrative.actionPlan.immediatePriority1.map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
-              </ul>
+              {/* Section 13: Failed / Lost Deals Breakdown */}
+              <div>
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2 text-red-800">
+                  13. Lost Deals & Dropped Opportunity Analysis
+                </h2>
+                <div className="p-2 bg-neutral-50 border border-neutral-300 text-[10px] mb-2 flex justify-between">
+                  <span>Total Deals Lost: <strong>{report.lostDealsSummary.totalDealsLost}</strong></span>
+                  <span>Potential Volume Lost: <strong className="text-red-700">{currency} {formatCurrency(report.lostDealsSummary.totalPotentialValueLost, currency)}</strong></span>
+                </div>
+                {report.lostDealsSummary.deals.length > 0 && (
+                  <table className="w-full border-collapse border border-neutral-300 text-[9.5px]">
+                    <thead>
+                      <tr className="bg-neutral-100 border-b border-neutral-300">
+                        <th className="p-1 text-left font-bold">Client / Opportunity</th>
+                        <th className="p-1 text-center font-bold">Dropped At</th>
+                        <th className="p-1 text-right font-bold">Lost Value ({currency})</th>
+                        <th className="p-1 text-left font-bold">Primary Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {report.lostDealsSummary.deals.slice(0, 5).map((d) => (
+                        <tr key={d.id}>
+                          <td className="p-1 font-semibold">{d.client} ({d.property})</td>
+                          <td className="p-1 text-center font-bold">{d.failedAt}</td>
+                          <td className="p-1 text-right font-mono text-neutral-600">{formatCurrency(d.potentialValue, currency)}</td>
+                          <td className="p-1 text-neutral-700 italic">{d.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
 
-            <div>
-              <div className="font-bold text-[11px] uppercase text-neutral-800 mb-1">Priority 2 — This Week</div>
-              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
-                {report.aiNarrative.actionPlan.thisWeekPriority2.map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <div className="font-bold text-[11px] uppercase text-neutral-800 mb-1">Priority 3 — Next Month</div>
-              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
-                {report.aiNarrative.actionPlan.nextMonthPriority3.map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
-              </ul>
+            {/* Page Footer */}
+            <div className="border-t border-neutral-300 pt-2 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+              <span>CONTOUR REAL ESTATE MANAGEMENT PLATFORM • REF: BI-{report.period.from.replace(/-/g, "")}</span>
+              <span>PAGE 4 OF 5</span>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-neutral-300">
-            <h3 className="font-bold text-[11px] uppercase mb-1">27. Management Conclusion</h3>
-            <p className="leading-relaxed">
-              {report.aiNarrative.conclusionText}
-            </p>
+
+          {/* ================================================================= */}
+          {/* PAGE 5: AGENT PERFORMANCE, ACTION PLAN & MANAGEMENT SIGN-OFF      */}
+          {/* ================================================================= */}
+          <div className="pdf-page w-full max-w-[210mm] min-h-[297mm] bg-white text-[#111] p-10 sm:p-14 shadow-2xl print:shadow-none border border-neutral-300 print:border-none flex flex-col justify-between relative">
+            <div>
+              {/* Header */}
+              <div className="border-b border-neutral-200 pb-2 mb-4 flex justify-between items-center text-[9px] font-mono text-neutral-500">
+                <span>CONTOUR BUSINESS INTELLIGENCE • {report.meta.companyName}</span>
+                <span>SECTION 14, 23, 25 & 27: AGENTS & ACTION PLAN</span>
+              </div>
+
+              {/* Section 14: Agent Leaderboard */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  14. Agent Productivity & Revenue Generated
+                </h2>
+                <table className="w-full border-collapse border border-neutral-300 text-[9.5px]">
+                  <thead>
+                    <tr className="bg-neutral-100 border-b border-neutral-300">
+                      <th className="p-1 text-left font-bold">Agent Name</th>
+                      <th className="p-1 text-center font-bold">Inquiries</th>
+                      <th className="p-1 text-center font-bold">Viewings</th>
+                      <th className="p-1 text-center font-bold">Deals Won</th>
+                      <th className="p-1 text-center font-bold">Conv %</th>
+                      <th className="p-1 text-center font-bold">Active Days</th>
+                      <th className="p-1 text-right font-bold">Commission ({currency})</th>
+                      <th className="p-1 text-center font-bold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 font-mono">
+                    {report.agentPerformance.map((ag) => (
+                      <tr key={ag.agentId}>
+                        <td className="p-1 font-sans font-semibold text-left">{ag.name}</td>
+                        <td className="p-1 text-center">{ag.inquiries}</td>
+                        <td className="p-1 text-center">{ag.viewings}</td>
+                        <td className="p-1 text-center font-bold text-black">{ag.completed}</td>
+                        <td className="p-1 text-center font-sans">{ag.conversionRatePct}%</td>
+                        <td className="p-1 text-center">{ag.activeDays}d</td>
+                        <td className="p-1 text-right font-bold text-black">{formatCurrency(ag.grossCommissionGenerated, currency)}</td>
+                        <td className="p-1 text-center font-sans text-[8.5px] font-bold">
+                          {ag.activityStatus}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Section 23: Month-on-Month Trends */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  23. Month-on-Month Key Performance Trends
+                </h2>
+                <table className="w-full border-collapse border border-neutral-300 text-[9.5px]">
+                  <thead>
+                    <tr className="bg-neutral-100 border-b border-neutral-300">
+                      <th className="p-1 text-left font-bold">Performance Indicator</th>
+                      <th className="p-1 text-right font-bold">Prior Period</th>
+                      <th className="p-1 text-right font-bold">Current Period</th>
+                      <th className="p-1 text-right font-bold">Growth Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 font-mono">
+                    {report.momComparison.slice(0, 6).map((m) => (
+                      <tr key={m.label}>
+                        <td className="p-1 font-sans font-semibold text-left">{m.label}</td>
+                        <td className="p-1 text-right">{m.format === "CURRENCY" ? formatCurrency(m.previous, currency) : m.previous}</td>
+                        <td className="p-1 text-right font-bold">{m.format === "CURRENCY" ? formatCurrency(m.current, currency) : m.current}</td>
+                        <td className={`p-1 text-right font-bold ${m.trend === "UP" ? "text-emerald-800" : "text-neutral-600"}`}>
+                          {m.changePct > 0 ? `+${m.changePct}%` : `${m.changePct}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Section 25: Management Action Plan */}
+              <div className="mb-5">
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-2">
+                  25. Operational Action Plan & Priorities
+                </h2>
+                <div className="space-y-2 text-[10px]">
+                  <div className="p-2 bg-[#FFF8F7] border-l-2 border-red-600">
+                    <strong className="text-red-700 uppercase">Priority 1 — Immediate (24–48h):</strong>
+                    <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                      {report.aiNarrative.actionPlan.immediatePriority1.map((item: string, i: number) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-2 bg-[#FFFDF5] border-l-2 border-amber-500">
+                    <strong className="text-amber-800 uppercase">Priority 2 — This Week:</strong>
+                    <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                      {report.aiNarrative.actionPlan.thisWeekPriority2.map((item: string, i: number) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-2 bg-[#F6F9F8] border-l-2 border-emerald-800">
+                    <strong className="text-emerald-800 uppercase">Priority 3 — Next Month:</strong>
+                    <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                      {report.aiNarrative.actionPlan.nextMonthPriority3.map((item: string, i: number) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 27: Conclusion & Sign-off */}
+              <div>
+                <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-1">
+                  27. Management Conclusion
+                </h2>
+                <p className="text-[10.5px] leading-relaxed text-neutral-800 mb-6">
+                  {report.aiNarrative.conclusionText}
+                </p>
+
+                <div className="pt-4 border-t border-neutral-300 grid grid-cols-2 gap-4 text-[9px] font-mono text-neutral-600">
+                  <div>
+                    <p className="font-bold text-black mb-1">OPERATIONAL VERIFICATION</p>
+                    <p>Contour Real Estate Operations OS</p>
+                    <p>Verified Database Hash: {report.period.from}-{report.period.to}-OK</p>
+                  </div>
+                  <div className="text-right flex flex-col justify-end">
+                    <div className="border-b border-black w-48 ml-auto mb-1" />
+                    <p className="font-bold text-black">Managing Broker / Director Signature</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Page Footer */}
+            <div className="border-t border-neutral-300 pt-2 flex justify-between items-center text-[9px] font-mono text-neutral-500 mt-4">
+              <span>CONTOUR REAL ESTATE MANAGEMENT PLATFORM • REF: BI-{report.period.from.replace(/-/g, "")}</span>
+              <span>PAGE 5 OF 5 (END OF REPORT)</span>
+            </div>
           </div>
 
-          {/* Sign-off footer */}
-          <div className="mt-12 pt-6 border-t border-neutral-300 flex justify-between text-[10px] text-neutral-500 font-mono">
-            <div>Verified by Contour Real Estate Operations OS</div>
-            <div>Authorized Signature: _______________________</div>
-          </div>
         </div>
-
       </div>
+
     </div>
   );
 }
@@ -469,7 +795,7 @@ export default function AnalyticsPrintPage() {
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-white text-xs font-mono text-neutral-500">
+        <div className="min-h-screen flex items-center justify-center bg-[#2B2D31] text-xs font-mono text-white">
           Preparing executive print document...
         </div>
       }

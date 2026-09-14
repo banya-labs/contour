@@ -23,7 +23,16 @@ import {
   MapPin,
   FileText,
   Percent,
+  CalendarDays,
+  ExternalLink,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { ContourReportPayload } from "@/lib/analytics/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -36,6 +45,13 @@ export default function AnalyticsDashboardPage() {
   const [report, setReport] = useState<ContourReportPayload | null>(null);
   const [aiNarrative, setAiNarrative] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // PDF Generation Wizard Modal State
+  const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
+  const [wizardPreset, setWizardPreset] = useState<string>("this_month");
+  const [wizardFrom, setWizardFrom] = useState<string>("");
+  const [wizardTo, setWizardTo] = useState<string>("");
+  const [wizardTitle, setWizardTitle] = useState<string>("Business Intelligence & Performance Report");
 
   const fetchReport = async (p = preset, from = customFrom, to = customTo) => {
     setLoading(true);
@@ -154,14 +170,18 @@ export default function AnalyticsDashboardPage() {
             <span>{aiLoading ? "Synthesizing..." : "Refresh AI Insights"}</span>
           </button>
 
-          <Link
-            href={`/dashboard/analytics/print?preset=${preset}${preset === "custom" ? `&from=${customFrom}&to=${customTo}` : ""}`}
-            target="_blank"
+          <button
+            onClick={() => {
+              setWizardPreset(preset);
+              setWizardFrom(customFrom);
+              setWizardTo(customTo);
+              setIsWizardOpen(true);
+            }}
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-[#16382B] hover:bg-[#0F291E] text-white transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print PDF Report</span>
-          </Link>
+            <span>Generate PDF Report</span>
+          </button>
         </div>
       </div>
 
@@ -641,6 +661,139 @@ export default function AnalyticsDashboardPage() {
 
         </div>
       )}
+
+      {/* 8. Generate PDF Report Wizard Modal */}
+      <Dialog open={isWizardOpen} onOpenChange={setIsWizardOpen}>
+        <DialogContent className="max-w-xl p-6 bg-white border border-[#ECE7DE] text-[#1C1C1A] rounded-none">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-[#16382B] mb-1">
+              <FileText className="w-5 h-5 text-[#C89B3C]" />
+              <DialogTitle className="text-base font-heading font-bold uppercase tracking-wide">
+                Generate Executive Performance Report
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-[#666158]">
+              Select duration, reporting window, and presentation parameters. The engine will compile an authentic 5-page A4 PDF report with verified database telemetry and executive insights.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* Step 1: Duration Preset Selection */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#16382B] block mb-2">
+                1. Select Reporting Duration
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { id: "today", label: "Today", desc: "Daily work queue & intake" },
+                  { id: "this_week", label: "This Week", desc: "Current week velocity" },
+                  { id: "this_month", label: "This Month", desc: "Standard monthly BI (Default)" },
+                  { id: "last_month", label: "Last Month", desc: "Prior month closed review" },
+                  { id: "last_30_days", label: "Last 30 Days", desc: "Rolling 30-day window" },
+                  { id: "custom", label: "Custom Range", desc: "Specific start & end dates" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setWizardPreset(item.id)}
+                    className={`p-2.5 text-left border transition-all rounded-sm flex flex-col justify-between ${
+                      wizardPreset === item.id
+                        ? "border-[#16382B] bg-[#16382B]/5 font-semibold text-[#16382B] ring-1 ring-[#16382B]"
+                        : "border-[#ECE7DE] bg-[#FBF9F5] text-[#666158] hover:border-[#16382B]/40 hover:text-[#1C1C1A]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span>{item.label}</span>
+                      {wizardPreset === item.id && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#16382B]" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-[#666158] mt-1 line-clamp-1">{item.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Date Range Pickers (if custom selected) */}
+            {wizardPreset === "custom" && (
+              <div className="p-3 bg-[#F8F6F0] border border-[#ECE7DE] rounded-sm grid grid-cols-2 gap-3 animate-in fade-in-50">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-[#666158] block mb-1">
+                    Start Date (From)
+                  </label>
+                  <input
+                    type="date"
+                    value={wizardFrom}
+                    onChange={(e) => setWizardFrom(e.target.value)}
+                    className="w-full text-xs px-2.5 py-1.5 bg-white border border-[#ECE7DE] text-[#1C1C1A] rounded-sm focus:outline-none focus:border-[#16382B]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-[#666158] block mb-1">
+                    End Date (To)
+                  </label>
+                  <input
+                    type="date"
+                    value={wizardTo}
+                    onChange={(e) => setWizardTo(e.target.value)}
+                    className="w-full text-xs px-2.5 py-1.5 bg-white border border-[#ECE7DE] text-[#1C1C1A] rounded-sm focus:outline-none focus:border-[#16382B]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Document Header Customization */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#16382B] block mb-1">
+                2. Report Title & Document Heading
+              </label>
+              <input
+                type="text"
+                value={wizardTitle}
+                onChange={(e) => setWizardTitle(e.target.value)}
+                placeholder="Business Intelligence & Performance Report"
+                className="w-full text-xs px-3 py-2 bg-white border border-[#ECE7DE] text-[#1C1C1A] rounded-sm focus:outline-none focus:border-[#16382B]"
+              />
+            </div>
+
+            {/* Document Format Specs Preview */}
+            <div className="p-3 bg-[#FBF9F5] border border-[#ECE7DE] flex items-center justify-between text-xs text-[#666158]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#16382B]" />
+                <span>5-Page Executive A4 Document with Letterhead & Sign-off</span>
+              </div>
+              <span className="font-mono text-[10px] uppercase font-bold text-[#C89B3C] bg-[#C89B3C]/10 px-2 py-0.5 border border-[#C89B3C]/20">
+                100% Deterministic
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#ECE7DE]">
+            <button
+              type="button"
+              onClick={() => setIsWizardOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-[#666158] hover:text-black transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                let url = `/dashboard/analytics/print?preset=${wizardPreset}&title=${encodeURIComponent(wizardTitle)}`;
+                if (wizardPreset === "custom" && wizardFrom && wizardTo) {
+                  url += `&from=${wizardFrom}&to=${wizardTo}`;
+                }
+                setIsWizardOpen(false);
+                window.open(url, "_blank");
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#16382B] hover:bg-[#0F291E] text-white text-xs font-semibold rounded-none shadow transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Generate & Open Multi-Page PDF Viewer</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

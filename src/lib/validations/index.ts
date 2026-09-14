@@ -62,6 +62,11 @@ export const createPropertySchema = z.object({
   ownerBankDetails: z.string().max(500).optional(),
   titleDeedNumber: z.string().max(60).optional(),
   assignedAgentId: z.string().optional(),
+  mandateDeclarationAgreed: z.boolean().default(true).refine((val) => val === true, {
+    message: "Statutory mandate declaration must be agreed before publishing a listing.",
+  }),
+  mandateType: z.enum(["SOLE_MANDATE", "OPEN_MANDATE", "COMPANY_OWNED"]).default("SOLE_MANDATE"),
+  mandateReference: z.string().max(100).optional(),
 });
 
 export const updatePropertySchema = createPropertySchema.partial().extend({
