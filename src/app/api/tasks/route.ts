@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { createFollowUpTaskSchema } from "@/lib/validations";
 
+export const dynamic = "force-dynamic";
+
 const getHandler = createApiHandler({
   handler: async (req, ctx) => {
     const { organizationId } = ctx;

@@ -119,6 +119,7 @@ model Organization {
   paystackSubCode     String?
   subscriptionTier    String   @default("STARTER") // STARTER, GROWTH, ENTERPRISE
   subscriptionStatus  String   @default("active")  // active, past_due, trialing
+  trialEndsAt         DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -477,6 +478,7 @@ model Property {
   maintenanceExpenses MaintenanceExpense[]
   transactions        Transaction[]
   visits              PropertyVisit[]
+  inquiries            Inquiry[]
   landlordStatements  LandlordStatement[]
   vaultDocuments      VaultDocument[]
   documentRequests    DocumentRequest[]
@@ -704,6 +706,8 @@ enum InquiryStatus {
   CONTACTED
   VIEWING_SCHEDULED
   NEGOTIATING
+  OFFER_MADE
+  CLOSED
   CLOSED_WON
   CLOSED_LOST
 }
@@ -745,6 +749,13 @@ model Inquiry {
   notes                  String?       @db.Text
   status                 InquiryStatus @default(NEW_INQUIRY)
   assignedAgentId        String?
+  outcome                PipelineOutcome?
+  lostReason             String?       @db.Text
+  closedAt               DateTime?
+  closedById             String?
+  leadSource             LeadSource    @default(OTHER)
+  propertyId             String?
+  dealValue              Decimal?      @db.Decimal(14, 2)
   exclusiveLockExpiresAt DateTime?     // 30-day anti-poaching lock
   matchStatus      MatchStatus  @default(UNMATCHED)
   unmatchedReason  String?      // NO_SUITABLE_PROPERTY, BUDGET_MISMATCH, LOCATION_UNAVAILABLE, CLIENT_TIMING, OTHER
@@ -754,11 +765,14 @@ model Inquiry {
 
   organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignedAgent          User?         @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
+  property               Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   visits                 PropertyVisit[]
   documentRequests       DocumentRequest[]
   followUpTasks          FollowUpTask[]
 
   @@index([organizationId, status])
+  @@index([organizationId, leadSource])
+  @@index([propertyId])
   @@map("inquiry")
 }
 

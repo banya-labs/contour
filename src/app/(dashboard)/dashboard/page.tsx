@@ -196,6 +196,13 @@ export default function DashboardOverviewPage() {
 
         <div className="flex items-center gap-2">
           <Link
+            href="/dashboard/analytics"
+            className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-[#16382B]" />
+            <span>BI Analytics</span>
+          </Link>
+          <Link
             href="/dashboard/pipeline"
             className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
           >

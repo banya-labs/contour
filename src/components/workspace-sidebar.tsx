@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   Building,
+  BarChart3,
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 
@@ -98,6 +99,7 @@ export default function WorkspaceSidebar() {
 
   const isOverviewActive = pathname === "/dashboard";
   const isDocumentsActive = pathname.startsWith("/dashboard/documents");
+  const isAnalyticsActive = pathname.startsWith("/dashboard/analytics");
 
   // User initials for monogram avatar fallback
   const userInitials = user?.name
@@ -241,6 +243,25 @@ export default function WorkspaceSidebar() {
               <span className="hidden lg:inline">Documents Vault</span>
             </div>
             {isDocumentsActive && <span className="hidden lg:inline-block w-1.5 h-1.5 bg-contour-red" />}
+          </Link>
+
+          {/* 4. Analytics & BI Reports Link */}
+          <Link
+            href="/dashboard/analytics"
+            title="Analytics & Reports"
+            className={`flex items-center justify-center lg:justify-between px-2 lg:px-3 py-2 text-xs font-heading font-medium transition-colors border ${
+              isAnalyticsActive
+                ? "bg-editorial-black text-white border-editorial-black font-semibold"
+                : "text-editorial-black border-transparent hover:border-editorial-border hover:bg-neutral-50"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <BarChart3
+                className={`w-4 h-4 lg:w-3.5 lg:h-3.5 ${isAnalyticsActive ? "text-white" : "text-editorial-muted"}`}
+              />
+              <span className="hidden lg:inline">Analytics & Reports</span>
+            </div>
+            {isAnalyticsActive && <span className="hidden lg:inline-block w-1.5 h-1.5 bg-contour-red" />}
           </Link>
         </nav>
       </div>

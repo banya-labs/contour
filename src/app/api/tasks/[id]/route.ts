@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { updateFollowUpTaskSchema } from "@/lib/validations";
 
+export const dynamic = "force-dynamic";
+
 export const GET = createApiHandler({
   handler: async (_req, { params, organizationId }) => {
     const taskId = typeof params?.id === "string" ? params.id : undefined;

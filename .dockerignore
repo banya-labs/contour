@@ -15,3 +15,4 @@ documentation_legacy
 .tmp
 .vercel
 contour.rar
+*.tsbuildinfo
