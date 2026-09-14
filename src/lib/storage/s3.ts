@@ -69,8 +69,7 @@ export class S3StorageService {
 
   generateObjectKey(organizationId: string, category: StorageCategory, fileName: string): string {
     if (!organizationId) throw new Error("organizationId is required for storage keys");
-    const extension = sanitizeFileName(fileName).split(".").pop() || "bin";
-    return `${organizationId}/${category.toLowerCase()}/${randomUUID()}.${extension}`;
+    return `${organizationId}/${category.toLowerCase()}/${Date.now()}_${sanitizeFileName(fileName)}`;
   }
 
   private getPublicUrl(objectKey: string): string {

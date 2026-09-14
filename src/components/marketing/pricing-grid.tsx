@@ -53,7 +53,7 @@ export function PricingGrid() {
     { name: "30-Day anti-poaching client registration", starter: true, growth: true, enterprise: true },
     { name: "Public shareable property cards (/p/[slug])", starter: true, growth: true, enterprise: true },
     { name: "Lenco Mobile Money (MTN, Airtel, Zamtel) & Card billing", starter: true, growth: true, enterprise: true },
-    { name: "Up to 250 active listings & 100 rental units", starter: false, growth: true, enterprise: false },
+    { name: "Up to 250 active listings & 100 rental units", starter: false, growth: true, enterprise: true },
     { name: "True 5% Commission & Agent Split Ledger", starter: false, growth: true, enterprise: true },
     { name: "1-Click Landlord Remittance Statements", starter: false, growth: true, enterprise: true },
     { name: "The DocuSign Human Approval Seam", starter: false, growth: true, enterprise: true },

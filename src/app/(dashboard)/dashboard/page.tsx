@@ -13,6 +13,8 @@ import {
   Bell,
   BarChart3,
   ArrowUpRight,
+  Plus,
+  Sparkles,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
@@ -206,6 +208,61 @@ export default function DashboardOverviewPage() {
           >
             <MapPin className="w-3.5 h-3.5" />
             <span>Cadastral Map</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Quick Actions CTA Bar */}
+      <div className="bg-white border border-editorial-border p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-none">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-contour-red shrink-0" />
+          <span className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
+            Quick Actions
+          </span>
+          <span className="text-[11px] font-geist text-editorial-muted hidden lg:inline">
+            — Instant operational actions across Lusaka HQ
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+          <Link
+            href="/dashboard/clients?new=1"
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
+          >
+            <Plus className="w-3 h-3 text-contour-red" />
+            <span>Add Client</span>
+          </Link>
+
+          <Link
+            href="/dashboard/properties?new=1"
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
+          >
+            <Plus className="w-3 h-3 text-contour-red" />
+            <span>Add Property</span>
+          </Link>
+
+          <Link
+            href="/dashboard/pipeline?new=1"
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
+          >
+            <Plus className="w-3 h-3 text-contour-red" />
+            <span>Add Deal Pipeline</span>
+          </Link>
+
+          <Link
+            href="/dashboard/leases?new=1"
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
+          >
+            <Plus className="w-3 h-3 text-contour-red" />
+            <span>Add New Lease</span>
+          </Link>
+
+          <Link
+            href="/dashboard/statements?new=1"
+            className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
+          >
+            <Plus className="w-3 h-3 text-contour-red" />
+            <span>Add Landlord Statement</span>
           </Link>
         </div>
       </div>

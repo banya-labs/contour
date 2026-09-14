@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   DollarSign,
@@ -15,13 +16,21 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 
-export default function PropertySalesPage() {
+function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -33,7 +42,7 @@ export default function PropertySalesPage() {
     currency: "ZMW",
     agencyCommissionPct: "5.0",
     agentSplitPct: "50.0",
-    closingAgent: "Grace Banda (Principal Broker)",
+    closingAgent: "",
     transferStatus: "PENDING_STATE_CONSENT",
     ministryReference: `LUS/LAND/2026/${Math.floor(1000 + Math.random() * 9000)}-A`,
   });
@@ -42,12 +51,18 @@ export default function PropertySalesPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [salesRes, propsRes] = await Promise.all([
+        const [salesRes, propsRes, agentsRes] = await Promise.all([
           fetch("/api/sales"),
           fetch("/api/properties"),
+          fetch("/api/organization/agents"),
         ]);
         const salesData = await salesRes.json();
         const propsData = await propsRes.json();
+        const agentsData = await agentsRes.json();
+
+        if (agentsData.success && agentsData.agents) {
+          setAgents(agentsData.agents);
+        }
 
         if (salesData.success && salesData.transactions) {
           const normalized = salesData.transactions.map((t: any, index: number) => {
@@ -622,9 +637,12 @@ export default function PropertySalesPage() {
                     onChange={(e) => setFormData({ ...formData, closingAgent: e.target.value })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                   >
-                    <option value="Grace Banda (Principal Broker)">Grace Banda (Principal Broker)</option>
-                    <option value="Tembo Mwape">Tembo Mwape</option>
-                    <option value="Chipo Banda">Chipo Banda</option>
+                    <option value="">Select closing agent</option>
+                    {agents.map((agent) => (
+                      <option key={agent.id} value={agent.name}>
+                        {agent.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -708,5 +726,13 @@ export default function PropertySalesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PropertySalesPage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-xs font-mono text-editorial-muted">Loading property sales...</div>}>
+      <PropertySalesContent />
+    </React.Suspense>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Users,
   Search,
@@ -18,17 +19,34 @@ import {
 } from "lucide-react";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 
-export default function ClientsCRMPage() {
+function ClientsCRMContent() {
   const [clients, setClients] = useState<any[]>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const searchParams = useSearchParams();
   useEffect(() => {
-    async function loadClients() {
+    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    async function loadData() {
       try {
-        const res = await fetch("/api/clients");
-        const data = await res.json();
+        const [clientsRes, agentsRes] = await Promise.all([
+          fetch("/api/clients"),
+          fetch("/api/organization/agents"),
+        ]);
+        const data = await clientsRes.json();
+        const agentsData = await agentsRes.json();
+
+        if (agentsData.success && agentsData.agents) {
+          setAgents(agentsData.agents);
+        }
+
         if (data.success && data.clients) {
           const normalized = data.clients.map((c: any) => {
             const lockExpiresAt = c.exclusiveLockExpiresAt ? new Date(c.exclusiveLockExpiresAt) : null;
@@ -37,9 +55,9 @@ export default function ClientsCRMPage() {
               : 30;
 
             const sourceMatch = c.notes?.match(/^\[Source:\s*([^\]]+)\]/);
-            const leadSource = sourceMatch 
+            const leadSource = c.leadSource || (sourceMatch 
               ? sourceMatch[1] 
-              : (c.notes?.includes("[Website Inquiry") ? "Website Portal" : "Portal / Inbound");
+              : (c.notes?.includes("[Website Inquiry") ? "Website Portal" : "Portal / Inbound"));
             const cleanNotes = c.notes?.replace(/^\[Source:\s*[^\]]+\]\s*/, "") || c.notes || "Searching for property";
 
             return {
@@ -66,7 +84,7 @@ export default function ClientsCRMPage() {
         setLoading(false);
       }
     }
-    loadClients();
+    loadData();
   }, []);
 
   // Form State
@@ -78,8 +96,8 @@ export default function ClientsCRMPage() {
     preferredSuburbs: "Kabulonga, Woodlands",
     budgetMax: "K 2,500,000",
     purpose: "BUY",
-    leadSource: "WhatsApp Direct",
-    assignedAgent: "Tembo Mwape",
+    leadSource: "WALK_IN",
+    assignedAgentId: "",
   });
   const [formError, setFormError] = useState("");
 
@@ -112,13 +130,6 @@ export default function ClientsCRMPage() {
     const lookingForType = formData.purpose === "RENT" ? "FOR_RENT" : "FOR_SALE";
     const currency = formData.budgetMax.includes("$") ? "USD" : "ZMW";
 
-    const agentMap: Record<string, string> = {
-      "Tembo Mwape": "usr_field_agent",
-      "Chipo Banda": "usr_closing_agent",
-      "Grace Banda": "user_demo_superadmin",
-    };
-    const assignedAgentId = agentMap[formData.assignedAgent] || "usr_field_agent";
-
     const clientPayload = {
       clientName: formData.name,
       clientPhone: formData.phone,
@@ -129,7 +140,9 @@ export default function ClientsCRMPage() {
       currency,
       preferredSuburbs: formData.preferredSuburbs.split(",").map((s) => s.trim()),
       notes: `[Source: ${formData.leadSource}] ${formData.lookingFor}`,
-      assignedAgentId,
+      assignedAgentId: formData.assignedAgentId || undefined,
+      leadSource: formData.leadSource,
+      status: "NEW_INQUIRY",
     };
 
     fetch("/api/clients", {
@@ -141,8 +154,9 @@ export default function ClientsCRMPage() {
       .then((data) => {
         if (data.success && data.client) {
           const sourceMatch = data.client.notes?.match(/^\[Source:\s*([^\]]+)\]/);
-          const leadSource = sourceMatch ? sourceMatch[1] : formData.leadSource;
+          const leadSource = data.client.leadSource || (sourceMatch ? sourceMatch[1] : formData.leadSource);
           const cleanNotes = data.client.notes?.replace(/^\[Source:\s*[^\]]+\]\s*/, "") || data.client.notes || "";
+          const assignedAgentObj = agents.find((a) => a.id === formData.assignedAgentId);
 
           const newClient = {
             id: data.client.id,
@@ -154,10 +168,10 @@ export default function ClientsCRMPage() {
             budgetMax: `${data.client.currency === "USD" ? "$" : "K"} ${Number(data.client.budgetMax || 0).toLocaleString()}`,
             purpose: data.client.lookingFor === "FOR_RENT" ? "RENT" : "BUY",
             leadSource,
-            assignedAgent: formData.assignedAgent,
+            assignedAgent: data.client.assignedAgent?.name || assignedAgentObj?.name || "Unassigned",
             lockExpiresInDays: 30,
             lastContacted: "Just now",
-            status: data.client.status,
+            status: data.client.status || "NEW_INQUIRY",
           };
           setClients([newClient, ...clients]);
           setIsModalOpen(false);
@@ -169,8 +183,8 @@ export default function ClientsCRMPage() {
             preferredSuburbs: "Kabulonga, Woodlands",
             budgetMax: "K 2,500,000",
             purpose: "BUY",
-            leadSource: "WhatsApp Direct",
-            assignedAgent: "Tembo Mwape",
+            leadSource: "WALK_IN",
+            assignedAgentId: "",
           });
           alert(`[SUCCESS] Client ${newClient.name} registered and locked for 30 days!`);
         } else {
@@ -421,24 +435,29 @@ export default function ClientsCRMPage() {
                     onChange={(e) => setFormData({ ...formData, leadSource: e.target.value })}
                     className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
                   >
-                    <option value="WhatsApp Direct">WhatsApp Direct</option>
-                    <option value="Instagram Ads">Instagram Ads</option>
-                    <option value="Client Referral">Client Referral</option>
-                    <option value="Facebook Marketplace">Facebook Marketplace</option>
-                    <option value="Website Ingest">Website Ingest</option>
+                    <option value="WALK_IN">Walk-in Client</option>
+                    <option value="WHATSAPP">WhatsApp Direct</option>
+                    <option value="CLIENT_REFERRAL">Client Referral</option>
+                    <option value="WEBSITE">Website Ingest</option>
+                    <option value="PHONE">Phone Call</option>
+                    <option value="SOCIAL_MEDIA">Social Media</option>
+                    <option value="OTHER">Other</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Assigned Agent (30d Lock)</label>
                   <select
-                    value={formData.assignedAgent}
-                    onChange={(e) => setFormData({ ...formData, assignedAgent: e.target.value })}
+                    value={formData.assignedAgentId}
+                    onChange={(e) => setFormData({ ...formData, assignedAgentId: e.target.value })}
                     className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
                   >
-                    <option value="Tembo Mwape">Tembo Mwape</option>
-                    <option value="Chipo Banda">Chipo Banda</option>
-                    <option value="Grace Banda">Grace Banda</option>
+                    <option value="">Unassigned</option>
+                    {agents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -464,5 +483,13 @@ export default function ClientsCRMPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ClientsCRMPage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-xs font-mono text-editorial-muted">Loading client CRM...</div>}>
+      <ClientsCRMContent />
+    </React.Suspense>
   );
 }

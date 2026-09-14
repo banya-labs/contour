@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
+import { getTrialEnd, hasPaidSubscription, isTrialActive } from "@/lib/billing-access";
 import { db } from "@/lib/db";
 import { CONTOUR_PLANS, getPlanPrice, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
 
@@ -21,7 +22,9 @@ export const GET = createApiHandler({
         currency: true,
         subscriptionTier: true,
         subscriptionStatus: true,
+        lencoSubscriptionId: true,
         createdAt: true,
+        trialEndsAt: true,
       },
     });
 
@@ -46,16 +49,19 @@ export const GET = createApiHandler({
       },
     });
 
-    const currentPlanId = (organization.subscriptionTier || "STARTER").toLowerCase() as keyof typeof CONTOUR_PLANS;
-    const currentPlan = CONTOUR_PLANS[currentPlanId] || CONTOUR_PLANS.starter;
     const successfulPayment = payments.find((payment) => payment.status === "SUCCESS");
-    const trialEndsAt = addMonths(organization.createdAt, 0);
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+    const trialEndsAt = organization.trialEndsAt || getTrialEnd(organization.createdAt);
+    const paidSubscription = hasPaidSubscription(organization.subscriptionStatus, Boolean(successfulPayment) || Boolean(organization.lencoSubscriptionId));
+    const trialActive = !paidSubscription && isTrialActive(trialEndsAt);
+    const currentPlanId = paidSubscription
+      ? (organization.subscriptionTier || "STARTER").toLowerCase() as keyof typeof CONTOUR_PLANS
+      : null;
+    const currentPlan = currentPlanId ? CONTOUR_PLANS[currentPlanId] || CONTOUR_PLANS.starter : null;
     const lastPayment = successfulPayment
       ? { ...successfulPayment, amount: Number(successfulPayment.amount) }
       : null;
     const cycle = successfulPayment?.billingCycle === "ANNUAL" ? "ANNUAL" : "MONTHLY" as BillingCycle;
-    const nextPaymentAt = successfulPayment?.completedAt
+    const nextPaymentAt = paidSubscription && successfulPayment?.completedAt
       ? addMonths(successfulPayment.completedAt, cycle === "ANNUAL" ? 12 : 1)
       : null;
     const currency = (successfulPayment?.currency || organization.currency || "ZMW") as SupportedCurrency;
@@ -64,13 +70,13 @@ export const GET = createApiHandler({
       success: true,
       workspace: { id: organization.id, name: organization.name },
       subscription: {
-        planId: currentPlan.id,
-        planName: currentPlan.name,
-        status: organization.subscriptionStatus || "trialing",
+        planId: currentPlan?.id || null,
+        planName: currentPlan?.name || "14-day free trial",
+        status: paidSubscription ? organization.subscriptionStatus || "active" : trialActive ? "trialing" : "expired",
         trialEndsAt,
         nextPaymentAt,
         nextPayment: nextPaymentAt
-          ? { ...getPlanPrice(currentPlan.id, cycle, currency), currency, cycle }
+          ? { ...getPlanPrice(currentPlan?.id || "starter", cycle, currency), currency, cycle }
           : null,
         lastPayment,
       },

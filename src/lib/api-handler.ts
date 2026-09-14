@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getTrialEnd, hasPaidSubscription, isTrialActive } from "./billing-access";
 import { logger } from "./logger";
 import { getTenantContext, type TenantContext } from "./tenant-context";
 import { hasRequiredRole, roleHasPermission, resolveContourRole, type Permission } from "./authorization";
 import { auth, type Session } from "./auth";
+import { db } from "./db";
 
 export type ApiContext = {
   params?: Record<string, string | string[]>;
@@ -78,6 +80,29 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       const organizationId = tenant?.organizationId;
       const userId = tenant?.userId;
       const userRole = tenant?.userRole || "FIELD_AGENT";
+
+      const billingExemptPath =
+        req.nextUrl.pathname.startsWith("/api/billing/") ||
+        req.nextUrl.pathname.startsWith("/api/onboarding/profile") ||
+        req.nextUrl.pathname.startsWith("/api/organization/profile");
+      if (options.requireAuth !== false && tenant && tenant !== demoTenant && !billingExemptPath) {
+        const organization = await db.organization.findUnique({
+          where: { id: organizationId! },
+          select: { createdAt: true, trialEndsAt: true, subscriptionStatus: true, lencoSubscriptionId: true },
+        });
+        const successfulPayment = await db.payment.findFirst({
+          where: { organizationId: organizationId!, status: "SUCCESS" },
+          select: { id: true },
+        });
+        const trialEndsAt = organization?.trialEndsAt || (organization ? getTrialEnd(organization.createdAt) : null);
+        const paid = hasPaidSubscription(organization?.subscriptionStatus, Boolean(successfulPayment) || Boolean(organization?.lencoSubscriptionId));
+        if (!paid && !isTrialActive(trialEndsAt)) {
+          return NextResponse.json(
+            { error: "Trial ended. Choose a paid tier to continue.", code: "SUBSCRIPTION_REQUIRED" },
+            { status: 402 },
+          );
+        }
+      }
 
       if (options.requireRoles && options.requireRoles.length > 0 && !hasRequiredRole(userRole, options.requireRoles)) {
         return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 });

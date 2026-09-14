@@ -11,6 +11,21 @@ export const PropertyTypeEnum = z.enum([
   "FARM_AGRICULTURAL",
 ]);
 export const ListingTypeEnum = z.enum(["FOR_SALE", "FOR_RENT", "BOTH"]);
+export const LeadSourceEnum = z.enum([
+  "WEBSITE",
+  "WHATSAPP",
+  "CLIENT_REFERRAL",
+  "WALK_IN",
+  "SOCIAL_MEDIA",
+  "FACEBOOK",
+  "INSTAGRAM",
+  "TIKTOK",
+  "LINKEDIN",
+  "PROPERTY_PORTAL",
+  "PHONE",
+  "OTHER",
+]);
+export const PipelineOutcomeEnum = z.enum(["WON", "LOST"]);
 export const PropertyStatusEnum = z.enum([
   "AVAILABLE",
   "UNDER_OFFER",
@@ -117,6 +132,33 @@ export const createInquirySchema = z.object({
   preferredSuburbs: z.array(z.string()).default([]),
   notes: z.string().max(1000).optional(),
   assignedAgentId: z.string().optional(),
+  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"]).optional(),
+  leadSource: LeadSourceEnum.default("OTHER"),
+  propertyId: z.string().optional(),
+  dealValue: z.number().positive().optional(),
+});
+
+export const updateInquiryPipelineSchema = z.object({
+  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"]),
+  outcome: PipelineOutcomeEnum.optional(),
+  lostReason: z.string().trim().min(10).max(2000).optional(),
+  assignedAgentId: z.string().optional(),
+  leadSource: LeadSourceEnum.optional(),
+  propertyId: z.string().optional().nullable(),
+  dealValue: z.number().positive().optional().nullable(),
+  matchStatus: z.enum(["UNMATCHED", "PARTIALLY_MATCHED", "MATCHED"]).optional(),
+  unmatchedReason: z.string().max(200).optional(),
+  failedAtStage: z.enum(["VIEWING", "NEGOTIATION", "OFFER"]).optional(),
+}).superRefine((value, ctx) => {
+  if (value.status === "CLOSED" && !value.outcome) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["outcome"], message: "Closed inquiries require a won or lost outcome." });
+  }
+  if (value.status === "CLOSED" && value.outcome === "LOST" && !value.lostReason) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lostReason"], message: "A lost reason is required." });
+  }
+  if (value.outcome === "WON" && value.lostReason) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lostReason"], message: "Won inquiries cannot have a lost reason." });
+  }
 });
 
 export const publicInquirySchema = z.object({
@@ -126,4 +168,23 @@ export const publicInquirySchema = z.object({
   clientEmail: z.string().email().optional().or(z.literal("")),
   propertyId: z.string().optional(),
   notes: z.string().max(1000).optional(),
+});
+
+export const createFollowUpTaskSchema = z.object({
+  assignedUserId: z.string().min(1),
+  inquiryId: z.string().optional(),
+  propertyId: z.string().optional(),
+  title: z.string().min(3).max(200),
+  description: z.string().max(1000).optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
+  dueDate: z.string(), // ISO date string
+});
+
+export const updateFollowUpTaskSchema = z.object({
+  title: z.string().min(3).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
+  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).optional(),
+  dueDate: z.string().optional(),
+  assignedUserId: z.string().optional(),
 });

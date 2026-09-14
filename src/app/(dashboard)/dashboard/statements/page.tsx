@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   FileSpreadsheet,
   CheckCircle2,
@@ -9,20 +10,52 @@ import {
   Plus,
   Lock,
   Bot,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
-export default function LandlordStatementsPage() {
+function LandlordStatementsContent() {
   const [statements, setStatements] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const [formData, setFormData] = useState({
+    propertyId: "",
+    statementMonth: new Date().getMonth() + 1,
+    statementYear: new Date().getFullYear(),
+    grossRentCollected: "25000",
+    agencyFeeDeducted: "2500",
+    maintenanceDeducted: "0",
+    currency: "ZMW",
+  });
+
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
-    async function loadStatements() {
+    async function loadData() {
       try {
-        const res = await fetch("/api/statements");
+        const [res, propsRes] = await Promise.all([
+          fetch("/api/statements"),
+          fetch("/api/properties"),
+        ]);
         const data = await res.json();
+        const propsData = await propsRes.json();
         if (data.success && data.statements) {
           setStatements(data.statements);
+        }
+        if (propsData.success && propsData.properties) {
+          setProperties(propsData.properties);
+          if (propsData.properties.length > 0) {
+            setFormData((prev) => ({ ...prev, propertyId: propsData.properties[0].id }));
+          }
         }
       } catch (err) {
         console.error("Failed to load statements:", err);
@@ -30,8 +63,54 @@ export default function LandlordStatementsPage() {
         setLoading(false);
       }
     }
-    loadStatements();
+    loadData();
   }, []);
+
+  const handleCreateStatement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+
+    if (!formData.propertyId) {
+      setFormError("Please select a property.");
+      return;
+    }
+
+    const gross = parseFloat(formData.grossRentCollected) || 0;
+    const fee = parseFloat(formData.agencyFeeDeducted) || 0;
+    const maint = parseFloat(formData.maintenanceDeducted) || 0;
+
+    if (gross <= 0) {
+      setFormError("Gross rent collected must be greater than 0.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/statements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: formData.propertyId,
+          statementMonth: Number(formData.statementMonth),
+          statementYear: Number(formData.statementYear),
+          grossRentCollected: gross,
+          agencyFeeDeducted: fee,
+          maintenanceDeducted: maint,
+          currency: formData.currency,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.statement) {
+        setStatements([data.statement, ...statements]);
+        setIsModalOpen(false);
+        alert("[SUCCESS] Draft Landlord Statement generated!");
+      } else {
+        setFormError(data.error || "Failed to generate statement.");
+      }
+    } catch (err: any) {
+      setFormError(err.message || "Network error generating statement.");
+    }
+  };
 
   const handleAuthorizeSeam = async (id: string) => {
     try {
@@ -73,7 +152,10 @@ export default function LandlordStatementsPage() {
           </p>
         </div>
 
-        <button className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 self-start sm:self-auto">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 self-start sm:self-auto"
+        >
           <Plus className="w-3.5 h-3.5 text-editorial-red" />
           <span>Generate Statement</span>
         </button>
@@ -195,6 +277,183 @@ export default function LandlordStatementsPage() {
           })
         )}
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-geist">
+          <div className="bg-white max-w-lg w-full p-6 border border-editorial-border space-y-4">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-editorial-red" />
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-editorial-black">
+                  Generate Landlord Remittance Statement
+                </h3>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="text-editorial-neutral hover:text-editorial-black">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">
+                ⚠️ {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateStatement} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Managed Property *
+                </label>
+                <select
+                  value={formData.propertyId}
+                  onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                  required
+                >
+                  <option value="">Select a property</option>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} ({p.suburb})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Statement Month
+                  </label>
+                  <select
+                    value={formData.statementMonth}
+                    onChange={(e) => setFormData({ ...formData, statementMonth: Number(e.target.value) })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                  >
+                    {MONTHS.map((m, idx) => (
+                      <option key={m} value={idx + 1}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Statement Year
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.statementYear}
+                    onChange={(e) => setFormData({ ...formData, statementYear: Number(e.target.value) })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Gross Rent Collected *
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.grossRentCollected}
+                    onChange={(e) => {
+                      const gross = parseFloat(e.target.value) || 0;
+                      setFormData({
+                        ...formData,
+                        grossRentCollected: e.target.value,
+                        agencyFeeDeducted: (gross * 0.10).toFixed(0),
+                      });
+                    }}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Currency
+                  </label>
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                  >
+                    <option value="ZMW">ZMW (K)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    10% Agency Fee
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.agencyFeeDeducted}
+                    onChange={(e) => setFormData({ ...formData, agencyFeeDeducted: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Maintenance Deduction
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.maintenanceDeducted}
+                    onChange={(e) => setFormData({ ...formData, maintenanceDeducted: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-neutral-50 border border-editorial-border flex items-center justify-between">
+                <span className="text-editorial-neutral font-heading text-xs uppercase tracking-wider">
+                  Net Landlord Remittance:
+                </span>
+                <span className="font-geist font-bold text-emerald-800 text-sm">
+                  {formatCurrency(
+                    (parseFloat(formData.grossRentCollected) || 0) -
+                    (parseFloat(formData.agencyFeeDeducted) || 0) -
+                    (parseFloat(formData.maintenanceDeducted) || 0),
+                    formData.currency as any
+                  )}
+                </span>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border border-editorial-border text-editorial-black hover:bg-neutral-50 text-xs font-heading font-semibold uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
+                  <span>Generate Statement</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function LandlordStatementsPage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-xs font-mono text-editorial-muted">Loading statements...</div>}>
+      <LandlordStatementsContent />
+    </React.Suspense>
   );
 }

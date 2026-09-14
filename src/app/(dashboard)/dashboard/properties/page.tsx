@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Plus,
@@ -29,19 +30,34 @@ import PropertyStandEditor from "@/components/properties/property-stand-editor";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 import { CornerMark } from "@/components/ui/corner-mark";
 
-export default function PropertiesCatalogPage() {
+function PropertiesCatalogContent() {
   const [properties, setProperties] = useState<any[]>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("ALL");
   const [filterOwnership, setFilterOwnership] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     async function loadProperties() {
       try {
-        const res = await fetch("/api/properties");
+        const [res, agentsRes] = await Promise.all([
+          fetch("/api/properties"),
+          fetch("/api/organization/agents"),
+        ]);
         const data = await res.json();
+        const agentsData = await agentsRes.json();
+        if (agentsData.success && agentsData.agents) {
+          setAgents(agentsData.agents);
+        }
         if (data.success && data.properties) {
           setProperties(data.properties);
         }
@@ -668,9 +684,12 @@ export default function PropertiesCatalogPage() {
                     onChange={(e) => setFormData({ ...formData, assignedAgentName: e.target.value })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist"
                   >
-                    <option value="Tembo Mwape">Tembo Mwape</option>
-                    <option value="Grace Banda">Grace Banda</option>
-                    <option value="Chipo Banda">Chipo Banda</option>
+                    <option value="">Unassigned</option>
+                    {agents.map((agent) => (
+                      <option key={agent.id} value={agent.name}>
+                        {agent.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -762,5 +781,13 @@ export default function PropertiesCatalogPage() {
         matches={matchSummaryState.matches}
       />
     </div>
+  );
+}
+
+export default function PropertiesCatalogPage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-xs font-mono text-editorial-muted">Loading properties catalog...</div>}>
+      <PropertiesCatalogContent />
+    </React.Suspense>
   );
 }

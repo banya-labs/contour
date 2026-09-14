@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
         lookingFor: "FOR_SALE",
         notes: enrichedNotes,
         assignedAgentId,
+        propertyId: parsed.propertyId || undefined,
         status: "NEW_INQUIRY",
         // Enforce the 30-day anti-poaching lock
         exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)

@@ -51,6 +51,7 @@ model User {
   createdAccessRequestLinks AccessRequestLink[] @relation("AccessRequestLinkCreator")
   createdBoundaries   PropertyBoundary[]  @relation("BoundaryCreatedBy")
   verifiedBoundaries  PropertyBoundary[]  @relation("BoundaryVerifiedBy")
+  assignedTasks       FollowUpTask[]      @relation("AssignedTasks")
 
   @@map("user")
 }
@@ -148,6 +149,7 @@ model Organization {
   surveyExtractionJobs SurveyExtractionJob[]
   boundaries          PropertyBoundary[]
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
+  followUpTasks          FollowUpTask[]
 
   @@map("organization")
 }
@@ -481,6 +483,7 @@ model Property {
   surveyExtractionJobs SurveyExtractionJob[]
   boundaries            PropertyBoundary[]
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
+  followUpTasks          FollowUpTask[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -705,6 +708,28 @@ enum InquiryStatus {
   CLOSED_LOST
 }
 
+
+
+enum PipelineOutcome {
+  WON
+  LOST
+}
+
+enum LeadSource {
+  WEBSITE
+  WHATSAPP
+  CLIENT_REFERRAL
+  WALK_IN
+  SOCIAL_MEDIA
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  LINKEDIN
+  PROPERTY_PORTAL
+  PHONE
+  OTHER
+}
+
 model Inquiry {
   id                     String        @id @default(cuid())
   organizationId         String
@@ -721,6 +746,9 @@ model Inquiry {
   status                 InquiryStatus @default(NEW_INQUIRY)
   assignedAgentId        String?
   exclusiveLockExpiresAt DateTime?     // 30-day anti-poaching lock
+  matchStatus      MatchStatus  @default(UNMATCHED)
+  unmatchedReason  String?      // NO_SUITABLE_PROPERTY, BUDGET_MISMATCH, LOCATION_UNAVAILABLE, CLIENT_TIMING, OTHER
+  failedAtStage    String?      // VIEWING, NEGOTIATION, OFFER -- only set on CLOSED/LOST
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
 
@@ -728,6 +756,7 @@ model Inquiry {
   assignedAgent          User?         @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
   visits                 PropertyVisit[]
   documentRequests       DocumentRequest[]
+  followUpTasks          FollowUpTask[]
 
   @@index([organizationId, status])
   @@map("inquiry")
@@ -738,6 +767,7 @@ enum VisitStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
+  RESCHEDULED
 }
 
 model PropertyVisit {
@@ -761,6 +791,52 @@ model PropertyVisit {
   @@map("property_visit")
 }
 
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  UNMATCHED
+  PARTIALLY_MATCHED
+  MATCHED
+}
+
+model FollowUpTask {
+  id             String       @id @default(cuid())
+  organizationId String
+  assignedUserId String
+  inquiryId      String?
+  propertyId     String?
+  title          String
+  description    String?      @db.Text
+  priority       TaskPriority @default(MEDIUM)
+  status         TaskStatus   @default(PENDING)
+  dueDate        DateTime
+  completedAt    DateTime?
+  completedById  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser   User         @relation("AssignedTasks", fields: [assignedUserId], references: [id], onDelete: Cascade)
+  inquiry        Inquiry?     @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, dueDate])
+  @@index([organizationId, assignedUserId, status])
+  @@index([organizationId, dueDate])
+  @@map("follow_up_task")
+}
 // -----------------------------------------------------------------------------
 // 6. Security, POPIA Audit & Token Telemetry
 // -----------------------------------------------------------------------------

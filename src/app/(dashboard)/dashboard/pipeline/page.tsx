@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   TrendingUp,
   Clock,
@@ -8,7 +8,9 @@ import {
   X,
   Sparkles,
   MessageSquare,
+  CheckCircle2,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
@@ -24,31 +26,94 @@ type Deal = {
   agencyCommission: number;
   agentName: string;
   daysInStage: number;
-  stage: "NEW_INQUIRY" | "VIEWING_SCHEDULED" | "NEGOTIATION" | "OFFER_MADE" | "CLOSED_WON";
+  stage: "NEW_INQUIRY" | "CONTACTED" | "VIEWING_SCHEDULED" | "NEGOTIATING" | "OFFER_MADE" | "CLOSED";
+  outcome?: "WON" | "LOST" | null;
+  lostReason?: string | null;
+  assignedAgentId?: string | null;
 };
 
 const STAGES = [
   { id: "NEW_INQUIRY", label: "New Inquiry", tag: "RAW" },
+  { id: "CONTACTED", label: "Contacted", tag: "TOUCH" },
   { id: "VIEWING_SCHEDULED", label: "Viewing Booked", tag: "VIEW" },
-  { id: "NEGOTIATION", label: "In Negotiation", tag: "TERMS" },
+  { id: "NEGOTIATING", label: "In Negotiation", tag: "TERMS" },
   { id: "OFFER_MADE", label: "Written Offer", tag: "OFFER" },
-  { id: "CLOSED_WON", label: "Closed Won", tag: "ESCROW" },
+  { id: "CLOSED", label: "Closed", tag: "OUTCOME" },
 ];
 
-export default function DealPipelinePage() {
+function DealPipelineContent() {
   // Deals are intentionally empty until they are loaded from a tenant-scoped
   // deal source. Never seed the pipeline with development/demo records.
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formError, setFormError] = useState("");
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
+  const [closeTarget, setCloseTarget] = useState<Deal | null>(null);
+  const [closeOutcome, setCloseOutcome] = useState<"WON" | "LOST">("WON");
+  const [lostReason, setLostReason] = useState("");
 
-  const handleMoveStage = (dealId: string, nextStage: Deal["stage"]) => {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
+
+  const openCloseModal = (deal: Deal) => {
+    setCloseTarget(deal);
+    setCloseOutcome(deal.outcome === "LOST" ? "LOST" : "WON");
+    setLostReason(deal.lostReason || "");
+  };
+
+  useEffect(() => {
+    void Promise.all([fetch("/api/clients"), fetch("/api/organization/agents")]).then(async ([dealsResponse, agentsResponse]) => {
+      const dealsData = await dealsResponse.json();
+      const agentsData = await agentsResponse.json();
+      if (dealsData.success) {
+        setDeals((dealsData.clients || []).map((inquiry: any) => ({
+          id: inquiry.id,
+          clientName: inquiry.clientName,
+          clientPhone: inquiry.clientPhone,
+          propertyTitle: inquiry.property?.title || "Unassigned property",
+          suburb: inquiry.property?.suburb || inquiry.preferredSuburbs?.[0] || "—",
+          dealValue: Number(inquiry.dealValue || 0),
+          currency: inquiry.currency || "ZMW",
+          agencyCommission: Number(inquiry.dealValue || 0) * 0.05,
+          agentName: inquiry.assignedAgent?.name || "Unassigned",
+          assignedAgentId: inquiry.assignedAgent?.id || null,
+          daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),
+          stage: inquiry.status === "NEGOTIATING" ? "NEGOTIATING" : inquiry.status,
+          outcome: inquiry.outcome,
+          lostReason: inquiry.lostReason,
+        })));
+      }
+      if (agentsData.success) setAgents(agentsData.agents || []);
+    }).catch(() => setFormError("Unable to load the pipeline. Please refresh and try again."));
+  }, []);
+
+  const handleMoveStage = async (dealId: string, nextStage: Deal["stage"]) => {
+    const deal = deals.find((item) => item.id === dealId);
+    if (!deal) return;
+    if (nextStage === "CLOSED") {
+      openCloseModal(deal);
+      return;
+    }
+    const response = await fetch(`/api/clients/${dealId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: nextStage }) });
+    if (!response.ok) { setFormError("Unable to update the pipeline stage."); return; }
     setDeals((prev) =>
       prev.map((d) => (d.id === dealId ? { ...d, stage: nextStage } : d))
     );
+  };
+
+  const handleCloseDeal = async () => {
+    if (!closeTarget || (closeOutcome === "LOST" && lostReason.trim().length < 10)) return;
+    const response = await fetch(`/api/clients/${closeTarget.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "CLOSED", outcome: closeOutcome, lostReason: closeOutcome === "LOST" ? lostReason.trim() : undefined }) });
+    if (!response.ok) { setFormError("Unable to close this deal."); return; }
+    setDeals((prev) => prev.map((deal) => deal.id === closeTarget.id ? { ...deal, stage: "CLOSED", outcome: closeOutcome, lostReason: closeOutcome === "LOST" ? lostReason.trim() : null } : deal));
+    setCloseTarget(null);
   };
 
   const [formData, setFormData] = useState({
@@ -59,6 +124,7 @@ export default function DealPipelinePage() {
     dealValue: "",
     currency: "ZMW",
     agentName: "",
+    leadSource: "WALK_IN",
     stage: "NEW_INQUIRY" as Deal["stage"],
   });
 
@@ -71,7 +137,7 @@ export default function DealPipelinePage() {
     deals.forEach((d) => {
       totalsByCurrency[d.currency] = (totalsByCurrency[d.currency] || 0) + d.dealValue;
       commByCurrency[d.currency] = (commByCurrency[d.currency] || 0) + d.agencyCommission;
-      if (d.stage === "NEGOTIATION") {
+      if (d.stage === "NEGOTIATING") {
         totalNegotiatingDays += d.daysInStage;
         negotiatingCount++;
       }
@@ -95,7 +161,7 @@ export default function DealPipelinePage() {
     return { totalValStr, commValStr, avgVelocity };
   }, [deals]);
 
-  const handleCreateDeal = (e: React.FormEvent) => {
+  const handleCreateDeal = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
@@ -113,23 +179,42 @@ export default function DealPipelinePage() {
       return;
     }
 
-    const comm = valNum * 0.05;
-
-    const newDeal: Deal = {
-      id: `deal_${Date.now()}`,
-      clientName: formData.clientName,
-      clientPhone: formData.clientPhone,
-      propertyTitle: formData.propertyTitle,
-      suburb: formData.suburb,
-      dealValue: valNum,
-      currency: formData.currency as "ZMW" | "USD",
-      agencyCommission: comm,
-      agentName: formData.agentName,
-      daysInStage: 0,
-      stage: formData.stage,
-    };
-
-    setDeals([newDeal, ...deals]);
+    const selectedAgent = agents.find((agent) => agent.name === formData.agentName);
+    const response = await fetch("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientName: formData.clientName,
+        clientPhone: formData.clientPhone,
+        lookingFor: "FOR_SALE",
+        currency: formData.currency,
+        assignedAgentId: selectedAgent?.id,
+        dealValue: valNum,
+        status: formData.stage,
+        leadSource: formData.leadSource,
+        notes: formData.propertyTitle ? `Property target: ${formData.propertyTitle}` : undefined,
+      }),
+    });
+    if (!response.ok) { setFormError("Unable to create this pipeline opportunity."); return; }
+    const result = await response.json();
+    const inquiry = result.client;
+    setDeals([
+      {
+        id: inquiry.id,
+        clientName: inquiry.clientName,
+        clientPhone: inquiry.clientPhone,
+        propertyTitle: formData.propertyTitle || "Unassigned property",
+        suburb: "—",
+        dealValue: valNum,
+        currency: formData.currency as "ZMW" | "USD",
+        agencyCommission: valNum * 0.05,
+        agentName: selectedAgent?.name || "Unassigned",
+        assignedAgentId: selectedAgent?.id,
+        daysInStage: 0,
+        stage: inquiry.status || formData.stage,
+      },
+      ...deals,
+    ]);
     setIsModalOpen(false);
     setFormData({
       clientName: "",
@@ -139,6 +224,7 @@ export default function DealPipelinePage() {
       dealValue: "",
       currency: "ZMW",
       agentName: "",
+      leadSource: "WALK_IN",
       stage: "NEW_INQUIRY",
     });
   };
@@ -168,13 +254,7 @@ export default function DealPipelinePage() {
   const handleDrop = (e: React.DragEvent, targetStageId: string) => {
     e.preventDefault();
     if (!draggedDealId) return;
-    setDeals((prev) =>
-      prev.map((d) =>
-        d.id === draggedDealId
-          ? { ...d, stage: targetStageId as Deal["stage"] }
-          : d
-      )
-    );
+    void handleMoveStage(draggedDealId, targetStageId as Deal["stage"]);
     setDraggedDealId(null);
     setDragOverStage(null);
   };
@@ -252,11 +332,11 @@ export default function DealPipelinePage() {
             Funnel Balance
           </span>
           <div className="font-geist text-xs sm:text-base font-bold text-editorial-black mt-1 tracking-tight">
-            {deals.filter((d) => d.stage !== "CLOSED_WON").length} Open • {deals.filter((d) => d.stage === "CLOSED_WON").length} Won
+            {deals.filter((d) => d.stage !== "CLOSED").length} Open • {deals.filter((d) => d.stage === "CLOSED" && d.outcome === "WON").length} Won
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
             {deals.length > 0
-              ? ((deals.filter((d) => d.stage === "CLOSED_WON").length / deals.length) * 100).toFixed(0)
+              ? ((deals.filter((d) => d.stage === "CLOSED" && d.outcome === "WON").length / deals.length) * 100).toFixed(0)
               : "0"}% Win rate
           </span>
         </MotionCard>
@@ -364,6 +444,56 @@ export default function DealPipelinePage() {
                   <span>WhatsApp</span>
                 </a>
               </div>
+
+              {deal.stage === "CLOSED" && (
+                <div className="pt-2 border-t border-editorial-border">
+                  {deal.outcome === "WON" ? (
+                    <div className="flex items-center justify-between p-2 bg-emerald-50 border border-emerald-200 text-xs font-geist font-bold text-emerald-800">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> CLOSED WON
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openCloseModal(deal)}
+                        className="text-[10px] uppercase tracking-wider underline text-emerald-950 font-semibold"
+                      >
+                        Edit Outcome
+                      </button>
+                    </div>
+                  ) : deal.outcome === "LOST" ? (
+                    <div className="p-2 bg-red-50 border border-red-200 text-xs font-geist text-red-900 space-y-1">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center gap-1.5 text-red-700">
+                          <X className="w-3.5 h-3.5" /> CLOSED LOST
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openCloseModal(deal)}
+                          className="text-[10px] uppercase tracking-wider underline text-red-950 font-semibold"
+                        >
+                          Edit Outcome
+                        </button>
+                      </div>
+                      {deal.lostReason && (
+                        <p className="text-[11px] text-red-800 italic bg-white/70 p-1.5 border border-red-100">
+                          "{deal.lostReason}"
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 text-xs font-geist text-amber-900">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Outcome Pending</span>
+                      <button
+                        type="button"
+                        onClick={() => openCloseModal(deal)}
+                        className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        Record Outcome
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
@@ -376,114 +506,166 @@ export default function DealPipelinePage() {
       </div>
 
       {/* Visual Kanban Columns Grid (Desktop & Tablet) */}
-      <div className="hidden md:grid md:grid-cols-5 gap-4 items-start">
-        {STAGES.map((stage) => {
-          const stageDeals = deals.filter((d) => d.stage === stage.id);
+      <div className="hidden md:block overflow-x-auto pb-4">
+        <div className="grid grid-cols-6 gap-3.5 items-start min-w-[1180px]">
+          {STAGES.map((stage) => {
+            const stageDeals = deals.filter((d) => d.stage === stage.id);
 
-          return (
-            <div
-              key={stage.id}
-              onDragOver={(e) => handleDragOver(e, stage.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, stage.id)}
-              className={`p-3 border flex flex-col space-y-3 min-h-[520px] transition-colors ${
-                dragOverStage === stage.id
-                  ? "bg-[#fff5f3]/40 border-contour-red"
-                  : "bg-neutral-50/50 border-editorial-border"
-              }`}
-            >
-              {/* Column Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-editorial-border">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-geist font-bold px-1.5 py-0.2 bg-white border border-editorial-border text-editorial-black">
-                    {stageDeals.length}
-                  </span>
-                  <h3 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
-                    {stage.label}
-                  </h3>
+            return (
+              <div
+                key={stage.id}
+                onDragOver={(e) => handleDragOver(e, stage.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, stage.id)}
+                className={`p-3 border flex flex-col space-y-3 min-h-[520px] transition-colors ${
+                  dragOverStage === stage.id
+                    ? "bg-[#fff5f3]/40 border-contour-red"
+                    : "bg-neutral-50/50 border-editorial-border"
+                }`}
+              >
+                {/* Column Header */}
+                <div className="flex items-center justify-between pb-2 border-b border-editorial-border">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-geist font-bold px-1.5 py-0.2 bg-white border border-editorial-border text-editorial-black">
+                      {stageDeals.length}
+                    </span>
+                    <h3 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
+                      {stage.label}
+                    </h3>
+                  </div>
+                  {dragOverStage === stage.id && (
+                    <span className="text-[9px] font-geist text-contour-red">Drop here</span>
+                  )}
                 </div>
-                {dragOverStage === stage.id && (
-                  <span className="text-[9px] font-geist text-contour-red">Drop here</span>
-                )}
-              </div>
 
-              {/* Deals in this Stage */}
-              <div className="space-y-3 flex-1">
-                {stageDeals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, deal.id)}
-                    onDragEnd={handleDragEnd}
-                    className={`bg-white p-3.5 border transition-all space-y-2 select-none ${
-                      draggedDealId === deal.id
-                        ? "opacity-30 border-dashed border-editorial-black cursor-grabbing"
-                        : "border-editorial-border hover:border-editorial-black cursor-grab"
-                    }`}
-                  >
-                    <div>
-                      <span className="text-[9px] font-geist font-semibold uppercase tracking-wider text-editorial-muted">
-                        📍 {deal.suburb}
-                      </span>
-                      <h4 className="font-heading font-bold text-xs text-editorial-black uppercase leading-snug mt-0.5">
-                        {deal.propertyTitle}
-                      </h4>
-                    </div>
-
-                    <div className="p-2 bg-neutral-50 border border-editorial-border text-xs font-geist space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-editorial-muted">Client:</span>
-                        <strong className="text-editorial-black truncate max-w-[120px]">
-                          {deal.clientName}
-                        </strong>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-editorial-muted">Agent:</span>
-                        <span className="text-editorial-black">{deal.agentName}</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-1 border-t border-editorial-border flex items-center justify-between">
+                {/* Deals in this Stage */}
+                <div className="space-y-3 flex-1">
+                  {stageDeals.map((deal) => (
+                    <div
+                      key={deal.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, deal.id)}
+                      onDragEnd={handleDragEnd}
+                      className={`bg-white p-3.5 border transition-all space-y-2 select-none ${
+                        draggedDealId === deal.id
+                          ? "opacity-30 border-dashed border-editorial-black cursor-grabbing"
+                          : "border-editorial-border hover:border-editorial-black cursor-grab"
+                      }`}
+                    >
                       <div>
-                        <div className="text-[9px] font-geist text-editorial-muted uppercase">Value</div>
-                        <div className="font-geist font-bold text-xs text-editorial-black">
-                          {formatCurrency(deal.dealValue, deal.currency)}
+                        <span className="text-[9px] font-geist font-semibold uppercase tracking-wider text-editorial-muted">
+                          📍 {deal.suburb}
+                        </span>
+                        <h4 className="font-heading font-bold text-xs text-editorial-black uppercase leading-snug mt-0.5">
+                          {deal.propertyTitle}
+                        </h4>
+                      </div>
+
+                      <div className="p-2 bg-neutral-50 border border-editorial-border text-xs font-geist space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-editorial-muted">Client:</span>
+                          <strong className="text-editorial-black truncate max-w-[120px]">
+                            {deal.clientName}
+                          </strong>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-editorial-muted">Agent:</span>
+                          <span className="text-editorial-black">{deal.agentName}</span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-[9px] font-geist text-contour-red uppercase">5% Commission</div>
-                        <div className="font-geist font-bold text-xs text-contour-red">
-                          {formatCurrency(deal.agencyCommission, deal.currency)}
+
+                      <div className="pt-1 border-t border-editorial-border flex items-center justify-between">
+                        <div>
+                          <div className="text-[9px] font-geist text-editorial-muted uppercase">Value</div>
+                          <div className="font-geist font-bold text-xs text-editorial-black">
+                            {formatCurrency(deal.dealValue, deal.currency)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[9px] font-geist text-contour-red uppercase">5% Commission</div>
+                          <div className="font-geist font-bold text-xs text-contour-red">
+                            {formatCurrency(deal.agencyCommission, deal.currency)}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between text-[10px] font-geist text-editorial-muted pt-1 border-t border-editorial-border">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {deal.daysInStage}d in stage
-                      </span>
-                      <a
-                        href={`https://wa.me/${deal.clientPhone.replace(/\+/g, "").replace(/\s/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-contour-red hover:underline flex items-center gap-0.5 font-medium"
-                      >
-                        <MessageSquare className="w-2.5 h-2.5" /> WhatsApp
-                      </a>
-                    </div>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between text-[10px] font-geist text-editorial-muted pt-1 border-t border-editorial-border">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {deal.daysInStage}d in stage
+                        </span>
+                        <a
+                          href={`https://wa.me/${deal.clientPhone.replace(/\+/g, "").replace(/\s/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-contour-red hover:underline flex items-center gap-0.5 font-medium"
+                        >
+                          <MessageSquare className="w-2.5 h-2.5" /> WhatsApp
+                        </a>
+                      </div>
 
-                {stageDeals.length === 0 && (
-                  <div className="h-28 border border-dashed border-editorial-border flex items-center justify-center text-xs text-editorial-muted text-center p-3 font-geist">
-                    Empty Stage
-                  </div>
-                )}
+                      {stage.id === "CLOSED" && (
+                        <div className="pt-2 border-t border-editorial-border">
+                          {deal.outcome === "WON" ? (
+                            <div className="flex items-center justify-between p-1.5 bg-emerald-50 border border-emerald-200 text-[10px] font-geist font-bold text-emerald-800">
+                              <span className="flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> CLOSED WON
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openCloseModal(deal); }}
+                                className="text-[9px] uppercase tracking-wider underline text-emerald-950 hover:text-emerald-700 font-semibold"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          ) : deal.outcome === "LOST" ? (
+                            <div className="p-1.5 bg-red-50 border border-red-200 text-[10px] font-geist text-red-900 space-y-1">
+                              <div className="flex items-center justify-between font-bold">
+                                <span className="flex items-center gap-1 text-red-700">
+                                  <X className="w-3 h-3" /> CLOSED LOST
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); openCloseModal(deal); }}
+                                  className="text-[9px] uppercase tracking-wider underline text-red-950 hover:text-red-700 font-semibold"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                              {deal.lostReason && (
+                                <p className="text-[9px] text-red-800 italic bg-white/70 p-1 border border-red-100 line-clamp-2">
+                                  "{deal.lostReason}"
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between p-1.5 bg-amber-50 border border-amber-200 text-[10px] font-geist text-amber-900">
+                              <span className="text-[9px] font-bold uppercase tracking-wider">Pending</span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openCloseModal(deal); }}
+                                className="px-1.5 py-0.5 bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-bold uppercase tracking-wider"
+                              >
+                                Set Outcome
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {stageDeals.length === 0 && (
+                    <div className="h-28 border border-dashed border-editorial-border flex items-center justify-center text-xs text-editorial-muted text-center p-3 font-geist">
+                      Empty Stage
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Interactive Modal: New Deal Opportunity */}
@@ -570,26 +752,43 @@ export default function DealPipelinePage() {
                   >
                     <option value="NEW_INQUIRY">New Inquiry</option>
                     <option value="VIEWING_SCHEDULED">Viewing Booked</option>
-                    <option value="NEGOTIATION">In Negotiation</option>
+                    <option value="NEGOTIATING">In Negotiation</option>
                     <option value="OFFER_MADE">Written Offer</option>
-                    <option value="CLOSED_WON">Closed Won</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Closing Agent
+                    Lead Source
                   </label>
                   <select
-                    value={formData.agentName}
-                    onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
+                    value={formData.leadSource}
+                    onChange={(e) => setFormData({ ...formData, leadSource: e.target.value })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                   >
-                    <option value="Tembo Mwape">Tembo Mwape</option>
-                    <option value="Chipo Banda">Chipo Banda</option>
-                    <option value="Grace Banda">Grace Banda</option>
+                    <option value="WALK_IN">Walk-in Client</option>
+                    <option value="WHATSAPP">WhatsApp Direct</option>
+                    <option value="WEBSITE">Website Ingest</option>
+                    <option value="CLIENT_REFERRAL">Client Referral</option>
+                    <option value="PHONE">Phone Call</option>
+                    <option value="SOCIAL_MEDIA">Social Media</option>
+                    <option value="OTHER">Other</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Closing Agent (Org Member)
+                </label>
+                <select
+                  value={formData.agentName}
+                  onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                >
+                  <option value="">Unassigned</option>
+                  {agents.map((agent) => <option key={agent.id} value={agent.name}>{agent.name}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -650,6 +849,41 @@ export default function DealPipelinePage() {
           </div>
         </div>
       )}
+
+      {closeTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-geist">
+          <div className="bg-white max-w-md w-full p-6 border border-editorial-border space-y-4">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
+              <h3 className="font-heading font-bold text-sm uppercase tracking-wider">Close deal</h3>
+              <button onClick={() => setCloseTarget(null)} className="text-editorial-muted hover:text-contour-red"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-xs text-editorial-muted">Record the outcome for {closeTarget.clientName}. A lost outcome requires a reason for future follow-up and reporting.</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setCloseOutcome("WON")} className={`flex-1 px-3 py-2 border text-xs font-heading uppercase tracking-wider ${closeOutcome === "WON" ? "border-emerald-700 bg-emerald-50 text-emerald-800" : "border-editorial-border"}`}>Won</button>
+              <button type="button" onClick={() => setCloseOutcome("LOST")} className={`flex-1 px-3 py-2 border text-xs font-heading uppercase tracking-wider ${closeOutcome === "LOST" ? "border-red-700 bg-red-50 text-red-800" : "border-editorial-border"}`}>Lost</button>
+            </div>
+            {closeOutcome === "LOST" && (
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Reason for lost deal *</label>
+                <textarea value={lostReason} onChange={(event) => setLostReason(event.target.value)} minLength={10} maxLength={2000} rows={4} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist" placeholder="Explain what prevented the deal from closing..." />
+                <p className="text-[10px] text-editorial-muted mt-1">Minimum 10 characters.</p>
+              </div>
+            )}
+            <div className="pt-3 flex justify-end gap-2 border-t border-editorial-border">
+              <button type="button" onClick={() => setCloseTarget(null)} className="px-4 py-2 border border-editorial-border text-xs font-heading uppercase tracking-wider">Cancel</button>
+              <button type="button" disabled={closeOutcome === "LOST" && lostReason.trim().length < 10} onClick={() => void handleCloseDeal()} className="px-4 py-2 bg-editorial-black disabled:opacity-40 text-white text-xs font-heading uppercase tracking-wider">Save outcome</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function DealPipelinePage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-xs font-mono text-editorial-muted">Loading pipeline board...</div>}>
+      <DealPipelineContent />
+    </React.Suspense>
   );
 }

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Currency } from "@prisma/client";
 import { createApiHandler } from "@/lib/api-handler";
+import { getTrialEnd } from "@/lib/billing-access";
 import { db } from "@/lib/db";
 
 const profileUpdateSchema = z.object({
@@ -25,7 +26,7 @@ export const GET = createApiHandler({
     });
     if (!organization) return NextResponse.json({ success: false, error: "Workspace not found" }, { status: 404 });
 
-    const trialEndsAt = new Date(organization.createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const trialEndsAt = organization.trialEndsAt || getTrialEnd(organization.createdAt);
     return NextResponse.json({
       success: true,
       organization: {

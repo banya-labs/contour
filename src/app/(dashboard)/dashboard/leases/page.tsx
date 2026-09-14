@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   KeyRound,
   AlertTriangle,
@@ -13,12 +14,19 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 
-export default function LeasesManagementPage() {
+function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [remindedLeaseId, setRemindedLeaseId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -552,5 +560,13 @@ export default function LeasesManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function LeasesManagementPage() {
+  return (
+    <React.Suspense fallback={<div className="p-8 text-xs font-mono text-editorial-muted">Loading leases...</div>}>
+      <LeasesManagementContent />
+    </React.Suspense>
   );
 }
