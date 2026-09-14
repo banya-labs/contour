@@ -35,9 +35,11 @@ export default function AnalyticsDashboardPage() {
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [report, setReport] = useState<ContourReportPayload | null>(null);
   const [aiNarrative, setAiNarrative] = useState<any>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchReport = async (p = preset, from = customFrom, to = customTo) => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       let url = `/api/analytics/report?preset=${p}`;
       if (p === "custom" && from && to) {
@@ -48,9 +50,12 @@ export default function AnalyticsDashboardPage() {
       if (data.success && data.report) {
         setReport(data.report);
         setAiNarrative(data.report.aiNarrative);
+      } else {
+        setErrorMessage(data.error || "Failed to query analytics engine from database.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load analytics report", err);
+      setErrorMessage(err?.message || "Failed to load analytics report.");
     } finally {
       setLoading(false);
     }
@@ -97,7 +102,9 @@ export default function AnalyticsDashboardPage() {
             </span>
           </div>
           <p className="text-xs text-[#666158]">
-            {report?.period.label} • {report?.period.from} to {report?.period.to} ({report?.period.days} days)
+            {report
+              ? `${report.period.label} • ${report.period.from} to ${report.period.to} (${report.period.days} days)`
+              : "Performance Telemetry & Real Estate Report Engine"}
           </p>
         </div>
 
@@ -165,8 +172,26 @@ export default function AnalyticsDashboardPage() {
           <p className="text-xs font-medium tracking-wide">Computing deterministic intelligence from database...</p>
         </div>
       ) : !report ? (
-        <div className="p-8 text-center text-xs text-[#666158]">
-          Unable to generate report. Please verify connection and retry.
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto my-auto">
+          <div className="w-12 h-12 bg-amber-50 border border-amber-200 text-amber-800 rounded-full flex items-center justify-center mb-3">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-heading font-semibold text-[#16382B] mb-1">
+            Database Schema Sync Required
+          </h3>
+          <p className="text-xs text-[#666158] mb-4 leading-relaxed">
+            {errorMessage || "Unable to extract analytics data. The database requires the latest schema additions (FollowUpTask and Inquiry fields)."}
+          </p>
+          <div className="bg-[#F8F6F0] border border-[#ECE7DE] p-3 text-[11px] font-mono text-[#16382B] w-full text-left rounded mb-4">
+            <span className="text-[#666158] block mb-1"># Run in your project root terminal:</span>
+            npx prisma db push
+          </div>
+          <button
+            onClick={() => fetchReport(preset)}
+            className="px-4 py-2 text-xs font-semibold bg-[#16382B] text-white hover:bg-[#0F291E] transition-colors"
+          >
+            Retry Analytics Sync
+          </button>
         </div>
       ) : (
         <div className="p-4 lg:p-8 max-w-7xl mx-auto w-full space-y-6">

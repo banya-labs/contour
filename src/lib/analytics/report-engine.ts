@@ -61,10 +61,22 @@ export class ContourReportEngine {
     };
 
     // 2. Fetch Organization Profile & Meta
-    const org = await db.organization.findUnique({
-      where: { id: organizationId },
-      include: { profile: true },
-    });
+    let org: any = null;
+    try {
+      org = await db.organization.findUnique({
+        where: { id: organizationId },
+        include: { profile: true },
+      });
+    } catch {
+      try {
+        org = await db.organization.findUnique({
+          where: { id: organizationId },
+          select: { id: true, name: true, currency: true, logo: true },
+        });
+      } catch {
+        org = null;
+      }
+    }
 
     const currency = org?.currency || "ZMW";
     const companyName = org?.name || "Contour Agency";
@@ -578,27 +590,38 @@ export class ContourReportEngine {
     // -------------------------------------------------------------------------
     // BATCH 7: Tasks & Work Queue
     // -------------------------------------------------------------------------
-    const [pendingTasksCount, completedTasksInPeriod, dueFollowUps] = await Promise.all([
-      db.followUpTask.count({
-        where: { organizationId, status: "PENDING" },
-      }),
-      db.followUpTask.count({
-        where: {
-          organizationId,
-          status: "COMPLETED",
-          completedAt: { gte: startDate, lte: endDate },
-        },
-      }),
-      db.followUpTask.findMany({
-        where: {
-          organizationId,
-          status: "PENDING",
-          dueDate: { lte: endDate },
-        },
-        include: { assignedUser: { select: { name: true } } },
-        orderBy: { dueDate: "asc" },
-      }),
-    ]);
+    let pendingTasksCount = 0;
+    let completedTasksInPeriod = 0;
+    let dueFollowUps: any[] = [];
+
+    try {
+      [pendingTasksCount, completedTasksInPeriod, dueFollowUps] = await Promise.all([
+        db.followUpTask.count({
+          where: { organizationId, status: "PENDING" },
+        }),
+        db.followUpTask.count({
+          where: {
+            organizationId,
+            status: "COMPLETED",
+            completedAt: { gte: startDate, lte: endDate },
+          },
+        }),
+        db.followUpTask.findMany({
+          where: {
+            organizationId,
+            status: "PENDING",
+            dueDate: { lte: endDate },
+          },
+          include: { assignedUser: { select: { name: true } } },
+          orderBy: { dueDate: "asc" },
+        }),
+      ]);
+    } catch {
+      // Table may not exist yet if db migration hasn't been pushed
+      pendingTasksCount = 0;
+      completedTasksInPeriod = 0;
+      dueFollowUps = [];
+    }
 
     const followUpsDueCount = dueFollowUps.length;
 

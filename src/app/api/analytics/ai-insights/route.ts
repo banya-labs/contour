@@ -83,16 +83,63 @@ Generate the executive narrative JSON with these exact keys:
   "conclusionText": "..."
 }`;
 
-    // Check for OpenAI / Gemini / Anthropic API keys in environment
-    const apiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+    // 1. OpenRouter Integration (Preferred: fast & cost-effective Flash models)
+    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    const openrouterModel = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
 
-    if (apiKey && process.env.OPENAI_API_KEY) {
+    if (openrouterKey) {
+      try {
+        const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openrouterKey}`,
+            "HTTP-Referer": "https://contour.banyalabs.com",
+            "X-Title": "Contour Real Estate OS",
+          },
+          body: JSON.stringify({
+            model: openrouterModel,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (aiResponse.ok) {
+          const aiJson = await aiResponse.json();
+          const rawContent = aiJson.choices?.[0]?.message?.content;
+          if (rawContent) {
+            // Clean markdown code fence if returned
+            const cleanJson = rawContent.replace(/```json\n?|\n?```/g, "").trim();
+            const parsed = JSON.parse(cleanJson);
+            return NextResponse.json({
+              success: true,
+              insights: parsed,
+              engine: `OPENROUTER (${openrouterModel})`,
+            });
+          }
+        } else {
+          const errText = await aiResponse.text();
+          console.warn("[OPENROUTER_ERROR]", aiResponse.status, errText);
+        }
+      } catch (e) {
+        console.warn("[OPENROUTER_FETCH_FAILED] Falling back to deterministic synthesis.", e);
+      }
+    }
+
+    // 2. OpenAI Direct Integration (Fallback if OPENAI_API_KEY provided)
+    const openaiKey = process.env.OPENAI_API_KEY;
+
+    if (openaiKey) {
       try {
         const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            Authorization: `Bearer ${openaiKey}`,
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
