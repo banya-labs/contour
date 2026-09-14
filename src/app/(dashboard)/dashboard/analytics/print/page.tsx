@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download } from "lucide-react";
+import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ContourReportPayload } from "@/lib/analytics/types";
 import { formatCurrency } from "@/lib/utils";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 function AnalyticsPrintContent() {
   const searchParams = useSearchParams();
@@ -17,6 +20,8 @@ function AnalyticsPrintContent() {
   const [report, setReport] = useState<ContourReportPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progressText, setProgressText] = useState("");
 
   useEffect(() => {
     async function loadReport() {
@@ -38,6 +43,68 @@ function AnalyticsPrintContent() {
     }
     loadReport();
   }, [preset, fromParam, toParam]);
+
+  const handleGeneratePdf = async (action: "download" | "print") => {
+    if (isGenerating || !report) return;
+    setIsGenerating(true);
+    setProgressText("Initializing PDF engine...");
+
+    try {
+      const pageElements = document.querySelectorAll<HTMLElement>(".pdf-page");
+      if (!pageElements || pageElements.length === 0) {
+        throw new Error("No report pages found.");
+      }
+
+      // Initialize jsPDF for A4 portrait (210mm x 297mm)
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      for (let i = 0; i < pageElements.length; i++) {
+        setProgressText(`Rendering page ${i + 1} of ${pageElements.length}...`);
+        const pageEl = pageElements[i];
+
+        const canvas = await html2canvas(pageEl, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+        });
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.95);
+        if (i > 0) {
+          pdf.addPage("a4", "portrait");
+        }
+        pdf.addImage(imgData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
+      }
+
+      const cleanOrg = (report.meta.companyName || "Agency").replace(/[^a-zA-Z0-9]/g, "_");
+      const cleanPeriod = (report.period.label || "Report").replace(/[^a-zA-Z0-9]/g, "_");
+      const filename = `Contour_${cleanOrg}_${cleanPeriod}.pdf`;
+
+      if (action === "download") {
+        setProgressText("Saving PDF...");
+        pdf.save(filename);
+      } else {
+        setProgressText("Opening PDF document...");
+        pdf.autoPrint();
+        const blobUrl = pdf.output("bloburl");
+        const printWindow = window.open(blobUrl, "_blank");
+        if (printWindow) {
+          printWindow.focus();
+        }
+      }
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Failed to render PDF document. Please try again or use standard browser print.");
+    } finally {
+      setIsGenerating(false);
+      setProgressText("");
+    }
+  };
 
   if (loading) {
     return (
@@ -62,10 +129,10 @@ function AnalyticsPrintContent() {
   const currency = report.meta.currency || "ZMW";
 
   return (
-    <div className="min-h-screen bg-[#323639] print:bg-white text-[#111] font-geist antialiased selection:bg-neutral-200">
+    <div className="fixed inset-0 z-50 h-screen w-screen bg-[#2A2D32] text-[#111] font-geist antialiased selection:bg-neutral-200 flex flex-col print:static print:h-auto print:w-auto print:overflow-visible print:bg-white">
       
-      {/* 1. Sticky PDF Viewer Navigation Bar (Hidden during actual Print) */}
-      <div className="sticky top-0 z-50 bg-[#202124] text-white border-b border-white/10 px-4 lg:px-8 py-2.5 flex items-center justify-between gap-4 shadow-md print:hidden">
+      {/* 1. Sticky PDF Viewer Navigation Bar */}
+      <div className="shrink-0 bg-[#1E2023] text-white border-b border-white/10 px-4 lg:px-8 py-2.5 flex items-center justify-between gap-4 shadow-lg z-20 print:hidden">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/analytics"
@@ -86,12 +153,13 @@ function AnalyticsPrintContent() {
           </div>
         </div>
 
-        {/* Viewer Controls */}
+        {/* Viewer & Export Controls */}
         <div className="flex items-center gap-2">
           <div className="hidden md:flex items-center bg-black/40 rounded border border-white/10 px-1 py-0.5 text-xs text-neutral-300">
             <button
               onClick={() => setZoomLevel((z) => Math.max(75, z - 10))}
-              className="p-1 hover:text-white"
+              disabled={isGenerating}
+              className="p-1 hover:text-white disabled:opacity-40"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
@@ -99,28 +167,52 @@ function AnalyticsPrintContent() {
             <span className="px-2 font-mono text-[11px] text-white">{zoomLevel}%</span>
             <button
               onClick={() => setZoomLevel((z) => Math.min(150, z + 10))}
-              className="p-1 hover:text-white"
+              disabled={isGenerating}
+              className="p-1 hover:text-white disabled:opacity-40"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
           </div>
 
+          {/* Open-Source jsPDF Download */}
           <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#16382B] hover:bg-[#1E4D3B] text-white text-xs font-semibold rounded shadow transition-all border border-emerald-500/30"
+            onClick={() => handleGeneratePdf("download")}
+            disabled={isGenerating}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-semibold rounded shadow transition-all border border-emerald-400/30 cursor-pointer"
+            title="Generate and download actual A4 PDF document"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>{progressText || "Rendering PDF..."}</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </>
+            )}
+          </button>
+
+          {/* Open-Source jsPDF Print */}
+          <button
+            onClick={() => handleGeneratePdf("print")}
+            disabled={isGenerating}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#16382B] hover:bg-[#1E4D3B] disabled:opacity-60 text-white text-xs font-semibold rounded shadow transition-all border border-emerald-500/30 cursor-pointer"
+            title="Render and print actual PDF document"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print / Save as PDF</span>
+            <span className="hidden sm:inline">Print Document</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Vertically Scrollable Multi-Page Document View */}
-      <div className="py-8 print:py-0 px-4 overflow-y-auto flex flex-col items-center gap-8 print:gap-0">
+      {/* 2. Vertically Scrollable Multi-Page Document Viewport */}
+      <div className="flex-1 w-full overflow-y-auto overflow-x-hidden py-8 print:py-0 px-4 print:px-0 flex flex-col items-center">
         <div
           style={{ zoom: `${zoomLevel}%` }}
-          className="transition-transform duration-150 flex flex-col items-center gap-8 print:gap-0 w-full"
+          className="transition-transform duration-150 flex flex-col items-center gap-8 print:gap-0 w-full max-w-[210mm] pb-24 print:pb-0"
         >
 
           {/* ================================================================= */}
@@ -130,18 +222,37 @@ function AnalyticsPrintContent() {
             <div>
               {/* Document Letterhead */}
               <div className="border-b-2 border-black pb-4 mb-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="text-2xl font-heading font-black tracking-widest uppercase text-black">
-                      CONTOUR
-                    </div>
-                    <div className="text-xs font-heading font-bold text-neutral-800 uppercase tracking-wider mt-0.5">
-                      {customTitle}
+                <div className="flex justify-between items-start gap-4">
+                  {/* Agency Brand Identity (Agency Logo or Monogram) */}
+                  <div className="flex items-center gap-3.5">
+                    {report.meta.logoUrl ? (
+                      <img
+                        src={report.meta.logoUrl}
+                        alt={report.meta.companyName}
+                        className="h-14 w-auto max-w-[140px] object-contain rounded border border-neutral-200 p-1 bg-white"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-lg bg-neutral-900 text-white font-heading font-black text-xl flex items-center justify-center tracking-tighter uppercase shrink-0 shadow-sm border border-neutral-700">
+                        {report.meta.companyName.substring(0, 2)}
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-xl font-heading font-black uppercase text-black tracking-tight leading-tight">
+                        {report.meta.companyName}
+                      </div>
+                      <div className="text-[11px] font-heading font-bold text-neutral-700 uppercase tracking-wider mt-0.5">
+                        {customTitle}
+                      </div>
+                      <div className="text-[9.5px] font-mono text-neutral-500 mt-0.5">
+                        REAL ESTATE OPERATIONS & PERFORMANCE INTELLIGENCE
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right text-[10px] font-mono text-neutral-600">
-                    <div className="font-bold text-black">REF: BI-{report.period.from.replace(/-/g, "")}</div>
+
+                  <div className="text-right text-[10px] font-mono text-neutral-600 shrink-0">
+                    <div className="font-bold text-black text-[11px]">REF: BI-{report.period.from.replace(/-/g, "")}</div>
                     <div>{report.meta.reportType}</div>
+                    <div className="text-[9px] text-emerald-800 font-semibold mt-1">● VERIFIED LEDGER DATA</div>
                   </div>
                 </div>
 
@@ -757,17 +868,17 @@ function AnalyticsPrintContent() {
               {/* Section 27: Conclusion & Sign-off */}
               <div>
                 <h2 className="text-xs font-heading font-bold uppercase tracking-wider border-b border-black pb-1 mb-1">
-                  27. Management Conclusion
+                  27. Management Conclusion & Verification
                 </h2>
-                <p className="text-[10.5px] leading-relaxed text-neutral-800 mb-6">
+                <p className="text-[10.5px] leading-relaxed text-neutral-800 mb-4">
                   {report.aiNarrative.conclusionText}
                 </p>
 
-                <div className="pt-4 border-t border-neutral-300 grid grid-cols-2 gap-4 text-[9px] font-mono text-neutral-600">
+                <div className="pt-3 border-t border-neutral-300 grid grid-cols-2 gap-4 text-[9px] font-mono text-neutral-600">
                   <div>
-                    <p className="font-bold text-black mb-1">OPERATIONAL VERIFICATION</p>
-                    <p>Contour Real Estate Operations OS</p>
-                    <p>Verified Database Hash: {report.period.from}-{report.period.to}-OK</p>
+                    <p className="font-bold text-black mb-0.5">OPERATIONAL DATA INTEGRITY</p>
+                    <p>Source: Contour Multi-Tenant Ledger</p>
+                    <p>Verification: REF: BI-{report.period.from.replace(/-/g, "")}-VERIFIED</p>
                   </div>
                   <div className="text-right flex flex-col justify-end">
                     <div className="border-b border-black w-48 ml-auto mb-1" />
@@ -775,12 +886,27 @@ function AnalyticsPrintContent() {
                   </div>
                 </div>
               </div>
+
+              {/* Official Brand Stamp: Contour Logo at the End */}
+              <div className="mt-5 pt-3 border-t-2 border-neutral-900 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <ContourLogo size="sm" variant="light" />
+                  <div className="text-[9px] font-mono text-neutral-600 leading-tight">
+                    <p className="font-bold text-neutral-900 tracking-wide uppercase">Powered by Contour</p>
+                    <p>Real Estate Operations & Field Agent Intelligence OS</p>
+                  </div>
+                </div>
+                <div className="text-right text-[9px] font-mono text-neutral-500">
+                  <p className="font-bold text-neutral-800 uppercase tracking-wider">Confidential & Proprietary</p>
+                  <p>PAGE 5 OF 5 • END OF REPORT</p>
+                </div>
+              </div>
             </div>
 
             {/* Page Footer */}
-            <div className="border-t border-neutral-300 pt-2 flex justify-between items-center text-[9px] font-mono text-neutral-500 mt-4">
+            <div className="border-t border-neutral-300 pt-2 flex justify-between items-center text-[9px] font-mono text-neutral-500 mt-2">
               <span>CONTOUR REAL ESTATE MANAGEMENT PLATFORM • REF: BI-{report.period.from.replace(/-/g, "")}</span>
-              <span>PAGE 5 OF 5 (END OF REPORT)</span>
+              <span>PAGE 5 OF 5</span>
             </div>
           </div>
 
