@@ -1,10 +1,27 @@
-﻿import fs from "fs";
+import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
+function loadEnvFile(filePath: string) {
+  if (fs.existsSync(filePath)) {
+    const lines = fs.readFileSync(filePath, "utf-8").split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["'](.*)["']$/, "$1");
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+}
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+loadEnvFile(path.resolve(process.cwd(), ".env.local"));
+loadEnvFile(path.resolve(process.cwd(), ".env"));
+
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
