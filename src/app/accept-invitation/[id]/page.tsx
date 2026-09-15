@@ -4,7 +4,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { ContourLogo } from "@/components/brand/contour-logo";
-import { Building2, ShieldCheck, UserCheck, ArrowRight } from "lucide-react";
+import { Building2, ShieldCheck, UserCheck, ArrowRight, CheckCircle2 } from "lucide-react";
 
 function GoogleLogo() {
   return (
@@ -29,6 +29,16 @@ type InvitationDetails = {
   expiresAt: string;
 };
 
+type CurrentMemberInfo = {
+  email: string;
+  name: string;
+  roleKey: string;
+  roleName: string;
+  isAdminOrOwner: boolean;
+  status: string;
+  destination: string;
+};
+
 function AcceptInvitationContent() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -40,6 +50,8 @@ function AcceptInvitationContent() {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
 
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
+  const [isAlreadyMember, setIsAlreadyMember] = useState(false);
+  const [currentMember, setCurrentMember] = useState<CurrentMemberInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -64,7 +76,13 @@ function AcceptInvitationContent() {
         if (cancelled) return;
         if (data.success && data.invitation) {
           setInvitation(data.invitation);
-          setEmail(data.invitation.email);
+          if (!data.invitation.email.endsWith("@invite.contour.app")) {
+            setEmail(data.invitation.email);
+          }
+          if (data.isAlreadyMember && data.currentMember) {
+            setIsAlreadyMember(true);
+            setCurrentMember(data.currentMember);
+          }
         } else {
           setError(data.error || "Unable to load invitation details.");
         }
@@ -80,10 +98,10 @@ function AcceptInvitationContent() {
     return () => {
       cancelled = true;
     };
-  }, [invitationId, token]);
+  }, [invitationId, token, session]);
 
   // 2. Claim handler for authenticated user
-  const handleClaim = async () => {
+  const handleClaim = async (confirmRoleChange = false) => {
     setIsProcessing(true);
     setError(null);
 
@@ -91,7 +109,7 @@ function AcceptInvitationContent() {
       const response = await fetch("/api/organization/invitations/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invitationId, token }),
+        body: JSON.stringify({ invitationId, token, confirmRoleChange }),
       });
 
       const data = await response.json();
@@ -115,17 +133,7 @@ function AcceptInvitationContent() {
     }
   };
 
-  // 3. Auto-claim if authenticated user email matches
-  useEffect(() => {
-    if (!session?.user?.email || !invitation || isProcessing) return;
-
-    // If logged-in user email matches the invitation email, auto-claim
-    if (session.user.email.toLowerCase() === invitation.email.toLowerCase()) {
-      void handleClaim();
-    }
-  }, [session, invitation]);
-
-  // 4. Google OAuth trigger
+  // 3. Google OAuth trigger
   const handleGoogleSignIn = async () => {
     setAuthError(null);
     const callbackURL = typeof window !== "undefined" ? window.location.href : `/accept-invitation/${invitationId}`;
@@ -139,7 +147,7 @@ function AcceptInvitationContent() {
     }
   };
 
-  // 5. Email/password authentication submit
+  // 4. Email/password authentication submit
   const handleEmailAuth = async (e: FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -165,8 +173,6 @@ function AcceptInvitationContent() {
       setIsProcessing(false);
       return;
     }
-
-    // Upon email auth success, the session update will trigger auto-claim
   };
 
   if (isLoading || isSessionPending) {
@@ -195,7 +201,7 @@ function AcceptInvitationContent() {
     );
   }
 
-  const isMatchedUser = session?.user?.email?.toLowerCase() === invitation?.email.toLowerCase();
+  const isGenericInvite = invitation?.email?.endsWith("@invite.contour.app");
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-white px-6 py-12">
@@ -230,9 +236,11 @@ function AcceptInvitationContent() {
             </span>
           </div>
           <p className="text-xs text-editorial-muted">{invitation?.roleDescription}</p>
-          <div className="pt-2 border-t border-editorial-border text-[11px] text-editorial-black font-mono">
-            Invited email: <strong className="text-editorial-black">{invitation?.email}</strong>
-          </div>
+          {!isGenericInvite && (
+            <div className="pt-2 border-t border-editorial-border text-[11px] text-editorial-black font-mono">
+              Invited email: <strong className="text-editorial-black">{invitation?.email}</strong>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -241,20 +249,97 @@ function AcceptInvitationContent() {
           </p>
         )}
 
-        {/* State A: Authenticated User */}
-        {session?.user ? (
+        {/* State A: Authenticated User ALREADY a Member of this Workspace */}
+        {isAlreadyMember && currentMember ? (
+          <div className="mt-6 space-y-4">
+            <div className="border border-editorial-black bg-neutral-50 p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <h3 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
+                  Already a Workspace Member
+                </h3>
+              </div>
+              <p className="text-xs text-editorial-black leading-relaxed">
+                Your email address (<strong>{session?.user?.email}</strong>) is already part of{" "}
+                <strong>{invitation?.organizationName}</strong> as{" "}
+                <span className="font-semibold text-contour-red font-mono">
+                  {currentMember.roleName}
+                </span>
+                . You do not need to join again.
+              </p>
+            </div>
+
+            {currentMember.isAdminOrOwner ? (
+              <div className="space-y-3">
+                <div className="p-3 border border-amber-200 bg-amber-50 text-xs text-amber-900 leading-relaxed">
+                  <p className="font-semibold">Administrator Protection</p>
+                  <p className="mt-0.5 text-[11px]">
+                    As an administrator of this agency, you cannot change your role to{" "}
+                    <strong>{invitation?.roleName}</strong>.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push(currentMember.destination || "/dashboard")}
+                  className="w-full bg-editorial-black px-4 py-3.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red flex items-center justify-center gap-2"
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Go to Agency Dashboard</span>
+                </button>
+              </div>
+            ) : currentMember.roleKey === invitation?.roleKey ? (
+              <div className="space-y-3">
+                <p className="text-xs text-editorial-muted">
+                  You already hold the <strong>{invitation?.roleName}</strong> role in this workspace.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push(currentMember.destination || (currentMember.roleKey === "FIELD_AGENT" ? "/agent" : "/dashboard"))}
+                  className="w-full bg-editorial-black px-4 py-3.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red flex items-center justify-center gap-2"
+                >
+                  <span>Continue to Workspace</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3 border border-editorial-border p-4 bg-white">
+                <p className="text-xs text-editorial-black">
+                  This invite link is for the <strong>{invitation?.roleName}</strong> role. Would you like to switch your role to <strong>{invitation?.roleName}</strong>?
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push(currentMember.destination || (currentMember.roleKey === "FIELD_AGENT" ? "/agent" : "/dashboard"))}
+                    className="flex-1 border border-editorial-border bg-white px-3 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 text-center"
+                  >
+                    Keep Role ({currentMember.roleName})
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => handleClaim(true)}
+                    className="flex-1 bg-editorial-black px-3 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red disabled:opacity-50 text-center"
+                  >
+                    {isProcessing ? "Updating..." : `Switch to ${invitation?.roleName}`}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : session?.user ? (
+          /* State B: Authenticated User NOT a Member Yet */
           <div className="mt-6 space-y-4">
             <div className="border border-emerald-300 bg-emerald-50/60 p-4 text-xs">
               <p className="font-bold text-emerald-950">Signed in as {session.user.email}</p>
-              {!isMatchedUser && (
+              {!isGenericInvite && session.user.email?.toLowerCase() !== invitation?.email?.toLowerCase() && (
                 <p className="mt-1 text-amber-800 text-[11px]">
-                  Note: You are signed in with a different email than the invited address ({invitation?.email}). Accepting will connect this Google account to {invitation?.organizationName}.
+                  Note: You are signed in as {session.user.email}. Accepting will connect this account to {invitation?.organizationName}.
                 </p>
               )}
             </div>
 
             <button
-              onClick={handleClaim}
+              onClick={() => handleClaim(false)}
               disabled={isProcessing}
               className="w-full bg-editorial-black px-4 py-3.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red disabled:opacity-50 flex items-center justify-center gap-2"
             >

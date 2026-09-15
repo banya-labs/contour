@@ -122,7 +122,18 @@ export async function POST(
         return NextResponse.json({ error: "filename is required" }, { status: 400 });
       }
 
-      const safeCategory = (category as StorageCategory) || "NRC_PASSPORT_ID";
+      const VALID_CATEGORIES = [
+        "ORGANIZATION_LOGO",
+        "PROPERTY_PHOTO",
+        "SITE_SURVEY_DIAGRAM",
+        "TITLE_DEED",
+        "NRC_PASSPORT_ID",
+        "MANDATE_AGREEMENT",
+        "LEASE_CONTRACT",
+      ];
+      const safeCategory: StorageCategory = VALID_CATEGORIES.includes(category)
+        ? (category as StorageCategory)
+        : "NRC_PASSPORT_ID";
       const { uploadUrl, objectKey, publicCdnUrl } = await s3Storage.getPresignedUploadUrl(
         docRequest.organizationId,
         safeCategory,

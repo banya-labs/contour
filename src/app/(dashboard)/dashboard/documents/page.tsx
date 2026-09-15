@@ -23,6 +23,7 @@ import { UploadDocumentModal } from "@/components/vault/upload-document-modal";
 import { RequestDocumentModal } from "@/components/vault/request-document-modal";
 import { VaultAccessModal } from "@/components/vault/vault-access-modal";
 import { FolderCollaboratorsModal } from "@/components/vault/folder-collaborators-modal";
+import { DocumentDetailsModal } from "@/components/vault/document-details-modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function DocumentVaultPage() {
@@ -50,6 +51,9 @@ export default function DocumentVaultPage() {
   // Collaborator Modal
   const [isCollabsOpen, setIsCollabsOpen] = useState(false);
   const [selectedPropertyForCollabs, setSelectedPropertyForCollabs] = useState<PropertyItem | null>(null);
+
+  // Document Details & Preview Modal
+  const [selectedDocForDetails, setSelectedDocForDetails] = useState<VaultDoc | null>(null);
 
   const loadVaultData = async () => {
     setLoading(true);
@@ -377,12 +381,20 @@ export default function DocumentVaultPage() {
             selectedCategory={category}
             onOpenUpload={handleOpenUploadForProperty}
             onOpenCollaborators={handleOpenCollaborators}
+            onSelectDocument={setSelectedDocForDetails}
             onRefresh={loadVaultData}
           />
         )}
       </div>
 
       {/* Modals */}
+      <DocumentDetailsModal
+        isOpen={!!selectedDocForDetails}
+        doc={selectedDocForDetails}
+        onClose={() => setSelectedDocForDetails(null)}
+        onRefresh={loadVaultData}
+      />
+
       <UploadDocumentModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}

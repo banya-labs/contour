@@ -7,7 +7,12 @@ import { CONTOUR_ROLE_KEYS, ROLE_DESCRIPTIONS, ROLE_PRESETS } from "@/lib/author
 const memberUpdateSchema = z.object({
   memberId: z.string().min(1),
   roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).optional(),
+  status: z.enum(["active", "suspended"]).optional(),
   permissions: z.array(z.string()).optional(),
+});
+
+const memberDeleteSchema = z.object({
+  memberId: z.string().min(1),
 });
 
 export const GET = createApiHandler({
@@ -15,7 +20,7 @@ export const GET = createApiHandler({
   requirePermissions: ["org.members.read"],
   handler: async (_req, { organizationId }) => {
     const members = await db.member.findMany({
-      where: { organizationId: organizationId!, status: "active" },
+      where: { organizationId: organizationId! },
       include: {
         user: { select: { id: true, name: true, email: true, image: true, createdAt: true } },
         roleAssignments: { include: { role: { include: { permissions: true } } } },
@@ -36,9 +41,39 @@ export const PATCH = createApiHandler({
   requirePermissions: ["org.members.update_role"],
   bodySchema: memberUpdateSchema,
   handler: async (_req, { body, organizationId, userId }) => {
-    const member = await db.member.findFirst({ where: { id: body.memberId, organizationId: organizationId!, status: "active" } });
-    if (!member) return NextResponse.json({ success: false, error: "Active workspace member not found" }, { status: 404 });
-    if (member.role === "owner") return NextResponse.json({ success: false, error: "The workspace owner cannot be reassigned" }, { status: 400 });
+    const member = await db.member.findFirst({ where: { id: body.memberId, organizationId: organizationId! } });
+    if (!member) return NextResponse.json({ success: false, error: "Workspace member not found" }, { status: 404 });
+
+    // Self-action guards
+    if (member.userId === userId) {
+      if (body.status === "suspended") {
+        return NextResponse.json({ success: false, error: "You cannot suspend your own account" }, { status: 400 });
+      }
+      if (body.roleKey) {
+        return NextResponse.json({ success: false, error: "Administrators cannot reassign their own role" }, { status: 400 });
+      }
+    }
+
+    // Owner protection guards
+    if (member.role === "owner") {
+      if (body.status === "suspended") {
+        return NextResponse.json({ success: false, error: "The workspace owner cannot be suspended" }, { status: 400 });
+      }
+      if (body.roleKey) {
+        return NextResponse.json({ success: false, error: "The workspace owner cannot be reassigned" }, { status: 400 });
+      }
+    }
+
+    if (body.status) {
+      await db.member.update({
+        where: { id: member.id },
+        data: {
+          status: body.status,
+          deactivatedAt: body.status === "suspended" ? new Date() : null,
+          deactivatedById: body.status === "suspended" ? userId : null,
+        },
+      });
+    }
 
     const roleKey = body.roleKey;
     if (roleKey) {
@@ -61,5 +96,41 @@ export const PATCH = createApiHandler({
     }
 
     return NextResponse.json({ success: true });
+  },
+});
+
+export const DELETE = createApiHandler({
+  requireAuth: true,
+  requirePermissions: ["org.members.update_role"],
+  bodySchema: memberDeleteSchema,
+  handler: async (_req, { body, organizationId, userId }) => {
+    const member = await db.member.findFirst({
+      where: { id: body.memberId, organizationId: organizationId! },
+    });
+
+    if (!member) {
+      return NextResponse.json({ success: false, error: "Workspace member not found" }, { status: 404 });
+    }
+
+    if (member.userId === userId) {
+      return NextResponse.json({ success: false, error: "You cannot remove yourself from the workspace" }, { status: 400 });
+    }
+
+    if (member.role === "owner") {
+      return NextResponse.json({ success: false, error: "The workspace owner cannot be removed" }, { status: 400 });
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });
+      await tx.memberPermissionOverride.deleteMany({ where: { memberId: member.id } });
+      await tx.member.delete({ where: { id: member.id } });
+
+      await tx.session.updateMany({
+        where: { userId: member.userId, activeOrganizationId: organizationId },
+        data: { activeOrganizationId: null, organizationId: null },
+      });
+    });
+
+    return NextResponse.json({ success: true, message: "Member removed from workspace" });
   },
 });

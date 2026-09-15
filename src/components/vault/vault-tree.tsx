@@ -38,6 +38,7 @@ export interface VaultDoc {
   fileSize: number;
   mimeType: string;
   fileType: string;
+  description?: string | null;
   propertyId?: string | null;
   registryFolio?: string | null;
   standPlotNumber?: string | null;
@@ -45,12 +46,17 @@ export interface VaultDoc {
   uploadedBy: string;
   uploadedByType: string;
   isVerified: boolean;
+  verifiedAt?: string | null;
+  verifiedById?: string | null;
+  sha256Checksum?: string | null;
   createdAt: string;
+  updatedAt?: string;
   property?: {
     id: string;
     title: string;
     suburb: string;
     status: string;
+    titleDeedNumber?: string | null;
   } | null;
   documentRequest?: {
     id: string;
@@ -85,6 +91,7 @@ interface VaultTreeProps {
   selectedCategory: string;
   onOpenUpload: (propertyId?: string) => void;
   onOpenCollaborators?: (property: PropertyItem) => void;
+  onSelectDocument?: (doc: VaultDoc) => void;
   onRefresh: () => void;
 }
 
@@ -96,6 +103,7 @@ export function VaultTree({
   selectedCategory,
   onOpenUpload,
   onOpenCollaborators,
+  onSelectDocument,
   onRefresh,
 }: VaultTreeProps) {
   const [downloadingId, setDownloadingId] = React.useState<string | null>(null);
@@ -274,6 +282,7 @@ export function VaultTree({
                     vaultStatus={doc.isVerified ? "verified" : "unverified"}
                     classification={doc.classification}
                     size={formatFileSize(doc.fileSize)}
+                    onClick={() => onSelectDocument?.(doc)}
                     actions={
                       <div className="flex items-center gap-1">
                         <button
@@ -529,6 +538,7 @@ export function VaultTree({
         vaultStatus={doc.isVerified ? "verified" : "unverified"}
         classification={doc.classification}
         size={formatFileSize(doc.fileSize)}
+        onClick={() => onSelectDocument?.(doc)}
         actions={
           <div className="flex items-center gap-1">
             {/* Download button - ALWAYS enabled even if archived! */}

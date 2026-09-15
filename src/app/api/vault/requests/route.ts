@@ -21,7 +21,8 @@ const createDocRequestSchema = z.object({
     "PAYMENT_RECEIPT",
     "CLIENT_CORRESPONDENCE",
     "OTHER",
-  ])).min(1).default(["NRC_PASSPORT_ID"]),
+  ])).optional().default([]),
+  customDocuments: z.string().optional().nullable(),
   maxFiles: z.number().int().min(1).max(10).default(5),
   expiryHours: z.number().int().min(1).max(720).default(72), // default 3 days
   pin: z.string().regex(/^\d{4,8}$/, "PIN must be 4-8 digits").optional().nullable(),
@@ -74,6 +75,19 @@ export const POST = createApiHandler({
     const expiryHours = data.expiryHours ?? 72;
     const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
 
+    const effectiveTypes = data.requiredTypes && data.requiredTypes.length > 0
+      ? data.requiredTypes
+      : ["OTHER" as const];
+
+    // Combine custom documents with message if provided
+    let combinedMessage = data.message || null;
+    if (data.customDocuments?.trim()) {
+      const customPrefix = `📄 Requested Document(s):\n• ${data.customDocuments.trim()}`;
+      combinedMessage = combinedMessage
+        ? `${combinedMessage}\n\n${customPrefix}`
+        : customPrefix;
+    }
+
     const docRequest = await db.documentRequest.create({
       data: {
         organizationId: orgId,
@@ -81,8 +95,8 @@ export const POST = createApiHandler({
         inquiryId: data.inquiryId || null,
         requestedById: userId!,
         title: data.title,
-        message: data.message || null,
-        requiredTypes: data.requiredTypes,
+        message: combinedMessage,
+        requiredTypes: effectiveTypes,
         maxFiles: data.maxFiles,
         token,
         pinHash,
@@ -103,8 +117,11 @@ export const POST = createApiHandler({
     const clientGreeting = docRequest.inquiry?.clientName ? `Dear ${docRequest.inquiry.clientName}` : "Hello";
     const propertyNotice = docRequest.property?.title ? ` regarding "${docRequest.property.title}"` : "";
     const pinNotice = data.pin ? `\n🔒 Your Access PIN: *${data.pin}*` : "";
+    const customDocsNotice = data.customDocuments?.trim()
+      ? `\n📄 Requested Documents: *${data.customDocuments.trim()}*`
+      : "";
 
-    const whatsappText = `${clientGreeting},\n\nPlease upload your verification documents${propertyNotice} using our secure portal:\n👉 ${shareableUrl}${pinNotice}\n\n*Note:* This link expires in ${data.expiryHours} hours and is protected under the Zambia Data Protection Act No. 3 of 2021. Thank you.`;
+    const whatsappText = `${clientGreeting},\n\nPlease upload your verification documents${propertyNotice}${customDocsNotice} using our secure portal:\n👉 ${shareableUrl}${pinNotice}\n\n*Note:* This link expires in ${data.expiryHours} hours and is protected under the Zambia Data Protection Act No. 3 of 2021. Thank you.`;
 
     // Audit log
     try {

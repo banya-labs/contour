@@ -8,6 +8,7 @@ import { hashAccessToken } from "@/lib/access-request";
 const claimSchema = z.object({
   invitationId: z.string().optional(),
   token: z.string().optional(),
+  confirmRoleChange: z.boolean().optional(),
 });
 
 // GET: Inspect an invitation by ID and/or token (public for the accept page)
@@ -52,6 +53,43 @@ export async function GET(req: NextRequest) {
   const roleKey = (invitation.roleKey || "FIELD_AGENT") as ContourRoleKey;
   const roleInfo = ROLE_DESCRIPTIONS[roleKey] || ROLE_DESCRIPTIONS.FIELD_AGENT;
 
+  // Check if caller is already logged in and already a member of this organization
+  let isAlreadyMember = false;
+  let currentMember = null;
+  const session = await auth.api.getSession({ headers: req.headers });
+
+  if (session?.user?.id) {
+    const existingMember = await db.member.findFirst({
+      where: {
+        organizationId: invitation.organizationId,
+        userId: session.user.id,
+      },
+      include: {
+        roleAssignments: { include: { role: true } },
+      },
+    });
+
+    if (existingMember) {
+      isAlreadyMember = true;
+      const assignedRole = existingMember.roleAssignments[0]?.role.key;
+      const currentRoleKey: ContourRoleKey = (assignedRole && assignedRole in ROLE_DESCRIPTIONS)
+        ? (assignedRole as ContourRoleKey)
+        : existingMember.role === "owner" ? "OWNER" : "FIELD_AGENT";
+      const currentRoleInfo = ROLE_DESCRIPTIONS[currentRoleKey] || ROLE_DESCRIPTIONS.FIELD_AGENT;
+      const isAdminOrOwner = existingMember.role === "owner" || ["OWNER", "SUPER_ADMIN", "BROKER_MANAGER"].includes(currentRoleKey);
+
+      currentMember = {
+        email: session.user.email,
+        name: session.user.name,
+        roleKey: currentRoleKey,
+        roleName: currentRoleInfo.displayName,
+        isAdminOrOwner,
+        status: existingMember.status,
+        destination: roleHasPermission(currentRoleKey, "dashboard.read") ? "/dashboard" : "/agent",
+      };
+    }
+  }
+
   return NextResponse.json({
     success: true,
     invitation: {
@@ -66,6 +104,8 @@ export async function GET(req: NextRequest) {
       inviterName: invitation.inviter?.name || "An agency administrator",
       expiresAt: invitation.expiresAt,
     },
+    isAlreadyMember,
+    currentMember,
   });
 }
 
@@ -81,7 +121,6 @@ export async function POST(req: NextRequest) {
   const userEmail = session.user.email.toLowerCase().trim();
 
   // 1. Locate the invitation to claim:
-  // Either specific invitationId or search for pending invitation matching user's email
   let invitation;
   if (parsed.success && parsed.data.invitationId) {
     invitation = await db.invitation.findUnique({
@@ -106,7 +145,6 @@ export async function POST(req: NextRequest) {
 
   // 2. If no valid pending invitation found:
   if (!invitation || invitation.status !== "pending" || invitation.expiresAt < new Date()) {
-    // Check if user already has an active membership in any organization
     const activeMember = await db.member.findFirst({
       where: { userId: session.user.id, status: "active" },
       include: {
@@ -124,7 +162,6 @@ export async function POST(req: NextRequest) {
       const canAccessDashboard = roleHasPermission(roleKey, "dashboard.read");
       const destination = canAccessDashboard ? "/dashboard" : "/agent";
 
-      // Ensure session has activeOrganizationId set
       await db.session.updateMany({
         where: { userId: session.user.id },
         data: { activeOrganizationId: activeMember.organizationId, organizationId: activeMember.organizationId },
@@ -147,6 +184,48 @@ export async function POST(req: NextRequest) {
       hasMembership: false,
       message: "No pending invitations found for this account.",
     });
+  }
+
+  // Check if caller is already a member of this specific organization
+  const existingMember = await db.member.findFirst({
+    where: {
+      organizationId: invitation.organizationId,
+      userId: session.user.id,
+    },
+    include: {
+      roleAssignments: { include: { role: true } },
+    },
+  });
+
+  if (existingMember) {
+    const assignedRole = existingMember.roleAssignments[0]?.role.key;
+    const currentRoleKey: ContourRoleKey = (assignedRole && assignedRole in ROLE_DESCRIPTIONS)
+      ? (assignedRole as ContourRoleKey)
+      : existingMember.role === "owner" ? "OWNER" : "FIELD_AGENT";
+    const isAdminOrOwner = existingMember.role === "owner" || ["OWNER", "SUPER_ADMIN", "BROKER_MANAGER"].includes(currentRoleKey);
+    const targetRoleKey = (invitation.roleKey || "FIELD_AGENT") as ContourRoleKey;
+
+    // Rule: Admins cannot demote themselves to field agent
+    if (isAdminOrOwner && targetRoleKey === "FIELD_AGENT") {
+      return NextResponse.json({
+        success: false,
+        error: "Administrators cannot change their role to field agent via an invite link.",
+      }, { status: 400 });
+    }
+
+    // If caller hasn't explicitly confirmed changing role, leave their role untouched
+    if (!parsed.success || !parsed.data.confirmRoleChange) {
+      const destination = roleHasPermission(currentRoleKey, "dashboard.read") ? "/dashboard" : "/agent";
+      return NextResponse.json({
+        success: true,
+        claimed: false,
+        isAlreadyMember: true,
+        organizationId: invitation.organizationId,
+        organizationName: invitation.organization.name,
+        roleKey: currentRoleKey,
+        destination,
+      });
+    }
   }
 
   // 3. Atomically claim the invitation and link the member

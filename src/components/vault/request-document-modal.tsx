@@ -22,7 +22,8 @@ export function RequestDocumentModal({
     "Please upload clear photos or PDF scans of your verification documents. These will be securely stored in our legal vault under the Zambia Data Protection Act."
   );
   const [propertyId, setPropertyId] = React.useState("");
-  const [requiredTypes, setRequiredTypes] = React.useState<string[]>(["NRC_PASSPORT_ID", "PROOF_OF_RESIDENCE"]);
+  const [requiredTypes, setRequiredTypes] = React.useState<string[]>([]);
+  const [customDocuments, setCustomDocuments] = React.useState("");
   const [expiryHours, setExpiryHours] = React.useState(72);
   const [pin, setPin] = React.useState("");
   const [usePin, setUsePin] = React.useState(false);
@@ -45,8 +46,14 @@ export function RequestDocumentModal({
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setError(null);
+
+    if (requiredTypes.length === 0 && !customDocuments.trim()) {
+      setError("Please select at least one standard document or type a custom document to request.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const res = await fetch("/api/vault/requests", {
@@ -57,6 +64,7 @@ export function RequestDocumentModal({
           message,
           propertyId: propertyId || null,
           requiredTypes,
+          customDocuments: customDocuments.trim() || null,
           expiryHours,
           pin: usePin && pin ? pin.trim() : null,
         }),
@@ -90,6 +98,8 @@ export function RequestDocumentModal({
   const handleClose = () => {
     setResult(null);
     setError(null);
+    setRequiredTypes([]);
+    setCustomDocuments("");
     onClose();
   };
 
@@ -223,11 +233,22 @@ export function RequestDocumentModal({
               </select>
             </div>
 
-            {/* Required Document Categories */}
+            {/* Standard Document Categories (Optional) */}
             <div>
-              <label className="block text-[11px] font-mono uppercase tracking-wider text-editorial-muted mb-1.5">
-                Required Document Types (Multi-select)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-editorial-muted">
+                  Standard Documents (Optional — Click to Select)
+                </label>
+                {requiredTypes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRequiredTypes([])}
+                    className="text-[10px] font-mono text-contour-red hover:underline"
+                  >
+                    Clear selection
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                 {[
                   { id: "NRC_PASSPORT_ID", label: "🪪 NRC / Passport ID" },
@@ -255,6 +276,23 @@ export function RequestDocumentModal({
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Custom Documents to Request (Optional) */}
+            <div>
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-editorial-muted mb-1">
+                Custom Document(s) to Request (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. ZRA Tax Clearance, Council Rates Receipt, Power of Attorney..."
+                value={customDocuments}
+                onChange={(e) => setCustomDocuments(e.target.value)}
+                className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-3 py-2 text-editorial-black focus:border-contour-red outline-none"
+              />
+              <p className="text-[10px] text-editorial-muted mt-1">
+                Type any specific or custom documents you want the client to provide.
+              </p>
             </div>
 
             {/* Instructions */}

@@ -27,6 +27,9 @@ import {
   Upload,
   CreditCard,
   ArrowRight,
+  AlertTriangle,
+  Ban,
+  RefreshCw,
 } from "lucide-react";
 import {
   getAgencySettings,
@@ -48,6 +51,7 @@ const COLOR_SWATCHES = [
 type WorkspaceMember = {
   id: string;
   role: string;
+  status: string;
   user: { id: string; name: string; email: string; image?: string | null };
   roleAssignments: Array<{ role: { key: string; displayName: string } }>;
 };
@@ -60,6 +64,8 @@ type WorkspaceInvitation = {
   roleKey: string;
   status: string;
   expiresAt: string;
+  label?: string | null;
+  inviteUrl?: string;
   inviter?: { id: string; name: string; email: string };
 };
 
@@ -95,10 +101,12 @@ function SettingsContent() {
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRoleKey, setInviteRoleKey] = useState("FIELD_AGENT");
+  const [inviteNote, setInviteNote] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<WorkspaceMember | null>(null);
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [billingSummary, setBillingSummary] = useState<{
     subscription: { planName: string; status: string; trialEndsAt: string; nextPaymentAt: string | null; nextPayment: { formatted: string } | null; lastPayment: { amount: number; currency: string; completedAt: string | null; createdAt: string } | null };
@@ -204,9 +212,8 @@ function SettingsContent() {
     }
   };
 
-  const handleSendInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
+  const handleGenerateInviteLink = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setIsInviting(true);
     setSettingsMessage(null);
 
@@ -214,13 +221,16 @@ function SettingsContent() {
       const res = await fetch("/api/organization/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim(), roleKey: inviteRoleKey }),
+        body: JSON.stringify({
+          roleKey: inviteRoleKey,
+          note: inviteNote.trim() || undefined,
+        }),
       });
       const data = await res.json();
       setIsInviting(false);
 
       if (!res.ok || !data.success) {
-        setSettingsMessage(data.error || "Unable to send invitation.");
+        setSettingsMessage(data.error || "Unable to generate invitation link.");
         return;
       }
 
@@ -228,15 +238,65 @@ function SettingsContent() {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
         await navigator.clipboard.writeText(data.inviteUrl);
       }
-      setSettingsMessage(`Invitation created for ${inviteEmail}. Link copied to clipboard!`);
-      setInviteEmail("");
+      setSettingsMessage(`Active invite link generated for ${inviteRoleKey.replaceAll("_", " ")} and copied to clipboard!`);
+      setInviteNote("");
 
       // Refresh invitations
       const refreshed = await fetch("/api/organization/invitations").then((r) => r.json());
       if (refreshed.success) setInvitations(refreshed.invitations || []);
     } catch {
       setIsInviting(false);
-      setSettingsMessage("Network error creating invitation.");
+      setSettingsMessage("Network error creating invitation link.");
+    }
+  };
+
+  const handleToggleSuspend = async (member: WorkspaceMember) => {
+    const newStatus = member.status === "suspended" ? "active" : "suspended";
+    setSettingsMessage(null);
+    try {
+      const res = await fetch("/api/organization/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: member.id, status: newStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setSettingsMessage(data.error || "Failed to update member status.");
+        return;
+      }
+      setSettingsMessage(`Member ${member.user.name} ${newStatus === "suspended" ? "suspended" : "reactivated"}.`);
+      const refreshed = await fetch("/api/organization/members").then((r) => r.json());
+      if (refreshed.success) setMembers(refreshed.members || []);
+    } catch {
+      setSettingsMessage("Network error updating member status.");
+    }
+  };
+
+  const handleDeleteMember = async (memberId: string) => {
+    setIsDeletingMember(true);
+    setSettingsMessage(null);
+    try {
+      const res = await fetch("/api/organization/members", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId }),
+      });
+      const data = await res.json();
+      setIsDeletingMember(false);
+      setMemberToDelete(null);
+
+      if (!res.ok || !data.success) {
+        setSettingsMessage(data.error || "Failed to remove member.");
+        return;
+      }
+
+      setSettingsMessage("Member successfully removed from workspace.");
+      const refreshed = await fetch("/api/organization/members").then((r) => r.json());
+      if (refreshed.success) setMembers(refreshed.members || []);
+    } catch {
+      setIsDeletingMember(false);
+      setMemberToDelete(null);
+      setSettingsMessage("Network error removing member.");
     }
   };
 
@@ -600,34 +660,20 @@ function SettingsContent() {
 
             {settingsMessage && <p className="mb-4 border border-editorial-border bg-neutral-50 px-3 py-2 text-xs text-editorial-black">{settingsMessage}</p>}
 
-            {/* DIRECT TEAM INVITATION WITH GOOGLE OAUTH */}
+            {/* DIRECT TEAM INVITATION WITH GOOGLE OAUTH & LINK GENERATION */}
             <div className="mb-6 border border-editorial-border bg-white p-5 space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-editorial-border">
                 <UserPlus className="w-4 h-4 text-contour-red" />
                 <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
-                  Invite Agent or Team Member
+                  Generate Team Invite Link
                 </h4>
               </div>
               <p className="text-xs text-editorial-muted">
-                Invited members receive an official link with 1-click Google sign-in. When they sign in, they join <strong>{settings.agencyName || "this agency"}</strong> automatically without creating a new workspace. Field agents are directed straight to the field app.
+                Generate an official signup link with pre-assigned role permissions. Anyone with this link can sign in with Google or email to join <strong>{settings.agencyName || "this agency"}</strong> without creating a separate workspace. Field agents are directed straight to the field agent PWA.
               </p>
 
-              <form onSubmit={handleSendInvite} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
-                <label className="flex-1 space-y-1">
-                  <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
-                    Agent Email (e.g. b@gmail.com)
-                  </span>
-                  <input
-                    required
-                    type="email"
-                    placeholder="agent@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black"
-                  />
-                </label>
-
-                <label className="sm:w-52 space-y-1">
+              <form onSubmit={handleGenerateInviteLink} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+                <label className="sm:w-64 space-y-1">
                   <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
                     Assigned Role
                   </span>
@@ -644,60 +690,85 @@ function SettingsContent() {
                   </select>
                 </label>
 
+                <label className="flex-1 space-y-1">
+                  <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                    Invite Label or Note (Optional)
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Lusaka East Field Agents"
+                    value={inviteNote}
+                    onChange={(e) => setInviteNote(e.target.value)}
+                    className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black"
+                  />
+                </label>
+
                 <button
                   type="submit"
-                  disabled={isInviting || !inviteEmail.trim()}
-                  className="bg-editorial-black hover:bg-contour-red px-4 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center gap-2"
+                  disabled={isInviting}
+                  className="bg-editorial-black hover:bg-contour-red px-5 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center gap-2"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>{isInviting ? "Creating..." : "Invite Member"}</span>
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  <span>{isInviting ? "Generating..." : "Generate Invite Link"}</span>
                 </button>
               </form>
 
               {generatedInviteLink && (
-                <div className="mt-3 border border-emerald-300 bg-emerald-50/70 p-3 space-y-2">
+                <div className="mt-3 border border-emerald-300 bg-emerald-50/70 p-4 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-emerald-950">Active Invite Link Generated</span>
+                    <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Active Invite Link Ready
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleCopy(generatedInviteLink, "invite_link")}
-                      className="text-[10px] font-bold uppercase tracking-wider text-contour-red hover:underline"
+                      className="text-[10px] font-bold uppercase tracking-wider text-contour-red hover:underline flex items-center gap-1"
                     >
-                      {copiedText === "invite_link" ? "Copied!" : "Copy Link"}
+                      {copiedText === "invite_link" ? "Copied to Clipboard!" : "Copy Link"}
                     </button>
                   </div>
-                  <p className="font-mono text-[11px] text-editorial-black break-all bg-white border border-emerald-200 p-2">
+                  <p className="font-mono text-[11px] text-editorial-black break-all bg-white border border-emerald-200 p-2.5">
                     {generatedInviteLink}
                   </p>
                   <p className="text-[10px] text-editorial-muted">
-                    Send this link to the agent, or have them log in with Google using their invited email address.
+                    Share this link with your team member. When opened, they can sign in with Google or email and will automatically join this agency workspace with their pre-assigned role.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* PENDING INVITATIONS LIST */}
+            {/* ACTIVE INVITE LINKS */}
             {invitations.length > 0 && (
               <div className="mb-6 border border-editorial-border bg-white p-5 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-editorial-border">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
-                    Pending Team Invitations ({invitations.length})
+                    Active Invite Links ({invitations.length})
                   </h4>
-                  <span className="text-[10px] text-editorial-muted font-mono">Auto-claims upon Google login</span>
+                  <span className="text-[10px] text-editorial-muted font-mono">1-click copy to share</span>
                 </div>
 
                 <div className="divide-y divide-editorial-border border border-editorial-border">
                   {invitations.map((inv) => {
-                    const fullInviteUrl = typeof window !== "undefined"
+                    const fullInviteUrl = inv.inviteUrl || (typeof window !== "undefined"
                       ? `${window.location.origin}/accept-invitation/${inv.id}`
-                      : `/accept-invitation/${inv.id}`;
+                      : `/accept-invitation/${inv.id}`);
 
                     return (
                       <div key={inv.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                        <div className="space-y-0.5">
-                          <p className="font-semibold text-editorial-black">{inv.email}</p>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[10px] bg-neutral-100 border border-editorial-border px-2 py-0.5 text-editorial-black uppercase">
+                              {inv.roleKey.replaceAll("_", " ")}
+                            </span>
+                            {inv.label && (
+                              <span className="text-xs text-editorial-black font-semibold">
+                                {inv.label}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[11px] text-editorial-muted">
-                            Invited as <span className="font-mono font-bold text-editorial-black">{inv.roleKey.replaceAll("_", " ")}</span> · Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                            Expires {new Date(inv.expiresAt).toLocaleDateString()}
                           </p>
                         </div>
 
@@ -705,7 +776,7 @@ function SettingsContent() {
                           <button
                             type="button"
                             onClick={() => handleCopy(fullInviteUrl, `inv_${inv.id}`)}
-                            className="border border-editorial-border px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 flex items-center gap-1"
+                            className="border border-editorial-border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 flex items-center gap-1.5"
                           >
                             <LinkIcon className="w-3 h-3" />
                             <span>{copiedText === `inv_${inv.id}` ? "Copied!" : "Copy Link"}</span>
@@ -715,7 +786,7 @@ function SettingsContent() {
                             type="button"
                             onClick={() => void handleRevokeInvite(inv.id)}
                             className="border border-red-200 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 flex items-center gap-1"
-                            title="Revoke invitation"
+                            title="Revoke invitation link"
                           >
                             <Trash2 className="w-3 h-3" />
                             <span>Revoke</span>
@@ -736,21 +807,164 @@ function SettingsContent() {
             </div>
             {accessRequests.length > 0 && <div className="mb-6 border border-amber-200 bg-amber-50 p-4"><p className="mb-3 text-[10px] font-heading font-bold uppercase tracking-wider text-amber-900">Pending access requests</p>{accessRequests.map((request) => <div key={request.id} className="mb-2 flex flex-col gap-3 border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-editorial-black">{request.firstName} {request.lastName}</p><p className="text-xs text-editorial-muted">{request.email} · requested {request.roleKey.replaceAll("_", " ").toLowerCase()}</p></div><div className="flex gap-2"><button type="button" onClick={() => void handleReviewRequest(request.id, "DECLINE")} className="border border-editorial-border px-3 py-2 text-[10px] font-bold uppercase">Decline</button><button type="button" onClick={() => void handleReviewRequest(request.id, "APPROVE")} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase text-white">Approve</button></div></div>)}</div>}
 
-            <div className="mb-6 divide-y divide-editorial-border border border-editorial-border">
-              {members.map((member) => (
-                <div key={member.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-editorial-black">{member.user.name}</p>
-                    <p className="text-xs text-editorial-muted">{member.user.email}</p>
-                  </div>
-                  <select value={member.roleAssignments[0]?.role.key || (member.role === "owner" ? "OWNER" : "FIELD_AGENT")} disabled={member.role === "owner"} onChange={(event) => void handleRoleChange(member.id, event.target.value)} className="border border-editorial-border bg-white px-3 py-2 text-xs text-editorial-black disabled:bg-neutral-100">
-                    {member.role === "owner" && <option value="OWNER">Owner</option>}
-                    {roles.filter((role) => role.key !== "OWNER").map((role) => <option key={role.key} value={role.key}>{role.displayName}</option>)}
-                  </select>
+            {/* ACCEPTED WORKSPACE MEMBERS & MANAGEMENT */}
+            <div className="mb-6 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-editorial-border">
+                <div>
+                  <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
+                    Accepted Workspace Members ({members.length})
+                  </h4>
+                  <p className="text-[11px] text-editorial-muted">
+                    Manage roles, suspend access, or remove members from this agency workspace. Self-deletion and self-suspension are protected.
+                  </p>
                 </div>
-              ))}
-              {members.length === 0 && <p className="p-4 text-xs text-editorial-muted">No active members found yet.</p>}
+              </div>
+
+              <div className="divide-y divide-editorial-border border border-editorial-border bg-white">
+                {members.map((member) => {
+                  const isSelf = member.user.id === session?.user?.id;
+                  const isOwner = member.role === "owner";
+                  const currentRoleKey = member.roleAssignments[0]?.role.key || (isOwner ? "OWNER" : "FIELD_AGENT");
+                  const isSuspended = member.status === "suspended";
+
+                  return (
+                    <div key={member.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-4 gap-4">
+                      {/* Member Info */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-editorial-black text-white flex items-center justify-center text-xs font-heading font-bold shrink-0">
+                          {member.user.name?.slice(0, 2).toUpperCase() || "AG"}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-editorial-black truncate">
+                              {member.user.name}
+                            </p>
+                            {isSelf && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-neutral-200 text-editorial-black border border-neutral-300">
+                                You
+                              </span>
+                            )}
+                            {isOwner && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
+                                Workspace Owner
+                              </span>
+                            )}
+                            <span
+                              className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 border ${
+                                isSuspended
+                                  ? "bg-red-50 text-red-700 border-red-200"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              }`}
+                            >
+                              {isSuspended ? "Suspended" : "Active"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-editorial-muted truncate font-mono">
+                            {member.user.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Member Actions */}
+                      <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                        {/* Role Selector */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono uppercase text-editorial-muted hidden sm:inline">Role:</span>
+                          <select
+                            value={currentRoleKey}
+                            disabled={isOwner || isSelf}
+                            onChange={(event) => void handleRoleChange(member.id, event.target.value)}
+                            className="border border-editorial-border bg-white px-2.5 py-1.5 text-xs text-editorial-black disabled:bg-neutral-100 disabled:text-editorial-muted"
+                            title={isSelf ? "You cannot reassign your own role" : isOwner ? "Workspace owner role cannot be changed" : "Change member role"}
+                          >
+                            {isOwner && <option value="OWNER">Owner</option>}
+                            {roles
+                              .filter((role) => role.key !== "OWNER")
+                              .map((role) => (
+                                <option key={role.key} value={role.key}>
+                                  {role.displayName}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        {/* Suspend / Reactivate Button */}
+                        <button
+                          type="button"
+                          disabled={isSelf || isOwner}
+                          onClick={() => void handleToggleSuspend(member)}
+                          className={`px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                            isSuspended
+                              ? "border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                              : "border-amber-300 text-amber-800 hover:bg-amber-50"
+                          } disabled:opacity-40 disabled:pointer-events-none`}
+                          title={isSelf ? "You cannot suspend your own account" : isOwner ? "Owner cannot be suspended" : isSuspended ? "Reactivate member access" : "Suspend member access"}
+                        >
+                          {isSuspended ? "Reactivate" : "Suspend"}
+                        </button>
+
+                        {/* Delete / Remove Member Button */}
+                        {!isSelf && !isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => setMemberToDelete(member)}
+                            className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1 transition-colors"
+                            title="Remove member from workspace"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Remove</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {members.length === 0 && (
+                  <p className="p-4 text-xs text-editorial-muted">No active members found yet.</p>
+                )}
+              </div>
             </div>
+
+            {/* DELETE MEMBER CONFIRMATION MODAL */}
+            {memberToDelete && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="w-full max-w-md bg-white border border-editorial-border p-6 space-y-4 shadow-2xl">
+                  <div className="flex items-center gap-2 pb-2 border-b border-editorial-border text-red-600">
+                    <AlertTriangle className="w-5 h-5" />
+                    <h4 className="font-heading font-bold text-sm uppercase tracking-wider">
+                      Remove Workspace Member
+                    </h4>
+                  </div>
+                  <p className="text-xs text-editorial-black leading-relaxed">
+                    Are you sure you want to remove <strong>{memberToDelete.user.name}</strong> (
+                    <span className="font-mono">{memberToDelete.user.email}</span>) from{" "}
+                    <strong>{settings.agencyName || "this agency"}</strong>?
+                  </p>
+                  <p className="text-[11px] text-editorial-muted">
+                    They will immediately lose access to all agency properties, leads, pipeline, and vault records.
+                  </p>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-editorial-border">
+                    <button
+                      type="button"
+                      disabled={isDeletingMember}
+                      onClick={() => setMemberToDelete(null)}
+                      className="px-4 py-2 border border-editorial-border text-xs font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingMember}
+                      onClick={() => void handleDeleteMember(memberToDelete.id)}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-xs font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isDeletingMember ? "Removing..." : "Confirm Remove"}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="border border-editorial-border bg-neutral-50 p-4">

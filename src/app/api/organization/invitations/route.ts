@@ -6,7 +6,7 @@ import { CONTOUR_ROLE_KEYS } from "@/lib/authorization";
 import { createAccessToken, hashAccessToken } from "@/lib/access-request";
 
 const inviteSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  email: z.string().trim().toLowerCase().email().optional(),
   roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).default("FIELD_AGENT"),
   note: z.string().trim().max(200).optional(),
 });
@@ -18,7 +18,7 @@ const revokeSchema = z.object({
 export const GET = createApiHandler({
   requireAuth: true,
   requirePermissions: ["org.members.read"],
-  handler: async (_req, { organizationId }) => {
+  handler: async (req, { organizationId }) => {
     const invitations = await db.invitation.findMany({
       where: {
         organizationId: organizationId!,
@@ -31,9 +31,36 @@ export const GET = createApiHandler({
       orderBy: { createdAt: "desc" },
     });
 
+    const origin = req.nextUrl.origin;
+    const enriched = invitations.map((inv) => {
+      let rawToken: string | null = null;
+      let label: string | null = null;
+      if (inv.note) {
+        try {
+          const parsed = JSON.parse(inv.note);
+          if (parsed && typeof parsed === "object") {
+            rawToken = parsed.token || null;
+            label = parsed.label || null;
+          }
+        } catch {
+          label = inv.note;
+        }
+      }
+
+      const inviteUrl = rawToken
+        ? `${origin}/accept-invitation/${inv.id}?token=${rawToken}`
+        : `${origin}/accept-invitation/${inv.id}`;
+
+      return {
+        ...inv,
+        label,
+        inviteUrl,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      invitations,
+      invitations: enriched,
     });
   },
 });
@@ -43,41 +70,51 @@ export const POST = createApiHandler({
   requirePermissions: ["org.members.invite"],
   bodySchema: inviteSchema,
   handler: async (req, { body, organizationId, userId }) => {
-    const normalizedEmail = body.email.toLowerCase().trim();
-
-    // Check if user is already an active member of this organization
-    const existingUser = await db.user.findUnique({
-      where: { email: normalizedEmail },
-      include: {
-        members: {
-          where: { organizationId: organizationId!, status: "active" },
-        },
-      },
-    });
-
-    if (existingUser && existingUser.members.length > 0) {
-      return NextResponse.json(
-        { success: false, error: "This user is already an active member of this workspace." },
-        { status: 400 }
-      );
-    }
-
-    // Revoke any previous pending invitations for this email in this org
-    await db.invitation.updateMany({
-      where: {
-        organizationId: organizationId!,
-        email: normalizedEmail,
-        status: "pending",
-      },
-      data: {
-        status: "revoked",
-        revokedAt: new Date(),
-      },
-    });
-
     const token = createAccessToken();
     const tokenHash = hashAccessToken(token);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    const normalizedEmail = body.email
+      ? body.email.toLowerCase().trim()
+      : `invite_${token.slice(0, 10)}@invite.contour.app`;
+
+    // If an explicit email was provided, check if user is already an active member of this organization
+    if (body.email) {
+      const existingUser = await db.user.findUnique({
+        where: { email: normalizedEmail },
+        include: {
+          members: {
+            where: { organizationId: organizationId!, status: "active" },
+          },
+        },
+      });
+
+      if (existingUser && existingUser.members.length > 0) {
+        return NextResponse.json(
+          { success: false, error: "This user is already an active member of this workspace." },
+          { status: 400 }
+        );
+      }
+
+      // Revoke any previous pending invitations for this email in this org
+      await db.invitation.updateMany({
+        where: {
+          organizationId: organizationId!,
+          email: normalizedEmail,
+          status: "pending",
+        },
+        data: {
+          status: "revoked",
+          revokedAt: new Date(),
+        },
+      });
+    }
+
+    const notePayload = JSON.stringify({
+      token,
+      label: body.note || null,
+      isDirectLink: !body.email,
+    });
 
     const invitation = await db.invitation.create({
       data: {
@@ -89,7 +126,7 @@ export const POST = createApiHandler({
         status: "pending",
         tokenHash,
         expiresAt,
-        note: body.note || null,
+        note: notePayload,
       },
       include: {
         organization: { select: { name: true, slug: true } },

@@ -68,7 +68,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         body: JSON.stringify({}),
       });
       const claimData = await claimRes.json().catch(() => null);
-      if (claimData?.success && (claimData.claimed || claimData.hasMembership)) {
+      if (claimData?.success && (claimData.claimed || claimData.hasMembership || claimData.isAlreadyMember)) {
         if (claimData.organizationId) {
           await authClient.organization.setActive({ organizationId: claimData.organizationId });
         }
@@ -102,7 +102,30 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       setError(result.error.message || "Quick sign-in failed.");
       return;
     }
-    const targetUrl = searchParams.get("redirect_url") || (quickEmail === "tembo@contour.app" ? "/agent" : "/dashboard");
+
+    let targetUrl = searchParams.get("redirect_url");
+    try {
+      const claimRes = await fetch("/api/organization/invitations/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const claimData = await claimRes.json().catch(() => null);
+      if (claimData?.success) {
+        if (claimData.organizationId) {
+          await authClient.organization.setActive({ organizationId: claimData.organizationId });
+        }
+        if (!targetUrl || targetUrl === "/dashboard") {
+          targetUrl = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : "/dashboard");
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    if (!targetUrl) {
+      targetUrl = quickEmail === "tembo@contour.app" || quickEmail.toLowerCase().includes("agent") ? "/agent" : "/dashboard";
+    }
     window.location.href = targetUrl;
   }
 

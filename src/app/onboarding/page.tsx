@@ -63,7 +63,7 @@ function OnboardingContent() {
 
         if (cancelled) return;
 
-        if (claimData?.success && (claimData.claimed || claimData.hasMembership) && claimData.organizationId) {
+        if (claimData?.success && (claimData.claimed || claimData.hasMembership || claimData.isAlreadyMember) && claimData.organizationId) {
           await authClient.organization.setActive({
             organizationId: claimData.organizationId,
           });
