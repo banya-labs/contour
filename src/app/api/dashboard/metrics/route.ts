@@ -2,65 +2,87 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 
+import { smartCache } from "@/lib/cache";
+
 const getHandler = createApiHandler({
   handler: async (req, ctx) => {
     const { organizationId } = ctx;
 
-    // Count properties
-    const totalProperties = await db.property.count({
-      where: { organizationId }
-    });
+    const cacheKey = `dashboard-kpi-summary`;
 
-    const forSaleCount = await db.property.count({
-      where: { organizationId, listingType: "FOR_SALE" }
-    });
+    const metrics = await smartCache.getOrSet(
+      organizationId!,
+      "dashboard-metrics",
+      cacheKey,
+      async () => {
+        // Parallelized concurrent queries: Eliminate 7 sequential roundtrips
+        const [
+          totalProperties,
+          forSaleCount,
+          forRentCount,
+          activeLeasesCount,
+          inArrearsLeases,
+          receivedTransactions,
+          expectedTransactions,
+        ] = await Promise.all([
+          db.property.count({ where: { organizationId } }),
+          db.property.count({ where: { organizationId, listingType: "FOR_SALE" } }),
+          db.property.count({ where: { organizationId, listingType: "FOR_RENT" } }),
+          db.lease.count({ where: { organizationId, status: "ACTIVE" } }),
+          db.lease.findMany({
+            where: { organizationId, status: "IN_ARREARS" },
+            select: { monthlyRent: true },
+          }),
+          db.transaction.findMany({
+            where: { organizationId, status: "RECEIVED" },
+            select: { agencyCommissionAmount: true, agentSplitAmount: true },
+          }),
+          db.transaction.findMany({
+            where: { organizationId, status: "EXPECTED" },
+            select: { agencyCommissionAmount: true, agentSplitAmount: true },
+          }),
+        ]);
 
-    const forRentCount = await db.property.count({
-      where: { organizationId, listingType: "FOR_RENT" }
-    });
+        const arrearsCount = inArrearsLeases.length;
+        const arrearsAmount = inArrearsLeases.reduce(
+          (acc: number, l: any) => acc + Number(l.monthlyRent),
+          0
+        );
+        const earnedCommission = receivedTransactions.reduce(
+          (acc: number, t: any) => acc + Number(t.agencyCommissionAmount),
+          0
+        );
+        const expectedCommission = expectedTransactions.reduce(
+          (acc: number, t: any) => acc + Number(t.agencyCommissionAmount),
+          0
+        );
 
-    // Count leases
-    const activeLeasesCount = await db.lease.count({
-      where: { organizationId, status: "ACTIVE" }
-    });
+        return {
+          totalProperties,
+          forSaleCount,
+          forRentCount,
+          activeLeasesCount,
+          arrearsCount,
+          arrearsAmount,
+          earnedCommission,
+          expectedCommission,
+        };
+      },
+      60 // 60s TTL for high-velocity dashboard updates
+    );
 
-    // Arrears
-    const inArrearsLeases = await db.lease.findMany({
-      where: { organizationId, status: "IN_ARREARS" },
-      select: { monthlyRent: true }
-    });
-
-    const arrearsCount = inArrearsLeases.length;
-    const arrearsAmount = inArrearsLeases.reduce((acc: number, l: any) => acc + Number(l.monthlyRent), 0);
-
-    // Sum commissions & closed volumes
-    const receivedTransactions = await db.transaction.findMany({
-      where: { organizationId, status: "RECEIVED" },
-      select: { agencyCommissionAmount: true, agentSplitAmount: true }
-    });
-
-    const expectedTransactions = await db.transaction.findMany({
-      where: { organizationId, status: "EXPECTED" },
-      select: { agencyCommissionAmount: true, agentSplitAmount: true }
-    });
-
-    const earnedCommission = receivedTransactions.reduce((acc: number, t: any) => acc + Number(t.agencyCommissionAmount), 0);
-    const expectedCommission = expectedTransactions.reduce((acc: number, t: any) => acc + Number(t.agencyCommissionAmount), 0);
-
-    return NextResponse.json({
-      success: true,
-      metrics: {
-        totalProperties,
-        forSaleCount,
-        forRentCount,
-        activeLeasesCount,
-        arrearsCount,
-        arrearsAmount,
-        earnedCommission,
-        expectedCommission,
+    return NextResponse.json(
+      {
+        success: true,
+        metrics,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, s-maxage=60, stale-while-revalidate=300",
+        },
       }
-    });
-  }
+    );
+  },
 });
 
 export async function GET(req: NextRequest, context?: any) {

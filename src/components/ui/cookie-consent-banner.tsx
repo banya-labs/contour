@@ -57,13 +57,20 @@ export function CookieConsentBanner() {
                   className="text-contour-red underline hover:text-editorial-black font-medium"
                 >
                   Terms of Use
-                </Link>{" "}
-                and{" "}
+                </Link>
+                {", "}
                 <Link
                   href="/privacy"
                   className="text-contour-red underline hover:text-editorial-black font-medium"
                 >
                   Privacy Policy
+                </Link>
+                {", and "}
+                <Link
+                  href="/cookies"
+                  className="text-contour-red underline hover:text-editorial-black font-medium"
+                >
+                  Cookie Notice
                 </Link>
                 .
               </p>

@@ -70,6 +70,7 @@ model Session {
 
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("session")
 }
 
@@ -172,6 +173,7 @@ model Member {
   permissionOverrides MemberPermissionOverride[]
 
   @@unique([organizationId, userId])
+  @@index([userId])
   @@map("member")
 }
 
@@ -491,6 +493,8 @@ model Property {
   @@index([organizationId, status])
   @@index([organizationId, listingType])
   @@index([organizationId, suburb])
+  @@index([organizationId, createdAt])
+  @@index([assignedAgentId])
   @@map("property")
 }
 
@@ -634,6 +638,7 @@ model LandlordStatement {
   approvedBy           User?           @relation("ApprovedBy", fields: [approvedById], references: [id])
 
   @@index([organizationId, statementYear, statementMonth])
+  @@index([organizationId, status])
   @@map("landlord_statement")
 }
 
@@ -694,6 +699,9 @@ model Transaction {
   closingAgent           User             @relation("ClosingAgent", fields: [closingAgentId], references: [id])
 
   @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([propertyId])
+  @@index([closingAgentId])
   @@map("transaction")
 }
 
@@ -773,6 +781,8 @@ model Inquiry {
   @@index([organizationId, status])
   @@index([organizationId, leadSource])
   @@index([propertyId])
+  @@index([organizationId, createdAt])
+  @@index([assignedAgentId])
   @@map("inquiry")
 }
 

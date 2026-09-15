@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { Scale, ShieldCheck } from "lucide-react";
 
 function slugify(value: string): string {
   return value
@@ -29,6 +30,14 @@ function OnboardingContent() {
   const [agencyType, setAgencyType] = useState("BROKERAGE");
   const [city, setCity] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+
+  // Statutory Zambia Regulatory & DPA Declarations
+  const [pacraNumber, setPacraNumber] = useState("");
+  const [ziereaNumber, setZiereaNumber] = useState("");
+  const [dpoName, setDpoName] = useState("");
+  const [dpoEmail, setDpoEmail] = useState("");
+  const [regulatoryDeclarationAgreed, setRegulatoryDeclarationAgreed] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,30 +50,61 @@ function OnboardingContent() {
     }
 
     let cancelled = false;
-    void authClient.organization.list().then(async (result) => {
-      if (cancelled) return;
 
-      if (result.error) {
-        setError(result.error.message || "Unable to load your organizations.");
-        setIsLoadingOrganizations(false);
-        return;
-      }
-
-      const firstOrganization = result.data?.[0];
-      if (firstOrganization) {
-        const activeResult = await authClient.organization.setActive({
-          organizationId: firstOrganization.id,
+    async function checkInvitationsAndMembership() {
+      try {
+        // First, check if user has a pending invitation to claim or active membership
+        const claimRes = await fetch("/api/organization/invitations/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
         });
-        if (!activeResult.error) {
-          router.replace(redirectUrl);
+        const claimData = await claimRes.json().catch(() => null);
+
+        if (cancelled) return;
+
+        if (claimData?.success && (claimData.claimed || claimData.hasMembership) && claimData.organizationId) {
+          await authClient.organization.setActive({
+            organizationId: claimData.organizationId,
+          });
+          const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
+          router.replace(target);
           router.refresh();
           return;
         }
-        setError(activeResult.error.message || "Unable to activate your organization.");
-      }
 
-      setIsLoadingOrganizations(false);
-    });
+        // Fallback: Check existing organizations from Better Auth client
+        const result = await authClient.organization.list();
+        if (cancelled) return;
+
+        if (result.error) {
+          setError(result.error.message || "Unable to load your organizations.");
+          setIsLoadingOrganizations(false);
+          return;
+        }
+
+        const firstOrganization = result.data?.[0];
+        if (firstOrganization) {
+          const activeResult = await authClient.organization.setActive({
+            organizationId: firstOrganization.id,
+          });
+          if (!activeResult.error) {
+            router.replace(redirectUrl);
+            router.refresh();
+            return;
+          }
+          setError(activeResult.error.message || "Unable to activate your organization.");
+        }
+
+        setIsLoadingOrganizations(false);
+      } catch {
+        if (!cancelled) {
+          setIsLoadingOrganizations(false);
+        }
+      }
+    }
+
+    void checkInvitationsAndMembership();
 
     return () => {
       cancelled = true;
@@ -81,7 +121,11 @@ function OnboardingContent() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setIsSubmitting(true);
+    if (!regulatoryDeclarationAgreed) {
+      setError("Statutory Regulatory Declaration required: You must certify PACRA standing, FIC AML compliance, and DPA adherence to activate this workspace.");
+      setIsSubmitting(false);
+      return;
+    }
 
     const result = await authClient.organization.create({
       name: organizationName.trim(),
@@ -108,7 +152,19 @@ function OnboardingContent() {
       const profileResponse = await fetch("/api/onboarding/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: organizationName.trim(), slug: slugify(slug), country, currency, agencyType, city }),
+        body: JSON.stringify({
+          name: organizationName.trim(),
+          slug: slugify(slug),
+          country,
+          currency,
+          agencyType,
+          city,
+          pacraRegistrationNumber: pacraNumber.trim() || undefined,
+          ziereaLicenseNumber: ziereaNumber.trim() || undefined,
+          dpoName: dpoName.trim() || undefined,
+          dpoEmail: dpoEmail.trim() || undefined,
+          regulatoryDeclarationAgreed: true,
+        }),
       });
       if (!profileResponse.ok) {
         const profileError = await profileResponse.json().catch(() => null) as { error?: string } | null;
@@ -212,14 +268,101 @@ function OnboardingContent() {
             </div>
           </label>
 
+          {/* Statutory Zambia Regulatory & Compliance Declaration */}
+          <div className="border-l-2 border-contour-red border-y border-r border-editorial-border bg-[#fffaf8] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Scale className="w-4 h-4 text-contour-red" />
+                <span className="text-xs font-heading font-bold uppercase tracking-wider text-editorial-black">
+                  Regulatory & Compliance Standing
+                </span>
+              </div>
+              <span className="text-[10px] font-mono bg-white border border-editorial-border px-1.5 py-0.5 text-editorial-muted">
+                DPA 2021 & Cap 187
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                  PACRA Reg. Number *
+                </span>
+                <input
+                  required
+                  value={pacraNumber}
+                  onChange={(e) => setPacraNumber(e.target.value)}
+                  placeholder="e.g. 120240012345"
+                  className="w-full bg-white border border-editorial-border px-2.5 py-2 text-xs text-editorial-black outline-none focus:border-editorial-black"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                  ZIEREA License No. (optional)
+                </span>
+                <input
+                  value={ziereaNumber}
+                  onChange={(e) => setZiereaNumber(e.target.value)}
+                  placeholder="e.g. ZIER-2026-981"
+                  className="w-full bg-white border border-editorial-border px-2.5 py-2 text-xs text-editorial-black outline-none focus:border-editorial-black"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                  Designated DPO Full Name *
+                </span>
+                <input
+                  required
+                  value={dpoName}
+                  onChange={(e) => setDpoName(e.target.value)}
+                  placeholder="e.g. Kondwani Phiri"
+                  className="w-full bg-white border border-editorial-border px-2.5 py-2 text-xs text-editorial-black outline-none focus:border-editorial-black"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                  DPO Statutory Email *
+                </span>
+                <input
+                  required
+                  type="email"
+                  value={dpoEmail}
+                  onChange={(e) => setDpoEmail(e.target.value)}
+                  placeholder="compliance@agency.zm"
+                  className="w-full bg-white border border-editorial-border px-2.5 py-2 text-xs text-editorial-black outline-none focus:border-editorial-black"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-start gap-2.5 pt-1">
+              <input
+                type="checkbox"
+                id="regulatory-declaration"
+                required
+                checked={regulatoryDeclarationAgreed}
+                onChange={(e) => setRegulatoryDeclarationAgreed(e.target.checked)}
+                className="mt-0.5 rounded-none text-contour-red focus:ring-contour-red border-editorial-border"
+              />
+              <label htmlFor="regulatory-declaration" className="text-[11px] text-editorial-black leading-relaxed cursor-pointer font-geist">
+                <strong className="font-heading font-bold uppercase tracking-wider text-editorial-black">Statutory Declaration: </strong>
+                I confirm that this agency is incorporated under PACRA, operates in accordance with the <em>Estate Agents Act (Cap 187)</em>, and acknowledges its reporting obligations as a designated entity under the <em>Financial Intelligence Centre (FIC) Act</em> and <em>Zambia Data Protection Act No. 3 of 2021</em>.
+              </label>
+            </div>
+          </div>
+
           {error && <p role="alert" className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-editorial-black px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isSubmitting || !regulatoryDeclarationAgreed}
+            className="w-full bg-editorial-black px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {isSubmitting ? "Creating workspace..." : "Continue to Contour"}
+            <ShieldCheck className="w-4 h-4 text-contour-red" />
+            <span>{isSubmitting ? "Creating workspace..." : "Affirm & Continue to Contour"}</span>
           </button>
         </form>
       </section>

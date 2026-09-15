@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Enable Gzip and Brotli compression for API payloads and static assets
+  compress: true,
   // pnpm's symlinked workspace layout cannot be copied into Next's standalone
   // folder on this Windows checkout without Developer Mode/admin symlink
   // privileges. Keep the production server artifact standalone on Linux while
@@ -12,12 +14,90 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       { protocol: "https", hostname: "**" }
-    ]
+    ],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.optimization = config.optimization || {};
+      config.optimization.splitChunks = {
+        chunks: "all",
+        maxInitialRequests: 25,
+        minSize: 20000,
+        cacheGroups: {
+          default: false,
+          vendors: false,
+          framework: {
+            name: "framework",
+            chunks: "all",
+            test: /(?<!node_modules.*)[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types|use-subscription)[\\/]/,
+            priority: 40,
+            enforce: true,
+          },
+          framerMotion: {
+            name: "framer-motion",
+            chunks: "all",
+            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+            priority: 30,
+            enforce: true,
+          },
+          icons: {
+            name: "lucide-icons",
+            chunks: "all",
+            test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
+            priority: 25,
+            reuseExistingChunk: true,
+          },
+          spatialVendor: {
+            name: "spatial-vendor",
+            chunks: "async",
+            test: /[\\/]node_modules[\\/](leaflet|proj4)[\\/]/,
+            priority: 20,
+            reuseExistingChunk: true,
+          },
+          commons: {
+            name: "commons",
+            minChunks: 2,
+            priority: 10,
+            reuseExistingChunk: true,
+          },
+        },
+      };
+    }
+    return config;
   },
   async headers() {
     return [
+      {
+        // Global HTTPS & Security Headers (Strict-Transport-Security, no-sniff, clickjacking)
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
+          },
+        ],
+      },
       {
         // Authenticated dashboard routes: Zero stale client caching
         source: "/dashboard/:path*",
@@ -37,7 +117,7 @@ const nextConfig = {
         ],
       },
       {
-        // API routes: Never cache mutable API endpoints
+        // API routes: Default to private, no-store unless specifically cached
         source: "/api/:path*",
         headers: [
           {
@@ -53,6 +133,16 @@ const nextConfig = {
           {
             key: "Cache-Control",
             value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        // Public brand & static images: Cache for 7 days with revalidation
+        source: "/(images|brand|fonts)/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=86400",
           },
         ],
       },

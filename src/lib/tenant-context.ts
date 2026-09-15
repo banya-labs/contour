@@ -21,12 +21,29 @@ export type TenantContext = {
  */
 export async function getTenantContext(req: NextRequest): Promise<TenantContext | null> {
   const session = await auth.api.getSession({ headers: req.headers });
-  if (!session?.user.id || !session.session.activeOrganizationId) {
+  if (!session?.user?.id) {
     return null;
   }
 
   const userId = session.user.id;
-  const organizationId = session.session.activeOrganizationId;
+  let organizationId = session.session?.activeOrganizationId;
+
+  if (!organizationId) {
+    try {
+      const activeMember = await db.member.findFirst({
+        where: { userId, status: "active" },
+        select: { organizationId: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (activeMember) {
+        organizationId = activeMember.organizationId;
+      } else {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  }
   let membership;
   try {
     membership = await db.member.findUnique({

@@ -1,8 +1,18 @@
-﻿import React from "react";
+import React from "react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { AuthForm } from "@/components/auth/auth-form";
 import { ContourLogo } from "@/components/brand/contour-logo";
+
+export const metadata: Metadata = {
+  title: "Create Your Agency Account | Contour",
+  description: "Register your real estate agency on Contour.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function SignUpPage() {
   return (

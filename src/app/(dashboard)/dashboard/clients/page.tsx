@@ -18,12 +18,15 @@ import {
   Bot,
 } from "lucide-react";
 import { MotionCard } from "@/components/ui/animate/motion-card";
+import { useSession } from "@/lib/auth-client";
 
 function ClientsCRMContent() {
+  const { data: session } = useSession();
   const [clients, setClients] = useState<any[]>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const searchParams = useSearchParams();
@@ -70,6 +73,7 @@ function ClientsCRMContent() {
               budgetMax: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : "No budget limit",
               purpose: c.lookingFor === "FOR_RENT" ? "RENT" : "BUY",
               leadSource,
+              assignedAgentId: c.assignedAgentId || c.assignedAgent?.id,
               assignedAgent: c.assignedAgent?.name || "Unassigned",
               lockExpiresInDays: daysLeft,
               lastContacted: "Active client",
@@ -101,12 +105,19 @@ function ClientsCRMContent() {
   });
   const [formError, setFormError] = useState("");
 
-  const filteredClients = clients.filter((c) =>
-    search.trim() === "" ||
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.lookingFor.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone.includes(search)
-  );
+  const filteredClients = clients.filter((c) => {
+    const matchesSearch =
+      search.trim() === "" ||
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.lookingFor.toLowerCase().includes(search.toLowerCase()) ||
+      c.phone.includes(search);
+
+    const matchesAssigned =
+      filterAssigned === "ALL" ||
+      (session?.user?.id && (c.assignedAgentId === session.user.id || c.assignedAgent === session.user.name));
+
+    return matchesSearch && matchesAssigned;
+  });
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,7 +245,7 @@ function ClientsCRMContent() {
         </div>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar & Filter */}
       <div className="bg-white rounded-none p-3 sm:p-4 border border-editorial-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 bg-editorial-paper/40 px-3 py-2 border border-editorial-border flex-1 max-w-md">
           <Search className="w-4 h-4 text-editorial-neutral shrink-0" />
@@ -246,9 +257,20 @@ function ClientsCRMContent() {
             className="w-full bg-transparent text-xs text-editorial-black placeholder:text-editorial-neutral focus:outline-none"
           />
         </div>
-        <span className="text-xs font-mono font-semibold text-editorial-neutral">
-          {filteredClients.length} REGISTERED BUYERS / TENANTS
-        </span>
+
+        <div className="flex items-center gap-3">
+          <select
+            value={filterAssigned}
+            onChange={(e) => setFilterAssigned(e.target.value as "ALL" | "ASSIGNED")}
+            className="bg-white text-xs font-mono font-semibold uppercase tracking-wider text-editorial-black px-3 py-2 border border-editorial-border focus:outline-none"
+          >
+            <option value="ALL">All Agents</option>
+            <option value="ASSIGNED">Assigned to Me</option>
+          </select>
+          <span className="text-xs font-mono font-semibold text-editorial-neutral whitespace-nowrap">
+            {filteredClients.length} REGISTERED BUYERS / TENANTS
+          </span>
+        </div>
       </div>
 
       {/* Clients Cards Grid */}

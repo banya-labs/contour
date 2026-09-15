@@ -53,15 +53,38 @@ export const POST = createApiHandler({
       },
     });
 
+    const regulatoryMetadata = {
+      pacraRegistrationNumber: body.pacraRegistrationNumber || null,
+      ziereaLicenseNumber: body.ziereaLicenseNumber || null,
+      dpoName: body.dpoName || null,
+      dpoEmail: body.dpoEmail || null,
+      regulatoryDeclarationAgreed: Boolean(body.regulatoryDeclarationAgreed),
+      declaredAt: new Date().toISOString(),
+      statutoryFramework: "Zambia DPA No. 3 of 2021, Estate Agents Act Cap 187, FIC Act No. 46 of 2010",
+    };
+
     await db.organization.update({
       where: { id: orgId },
       data: {
         name: body.name,
         slug: body.slug,
         currency: body.currency as Currency,
+        metadata: JSON.stringify(regulatoryMetadata),
         ...(shouldStartTrial ? { subscriptionStatus: "trialing", trialEndsAt: getTrialEnd(organization.createdAt) } : {}),
       },
     });
+
+    await db.auditLog.create({
+      data: {
+        organizationId: orgId,
+        userId,
+        action: "AGENCY_REGULATORY_DECLARATION_EXECUTED",
+        entityType: "Organization",
+        entityId: orgId,
+        details: regulatoryMetadata,
+      },
+    });
+
     await db.auditLog.create({
       data: { organizationId: orgId, userId, action: "ONBOARDING_PROFILE_COMPLETED", entityType: "Organization", entityId: orgId, details: { country: body.country, agencyType: body.agencyType, trialStarted: shouldStartTrial } },
     });

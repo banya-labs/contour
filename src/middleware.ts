@@ -12,13 +12,18 @@ const PUBLIC_PATHS = [
   "/login",
   "/sign-in",
   "/sign-up",
+  "/accept-invitation",
   "/request-access/",
   "/privacy",
   "/terms",
+  "/cookies",
+  "/sitemap.xml",
+  "/robots.txt",
   "/p/",
   "/upload/",
   "/api/auth/",
   "/api/access-requests/",
+  "/api/organization/invitations/claim",
   "/api/health",
   "/api/ready",
   "/api/properties",
@@ -40,20 +45,20 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Local manual testing uses the same demo tenant as the API handler. This
-  // can never activate in production, even if the public flag is mis-set.
-  const isFieldAgentSurface = request.nextUrl.pathname.startsWith("/agent") || request.nextUrl.pathname.startsWith("/kiosk");
-  if (!isFieldAgentSurface && process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-    const response = NextResponse.next({ request: { headers: requestHeaders } });
-    response.headers.set(CORRELATION_HEADER, correlationId);
-    return response;
-  }
-
   const session = await auth.api.getSession({
     headers: request.headers,
   });
 
+  const isFieldAgentSurface = request.nextUrl.pathname.startsWith("/agent") || request.nextUrl.pathname.startsWith("/kiosk");
+
   if (!session) {
+    // Only allow unauthenticated demo bypass if dev mode is enabled and no session exists
+    if (!isFieldAgentSurface && process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
+      const response = NextResponse.next({ request: { headers: requestHeaders } });
+      response.headers.set(CORRELATION_HEADER, correlationId);
+      return response;
+    }
+
     const signInUrl = new URL("/sign-in", request.url);
     signInUrl.searchParams.set("redirect_url", request.nextUrl.pathname);
     const response = NextResponse.redirect(signInUrl);
@@ -64,7 +69,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (pathname.startsWith("/agent") || pathname.startsWith("/kiosk") || pathname.startsWith("/dashboard")) {
     const tenant = await getTenantContext(request);
-    const role = resolveContourRole(session.user.role ?? undefined, "member", tenant?.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
+    const role = tenant?.contourRole || resolveContourRole(session.user.role ?? undefined, "member", tenant?.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
     const requiredPermission = pathname.startsWith("/agent") || pathname.startsWith("/kiosk") ? "pwa.access" : "dashboard.read";
     if (!tenant || !roleHasPermission(role, requiredPermission)) {
       const destination = pathname.startsWith("/dashboard") && roleHasPermission(role, "pwa.access") ? "/agent" : "/sign-in";

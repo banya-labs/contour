@@ -29,7 +29,7 @@ export async function authenticateDifyRequest(
     if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true" && !authHeader) {
       return {
         context: {
-          organizationId: targetOrgId || "org_contour_demo",
+          organizationId: targetOrgId || "org_demo_contour",
           userId: "user_demo_broker",
           userRole: "SUPER_ADMIN",
           apiKeyName: "Dev Mode Local Key",
@@ -43,7 +43,7 @@ export async function authenticateDifyRequest(
       if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
         return {
           context: {
-            organizationId: targetOrgId || "org_contour_demo",
+            organizationId: targetOrgId || "org_demo_contour",
             userId: "user_demo_broker",
             userRole: "SUPER_ADMIN",
           },
@@ -133,7 +133,7 @@ export async function authenticateDifyRequest(
       if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
         return {
           context: {
-            organizationId: targetOrgId || "org_contour_demo",
+            organizationId: targetOrgId || "org_demo_contour",
             userId: "user_demo_broker",
             userRole: "SUPER_ADMIN",
           },

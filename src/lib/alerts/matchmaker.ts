@@ -38,7 +38,7 @@ export type AlertMatchResult = {
 export const INITIAL_MOCK_ALERTS: PropertyAlert[] = [
   {
     id: "alert_01",
-    organizationId: "org_contour_demo",
+    organizationId: "org_demo_contour",
     clientName: "Nchimunya Mweene",
     clientPhone: "+260971889900",
     suburb: "Kabulonga",
@@ -53,7 +53,7 @@ export const INITIAL_MOCK_ALERTS: PropertyAlert[] = [
   },
   {
     id: "alert_02",
-    organizationId: "org_contour_demo",
+    organizationId: "org_demo_contour",
     clientName: "Dr. Thabo Zulu",
     clientPhone: "+260965223344",
     suburb: "Leopards Hill",
@@ -68,7 +68,7 @@ export const INITIAL_MOCK_ALERTS: PropertyAlert[] = [
   },
   {
     id: "alert_03",
-    organizationId: "org_contour_demo",
+    organizationId: "org_demo_contour",
     clientName: "Mwamba & Sons Holdings",
     clientPhone: "+260978667788",
     suburb: "Roma Park",
@@ -83,7 +83,7 @@ export const INITIAL_MOCK_ALERTS: PropertyAlert[] = [
   },
   {
     id: "alert_04",
-    organizationId: "org_contour_demo",
+    organizationId: "org_demo_contour",
     clientName: "Bwalya Chilufya",
     clientPhone: "+260977443322",
     suburb: "Woodlands",

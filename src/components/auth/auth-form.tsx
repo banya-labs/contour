@@ -39,14 +39,6 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     event.preventDefault();
     setError(null);
 
-    // Local manual testing uses the demo tenant. Never enable this path in a
-    // production bundle, even if the public flag is accidentally set there.
-    if (isLocalDevelopment) {
-      router.replace(redirectUrl);
-      router.refresh();
-      return;
-    }
-
     setIsSubmitting(true);
 
     const result = isSignUp
@@ -69,8 +61,49 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       return;
     }
 
+    try {
+      const claimRes = await fetch("/api/organization/invitations/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const claimData = await claimRes.json().catch(() => null);
+      if (claimData?.success && (claimData.claimed || claimData.hasMembership)) {
+        if (claimData.organizationId) {
+          await authClient.organization.setActive({ organizationId: claimData.organizationId });
+        }
+        const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
+        router.replace(target);
+        router.refresh();
+        return;
+      }
+    } catch {
+      // Fallback to normal redirection
+    }
+
     router.replace(redirectUrl);
     router.refresh();
+  }
+
+  async function handleQuickLogin(quickEmail: string) {
+    setError(null);
+    setEmail(quickEmail);
+    setPassword("Password123!");
+    setIsSubmitting(true);
+    console.log("[handleQuickLogin] signing in:", quickEmail);
+    const result = await authClient.signIn.email({
+      email: quickEmail,
+      password: "Password123!",
+    });
+    console.log("[handleQuickLogin] result:", result);
+    setIsSubmitting(false);
+    if (result.error) {
+      console.error("[handleQuickLogin] error:", result.error);
+      setError(result.error.message || "Quick sign-in failed.");
+      return;
+    }
+    const targetUrl = searchParams.get("redirect_url") || (quickEmail === "tembo@contour.app" ? "/agent" : "/dashboard");
+    window.location.href = targetUrl;
   }
 
   async function handleGoogleSignIn() {
@@ -87,28 +120,47 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
   return (
     <div className="space-y-4">
-      {!isLocalDevelopment && (
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          className="flex w-full items-center justify-center gap-2 border border-editorial-black bg-white px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
-        >
-          <GoogleLogo />
-          <span>Continue with Google</span>
-        </button>
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        className="flex w-full items-center justify-center gap-2 border border-editorial-black bg-white px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
+      >
+        <GoogleLogo />
+        <span>Continue with Google</span>
+      </button>
+
+      {/* Dev Quick-Login Bar for Fast Agent Switching */}
+      {process.env.NODE_ENV !== "production" && !isSignUp && (
+        <div className="border border-stone-300 bg-stone-50 p-3 space-y-2">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-stone-500 font-bold">
+            Fast Dev Login
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("tembo@contour.app")}
+              className="px-2.5 py-2 border border-stone-300 bg-white text-[11px] font-bold text-left hover:bg-stone-100 transition-colors"
+            >
+              <span className="block text-editorial-black font-serif">Tembo Mwape</span>
+              <span className="text-[9px] text-stone-500 font-mono">Field Agent</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("grace@contour.app")}
+              className="px-2.5 py-2 border border-stone-300 bg-white text-[11px] font-bold text-left hover:bg-stone-100 transition-colors"
+            >
+              <span className="block text-editorial-black font-serif">Grace Banda</span>
+              <span className="text-[9px] text-stone-500 font-mono">Broker Manager</span>
+            </button>
+          </div>
+        </div>
       )}
 
-      {isLocalDevelopment && (
-        <p className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Local demo mode is active. Submit the form to enter the demo workspace.
-        </p>
-      )}
-
-      {!isLocalDevelopment && <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest text-editorial-muted">
+      <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest text-editorial-muted">
         <span className="h-px flex-1 bg-editorial-border" />
-        <span>or use email</span>
+        <span>or sign in with credentials</span>
         <span className="h-px flex-1 bg-editorial-border" />
-      </div>}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {isSignUp && (

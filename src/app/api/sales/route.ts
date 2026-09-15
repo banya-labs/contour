@@ -15,11 +15,24 @@ const createTransactionSchema = z.object({
 });
 
 const getHandler = createApiHandler({
+  querySchema: z.object({
+    assigned: z.string().optional(), // "me" | "all"
+    closingAgentId: z.string().optional(),
+  }).partial(),
   handler: async (req, ctx) => {
-    const { organizationId } = ctx;
+    const { organizationId, userId, contourRole, query } = ctx;
+    const { assigned, closingAgentId } = query;
+
+    const whereClause: any = { organizationId };
+
+    if (assigned === "me" || contourRole === "FIELD_AGENT") {
+      whereClause.closingAgentId = userId;
+    } else if (closingAgentId) {
+      whereClause.closingAgentId = closingAgentId;
+    }
 
     const transactions = await db.transaction.findMany({
-      where: { organizationId },
+      where: whereClause,
       include: {
         property: {
           select: {
@@ -30,6 +43,7 @@ const getHandler = createApiHandler({
         },
         closingAgent: {
           select: {
+            id: true,
             name: true,
           }
         }
@@ -87,6 +101,7 @@ const postHandler = createApiHandler({
         },
         closingAgent: {
           select: {
+            id: true,
             name: true,
           }
         }

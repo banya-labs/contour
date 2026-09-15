@@ -31,14 +31,20 @@ import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-c
 import PropertyStandEditor from "@/components/properties/property-stand-editor";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 import { CornerMark } from "@/components/ui/corner-mark";
+import { useSession } from "@/lib/auth-client";
+import { useDebounce } from "@/hooks/use-debounce";
+import { PropertyCardSkeleton } from "@/components/ui/skeleton";
 
 function PropertiesCatalogContent() {
+  const { data: session } = useSession();
   const [properties, setProperties] = useState<any[]>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 250);
   const [filterType, setFilterType] = useState("ALL");
   const [filterOwnership, setFilterOwnership] = useState("ALL");
+  const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const searchParams = useSearchParams();
@@ -115,7 +121,8 @@ function PropertiesCatalogContent() {
     latitude: -15.4211,
     longitude: 28.3341,
     suburb: "Kabulonga",
-    assignedAgentName: "Grace Banda",
+    assignedAgentId: "",
+    assignedAgentName: "",
     landmarkDirections: "",
     photos: [
       "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200&auto=format&fit=crop&q=80",
@@ -178,7 +185,8 @@ function PropertiesCatalogContent() {
           latitude: formData.latitude,
           longitude: formData.longitude,
           suburb: formData.suburb,
-          assignedAgentName: formData.assignedAgentName,
+          assignedAgentId: formData.assignedAgentId || undefined,
+          assignedAgentName: formData.assignedAgentName || undefined,
           landmarkDirections: formData.landmarkDirections,
           photos: formData.photos,
           standBoundary: formData.standBoundary,
@@ -201,11 +209,12 @@ function PropertiesCatalogContent() {
   };
 
   const filteredProperties = properties.filter((p) => {
+    const query = debouncedSearch.trim().toLowerCase();
     const matchesSearch =
-      search.trim() === "" ||
-      p.title?.toLowerCase().includes(search.toLowerCase()) ||
-      p.suburb?.toLowerCase().includes(search.toLowerCase()) ||
-      p.landmarkDirections?.toLowerCase().includes(search.toLowerCase());
+      query === "" ||
+      p.title?.toLowerCase().includes(query) ||
+      p.suburb?.toLowerCase().includes(query) ||
+      p.landmarkDirections?.toLowerCase().includes(query);
 
     const matchesType =
       filterType === "ALL" || p.listingType === filterType;
@@ -213,7 +222,11 @@ function PropertiesCatalogContent() {
     const matchesOwnership =
       filterOwnership === "ALL" || p.ownershipType === filterOwnership;
 
-    return matchesSearch && matchesType && matchesOwnership;
+    const matchesAssigned =
+      filterAssigned === "ALL" ||
+      (session?.user?.id && (p.assignedAgentId === session.user.id || p.assignedAgent?.id === session.user.id));
+
+    return matchesSearch && matchesType && matchesOwnership && matchesAssigned;
   });
 
   const typeTabs = [
@@ -292,6 +305,15 @@ function PropertiesCatalogContent() {
 
         <div className="flex items-center gap-2">
           <select
+            value={filterAssigned}
+            onChange={(e) => setFilterAssigned(e.target.value as "ALL" | "ASSIGNED")}
+            className="bg-white text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black px-3 py-1.5 border border-editorial-border focus:outline-none"
+          >
+            <option value="ALL">All Agents</option>
+            <option value="ASSIGNED">Assigned to Me</option>
+          </select>
+
+          <select
             value={filterOwnership}
             onChange={(e) => setFilterOwnership(e.target.value)}
             className="bg-white text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black px-3 py-1.5 border border-editorial-border focus:outline-none"
@@ -305,8 +327,10 @@ function PropertiesCatalogContent() {
 
       {/* Property Cards Grid */}
       {loading ? (
-        <div className="text-center py-16 text-editorial-muted text-xs font-geist">
-          Loading property catalog from database...
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <PropertyCardSkeleton key={i} />
+          ))}
         </div>
       ) : filteredProperties.length === 0 ? (
         <div className="py-16 text-center border border-dashed border-editorial-border bg-white space-y-2">
@@ -693,13 +717,20 @@ function PropertiesCatalogContent() {
                     Assigned Agent
                   </label>
                   <select
-                    value={formData.assignedAgentName}
-                    onChange={(e) => setFormData({ ...formData, assignedAgentName: e.target.value })}
+                    value={formData.assignedAgentId}
+                    onChange={(e) => {
+                      const selected = agents.find((a) => a.id === e.target.value);
+                      setFormData({
+                        ...formData,
+                        assignedAgentId: e.target.value,
+                        assignedAgentName: selected?.name || "",
+                      });
+                    }}
                     className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist"
                   >
                     <option value="">Unassigned</option>
                     {agents.map((agent) => (
-                      <option key={agent.id} value={agent.name}>
+                      <option key={agent.id} value={agent.id}>
                         {agent.name}
                       </option>
                     ))}
@@ -737,6 +768,71 @@ function PropertiesCatalogContent() {
                 />
               </div>
 
+              {/* Statutory Mandate & Title Warranty Declaration (Estate Agents Act Cap 187 & Penal Code Cap 87) */}
+              <div className="p-4 bg-[#fffaf8] border-l-2 border-contour-red border-y border-r border-editorial-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Scale className="w-4 h-4 text-contour-red" />
+                    <h4 className="text-xs font-heading font-bold uppercase tracking-wider text-editorial-black">
+                      Mandate & Title Warranty
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-mono bg-white border border-editorial-border px-1.5 py-0.5 text-editorial-muted">
+                    Cap 187 § 14
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted mb-1">
+                      Mandate Category
+                    </label>
+                    <select
+                      value={formData.mandateType}
+                      onChange={(e) => setFormData({ ...formData, mandateType: e.target.value })}
+                      className="w-full bg-white px-2 py-1.5 border border-editorial-border text-xs text-editorial-black font-geist"
+                    >
+                      <option value="SOLE_MANDATE">Sole Mandate</option>
+                      <option value="OPEN_MANDATE">Open Mandate</option>
+                      <option value="COMPANY_OWNED">Company Owned</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted mb-1">
+                      Mandate Reference / Deed No.
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. MAN-2026-088 or Folio 44/2"
+                      value={formData.mandateReference}
+                      onChange={(e) => setFormData({ ...formData, mandateReference: e.target.value })}
+                      className="w-full bg-white px-2 py-1.5 border border-editorial-border text-xs text-editorial-black font-geist"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5 pt-1">
+                  <input
+                    type="checkbox"
+                    id="mandate-declaration"
+                    required
+                    checked={formData.mandateDeclarationAgreed}
+                    onChange={(e) => setFormData({ ...formData, mandateDeclarationAgreed: e.target.checked })}
+                    className="mt-0.5 rounded-none text-contour-red focus:ring-contour-red border-editorial-border"
+                  />
+                  <label htmlFor="mandate-declaration" className="text-[11px] text-editorial-black leading-relaxed cursor-pointer font-geist">
+                    <strong className="font-heading font-bold uppercase tracking-wider text-editorial-black">Statutory Declaration: </strong>
+                    I confirm that our agency holds an active written Mandate Agreement from the lawful registered owner. I warrant that stand boundaries, pricing, and title specifications are authentic under the <em>Estate Agents Act (Cap 187)</em> and <em>Penal Code (Cap 87)</em>.
+                  </label>
+                </div>
+              </div>
+
+              {formError && (
+                <div className="p-3 bg-red-50 border-l-2 border-red-600 border-y border-r border-red-200 text-xs text-red-700 font-geist">
+                  {formError}
+                </div>
+              )}
+
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
                 <button
                   type="button"
@@ -747,7 +843,8 @@ function PropertiesCatalogContent() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                  disabled={!formData.mandateDeclarationAgreed}
+                  className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-contour-red" />
                   <span>Publish Listing</span>

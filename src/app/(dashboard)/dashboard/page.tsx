@@ -19,6 +19,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
 import { MotionCard } from "@/components/ui/animate/motion-card";
+import { DashboardMetricSkeleton, ActionQueueSkeleton } from "@/components/ui/skeleton";
 
 export default function DashboardOverviewPage() {
   const [metrics, setMetrics] = useState<any>({
@@ -275,7 +276,10 @@ export default function DashboardOverviewPage() {
       </div>
 
       {/* 1. Core Financial & Operating Metrics (Ruled Counter Boxes) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+      {loading ? (
+        <DashboardMetricSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Actual Commission */}
         <MotionCard withCorners className="p-3.5 sm:p-5">
           <div className="flex items-center justify-between text-xs text-editorial-muted mb-1.5">
@@ -373,7 +377,8 @@ export default function DashboardOverviewPage() {
             </span>
           </div>
         </MotionCard>
-      </div>
+        </div>
+      )}
 
       {/* 2. Daily Action Queue */}
       <div className="bg-white border border-editorial-border p-6 space-y-4">
@@ -390,9 +395,7 @@ export default function DashboardOverviewPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-editorial-muted text-xs font-geist">
-            Loading action queue from database…
-          </div>
+          <ActionQueueSkeleton />
         ) : dailyActionQueue.length === 0 ? (
           <div className="text-center py-8 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />

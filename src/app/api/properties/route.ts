@@ -4,6 +4,8 @@ import { createApiHandler } from "@/lib/api-handler";
 import { createPropertySchema, updatePropertySchema } from "@/lib/validations";
 import { z } from "zod";
 
+import { smartCache } from "@/lib/cache";
+
 const getHandler = createApiHandler({
   requirePermissions: ["properties.read"],
   querySchema: z.object({
@@ -12,10 +14,14 @@ const getHandler = createApiHandler({
     listingType: z.string().optional(),
     propertyType: z.string().optional(),
     status: z.string().optional(),
+    assigned: z.string().optional(), // "me" | "all"
+    assignedAgentId: z.string().optional(),
+    page: z.string().optional(),
+    limit: z.string().optional(),
   }).partial(),
   handler: async (req, ctx) => {
-    const { organizationId, query } = ctx;
-    const { org, search, listingType, propertyType, status } = query;
+    const { organizationId, userId, query } = ctx;
+    const { org, search, listingType, propertyType, status, assigned, assignedAgentId, page, limit } = query;
 
     if (process.env.NEXT_PUBLIC_DEV_MODE !== "true" && !org && !ctx.session) {
       return NextResponse.json(
@@ -24,9 +30,6 @@ const getHandler = createApiHandler({
       );
     }
 
-    // Authenticated dashboard/catalog requests are always scoped to the
-    // session tenant. The `org` query parameter is only for unauthenticated
-    // public listing requests and can never override an active session.
     const targetOrgId = ctx.session ? organizationId : org;
     if (!targetOrgId) {
       return NextResponse.json({ success: false, error: "Organization context required" }, { status: 403 });
@@ -48,6 +51,12 @@ const getHandler = createApiHandler({
       status: statusFilter
     };
 
+    if (assigned === "me" && userId) {
+      whereClause.assignedAgentId = userId;
+    } else if (assignedAgentId) {
+      whereClause.assignedAgentId = assignedAgentId;
+    }
+
     if (listingType && listingType !== "ALL") {
       whereClause.listingType = listingType;
     }
@@ -62,46 +71,85 @@ const getHandler = createApiHandler({
       ];
     }
 
-    const properties = await db.property.findMany({
-      where: whereClause,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        ownershipType: true,
-        propertyType: true,
-        listingType: true,
-        status: true,
-        askingPrice: true,
-        rentalPrice: true,
-        currency: true,
-        bedrooms: true,
-        bathrooms: true,
-        plotSizeSqm: true,
-        description: true,
-        photos: true,
-        featuredPhoto: true,
-        suburb: true,
-        city: true,
-        latitude: true,
-        longitude: true,
-        standBoundary: true,
-        landmarkDirections: true,
-        createdAt: true,
-        updatedAt: true,
-        assignedAgent: {
-          select: {
-            name: true,
-            phone: true,
-            image: true,
-            email: true,
-          }
-        }
-      }
-    });
+    const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
+    const take = limit ? Math.min(100, Math.max(1, parseInt(limit, 10))) : 50;
+    const skip = (pageNum - 1) * take;
 
-    return NextResponse.json({ success: true, properties });
+    const cacheKey = `props:${targetOrgId}:${listingType || "all"}:${status || "all"}:${search || "none"}:${pageNum}:${take}`;
+
+    const { properties, total } = await smartCache.getOrSet(
+      targetOrgId,
+      "properties",
+      cacheKey,
+      async () => {
+        const [items, count] = await Promise.all([
+          db.property.findMany({
+            where: whereClause,
+            orderBy: { createdAt: "desc" },
+            take,
+            skip,
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              ownershipType: true,
+              propertyType: true,
+              listingType: true,
+              status: true,
+              askingPrice: true,
+              rentalPrice: true,
+              currency: true,
+              bedrooms: true,
+              bathrooms: true,
+              plotSizeSqm: true,
+              description: true,
+              photos: true,
+              featuredPhoto: true,
+              suburb: true,
+              city: true,
+              latitude: true,
+              longitude: true,
+              standBoundary: true,
+              landmarkDirections: true,
+              assignedAgentId: true,
+              createdAt: true,
+              updatedAt: true,
+              assignedAgent: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  image: true,
+                  email: true,
+                }
+              }
+            }
+          }),
+          db.property.count({ where: whereClause })
+        ]);
+
+        return { properties: items, total: count };
+      },
+      60
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        properties,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: take,
+          totalPages: Math.ceil(total / take),
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "private, s-maxage=60, stale-while-revalidate=300",
+        },
+      }
+    );
   }
 });
 
@@ -168,6 +216,11 @@ const postHandler = createApiHandler({
       },
     });
 
+    // Invalidate tenant cache tags for instant UI consistency
+    smartCache.invalidateTag(organizationId!, "properties", "/dashboard/properties");
+    smartCache.invalidateTag(organizationId!, "dashboard-metrics");
+    smartCache.invalidateTag(organizationId!, "dashboard-action-queue");
+
     return NextResponse.json({ success: true, property });
   }
 });
@@ -209,6 +262,12 @@ const patchHandler = createApiHandler({
         assignedAgentId: updateData.assignedAgentId,
       }
     });
+
+    // Invalidate tenant cache tags
+    if (ctx.organizationId) {
+      smartCache.invalidateTag(ctx.organizationId, "properties", "/dashboard/properties");
+      smartCache.invalidateTag(ctx.organizationId, "dashboard-metrics");
+    }
 
     return NextResponse.json({
       success: true,

@@ -119,31 +119,70 @@ function AgentKioskContent() {
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
 
 
-  // Agent Persona State (Default: Tembo Mwape)
+  // Real Agent Persona & Summary State
+  const [agentSummary, setAgentSummary] = useState<any>(null);
+  const [propertyAssignmentFilter, setPropertyAssignmentFilter] = useState<"ALL" | "ASSIGNED">("ALL");
+  const [clientAssignmentFilter, setClientAssignmentFilter] = useState<"ALL" | "ASSIGNED">("ALL");
+
   const [currentAgent, setCurrentAgent] = useState({
-    id: "agt_tembo",
+    id: "usr_field_agent",
     name: "Tembo Mwape",
-    role: "Senior Field Broker",
-    zone: "Lusaka East (Kabulonga, Leopards Hill, Woodlands)",
+    role: "Field Agent",
+    zone: "Lusaka Real Estate",
     phone: "+260 97 123 4567",
-    email: "tembo.mwape@contour.co.zm",
-    earnedSplitUsd: 18500,
-    earnedSplitZmw: 45000,
-    pendingSplitZmw: 125000,
-    pendingSplitUsd: 21250,
+    email: "tembo@contour.app",
+    earnedSplitUsd: 0,
+    earnedSplitZmw: 0,
+    pendingSplitZmw: 0,
+    pendingSplitUsd: 0,
   });
 
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const userRole = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined;
+  const isManagerOrAdmin = Boolean(userRole && (userRole === "SUPER_ADMIN" || userRole === "BROKER_MANAGER"));
+
   useEffect(() => {
-    if (!session?.user) return;
-    setCurrentAgent((current) => ({
-      ...current,
-      id: session.user.id,
-      name: session.user.name || current.name,
-      email: session.user.email || current.email,
-    }));
+    async function loadSummary() {
+      try {
+        const res = await fetch("/api/agent/summary");
+        const data = await res.json();
+        if (data.success) {
+          setAgentSummary(data);
+          if (data.agent) {
+            setCurrentAgent((current) => ({
+              ...current,
+              id: data.agent.id,
+              name: data.agent.name || current.name,
+              email: data.agent.email || current.email,
+              phone: data.agent.phone || current.phone,
+              role: data.agent.role === "SUPER_ADMIN" ? "Principal Broker" : data.agent.role === "BROKER_MANAGER" ? "Broker Manager" : "Field Agent",
+              zone: data.agent.organizationName || current.zone,
+              earnedSplitUsd: data.earnings?.earnedSplitUsd || 0,
+              earnedSplitZmw: data.earnings?.earnedSplitZmw || 0,
+              pendingSplitUsd: data.earnings?.pendingSplitUsd || 0,
+              pendingSplitZmw: data.earnings?.pendingSplitZmw || 0,
+            }));
+          }
+          if (data.deals && data.deals.length > 0) {
+            setAgentDeals(data.deals);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch agent summary:", err);
+      }
+    }
+
+    if (session?.user) {
+      setCurrentAgent((current) => ({
+        ...current,
+        id: session.user.id,
+        name: session.user.name || current.name,
+        email: session.user.email || current.email,
+      }));
+      loadSummary();
+    }
   }, [session]);
 
   const handleSignOut = async () => {
@@ -185,45 +224,8 @@ function AgentKioskContent() {
     },
   };
 
-  // Deals State with optimistic transitions
-  const [agentDeals, setAgentDeals] = useState([
-    {
-      id: "deal_t01",
-      propertyTitle: "Executive 4-Bedroom Standalone Residence",
-      suburb: "Kabulonga",
-      clientName: "Nchimunya Mweene",
-      value: "K 3,500,000",
-      stage: "OFFER_ACCEPTED",
-      stageLabel: "Offer Accepted",
-      agentSplitEst: "K 87,500 (50%)",
-      lockDaysRemaining: 24,
-      updatedAt: "Today, 10:15 AM",
-    },
-    {
-      id: "deal_t02",
-      propertyTitle: "5-Acre Commercial Development Plot",
-      suburb: "Roma Park",
-      clientName: "Mwamba & Sons Holdings",
-      value: "$ 850,000",
-      stage: "DEEDS_LODGED",
-      stageLabel: "Deeds Lodged at Lands",
-      agentSplitEst: "$ 21,250 (50%)",
-      lockDaysRemaining: 18,
-      updatedAt: "Yesterday, 3:30 PM",
-    },
-    {
-      id: "deal_t03",
-      propertyTitle: "Modern 3-Bed Semi-Detached Townhouse",
-      suburb: "Leopards Hill",
-      clientName: "Dr. Thabo Zulu",
-      value: "$ 2,500 / mo",
-      stage: "VIEWING_SCHEDULED",
-      stageLabel: "Viewing Scheduled (Tomorrow 14:00)",
-      agentSplitEst: "$ 1,250 (50% 1st Mo)",
-      lockDaysRemaining: 29,
-      updatedAt: "Today, 08:45 AM",
-    },
-  ]);
+  // Real Deals State with optimistic transitions
+  const [agentDeals, setAgentDeals] = useState<any[]>([]);
 
   // Form States for Intake
   const [newPropTitle, setNewPropTitle] = useState("");
@@ -248,97 +250,16 @@ function AgentKioskContent() {
   // Suburbs List
   const suburbs = ["ALL", "Kabulonga", "Leopards Hill", "Roma Park", "Ibex Hill", "Mass Media", "Woodlands"];
 
-  const DEFAULT_PROPERTIES = [
-    {
-      id: "prop_01",
-      title: "Executive 4-Bedroom Standalone Residence",
-      slug: "executive-4-bedroom-standalone-residence",
-      suburb: "Kabulonga",
-      city: "Lusaka",
-      price: 3500000,
-      askingPrice: 3500000,
-      currency: "ZMW",
-      propertyType: "RESIDENTIAL_SALE",
-      listingType: "FOR_SALE",
-      status: "AVAILABLE",
-      ownershipType: "MANAGED_ON_BEHALF",
-      bedrooms: 4,
-      bathrooms: 3,
-      plotSizeSqm: 2400,
-      latitude: -15.4215,
-      longitude: 28.3345,
-      photos: ["/images/villa-hero.webp"],
-      mandateType: "EXCLUSIVE",
-    },
-    {
-      id: "prop_02",
-      title: "Luxury 5-Bed Diplomatic Villa with Pool",
-      slug: "luxury-5-bed-diplomatic-villa",
-      suburb: "Leopards Hill",
-      city: "Lusaka",
-      price: 3500,
-      rentalPrice: 3500,
-      currency: "USD",
-      propertyType: "RESIDENTIAL_RENTAL",
-      listingType: "FOR_RENT",
-      status: "AVAILABLE",
-      ownershipType: "MANAGED_ON_BEHALF",
-      bedrooms: 5,
-      bathrooms: 4,
-      plotSizeSqm: 4000,
-      latitude: -15.4480,
-      longitude: 28.3810,
-      photos: ["/images/villa-hero.webp"],
-      mandateType: "EXCLUSIVE",
-    },
-    {
-      id: "prop_03",
-      title: "5-Acre Commercial Mixed-Use Development Land",
-      slug: "5-acre-commercial-mixed-use-development-land",
-      suburb: "Roma Park",
-      city: "Lusaka",
-      price: 850000,
-      askingPrice: 850000,
-      currency: "USD",
-      propertyType: "COMMERCIAL_LAND",
-      listingType: "FOR_SALE",
-      status: "AVAILABLE",
-      ownershipType: "COMPANY_OWNED",
-      bedrooms: 0,
-      bathrooms: 0,
-      plotSizeSqm: 20234,
-      latitude: -15.3850,
-      longitude: 28.3120,
-      photos: ["/images/villa-hero.webp"],
-      mandateType: "EXCLUSIVE",
-    },
-    {
-      id: "prop_04",
-      title: "Modern 3-Bedroom Semi-Detached Townhouse",
-      slug: "modern-3-bed-townhouse-ibex",
-      suburb: "Ibex Hill",
-      city: "Lusaka",
-      price: 1800,
-      rentalPrice: 1800,
-      currency: "USD",
-      propertyType: "RESIDENTIAL_RENTAL",
-      listingType: "FOR_RENT",
-      status: "AVAILABLE",
-      ownershipType: "MANAGED_ON_BEHALF",
-      bedrooms: 3,
-      bathrooms: 2,
-      plotSizeSqm: 800,
-      latitude: -15.4380,
-      longitude: 28.3650,
-      photos: ["/images/villa-hero.webp"],
-      mandateType: "EXCLUSIVE",
-    },
-  ];
-
-  const displayProperties = properties && properties.length > 0 ? properties : DEFAULT_PROPERTIES;
+  const displayProperties = properties || [];
 
   // Filtered Properties
   const filteredProperties = displayProperties.filter((p: any) => {
+    const isAssigned =
+      p.assignedAgentId === currentAgent.id ||
+      p.assignedAgent?.id === currentAgent.id ||
+      p.assignedAgent?.name === currentAgent.name;
+    const matchesAssigned =
+      propertyAssignmentFilter === "ALL" || (propertyAssignmentFilter === "ASSIGNED" && isAssigned);
     const matchesSub = selectedSub === "ALL" || p.suburb?.toLowerCase() === selectedSub.toLowerCase();
     const matchesSearch =
       !search ||
@@ -349,7 +270,7 @@ function AgentKioskContent() {
       propertyTypeFilter === "ALL" ||
       (propertyTypeFilter === "SALE" && (p.listingType === "FOR_SALE" || !p.listingType)) ||
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
-    return matchesSub && matchesSearch && matchesType;
+    return matchesAssigned && matchesSub && matchesSearch && matchesType;
   });
 
   // Map Format for InteractivePropertyMap
@@ -576,9 +497,11 @@ function AgentKioskContent() {
           {/* Right Network Trigger */}
           <div className="flex items-center gap-1.5">
 
-            <Link href="/dashboard" aria-label="Open operations dashboard" title="Dashboard" className="field-desktop-action inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
-              <Home className="h-4 w-4" />
-            </Link>
+            {isManagerOrAdmin && (
+              <Link href="/dashboard" aria-label="Open operations dashboard" title="Dashboard" className="field-desktop-action inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
+                <Home className="h-4 w-4" />
+              </Link>
+            )}
 
             {/* Offline/Online PowerSync Badge */}
             <button
@@ -600,10 +523,6 @@ function AgentKioskContent() {
               <User className="h-4 w-4" />
             </button>
 
-            <Link href="/dashboard/settings?tab=ACCOUNT" aria-label="Open settings" title="Settings" className="field-desktop-action inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
-              <SlidersHorizontal className="h-4 w-4" />
-            </Link>
-
             <button onClick={() => void handleSignOut()} aria-label="Sign out" title="Sign out" className="field-desktop-action inline-flex h-10 w-10 items-center justify-center text-editorial-black hover:bg-neutral-100">
               <LogOut className="h-4 w-4" />
             </button>
@@ -623,9 +542,10 @@ function AgentKioskContent() {
 
         <div id="field-mobile-menu" className={`${isMobileMenuOpen ? "block" : "hidden"} field-mobile-menu-panel absolute left-3 right-3 top-full border border-editorial-border bg-white p-2 text-editorial-black shadow-lg`}>
           <p className="border-b border-editorial-border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-editorial-muted">{currentAgent.name}</p>
-          <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 px-3 text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><Home className="h-4 w-4" /> Dashboard</Link>
+          {isManagerOrAdmin && (
+            <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 px-3 text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><Home className="h-4 w-4" /> Dashboard</Link>
+          )}
           <button type="button" onClick={() => { setIsMobileMenuOpen(false); setIsPersonaModalOpen(true); }} className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><User className="h-4 w-4" /> Profile</button>
-          <Link href="/dashboard/settings?tab=ACCOUNT" onClick={() => setIsMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 px-3 text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><SlidersHorizontal className="h-4 w-4" /> Settings</Link>
           <button type="button" onClick={() => void handleSignOut()} className="flex min-h-11 w-full items-center gap-3 border-t border-editorial-border px-3 text-left text-xs font-bold uppercase tracking-wider text-contour-red hover:bg-neutral-100"><LogOut className="h-4 w-4" /> Sign out</button>
         </div>
       </header>
@@ -692,9 +612,9 @@ function AgentKioskContent() {
 
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: "Viewings", value: "02", tone: "text-[#16382B]" },
-                { label: "Follow-ups", value: "03", tone: "text-[#B6812F]" },
-                { label: "Active deals", value: String(agentDeals.length).padStart(2, "0"), tone: "text-[#FA3600]" },
+                { label: "Viewings", value: String(agentSummary?.metrics?.viewingsCount ?? 0).padStart(2, "0"), tone: "text-[#16382B]" },
+                { label: "Follow-ups", value: String(agentSummary?.metrics?.followUpsCount ?? 0).padStart(2, "0"), tone: "text-[#B6812F]" },
+                { label: "Active deals", value: String(agentSummary?.metrics?.activeDealsCount ?? agentDeals.length).padStart(2, "0"), tone: "text-[#FA3600]" },
               ].map((stat) => (
                 <div key={stat.label} className="border border-stone-300 bg-white p-3">
                   <p className="font-mono text-[9px] uppercase tracking-wider text-stone-500">{stat.label}</p>
@@ -712,27 +632,33 @@ function AgentKioskContent() {
                 <CalendarClock className="h-5 w-5 text-[#B6812F]" />
               </div>
               <div className="divide-y divide-stone-200">
-                <button onClick={() => setActiveTab("DEALS")} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left hover:bg-stone-50">
-                  <span>
-                    <span className="block text-sm font-bold text-[#1C1C1A]">Advance Nchimunya&apos;s offer</span>
-                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-stone-500">Kabulonga · Offer accepted</span>
-                  </span>
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[#16382B]" />
-                </button>
-                <button onClick={() => setActiveTab("PROPERTIES")} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left hover:bg-stone-50">
-                  <span>
-                    <span className="block text-sm font-bold text-[#1C1C1A]">Prepare tomorrow&apos;s viewing</span>
-                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-stone-500">Ibex Hill · 14:00 · 3-bedroom townhouse</span>
-                  </span>
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[#16382B]" />
-                </button>
-                <button onClick={() => setIntakeDrawer("CLIENT")} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left hover:bg-stone-50">
-                  <span>
-                    <span className="block text-sm font-bold text-[#1C1C1A]">Capture a new field inquiry</span>
-                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-stone-500">Protect the client relationship for 30 days</span>
-                  </span>
-                  <Plus className="h-4 w-4 shrink-0 text-[#FA3600]" />
-                </button>
+                {(agentSummary?.queue && agentSummary.queue.length > 0 ? agentSummary.queue : [
+                  {
+                    id: "queue_default_inquiry",
+                    title: "Capture a new field inquiry",
+                    subtitle: "Protect the client relationship for 30 days under Contour registry",
+                    targetTab: "CLIENTS",
+                    type: "CLIENT",
+                  }
+                ]).map((action: any) => (
+                  <button
+                    key={action.id}
+                    onClick={() => {
+                      if (action.targetTab === "CLIENTS" && action.type === "CLIENT") {
+                        setIntakeDrawer("CLIENT");
+                      } else if (action.targetTab) {
+                        setActiveTab(action.targetTab);
+                      }
+                    }}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left hover:bg-stone-50 transition-colors"
+                  >
+                    <span>
+                      <span className="block text-sm font-bold text-[#1C1C1A]">{action.title}</span>
+                      <span className="mt-1 block font-mono text-[10px] uppercase tracking-wider text-stone-500">{action.subtitle}</span>
+                    </span>
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-[#16382B]" />
+                  </button>
+                ))}
               </div>
             </section>
           </div>
@@ -744,6 +670,39 @@ function AgentKioskContent() {
             
             {/* Search, Suburb Chips & Layout Switcher */}
             <div className={activeTab === "MAP" ? "hidden" : "space-y-2.5"}>
+              
+              {/* Assignment Switcher: All Mandates vs Assigned to Me */}
+              <div className="flex bg-[#101D16] p-1 rounded-xl border border-emerald-900/50 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPropertyAssignmentFilter("ALL");
+                    playNeutralTone();
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-center transition-all ${
+                    propertyAssignmentFilter === "ALL"
+                      ? "bg-emerald-800 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  All Mandates ({displayProperties.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPropertyAssignmentFilter("ASSIGNED");
+                    playNeutralTone();
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-center transition-all ${
+                    propertyAssignmentFilter === "ASSIGNED"
+                      ? "bg-[#E57A1A] text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Assigned to Me ({displayProperties.filter((p: any) => p.assignedAgentId === currentAgent.id || p.assignedAgent?.id === currentAgent.id || p.assignedAgent?.name === currentAgent.name).length})
+                </button>
+              </div>
+
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -951,7 +910,28 @@ function AgentKioskContent() {
             {/* B. LIST VIEW MODE */}
             {propertyViewMode === "LIST" && activeTab === "PROPERTIES" && (
               <div className="space-y-3.5">
-                {filteredProperties.map((p: any) => {
+                {filteredProperties.length === 0 ? (
+                  <div className="bg-[#0F1B14] border border-emerald-900/40 rounded-2xl p-6 text-center space-y-3">
+                    <Building2 className="w-8 h-8 text-slate-500 mx-auto" />
+                    <div>
+                      <h4 className="text-sm font-bold text-white">No mandates found</h4>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                        {propertyAssignmentFilter === "ASSIGNED"
+                          ? "You currently have no properties assigned to your profile in this organization."
+                          : "No properties match your current search or filter criteria."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIntakeDrawer("PROPERTY")}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#E57A1A] hover:bg-[#B3580B] text-white text-xs font-bold transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add New Mandate</span>
+                    </button>
+                  </div>
+                ) : (
+                  filteredProperties.map((p: any) => {
                   const isCopied = copiedId === p.id;
                   const priceStr = formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW");
 
@@ -1061,7 +1041,7 @@ function AgentKioskContent() {
                       </div>
                     </div>
                   );
-                })}
+                }))}
               </div>
             )}
           </div>
@@ -1090,65 +1070,138 @@ function AgentKioskContent() {
               </button>
             </div>
 
+            {/* Assignment Switcher: All Clients vs Assigned to Me */}
+            <div className="flex bg-[#101D16] p-1 rounded-xl border border-emerald-900/50 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setClientAssignmentFilter("ALL");
+                  playNeutralTone();
+                }}
+                className={`flex-1 py-1.5 rounded-lg font-bold text-center transition-all ${
+                  clientAssignmentFilter === "ALL"
+                    ? "bg-emerald-800 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                All Inquiries ({clients.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setClientAssignmentFilter("ASSIGNED");
+                  playNeutralTone();
+                }}
+                className={`flex-1 py-1.5 rounded-lg font-bold text-center transition-all ${
+                  clientAssignmentFilter === "ASSIGNED"
+                    ? "bg-[#E57A1A] text-white shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Assigned to Me ({clients.filter((c: any) => c.assignedAgentId === currentAgent.id || c.assignedAgent?.id === currentAgent.id || c.assignedAgent?.name === currentAgent.name).length})
+              </button>
+            </div>
+
             {/* Clients List */}
             <div className="space-y-3">
-              {clients.map((c: any) => (
-                <div
-                  key={c.id}
-                  className="bg-[#0F1B14] border border-emerald-900/50 rounded-2xl p-4 space-y-3 shadow-md"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-white">{c.name}</h3>
-                        <span className="text-[9px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700/60 font-mono font-bold">
-                          {c.preferredArea}
+              {(() => {
+                const filteredClients = clients.filter((c: any) => {
+                  const isAssigned =
+                    c.assignedAgentId === currentAgent.id ||
+                    c.assignedAgent?.id === currentAgent.id ||
+                    c.assignedAgent?.name === currentAgent.name;
+                  return clientAssignmentFilter === "ALL" || (clientAssignmentFilter === "ASSIGNED" && isAssigned);
+                });
+
+                if (filteredClients.length === 0) {
+                  return (
+                    <div className="bg-[#0F1B14] border border-emerald-900/40 rounded-2xl p-6 text-center space-y-3">
+                      <Users className="w-8 h-8 text-slate-500 mx-auto" />
+                      <div>
+                        <h4 className="text-sm font-bold text-white">No client inquiries found</h4>
+                        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                          {clientAssignmentFilter === "ASSIGNED"
+                            ? "You currently have no clients assigned to your profile in this organization."
+                            : "No registered clients in the organization registry yet."}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIntakeDrawer("CLIENT")}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#E57A1A] hover:bg-[#B3580B] text-white text-xs font-bold transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Register New Client</span>
+                      </button>
+                    </div>
+                  );
+                }
+
+                return filteredClients.map((c: any) => (
+                  <div
+                    key={c.id}
+                    className="bg-[#0F1B14] border border-emerald-900/50 rounded-2xl p-4 space-y-3 shadow-md"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-white">{c.name}</h3>
+                          <span className="text-[9px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700/60 font-mono font-bold">
+                            {c.preferredArea}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-slate-400 font-mono">{c.phone}</p>
+                          {c.assignedAgent?.name && (
+                            <span className="text-[10px] text-stone-400 font-mono">
+                              • Agent: {c.assignedAgent.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-extrabold text-emerald-400 font-mono">
+                          {c.budget}
+                        </div>
+                        <span className="text-[9px] text-slate-400 uppercase font-mono">
+                          Budget Max
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 font-mono mt-0.5">{c.phone}</p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs font-extrabold text-emerald-400 font-mono">
-                        {c.budget}
+
+                    {/* Anti-Poaching Countdown Badge */}
+                    <div className="bg-[#09130D] p-2.5 rounded-xl border border-emerald-950 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-[11px]">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{c.lockExpiry}</span>
                       </div>
-                      <span className="text-[9px] text-slate-400 uppercase font-mono">
-                        Budget Max
+                      <span className="text-[10px] text-emerald-500 font-mono font-bold">
+                        Protected
                       </span>
                     </div>
-                  </div>
 
-                  {/* Anti-Poaching Countdown Badge */}
-                  <div className="bg-[#09130D] p-2.5 rounded-xl border border-emerald-950 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-[11px]">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{c.lockExpiry}</span>
+                    {/* Direct Communication Buttons */}
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="py-2 px-3 rounded-xl bg-[#14261C] hover:bg-[#1A3326] text-white text-xs font-bold border border-emerald-700/40 flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Call Client</span>
+                      </a>
+                      <a
+                        href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </a>
                     </div>
-                    <span className="text-[10px] text-emerald-500 font-mono font-bold">
-                      Protected
-                    </span>
                   </div>
-
-                  {/* Direct Communication Buttons */}
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
-                    <a
-                      href={`tel:${c.phone}`}
-                      className="py-2 px-3 rounded-xl bg-[#14261C] hover:bg-[#1A3326] text-white text-xs font-bold border border-emerald-700/40 flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Call Client</span>
-                    </a>
-                    <a
-                      href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-2 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>WhatsApp</span>
-                    </a>
-                  </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
         )}
@@ -1300,52 +1353,48 @@ function AgentKioskContent() {
                 Closed Transaction Slips
               </h3>
 
-              {[
-                {
-                  id: "slip_01",
-                  property: "Leopards Hill Villa Mandate",
-                  grossCommission: "K 90,000",
-                  agentSplit: "K 45,000",
-                  date: "14 Aug 2026",
-                  splitPct: "50%",
-                  buyer: "Chanda Chisamba",
-                },
-                {
-                  id: "slip_02",
-                  property: "Roma Park Commercial Unit",
-                  grossCommission: "$ 37,000",
-                  agentSplit: "$ 18,500",
-                  date: "28 Jul 2026",
-                  splitPct: "50%",
-                  buyer: "Bwalya Properties Ltd",
-                },
-              ].map((slip) => (
-                <div
-                  key={slip.id}
-                  className="bg-[#0F1B14] border border-emerald-900/50 rounded-2xl p-4 space-y-3"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{slip.property}</h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Buyer: {slip.buyer}</p>
+              {(() => {
+                const slips = agentSummary?.earnings?.slips || [];
+                if (slips.length === 0) {
+                  return (
+                    <div className="bg-[#0F1B14] border border-emerald-900/40 rounded-2xl p-6 text-center space-y-2">
+                      <Wallet className="w-8 h-8 text-slate-500 mx-auto" />
+                      <h4 className="text-sm font-bold text-white">No closed transaction slips yet</h4>
+                      <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                        When sales or rental mandates close under your profile, verified digital commission payout vouchers will appear here.
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs font-extrabold text-emerald-400 font-mono">
-                        {slip.agentSplit}
-                      </div>
-                      <span className="text-[9px] text-slate-500 font-mono">{slip.date}</span>
-                    </div>
-                  </div>
+                  );
+                }
 
-                  <button
-                    onClick={() => setSelectedCommissionSlip(slip)}
-                    className="w-full py-2 px-3 rounded-xl bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 text-xs font-bold border border-emerald-700/40 flex items-center justify-center gap-1.5 transition-colors"
+                return slips.map((slip: any) => (
+                  <div
+                    key={slip.id}
+                    className="bg-[#0F1B14] border border-emerald-900/50 rounded-2xl p-4 space-y-3"
                   >
-                    <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>View Digital Commission Slip</span>
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-white">{slip.property}</h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Suburb: {slip.suburb || "Lusaka"}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-extrabold text-emerald-400 font-mono">
+                          {slip.agentSplit}
+                        </div>
+                        <span className="text-[9px] text-slate-500 font-mono">{slip.date}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setSelectedCommissionSlip(slip)}
+                      className="w-full py-2 px-3 rounded-xl bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 text-xs font-bold border border-emerald-700/40 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>View Digital Commission Slip</span>
+                    </button>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         )}

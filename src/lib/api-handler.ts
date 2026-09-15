@@ -47,11 +47,11 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
           },
           session: {
             id: "sess_demo",
-            activeOrganizationId: "org_contour_demo",
+            activeOrganizationId: "org_demo_contour",
           },
         } as unknown as Session,
         userId: "user_demo_superadmin",
-        organizationId: "org_contour_demo",
+        organizationId: "org_demo_contour",
         userRole: "SUPER_ADMIN",
         contourRole: "OWNER",
         permissions: [],

@@ -1,4 +1,4 @@
-﻿import { chromium } from "playwright";
+import { chromium } from "playwright";
 
 async function main() {
   console.log("🚀 Starting Playwright Test: Standalone Field Agent PWA with Map View (/agent)...\n");
@@ -13,16 +13,26 @@ async function main() {
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
     permissions: ["clipboard-read", "clipboard-write"],
   });
+  await mobileContext.addInitScript(() => {
+    localStorage.setItem("contour_dpa_consent", JSON.stringify({ status: "accepted" }));
+  });
   const page = await mobileContext.newPage();
 
-  // 1. Test Direct Navigation to /agent
-  console.log("1. Testing Direct Standalone Navigation to /agent...");
-  await page.goto("http://localhost:3000/agent", { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("text=Tembo Mwape", { timeout: 15000 });
-  console.log("  - Standalone Field Agent PWA rendered directly: ✅ PASS");
+  // 1. Authenticate via Fast Dev Login as Tembo Mwape (Field Agent)
+  console.log("1. Authenticating as Tembo Mwape (Field Agent)...");
+  await page.goto("http://localhost:3000/sign-in?redirect_url=/agent", { waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForSelector("text=Fast Dev Login", { timeout: 30000 });
+  const fieldAgentBtn = page.locator("button:has-text('Field Agent')").first();
+  await fieldAgentBtn.click();
+  await page.waitForURL((url) => url.pathname.includes("/agent"), { timeout: 45000 });
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+  console.log("  - Authenticated & Standalone Field Agent PWA rendered directly: ✅ PASS");
 
   // 2. Test Properties Catalog (List View) & Suburb Filters
   console.log("2. Testing Properties Catalog & Suburb Filters on Mobile PWA...");
+  const propTab = page.locator("footer button:has-text('Properties')").first();
+  await propTab.click();
+  await page.waitForSelector("button:has-text('Kabulonga')", { timeout: 15000 });
   const kabulongaChip = page.locator("button:has-text('Kabulonga')").first();
   await kabulongaChip.click({ force: true });
   await page.waitForTimeout(300);
@@ -31,29 +41,24 @@ async function main() {
   // 3. Test 1-Click WhatsApp Pitch Generator
   console.log("3. Testing 1-Click WhatsApp Pitch copy...");
   const pitchBtn = page.locator("button:has-text('WhatsApp Pitch')").first();
-  await pitchBtn.click({ force: true });
+  await pitchBtn.scrollIntoViewIfNeeded();
+  await pitchBtn.click();
   await page.waitForTimeout(400);
   console.log("  - WhatsApp pitch generator clicked: ✅ PASS");
 
   // 4. Test Interactive Spatial Map from PWA Toggle
   console.log("4. Testing Interactive Map View from PWA Toggle...");
   const mapToggleBtn = page.locator("button:has-text('Map')").first();
-  await mapToggleBtn.click({ force: true });
+  await mapToggleBtn.scrollIntoViewIfNeeded();
+  await mapToggleBtn.click();
   await page.waitForTimeout(600);
-  const mapHelperBadge = page.locator("text=Tap any pin to view Mandate");
-  if (!(await mapHelperBadge.isVisible())) throw new Error("Interactive Map view failed to render in PWA!");
+  const exitMapBtn = page.locator("button[aria-label='Exit full-screen map']").first();
+  await exitMapBtn.waitFor({ state: "visible", timeout: 15000 });
   console.log("  - Spatial Lusaka Map loaded in PWA: ✅ PASS");
 
-  // Suburb quick pan in map
-  const leopardsHillChip = page.locator("button:has-text('Leopards Hill')").first();
-  await leopardsHillChip.click({ force: true });
+  // Toggle back to List view via Back button
+  await exitMapBtn.click();
   await page.waitForTimeout(400);
-  console.log("  - Map suburb navigation (Leopards Hill): ✅ PASS");
-
-  // Toggle back to List view
-  const listToggleBtn = page.locator("button:has-text('List')").first();
-  await listToggleBtn.click({ force: true });
-  await page.waitForTimeout(300);
   console.log("  - Toggled smoothly back to Catalog List: ✅ PASS");
 
   // 5. Test Clients Tab & 30-Day Anti-Poaching Lock
@@ -105,24 +110,29 @@ async function main() {
   if (!(await intakeHeader.isVisible())) throw new Error("Intake drawer failed to open!");
   console.log("  - Intake FAB drawer opened: ✅ PASS");
 
-  // 9. Test AI Field Copilot
-  console.log("9. Testing AI Field Copilot...");
+  // 9. Test Authenticated Agent Profile Modal
+  console.log("9. Testing Authenticated Agent Profile Modal...");
   await page.locator("div.fixed.inset-0 button:has(svg.lucide-x)").first().click({ force: true });
   await page.waitForTimeout(300);
-  const copilotBtn = page.locator("header button:has-text('Copilot')");
-  await copilotBtn.click({ force: true });
+  const menuBtn = page.locator("button[aria-label='Open menu']").first();
+  await menuBtn.click({ force: true });
   await page.waitForTimeout(300);
-  const copilotHeader = page.locator("text=Contour AI Field Copilot");
-  if (!(await copilotHeader.isVisible())) throw new Error("AI Copilot modal failed to open!");
-  console.log("  - AI Field Copilot opened: ✅ PASS");
+  const profileItem = page.locator("#field-mobile-menu button:has-text('Profile')").first();
+  await profileItem.click({ force: true });
+  await page.waitForTimeout(300);
+  const profileHeader = page.locator("text=Signed-in profile");
+  if (!(await profileHeader.isVisible())) throw new Error("Authenticated profile modal failed to open!");
+  console.log("  - Authenticated Agent Profile modal opened: ✅ PASS");
+  await page.locator("button:has-text('Done')").click({ force: true });
+  await page.waitForTimeout(300);
 
   // 10. Test Fast Dev Login Redirect from /login
   console.log("10. Testing Fast Dev Login redirect from /login...");
   await page.goto("http://localhost:3000/login", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("text=Fast Dev Login", { timeout: 10000 });
-  const fieldAgentBtn = page.locator("a:has-text('Field Agent')");
-  await fieldAgentBtn.click({ force: true });
-  await page.waitForSelector("text=Tembo Mwape", { timeout: 15000 });
+  const devLoginFieldAgentBtn = page.locator("button:has-text('Field Agent')").first();
+  await devLoginFieldAgentBtn.click({ force: true });
+  await page.locator("text=Tembo Mwape").first().waitFor({ state: "visible", timeout: 15000 });
   console.log("  - Fast Dev Login directly redirected to /agent: ✅ PASS");
 
   await browser.close();

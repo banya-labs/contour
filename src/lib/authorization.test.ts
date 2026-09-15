@@ -28,6 +28,16 @@ describe("organization authorization", () => {
   it("keeps field agents PWA-first and excludes dashboard access", () => {
     expect(roleHasPermission("FIELD_AGENT", "pwa.access")).toBe(true);
     expect(roleHasPermission("FIELD_AGENT", "dashboard.read")).toBe(false);
+    expect(roleHasPermission("FIELD_AGENT", "org.members.invite")).toBe(false);
     expect(roleHasPermission("FINANCE_OFFICER", "vault.download")).toBe(false);
+  });
+
+  it("grants owner and broker manager full operational and dashboard permissions", () => {
+    expect(roleHasPermission("OWNER", "dashboard.read")).toBe(true);
+    expect(roleHasPermission("OWNER", "org.members.invite")).toBe(true);
+    expect(roleHasPermission("BROKER_MANAGER", "dashboard.read")).toBe(true);
+    expect(roleHasPermission("BROKER_MANAGER", "org.members.invite")).toBe(true);
+    expect(roleHasPermission("ADMIN_STAFF", "dashboard.read")).toBe(true);
+    expect(roleHasPermission("ADMIN_STAFF", "org.members.invite")).toBe(false);
   });
 });

@@ -217,6 +217,8 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
             budget: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : "No budget",
             preferredArea: c.preferredSuburbs?.[0] || "Lusaka",
             lockExpiry: `${daysLeft} Days (Anti-Poaching Active)`,
+            assignedAgentId: c.assignedAgentId || c.assignedAgent?.id,
+            assignedAgent: c.assignedAgent,
           };
         });
         setClients(normalized);

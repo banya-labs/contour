@@ -20,7 +20,10 @@ async function main() {
   });
   console.log(`- Organization "${org.name}" created/verified.`);
 
-  // 2. Create Users
+  // 2. Create Users & Better Auth Accounts
+  const { hashPassword } = await import("better-auth/crypto");
+  const defaultHashedPassword = await hashPassword("Password123!");
+
   const userGrace = await prisma.user.upsert({
     where: { email: "grace@contour.app" },
     update: {},
@@ -56,7 +59,21 @@ async function main() {
       phone: "+260965987654",
     },
   });
-  console.log("- Users Grace, Tembo, and Chipo created/verified.");
+
+  for (const user of [userGrace, userTembo, userChipo]) {
+    await prisma.account.upsert({
+      where: { id: `acc_${user.id}` },
+      update: { password: defaultHashedPassword },
+      create: {
+        id: `acc_${user.id}`,
+        userId: user.id,
+        accountId: user.id,
+        providerId: "credential",
+        password: defaultHashedPassword,
+      },
+    });
+  }
+  console.log("- Users Grace, Tembo, and Chipo created/verified with Better Auth credentials ('Password123!').");
 
   // 3. Create Members
   await prisma.member.upsert({

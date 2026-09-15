@@ -1,8 +1,16 @@
-"use client";
-
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { ArrowLeft, Scale } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy & Zambia DPA No. 3 of 2021 Declaration",
+  description:
+    "Statutory privacy declaration and data sovereignty standard for Contour under the Laws of the Republic of Zambia, supervised by the ODPC.",
+  alternates: {
+    canonical: "/privacy",
+  },
+};
 
 export default function PrivacyPolicyPage() {
   return (
@@ -176,6 +184,71 @@ export default function PrivacyPolicyPage() {
             <div>Website: <a href="https://www.dataprotection.gov.zm" target="_blank" rel="noopener noreferrer" className="text-contour-red underline">dataprotection.gov.zm</a></div>
           </div>
         </section>
+
+        {/* Section 8 */}
+        <section className="space-y-3">
+          <h2 className="text-base font-heading font-bold uppercase tracking-wider text-editorial-black flex items-center gap-2">
+            <span className="text-contour-red font-mono text-sm">08.</span>
+            Authorized Cloud Subprocessors & Cross-Border Transfer Adequacy
+          </h2>
+          <p className="text-editorial-black">
+            Contour engages vetted cloud infrastructure subprocessors under strict confidentiality and data protection addendums complying with Sections 34–36 of the Zambia DPA 2021:
+          </p>
+          <div className="border border-editorial-border overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-editorial-bg border-b border-editorial-border text-editorial-black uppercase">
+                <tr>
+                  <th className="p-2.5">Subprocessor</th>
+                  <th className="p-2.5">Service Purpose</th>
+                  <th className="p-2.5">Hosting Region</th>
+                  <th className="p-2.5">Safeguards</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-editorial-border">
+                <tr>
+                  <td className="p-2.5 font-bold">Neon Database Inc.</td>
+                  <td className="p-2.5 text-editorial-muted">Relational database & pgvector index</td>
+                  <td className="p-2.5 text-editorial-muted">Frankfurt, EU</td>
+                  <td className="p-2.5 text-editorial-muted">TLS 1.3, AES-256 at rest, SOC 2 Type II</td>
+                </tr>
+                <tr>
+                  <td className="p-2.5 font-bold">Self-Hosted MinIO VPS</td>
+                  <td className="p-2.5 text-editorial-muted">Encrypted PDF Deeds & NRC scans</td>
+                  <td className="p-2.5 text-editorial-muted">Self-Hosted / Dokploy Cluster</td>
+                  <td className="p-2.5 text-editorial-muted">15-min presigned URLs, tenant path isolation</td>
+                </tr>
+                <tr>
+                  <td className="p-2.5 font-bold">Paystack & Lenco</td>
+                  <td className="p-2.5 text-editorial-muted">ZMW/USD Subscription Payments</td>
+                  <td className="p-2.5 text-editorial-muted">Zambia & Regional Gateways</td>
+                  <td className="p-2.5 text-editorial-muted">PCI-DSS Level 1 compliant tokenization</td>
+                </tr>
+                <tr>
+                  <td className="p-2.5 font-bold">Twilio & Baileys Gateway</td>
+                  <td className="p-2.5 text-editorial-muted">Transactional WhatsApp Notifications</td>
+                  <td className="p-2.5 text-editorial-muted">Global / Self-Hosted Gateway</td>
+                  <td className="p-2.5 text-editorial-muted">Strict idempotency cooldowns, masked PII</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Section 9 */}
+        <section className="space-y-3">
+          <h2 className="text-base font-heading font-bold uppercase tracking-wider text-editorial-black flex items-center gap-2">
+            <span className="text-contour-red font-mono text-sm">09.</span>
+            Artificial Intelligence & Algorithmic Transparency
+          </h2>
+          <p className="text-editorial-black">
+            Contour integrates AI capabilities (semantic listing search and cadastral survey diagram parsing):
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 text-editorial-muted">
+            <li><strong className="text-editorial-black">Strict Tenant Scoping:</strong> Vector embeddings are strictly isolated per tenant organization. Your agency&apos;s listing data and client requirements are never exposed to other agencies.</li>
+            <li><strong className="text-editorial-black">Zero Foundational AI Training:</strong> Neither Contour nor its subprocessors use client Title Deeds, NRC scans, or transaction contracts to train public generative AI models.</li>
+            <li><strong className="text-editorial-black">Human Oversight (The Seam):</strong> All automated survey extractions and rental statement payout calculations require human staff approval before legal execution.</li>
+          </ul>
+        </section>
       </main>
 
       {/* Footer */}
@@ -188,6 +261,9 @@ export default function PrivacyPolicyPage() {
             </Link>
             <Link href="/privacy" className="hover:text-editorial-black underline">
               Privacy Policy
+            </Link>
+            <Link href="/cookies" className="hover:text-editorial-black underline">
+              Cookie Notice
             </Link>
           </div>
         </div>

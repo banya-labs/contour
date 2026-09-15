@@ -103,7 +103,6 @@ export function HeroStage() {
               alt="Contour Lusaka modernist luxury villa architecture"
               fill
               priority
-              unoptimized
               className="object-cover object-center"
               sizes="(max-width: 1400px) 100vw, 1400px"
             />
@@ -125,9 +124,7 @@ export function HeroStage() {
             >
               <h1 className="font-heading font-bold text-3xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tighter text-editorial-black uppercase leading-[0.95] [text-wrap:balance]">
                 RUN YOUR AGENCY.
-              </h1>
-              <h1 className="mt-1 sm:mt-2 font-heading font-bold text-3xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tighter text-editorial-black uppercase leading-[0.95] [text-wrap:balance]">
-                CHASE NOTHING.
+                <span className="block mt-1 sm:mt-2">CHASE NOTHING.</span>
               </h1>
               <p className="mt-4 sm:mt-6 font-geist text-xs sm:text-base text-editorial-black/80 max-w-prose leading-relaxed">
                 The mandate operating system for Lusaka real estate agents.

@@ -2,20 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { createInquirySchema } from "@/lib/validations";
+import { z } from "zod";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leads.read"],
+  querySchema: z.object({
+    assigned: z.string().optional(), // "me" | "all"
+    assignedAgentId: z.string().optional(),
+    search: z.string().optional(),
+  }).partial(),
   handler: async (req, ctx) => {
-    const { organizationId } = ctx;
+    const { organizationId, userId, query } = ctx;
+    const { assigned, assignedAgentId, search } = query;
+
+    const whereClause: any = { organizationId };
+
+    if (assigned === "me" && userId) {
+      whereClause.assignedAgentId = userId;
+    } else if (assignedAgentId) {
+      whereClause.assignedAgentId = assignedAgentId;
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { clientName: { contains: search, mode: "insensitive" } },
+        { clientPhone: { contains: search, mode: "insensitive" } },
+        { notes: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
     const clients = await db.inquiry.findMany({
-      where: { organizationId },
+      where: whereClause,
       include: {
         assignedAgent: {
           select: {
             id: true,
             name: true,
             phone: true,
+            email: true,
           }
         },
         property: { select: { id: true, title: true, suburb: true } },

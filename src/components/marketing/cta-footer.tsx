@@ -41,11 +41,11 @@ export function CtaFooter() {
     {
       title: "COMPANY",
       links: [
-        { label: "About Contour", href: "#" },
+        { label: "About Contour", href: "#product" },
         { label: "Commercial Pricing", href: "#pricing" },
         { label: "Venture Portfolio", href: "https://banyalabs.com" },
-        { label: "Research & Documentation", href: "#" },
-        { label: "Agent Careers", href: "#" },
+        { label: "Research & Documentation", href: "#how-it-works" },
+        { label: "Agent Careers", href: "mailto:careers@contour.banyalabs.com" },
       ],
     },
     {

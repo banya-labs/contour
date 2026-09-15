@@ -16,6 +16,12 @@ export const agencyProfileSchema = z.object({
   city: z.string().trim().max(80).optional().or(z.literal("")),
   primaryPhone: z.string().trim().max(32).optional().or(z.literal("")),
   primaryEmail: z.string().trim().email().max(160).optional().or(z.literal("")),
+  // Statutory Zambia Regulatory & Compliance Declarations
+  pacraRegistrationNumber: z.string().trim().max(60).optional().or(z.literal("")),
+  ziereaLicenseNumber: z.string().trim().max(60).optional().or(z.literal("")),
+  dpoName: z.string().trim().max(100).optional().or(z.literal("")),
+  dpoEmail: z.string().trim().max(160).optional().or(z.literal("")),
+  regulatoryDeclarationAgreed: z.boolean().default(true),
 });
 
 export const inviteSchema = z.object({

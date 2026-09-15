@@ -2,24 +2,135 @@ import type { Metadata, Viewport } from "next";
 import { CookieConsentBanner } from "@/components/ui/cookie-consent-banner";
 import "./globals.css";
 
+const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#ffffff",
 };
 
 export const metadata: Metadata = {
-  title: "Contour — Real Estate Operations & Field Agent OS",
-  description: "The Real Estate Operations & Field Agent Operating System for Southern Africa.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Contour — Real Estate Operations & Field Agent OS",
+    template: "%s | Contour",
+  },
+  description:
+    "The premier real estate operations and field agent operating system for Southern Africa. Mandate capture, deal pipeline, 5% commission ledger, and WhatsApp syndication for Lusaka brokerages.",
+  applicationName: "Contour",
+  authors: [{ name: "Banya Labs", url: "https://banyalabs.com" }],
+  creator: "Banya Labs",
+  publisher: "Banya Labs",
+  keywords: [
+    "real estate operations",
+    "Lusaka real estate",
+    "field agent OS",
+    "Zambia title deed",
+    "cadastral property map",
+    "mandate management",
+    "commission tracking",
+    "proptech Southern Africa",
+    "landlord statements",
+    "arrears sentinel",
+  ],
+  alternates: {
+    canonical: "./",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_ZM",
+    url: siteUrl,
+    siteName: "Contour",
+    title: "Contour — Real Estate Operations & Field Agent OS",
+    description:
+      "Run your agency. Chase nothing. Mandate capture, deal pipeline, 5% commission ledger, and automated WhatsApp syndication for Lusaka brokerages.",
+    images: [
+      {
+        url: `${siteUrl}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: "Contour — Real Estate Operations & Field Agent OS",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Contour — Real Estate Operations & Field Agent OS",
+    description:
+      "The mandate operating system for Lusaka real estate agents. Fixed 5% commission, deal pipeline, and cadastral spatial mapping.",
+    images: [`${siteUrl}/opengraph-image`],
+  },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Contour Agent",
   },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "google-site-verification-contour-placeholder",
+  },
+};
+
+const jsonLdData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "RealEstateAgent",
+      "@id": `${siteUrl}/#organization`,
+      "name": "Contour",
+      "url": siteUrl,
+      "logo": `${siteUrl}/brand/contour-mark.svg`,
+      "description":
+        "Real Estate Operations & Field Agent Operating System for Lusaka and Southern Africa.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Lusaka",
+        "addressCountry": "ZM",
+      },
+      "areaServed": ["Lusaka", "Ndola", "Livingstone", "Kitwe"],
+      "currenciesAccepted": "ZMW, USD",
+      "priceRange": "$$$",
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      "url": siteUrl,
+      "name": "Contour Real Estate OS",
+      "publisher": {
+        "@id": `${siteUrl}/#organization`,
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": `${siteUrl}/dashboard/map?search={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#software`,
+      "name": "Contour OS",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web, iOS, Android",
+      "offers": {
+        "@type": "Offer",
+        "price": "1200",
+        "priceCurrency": "ZMW",
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -29,6 +140,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="font-sans">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData) }}
+        />
+      </head>
       <body className="bg-white text-editorial-black min-h-screen flex flex-col antialiased selection:bg-contour-red selection:text-white">
         <main className="flex-1 flex flex-col">{children}</main>
         <CookieConsentBanner />

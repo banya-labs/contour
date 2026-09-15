@@ -1,8 +1,16 @@
-"use client";
-
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { ArrowLeft, Scale } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Terms of Use & Service Agreement (ECT Act No. 4 of 2021)",
+  description:
+    "Commercial operating agreement and binding terms of service for Contour Real Estate Operations System in the Republic of Zambia.",
+  alternates: {
+    canonical: "/terms",
+  },
+};
 
 export default function TermsOfUsePage() {
   return (
@@ -144,6 +152,37 @@ export default function TermsOfUsePage() {
             This agreement is governed by the laws of the Republic of Zambia. Any dispute that cannot be resolved amicably within 14 days shall be referred to final and binding arbitration in Lusaka under the <strong>Arbitration Act No. 19 of 2000 of Zambia</strong>, conducted in English by an arbitrator appointed by the Chartered Institute of Arbitrators (Zambia Branch).
           </p>
         </section>
+
+        {/* Section 8 */}
+        <section className="space-y-3">
+          <h2 className="text-base font-heading font-bold uppercase tracking-wider text-editorial-black flex items-center gap-2">
+            <span className="text-contour-red font-mono text-sm">08.</span>
+            B2B SaaS Subscription Billing, Auto-Renewals & Suspension
+          </h2>
+          <p className="text-editorial-black">
+            Contour offers tiered agency subscriptions (Starter, Growth, Enterprise) billed monthly or annually in Zambian Kwacha (ZMW) or United States Dollars (USD) processed via authorized gateways (Paystack and Lenco):
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 text-editorial-muted">
+            <li><strong className="text-editorial-black">Recurring Billing:</strong> Subscriptions automatically renew at the close of each billing cycle unless cancelled prior to renewal via the billing portal.</li>
+            <li><strong className="text-editorial-black">Non-Refundable Fees:</strong> Invoiced SaaS seat licenses and vault storage allocations are non-refundable once provisioned.</li>
+            <li><strong className="text-editorial-black">Payment Default & Grace Period:</strong> If payment fails, your workspace enters a seven (7) day grace period. Accounts remaining in default after seven days are switched to read-only custodial mode. Data is retained pursuant to our 7-year conveyancing retention policy.</li>
+          </ul>
+        </section>
+
+        {/* Section 9 */}
+        <section className="space-y-3">
+          <h2 className="text-base font-heading font-bold uppercase tracking-wider text-editorial-black flex items-center gap-2">
+            <span className="text-contour-red font-mono text-sm">09.</span>
+            Service Level Expectations & PowerSync Load-Shedding Resilience
+          </h2>
+          <p className="text-editorial-black">
+            Contour is purpose-built for Southern African infrastructure realities:
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 text-editorial-muted">
+            <li><strong className="text-editorial-black">Zero-Latency Offline Execution:</strong> Field agent kiosks and tablets operate with client-side local SQLite (PowerSync WASM), ensuring full viewing, capture, and listing generation during national ZESCO power outages and mobile network dropouts.</li>
+            <li><strong className="text-editorial-black">Cloud Synchronization SLA:</strong> Cloud syncing operates on best-effort commercial standards during public utility downtime. Once internet connectivity is restored, mutations queued in the local outbox automatically reconcile with the primary PostgreSQL database with idempotent verification.</li>
+          </ul>
+        </section>
       </main>
 
       {/* Footer */}
@@ -156,6 +195,9 @@ export default function TermsOfUsePage() {
             </Link>
             <Link href="/privacy" className="hover:text-editorial-black underline">
               Privacy Policy
+            </Link>
+            <Link href="/cookies" className="hover:text-editorial-black underline">
+              Cookie Notice
             </Link>
           </div>
         </div>

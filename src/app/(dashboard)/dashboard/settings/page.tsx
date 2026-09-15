@@ -20,6 +20,9 @@ import {
   Check,
   Users,
   UserCheck,
+  UserPlus,
+  Trash2,
+  ExternalLink,
   Link as LinkIcon,
   Upload,
   CreditCard,
@@ -50,6 +53,15 @@ type WorkspaceMember = {
 };
 
 type AccessRequest = { id: string; firstName: string; lastName: string; email: string; roleKey: string; createdAt: string };
+
+type WorkspaceInvitation = {
+  id: string;
+  email: string;
+  roleKey: string;
+  status: string;
+  expiresAt: string;
+  inviter?: { id: string; name: string; email: string };
+};
 
 function SettingsContent() {
   const searchParams = useSearchParams();
@@ -82,6 +94,11 @@ function SettingsContent() {
   const [roles, setRoles] = useState<Array<{ key: string; displayName: string }>>([]);
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRoleKey, setInviteRoleKey] = useState("FIELD_AGENT");
+  const [isInviting, setIsInviting] = useState(false);
+  const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [billingSummary, setBillingSummary] = useState<{
     subscription: { planName: string; status: string; trialEndsAt: string; nextPaymentAt: string | null; nextPayment: { formatted: string } | null; lastPayment: { amount: number; currency: string; completedAt: string | null; createdAt: string } | null };
@@ -107,13 +124,20 @@ function SettingsContent() {
 
   useEffect(() => {
     if (activeTab !== "ORGANIZATION") return;
-    void Promise.all([fetch("/api/organization/members"), fetch("/api/organization/access-link"), fetch("/api/organization/access-requests")])
-      .then(async ([membersResponse, linkResponse, requestsResponse]) => {
+    void Promise.all([
+      fetch("/api/organization/members"),
+      fetch("/api/organization/access-link"),
+      fetch("/api/organization/access-requests"),
+      fetch("/api/organization/invitations"),
+    ])
+      .then(async ([membersResponse, linkResponse, requestsResponse, invitationsResponse]) => {
         const membersData = await membersResponse.json();
         const linkData = await linkResponse.json();
         const requestsData = await requestsResponse.json();
+        const invitationsData = await invitationsResponse.json().catch(() => ({ success: false }));
         if (membersData.success) { setMembers(membersData.members || []); setRoles(membersData.roles || []); }
         if (requestsData.success) setAccessRequests(requestsData.requests || membersData.accessRequests || []);
+        if (invitationsData.success) setInvitations(invitationsData.invitations || []);
         if (linkData.active) setAccessLink("active");
       }).catch(() => undefined);
   }, [activeTab]);
@@ -177,6 +201,59 @@ function SettingsContent() {
     if (response.ok) {
       const refreshed = await fetch("/api/organization/members").then((res) => res.json());
       if (refreshed.success) setMembers(refreshed.members || []);
+    }
+  };
+
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setIsInviting(true);
+    setSettingsMessage(null);
+
+    try {
+      const res = await fetch("/api/organization/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), roleKey: inviteRoleKey }),
+      });
+      const data = await res.json();
+      setIsInviting(false);
+
+      if (!res.ok || !data.success) {
+        setSettingsMessage(data.error || "Unable to send invitation.");
+        return;
+      }
+
+      setGeneratedInviteLink(data.inviteUrl);
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(data.inviteUrl);
+      }
+      setSettingsMessage(`Invitation created for ${inviteEmail}. Link copied to clipboard!`);
+      setInviteEmail("");
+
+      // Refresh invitations
+      const refreshed = await fetch("/api/organization/invitations").then((r) => r.json());
+      if (refreshed.success) setInvitations(refreshed.invitations || []);
+    } catch {
+      setIsInviting(false);
+      setSettingsMessage("Network error creating invitation.");
+    }
+  };
+
+  const handleRevokeInvite = async (invitationId: string) => {
+    try {
+      const res = await fetch("/api/organization/invitations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invitationId }),
+      });
+      if (res.ok) {
+        setSettingsMessage("Invitation revoked.");
+        const refreshed = await fetch("/api/organization/invitations").then((r) => r.json());
+        if (refreshed.success) setInvitations(refreshed.invitations || []);
+      }
+    } catch {
+      setSettingsMessage("Failed to revoke invitation.");
     }
   };
 
@@ -522,9 +599,139 @@ function SettingsContent() {
             </div>
 
             {settingsMessage && <p className="mb-4 border border-editorial-border bg-neutral-50 px-3 py-2 text-xs text-editorial-black">{settingsMessage}</p>}
+
+            {/* DIRECT TEAM INVITATION WITH GOOGLE OAUTH */}
+            <div className="mb-6 border border-editorial-border bg-white p-5 space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-editorial-border">
+                <UserPlus className="w-4 h-4 text-contour-red" />
+                <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
+                  Invite Agent or Team Member
+                </h4>
+              </div>
+              <p className="text-xs text-editorial-muted">
+                Invited members receive an official link with 1-click Google sign-in. When they sign in, they join <strong>{settings.agencyName || "this agency"}</strong> automatically without creating a new workspace. Field agents are directed straight to the field app.
+              </p>
+
+              <form onSubmit={handleSendInvite} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+                <label className="flex-1 space-y-1">
+                  <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                    Agent Email (e.g. b@gmail.com)
+                  </span>
+                  <input
+                    required
+                    type="email"
+                    placeholder="agent@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black"
+                  />
+                </label>
+
+                <label className="sm:w-52 space-y-1">
+                  <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                    Assigned Role
+                  </span>
+                  <select
+                    value={inviteRoleKey}
+                    onChange={(e) => setInviteRoleKey(e.target.value)}
+                    className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black bg-white"
+                  >
+                    <option value="FIELD_AGENT">Field Agent (Field App Only)</option>
+                    <option value="BROKER_MANAGER">Broker Manager (Operations & Invites)</option>
+                    <option value="ADMIN_STAFF">Admin Staff (Read Access)</option>
+                    <option value="FINANCE_OFFICER">Finance Officer (Ledger & Payouts)</option>
+                    <option value="VAULT_MANAGER">Vault Manager (Deed Custody)</option>
+                  </select>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={isInviting || !inviteEmail.trim()}
+                  className="bg-editorial-black hover:bg-contour-red px-4 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>{isInviting ? "Creating..." : "Invite Member"}</span>
+                </button>
+              </form>
+
+              {generatedInviteLink && (
+                <div className="mt-3 border border-emerald-300 bg-emerald-50/70 p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-emerald-950">Active Invite Link Generated</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(generatedInviteLink, "invite_link")}
+                      className="text-[10px] font-bold uppercase tracking-wider text-contour-red hover:underline"
+                    >
+                      {copiedText === "invite_link" ? "Copied!" : "Copy Link"}
+                    </button>
+                  </div>
+                  <p className="font-mono text-[11px] text-editorial-black break-all bg-white border border-emerald-200 p-2">
+                    {generatedInviteLink}
+                  </p>
+                  <p className="text-[10px] text-editorial-muted">
+                    Send this link to the agent, or have them log in with Google using their invited email address.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* PENDING INVITATIONS LIST */}
+            {invitations.length > 0 && (
+              <div className="mb-6 border border-editorial-border bg-white p-5 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-editorial-border">
+                  <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
+                    Pending Team Invitations ({invitations.length})
+                  </h4>
+                  <span className="text-[10px] text-editorial-muted font-mono">Auto-claims upon Google login</span>
+                </div>
+
+                <div className="divide-y divide-editorial-border border border-editorial-border">
+                  {invitations.map((inv) => {
+                    const fullInviteUrl = typeof window !== "undefined"
+                      ? `${window.location.origin}/accept-invitation/${inv.id}`
+                      : `/accept-invitation/${inv.id}`;
+
+                    return (
+                      <div key={inv.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-editorial-black">{inv.email}</p>
+                          <p className="text-[11px] text-editorial-muted">
+                            Invited as <span className="font-mono font-bold text-editorial-black">{inv.roleKey.replaceAll("_", " ")}</span> · Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(fullInviteUrl, `inv_${inv.id}`)}
+                            className="border border-editorial-border px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 flex items-center gap-1"
+                          >
+                            <LinkIcon className="w-3 h-3" />
+                            <span>{copiedText === `inv_${inv.id}` ? "Copied!" : "Copy Link"}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void handleRevokeInvite(inv.id)}
+                            className="border border-red-200 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 flex items-center gap-1"
+                            title="Revoke invitation"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Revoke</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* OPTIONAL PUBLIC ACCESS REQUEST LINK */}
             <div className="mb-6 border border-editorial-border bg-neutral-50 p-4">
-              <p className="mb-3 text-xs text-editorial-muted">Share a secure link. People create an account and submit a request for your approval.</p>
-              <button type="button" onClick={() => void handleCreateAccessLink()} className="inline-flex items-center justify-center gap-2 bg-editorial-black px-4 py-2.5 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red"><LinkIcon className="h-3.5 w-3.5" /> Create & copy link</button>
+              <p className="mb-3 text-xs text-editorial-muted">Alternative: Share a general open link where prospective agents request access for admin review.</p>
+              <button type="button" onClick={() => void handleCreateAccessLink()} className="inline-flex items-center justify-center gap-2 bg-editorial-black px-4 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red"><LinkIcon className="h-3.5 w-3.5" /> Create & copy public link</button>
               {accessLink && accessLink !== "active" && <p className="mt-3 break-all border border-editorial-border bg-white px-3 py-2 text-xs text-editorial-black">{accessLink}</p>}
             </div>
             {accessRequests.length > 0 && <div className="mb-6 border border-amber-200 bg-amber-50 p-4"><p className="mb-3 text-[10px] font-heading font-bold uppercase tracking-wider text-amber-900">Pending access requests</p>{accessRequests.map((request) => <div key={request.id} className="mb-2 flex flex-col gap-3 border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-editorial-black">{request.firstName} {request.lastName}</p><p className="text-xs text-editorial-muted">{request.email} · requested {request.roleKey.replaceAll("_", " ").toLowerCase()}</p></div><div className="flex gap-2"><button type="button" onClick={() => void handleReviewRequest(request.id, "DECLINE")} className="border border-editorial-border px-3 py-2 text-[10px] font-bold uppercase">Decline</button><button type="button" onClick={() => void handleReviewRequest(request.id, "APPROVE")} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase text-white">Approve</button></div></div>)}</div>}
