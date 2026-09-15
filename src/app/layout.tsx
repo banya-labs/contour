@@ -79,15 +79,12 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Contour Agent",
   },
-  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION
-    ? {
-        verification: {
-          google:
-            process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
-            process.env.GOOGLE_SITE_VERIFICATION,
-        },
-      }
-    : {}),
+  verification: {
+    google:
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+      process.env.GOOGLE_SITE_VERIFICATION ||
+      "Z790qJpTsIipHr2SDLgw60iSV8mey6wBSCuDagQipa8",
+  },
 };
 
 const jsonLdData = {
@@ -146,7 +143,8 @@ export default function RootLayout({
 }>) {
   const googleVerification =
     process.env.GOOGLE_SITE_VERIFICATION ||
-    process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+    process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+    "Z790qJpTsIipHr2SDLgw60iSV8mey6wBSCuDagQipa8";
 
   return (
     <html lang="en" className="font-sans">
