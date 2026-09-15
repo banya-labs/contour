@@ -79,9 +79,15 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Contour Agent",
   },
-  verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "google-site-verification-contour-placeholder",
-  },
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION
+    ? {
+        verification: {
+          google:
+            process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+            process.env.GOOGLE_SITE_VERIFICATION,
+        },
+      }
+    : {}),
 };
 
 const jsonLdData = {
@@ -138,9 +144,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const googleVerification =
+    process.env.GOOGLE_SITE_VERIFICATION ||
+    process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+
   return (
     <html lang="en" className="font-sans">
       <head>
+        {googleVerification && (
+          <meta
+            name="google-site-verification"
+            content={googleVerification}
+          />
+        )}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData) }}
