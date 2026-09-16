@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -21,12 +21,38 @@ import {
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const { data: session } = authClient.useSession();
   const user = session?.user;
+
+  const [workspaceTitle, setWorkspaceTitle] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const s = getAgencySettings();
+        if (s?.agencyName) return formatWorkspaceTitle(s.agencyName);
+      } catch {}
+    }
+    return "Contour's Workspace";
+  });
+
+  useEffect(() => {
+    const updateTitle = () => {
+      try {
+        const s = getAgencySettings();
+        if (s?.agencyName) setWorkspaceTitle(formatWorkspaceTitle(s.agencyName));
+      } catch {}
+    };
+    window.addEventListener("contour_agency_settings_updated", updateTitle);
+    window.addEventListener("storage", updateTitle);
+    return () => {
+      window.removeEventListener("contour_agency_settings_updated", updateTitle);
+      window.removeEventListener("storage", updateTitle);
+    };
+  }, []);
 
   const primaryTabs = [
     {
@@ -145,7 +171,7 @@ export default function MobileBottomNav() {
       <BottomSheet
         isOpen={isMoreOpen}
         onClose={() => setIsMoreOpen(false)}
-        title="Contour Agency"
+        title={workspaceTitle}
         subtitle={user?.email || "Workspace Menu"}
       >
         <div className="space-y-5 pb-4 font-geist">

@@ -503,12 +503,23 @@ export default function SocialMediaCardGeneratorModal({
                     className="w-full h-full object-cover"
                   />
 
-                  {/* Top Left Floating Agency Monogram Badge */}
-                  <div className="absolute top-2.5 left-2.5 bg-[#282828] text-white p-2 flex items-center gap-2 border border-white/20">
-                    <div className="w-6 h-6 rounded-full bg-[#fa3600] flex items-center justify-center font-bold text-[10px] text-white">
-                      C
-                    </div>
-                    <div className="font-heading font-bold text-[9px] uppercase tracking-wider text-white truncate max-w-[100px]">
+                  {/* Top Left Floating Agency Monogram / Brand Badge */}
+                  <div className="absolute top-2.5 left-2.5 bg-[#282828] text-white p-1.5 sm:p-2 flex items-center gap-2 border border-white/20">
+                    {agencySettings?.logoUrl ? (
+                      <div className="h-6 max-w-[70px] bg-white px-1 py-0.5 flex items-center justify-center">
+                        <img
+                          src={agencySettings.logoUrl}
+                          alt={agencySettings.agencyName || "Agency Logo"}
+                          crossOrigin="anonymous"
+                          className="h-full w-auto max-w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-[#fa3600] flex items-center justify-center font-bold text-[10px] text-white shrink-0">
+                        {agencySettings?.agencyName?.[0] || "C"}
+                      </div>
+                    )}
+                    <div className="font-heading font-bold text-[9px] uppercase tracking-wider text-white truncate max-w-[110px]">
                       {agencySettings?.agencyName || "CONTOUR"}
                     </div>
                   </div>
@@ -655,8 +666,19 @@ export default function SocialMediaCardGeneratorModal({
 
                   {/* Top Floating Badge */}
                   <div className="absolute top-2.5 left-2.5 bg-[#282828] text-white px-2 py-1 flex items-center gap-1.5 border border-white/20">
-                    <span className="w-2 h-2 rounded-full bg-[#fa3600]" />
-                    <span className="font-heading font-bold text-[8.5px] uppercase tracking-wider">
+                    {agencySettings?.logoUrl ? (
+                      <div className="h-4 max-w-[50px] bg-white px-1 py-0.5 flex items-center justify-center">
+                        <img
+                          src={agencySettings.logoUrl}
+                          alt={agencySettings.agencyName || "Agency Logo"}
+                          crossOrigin="anonymous"
+                          className="h-full w-auto max-w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-[#fa3600] shrink-0" />
+                    )}
+                    <span className="font-heading font-bold text-[8.5px] uppercase tracking-wider truncate max-w-[120px]">
                       {agencySettings?.agencyName || "CONTOUR"}
                     </span>
                   </div>
@@ -734,12 +756,23 @@ export default function SocialMediaCardGeneratorModal({
                     className="w-full h-full object-cover"
                   />
 
-                  {/* Monogram Crest */}
+                  {/* Monogram / Brand Crest */}
                   <div className="absolute top-3 left-3 bg-[#282828] text-white px-2 py-1 border border-white/20 flex items-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-[#fa3600] flex items-center justify-center text-white font-bold text-[9px]">
-                      C
-                    </div>
-                    <span className="font-heading font-bold text-[8px] uppercase tracking-wider">
+                    {agencySettings?.logoUrl ? (
+                      <div className="h-5 max-w-[60px] bg-white px-1 py-0.5 flex items-center justify-center">
+                        <img
+                          src={agencySettings.logoUrl}
+                          alt={agencySettings.agencyName || "Agency Logo"}
+                          crossOrigin="anonymous"
+                          className="h-full w-auto max-w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-[#fa3600] flex items-center justify-center text-white font-bold text-[9px] shrink-0">
+                        {agencySettings?.agencyName?.[0] || "C"}
+                      </div>
+                    )}
+                    <span className="font-heading font-bold text-[8px] uppercase tracking-wider truncate max-w-[100px]">
                       {agencySettings?.agencyName || "CONTOUR"}
                     </span>
                   </div>

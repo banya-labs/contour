@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { s3Storage } from "@/lib/storage/s3";
 import {
   ContourReportPayload,
   ReportPeriod,
@@ -963,10 +964,23 @@ export class ContourReportEngine {
         ? "ATTENTION_REQUIRED"
         : "GOOD";
 
+    let logoUrl: string | null = null;
+    if (org?.logo) {
+      if (/^https?:\/\//i.test(org.logo) || org.logo.startsWith("data:")) {
+        logoUrl = org.logo;
+      } else {
+        try {
+          logoUrl = await s3Storage.getPresignedDownloadUrl(org.logo);
+        } catch {
+          logoUrl = org.logo;
+        }
+      }
+    }
+
     return {
       meta: {
         companyName,
-        logoUrl: org?.logo || null,
+        logoUrl,
         primaryAddress: org?.profile?.primaryOfficeAddress || "Lusaka, Zambia",
         primaryPhone: org?.profile?.primaryPhone || "+260",
         primaryEmail: org?.profile?.primaryEmail || "info@contour.agency",

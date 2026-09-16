@@ -30,10 +30,12 @@ import {
   AlertTriangle,
   Ban,
   RefreshCw,
+  Lock,
 } from "lucide-react";
 import {
   getAgencySettings,
   saveAgencySettings,
+  formatWorkspaceTitle,
   AgencySettings,
   DEFAULT_AGENCY_SETTINGS,
 } from "@/lib/settings/agency-settings";
@@ -171,13 +173,36 @@ function SettingsContent() {
   };
 
   const handleLogoUpload = async (file: File) => {
-    const body = new FormData();
-    body.append("file", file);
-    const response = await fetch("/api/organization/logo", { method: "POST", body });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Logo upload failed");
-    setSettings((current) => ({ ...current, logoUrl: data.logoUrl }));
-    setSettingsMessage("Workspace logo updated.");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/organization/logo", { method: "POST", body });
+      const data = await response.json();
+      if (response.ok && data.logoUrl) {
+        const updated = saveAgencySettings({ ...settings, logoUrl: data.logoUrl });
+        setSettings(updated);
+        setSettingsMessage("Agency logo updated and saved.");
+        return;
+      }
+    } catch {
+      // Fallback to data URL below
+    }
+
+    // Client-side fallback if S3 is offline or local dev
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const updated = saveAgencySettings({ ...settings, logoUrl: dataUrl });
+      setSettings(updated);
+      setSettingsMessage("Agency logo updated and saved.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAgencyLogo = () => {
+    const updated = saveAgencySettings({ ...settings, logoUrl: "" });
+    setSettings(updated);
+    setSettingsMessage("Agency logo removed.");
   };
 
   const handleCreateAccessLink = async () => {
@@ -417,23 +442,82 @@ function SettingsContent() {
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Workspace logo
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden border border-editorial-border bg-editorial-black text-xl font-heading font-bold text-white">
-                      {settings.logoUrl ? <img src={settings.logoUrl} alt="Workspace logo" className="h-full w-full object-contain" /> : <ContourLogo size="md" variant="dark" />}
-                    </div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 border border-editorial-black px-3 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50">
-                      <Upload className="h-3.5 w-3.5" /> Upload logo
-                      <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) void handleLogoUpload(file).catch((error: Error) => setSettingsMessage(error.message));
-                      }} />
+                {/* 1. Permanent Contour Workspace Logo (System Managed / Locked) */}
+                <div className="pb-4 border-b border-editorial-border/70">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black">
+                      Workspace Application Logo
                     </label>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 bg-neutral-100 border border-editorial-border text-editorial-muted font-semibold uppercase tracking-wider">
+                      <Lock className="w-3 h-3 text-editorial-muted" /> Locked • System Brand
+                    </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-editorial-muted">Used on listing flyers, statements, and your workspace shell.</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden border border-editorial-border bg-editorial-black text-xl font-heading font-bold text-white shrink-0 shadow-sm">
+                      <ContourLogo size="md" variant="dark" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-heading font-semibold text-editorial-black">Contour System OS</p>
+                      <p className="mt-0.5 text-[11px] text-editorial-muted max-w-md">
+                        The workspace shell and core system headers always display the official Contour logo. This is permanent and cannot be modified.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Agency Brand Logo (Customizable: Used on Flyers & Generated Reports) */}
+                <div className="pb-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black">
+                      Agency Brand Logo
+                    </label>
+                    <span className="text-[10px] font-mono text-contour-red font-semibold uppercase tracking-wider">
+                      Used on Flyers &amp; Reports
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden border border-editorial-border bg-white p-1 shrink-0 shadow-sm">
+                      {settings.logoUrl ? (
+                        <img
+                          src={settings.logoUrl}
+                          alt="Agency logo"
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-xs font-heading font-bold text-editorial-muted uppercase border border-dashed border-neutral-300">
+                          {settings.agencyName?.substring(0, 2) || "AG"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex cursor-pointer items-center gap-2 bg-editorial-black hover:bg-neutral-800 text-white px-3 py-2 text-[10px] font-heading font-bold uppercase tracking-wider transition-colors shadow-none">
+                        <Upload className="h-3.5 w-3.5 text-contour-red" />
+                        <span>{settings.logoUrl ? "Change Agency Logo" : "Upload Agency Logo"}</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void handleLogoUpload(file).catch((error: Error) => setSettingsMessage(error.message));
+                          }}
+                        />
+                      </label>
+                      {settings.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAgencyLogo}
+                          className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 px-2.5 py-2 text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-editorial-muted">
+                    Your custom agency logo will be rendered on generated social media listing flyers, WhatsApp pitch cards, and official business performance &amp; intelligence reports.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
@@ -615,8 +699,14 @@ function SettingsContent() {
               </span>
               <div className="bg-white p-5 border border-editorial-border space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 overflow-hidden bg-editorial-black text-white flex items-center justify-center font-heading font-bold text-base">
-                    {settings.logoUrl ? <img src={settings.logoUrl} alt="" className="h-full w-full object-contain" /> : <ContourLogo size="sm" variant="dark" compact />}
+                  <div className="w-10 h-10 overflow-hidden bg-white border border-editorial-border p-1 flex items-center justify-center font-heading font-bold text-base shadow-sm">
+                    {settings.logoUrl ? (
+                      <img src={settings.logoUrl} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full bg-editorial-black text-white flex items-center justify-center text-xs font-heading font-bold">
+                        {settings.agencyName?.substring(0, 2) || "AG"}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <h4 className="font-heading font-bold text-sm text-editorial-black uppercase">
@@ -974,7 +1064,9 @@ function SettingsContent() {
               </div>
               <div className="border border-editorial-border bg-neutral-50 p-4">
                 <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Workspace membership</p>
-                <p className="mt-2 text-sm font-semibold text-editorial-black">Contour Agency Workspace</p>
+                <p className="mt-2 text-sm font-semibold text-editorial-black">
+                  {formatWorkspaceTitle(settings.agencyName)}
+                </p>
                 <p className="text-xs text-editorial-muted">Share an access link, then approve or decline requests from this panel.</p>
               </div>
             </div>

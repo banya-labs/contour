@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
 import {
   LayoutDashboard,
   Home,
@@ -55,6 +56,50 @@ export default function WorkspaceSidebar() {
     "CRM & Deals": true,
     Finance: true,
   });
+
+  // Real-time dynamic workspace title pulled from agency settings
+  const [workspaceTitle, setWorkspaceTitle] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const settings = getAgencySettings();
+        if (settings?.agencyName) {
+          return formatWorkspaceTitle(settings.agencyName);
+        }
+      } catch {}
+    }
+    return "Contour's Workspace";
+  });
+
+  useEffect(() => {
+    const updateTitleFromSettings = () => {
+      try {
+        const settings = getAgencySettings();
+        if (settings?.agencyName) {
+          setWorkspaceTitle(formatWorkspaceTitle(settings.agencyName));
+        }
+      } catch {}
+    };
+
+    updateTitleFromSettings();
+
+    // Query organization profile to keep in sync with tenant organization
+    void fetch("/api/organization/profile")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.organization?.name) {
+          setWorkspaceTitle(formatWorkspaceTitle(data.organization.name));
+        }
+      })
+      .catch(() => undefined);
+
+    window.addEventListener("contour_agency_settings_updated", updateTitleFromSettings);
+    window.addEventListener("storage", updateTitleFromSettings);
+
+    return () => {
+      window.removeEventListener("contour_agency_settings_updated", updateTitleFromSettings);
+      window.removeEventListener("storage", updateTitleFromSettings);
+    };
+  }, []);
 
   const toggleGroup = (groupName: string) => {
     setOpenGroups((prev) => ({
@@ -128,8 +173,11 @@ export default function WorkspaceSidebar() {
 
           {/* Real Estate Multi-Tenant Organization Context */}
           <div className="hidden lg:block w-full">
-            <div className="w-full border border-editorial-border bg-neutral-50/50 px-2.5 py-1.5 text-xs font-heading font-semibold text-editorial-black">
-              Contour Agency Workspace
+            <div
+              className="w-full border border-editorial-border bg-neutral-50/50 px-2.5 py-1.5 text-xs font-heading font-semibold text-editorial-black truncate"
+              title={workspaceTitle}
+            >
+              {workspaceTitle}
             </div>
           </div>
         </div>

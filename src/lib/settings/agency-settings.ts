@@ -59,6 +59,23 @@ export function saveAgencySettings(newSettings: Partial<AgencySettings>): Agency
   };
   if (typeof window !== "undefined") {
     localStorage.setItem("contour_agency_settings", JSON.stringify(currentAgencySettings));
+    window.dispatchEvent(
+      new CustomEvent("contour_agency_settings_updated", { detail: currentAgencySettings })
+    );
   }
   return currentAgencySettings;
+}
+
+/**
+ * Returns formatted workspace title adhering to user standard:
+ * "<the name of the agency>'s Workspace"
+ */
+export function formatWorkspaceTitle(agencyName?: string): string {
+  const name = agencyName?.trim();
+  if (!name) return "Contour's Workspace";
+  if (/\bworkspace$/i.test(name)) return name;
+  if (name.endsWith("s") || name.endsWith("S")) {
+    return `${name}' Workspace`;
+  }
+  return `${name}'s Workspace`;
 }

@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { getAgencySettings } from "@/lib/settings/agency-settings";
 
 function AnalyticsPrintContent() {
   const searchParams = useSearchParams();
@@ -18,10 +19,18 @@ function AnalyticsPrintContent() {
   const customTitle = searchParams?.get("title") || "Business Intelligence & Performance Report";
 
   const [report, setReport] = useState<ContourReportPayload | null>(null);
+  const [localAgencyLogo, setLocalAgencyLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressText, setProgressText] = useState("");
+
+  useEffect(() => {
+    try {
+      const s = getAgencySettings();
+      if (s?.logoUrl) setLocalAgencyLogo(s.logoUrl);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     async function loadReport() {
@@ -225,9 +234,9 @@ function AnalyticsPrintContent() {
                 <div className="flex justify-between items-start gap-4">
                   {/* Agency Brand Identity (Agency Logo or Monogram) */}
                   <div className="flex items-center gap-3.5">
-                    {report.meta.logoUrl ? (
+                    {(report.meta.logoUrl || localAgencyLogo) ? (
                       <img
-                        src={report.meta.logoUrl}
+                        src={report.meta.logoUrl || localAgencyLogo!}
                         alt={report.meta.companyName}
                         className="h-14 w-auto max-w-[140px] object-contain rounded border border-neutral-200 p-1 bg-white"
                       />
