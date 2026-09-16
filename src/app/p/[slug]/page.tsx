@@ -18,6 +18,8 @@ import { db } from "@/lib/db";
 import { MOCK_PROPERTIES } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 import PublicPropertyGallery from "@/components/properties/public-property-gallery";
+import { PublicPropertyNavbar } from "@/components/properties/public-property-navbar";
+import { PropertyLocationMap } from "@/components/properties/property-location-map";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
 
@@ -68,6 +70,7 @@ async function getPropertyBySlug(slug: string) {
         city: dbProperty.city || "Lusaka",
         latitude: dbProperty.latitude,
         longitude: dbProperty.longitude,
+        standBoundary: (dbProperty.standBoundary as [number, number][] | null) || null,
         landmarkDirections: dbProperty.landmarkDirections,
         assignedAgentName: dbProperty.assignedAgent?.name || "Grace Banda",
         assignedAgentPhone: dbProperty.assignedAgent?.phone || "+260 97 123 4567",
@@ -206,6 +209,9 @@ export default async function PublicPropertyCardPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
+      {/* Global Navigation Bar linking back to Contour platform */}
+      <PublicPropertyNavbar suburb={property.suburb} />
+
       {/* Top Header & Breadcrumb */}
       <div className="max-w-4xl mx-auto px-4 py-4 border-b border-editorial-border">
         <div className="flex items-center justify-between">
@@ -322,6 +328,19 @@ export default async function PublicPropertyCardPage({
             </div>
           )}
         </div>
+
+        {/* Spatial Location Map with Area Pin & Cadastral Delineation */}
+        <PropertyLocationMap
+          title={property.title}
+          suburb={property.suburb}
+          city={property.city}
+          priceText={priceText}
+          latitude={property.latitude}
+          longitude={property.longitude}
+          standBoundary={property.standBoundary}
+          landmarkDirections={property.landmarkDirections}
+          featuredPhoto={property.featuredPhoto || property.photos[0]}
+        />
 
         {/* Assigned Agent Contact Card */}
         <div className="bg-white rounded-none p-6 border border-editorial-border flex flex-col sm:flex-row items-center justify-between gap-4">

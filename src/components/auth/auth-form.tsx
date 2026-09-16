@@ -26,7 +26,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectUrl = searchParams.get("redirect_url") || "/dashboard";
+  const rawRedirectUrl = searchParams.get("redirect_url") || "/dashboard";
+  const redirectUrl =
+    rawRedirectUrl === "/agent/kiosk" || rawRedirectUrl === "/kiosk/agent"
+      ? "/agent"
+      : rawRedirectUrl;
   const onboardingUrl = `/onboarding?redirect_url=${encodeURIComponent(redirectUrl)}`;
   const isSignUp = mode === "sign-up";
   const isLocalDevelopment =
@@ -73,16 +77,14 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           await authClient.organization.setActive({ organizationId: claimData.organizationId });
         }
         const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
-        router.replace(target);
-        router.refresh();
+        window.location.href = target;
         return;
       }
     } catch {
       // Fallback to normal redirection
     }
 
-    router.replace(redirectUrl);
-    router.refresh();
+    window.location.href = redirectUrl;
   }
 
   async function handleQuickLogin(quickEmail: string) {
@@ -103,7 +105,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       return;
     }
 
-    let targetUrl = searchParams.get("redirect_url");
+    let rawTarget = searchParams.get("redirect_url");
+    let targetUrl = rawTarget === "/agent/kiosk" || rawTarget === "/kiosk/agent" ? "/agent" : rawTarget;
     try {
       const claimRes = await fetch("/api/organization/invitations/claim", {
         method: "POST",

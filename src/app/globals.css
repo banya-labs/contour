@@ -333,16 +333,13 @@ button, a, input, select, textarea {
 /* The agent surface is an extension of the editorial app, not a separate
    dark theme. Keep the existing JSX utility classes functional while
    translating legacy kiosk styling into the shared Contour visual language. */
-[data-field-console] [class*="bg-[#"],
 [data-field-console] [class*="bg-emerald-9"],
-[data-field-console] [class*="bg-emerald-8"],
 [data-field-console] [class*="bg-emerald-7"] {
   background-color: var(--field-surface) !important;
 }
 
 [data-field-console] [class*="text-[#16382B]"],
 [data-field-console] [class*="text-[#16382b]"],
-[data-field-console] [class*="text-white"],
 [data-field-console] [class*="text-slate-"] {
   color: var(--field-ink) !important;
 }
@@ -353,8 +350,7 @@ button, a, input, select, textarea {
   color: var(--field-red) !important;
 }
 
-[data-field-console] [class*="border-emerald-"],
-[data-field-console] [class*="border-[#"] {
+[data-field-console] [class*="border-emerald-"] {
   border-color: var(--field-line) !important;
 }
 
@@ -398,7 +394,32 @@ button, a, input, select, textarea {
   color: #ffffff !important;
 }
 
+/* High-Contrast Rules for Dark Components & Buttons in Field OS */
+[data-field-console] .text-white,
 [data-field-console] [class*="text-white"],
+[data-field-console] [class*="hover:text-white"]:hover {
+  color: #ffffff !important;
+}
+
+[data-field-console] [class*="text-white"] svg:not([class*="text-"]),
+[data-field-console] .text-white svg:not([class*="text-"]) {
+  color: #ffffff !important;
+}
+
+[data-field-console] .bg-editorial-black,
+[data-field-console] [class*="bg-editorial-black"],
+[data-field-console] [class*="bg-[#282828]"],
+[data-field-console] [class*="bg-[#1c1c1a]"],
+[data-field-console] [class*="bg-[#1C1C1A]"] {
+  background-color: #282828 !important;
+  color: #ffffff !important;
+}
+
+[data-field-console] .bg-editorial-black svg:not([class*="text-"]),
+[data-field-console] [class*="bg-editorial-black"] svg:not([class*="text-"]) {
+  color: #ffffff !important;
+}
+
 [data-field-console] [class*="text-slate-100"],
 [data-field-console] [class*="text-slate-200"],
 [data-field-console] [class*="text-slate-300"] {
@@ -660,8 +681,7 @@ button, a, input, select, textarea {
 [data-field-console] [class*="from-emerald-900"],
 [data-field-console] [class*="to-[#10241A]"],
 [data-field-console] [class*="bg-[#10241A]"],
-[data-field-console] [class*="bg-[#163325]"],
-[data-field-console] [class*="bg-emerald-800"] {
+[data-field-console] [class*="bg-[#163325]"] {
   background: var(--field-surface) !important;
   color: var(--field-ink) !important;
 }

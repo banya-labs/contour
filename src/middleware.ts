@@ -39,6 +39,12 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CORRELATION_HEADER, correlationId);
 
+  if (request.nextUrl.pathname === "/agent/kiosk" || request.nextUrl.pathname === "/kiosk/agent") {
+    const canonicalUrl = new URL("/agent", request.url);
+    canonicalUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(canonicalUrl);
+  }
+
   if (isPublicPath(request.nextUrl.pathname)) {
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     response.headers.set(CORRELATION_HEADER, correlationId);
@@ -49,18 +55,17 @@ export async function middleware(request: NextRequest) {
     headers: request.headers,
   });
 
-  const isFieldAgentSurface = request.nextUrl.pathname.startsWith("/agent") || request.nextUrl.pathname.startsWith("/kiosk");
-
   if (!session) {
-    // Only allow unauthenticated demo bypass if dev mode is enabled and no session exists
-    if (!isFieldAgentSurface && process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
+    // Allow unauthenticated demo bypass if dev mode is enabled and no session exists
+    if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
       const response = NextResponse.next({ request: { headers: requestHeaders } });
       response.headers.set(CORRELATION_HEADER, correlationId);
       return response;
     }
 
     const signInUrl = new URL("/sign-in", request.url);
-    signInUrl.searchParams.set("redirect_url", request.nextUrl.pathname);
+    const targetPath = request.nextUrl.pathname === "/agent/kiosk" || request.nextUrl.pathname === "/kiosk/agent" ? "/agent" : request.nextUrl.pathname;
+    signInUrl.searchParams.set("redirect_url", targetPath);
     const response = NextResponse.redirect(signInUrl);
     response.headers.set(CORRELATION_HEADER, correlationId);
     return response;

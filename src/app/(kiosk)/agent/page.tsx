@@ -521,17 +521,109 @@ function AgentKioskContent() {
     playSuccessTone();
   };
 
+  const isDev = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+  const [isLoggingInDev, setIsLoggingInDev] = useState(false);
+
+  useEffect(() => {
+    if (!isSessionPending && !session) {
+      const target = `/sign-in?redirect_url=${encodeURIComponent("/agent")}`;
+      const timer = setTimeout(() => {
+        window.location.href = target;
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSessionPending, session]);
+
+  const handleDevQuickLogin = async () => {
+    setIsLoggingInDev(true);
+    try {
+      await authClient.signIn.email({
+        email: "tembo@contour.app",
+        password: "Password123!",
+      });
+      window.location.href = "/agent";
+    } catch {
+      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/agent")}`;
+    }
+  };
 
   if (isSessionPending) {
-    return <main className="flex min-h-dvh items-center justify-center bg-white px-6 text-sm text-editorial-muted">Checking your Contour session…</main>;
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center bg-[#FAF8F5] px-6 text-center text-editorial-black font-sans">
+        <div className="w-full max-w-sm border border-editorial-border bg-white p-8 shadow-lg space-y-4">
+          <div className="flex justify-center">
+            <ContourLogo size="md" />
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <span className="h-3 w-3 rounded-full bg-contour-red animate-ping" />
+            <span className="h-2 w-2 rounded-full bg-contour-red" />
+          </div>
+          <p className="font-mono text-xs uppercase tracking-widest text-editorial-muted">
+            Checking Contour Session…
+          </p>
+        </div>
+      </main>
+    );
   }
 
   if (!session) {
-    return <main className="flex min-h-dvh items-center justify-center bg-white px-6 text-sm text-editorial-muted">Redirecting to secure sign-in…</main>;
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center bg-[#FAF8F5] px-6 text-center text-editorial-black font-sans">
+        <div className="w-full max-w-sm border border-editorial-border bg-white p-6 sm:p-8 shadow-xl space-y-5 text-left">
+          <div className="flex items-center justify-between border-b border-editorial-border pb-4">
+            <ContourLogo size="sm" />
+            <span className="font-mono text-[9px] uppercase tracking-widest bg-stone-100 px-2 py-1 border border-stone-200 text-stone-600 font-bold">
+              Field OS
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+              <p className="font-mono text-[10px] uppercase tracking-wider text-amber-700 font-bold">
+                Authentication Required
+              </p>
+            </div>
+            <h1 className="font-heading text-lg font-bold uppercase tracking-tight text-editorial-black">
+              Redirecting to Secure Sign-In
+            </h1>
+            <p className="text-xs text-editorial-muted leading-relaxed">
+              The Field Agent PWA requires an authenticated Contour session to access protected client mandates and Lusaka spatial registries.
+            </p>
+          </div>
+
+          <div className="space-y-2.5 pt-2">
+            <a
+              href="/sign-in?redirect_url=%2Fagent"
+              className="flex w-full items-center justify-center gap-2 bg-editorial-black hover:bg-contour-red text-white py-3 px-4 text-xs font-heading font-bold uppercase tracking-wider transition-colors shadow-xs"
+            >
+              <span>Continue to Sign In</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </a>
+
+            {isDev && (
+              <button
+                type="button"
+                disabled={isLoggingInDev}
+                onClick={() => void handleDevQuickLogin()}
+                className="flex w-full items-center justify-center gap-2 border border-stone-300 bg-stone-50 hover:bg-stone-100 text-editorial-black py-2.5 px-4 text-[11px] font-heading font-bold uppercase tracking-wider transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-contour-red" />
+                <span>{isLoggingInDev ? "Logging in..." : "Fast Dev Login (Tembo - Agent)"}</span>
+              </button>
+            )}
+          </div>
+
+          <p className="text-[10px] font-mono text-center text-editorial-muted pt-2 border-t border-stone-100">
+            SSL 256-Bit Encrypted · POPIA Compliant
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <div data-field-console className="field-shell min-h-dvh bg-[#FBF9F5] text-editorial-black font-sans flex flex-col justify-between max-w-md md:max-w-2xl mx-auto relative shadow-2xl border-x border-editorial-border">
+    <div data-field-console className="field-shell min-h-dvh bg-[#FBF9F5] text-editorial-black font-sans flex flex-col justify-between max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto relative shadow-2xl border-x border-editorial-border">
       
       {/* 1. Top Fixed Field Bar with Contour Branding */}
       <header className="field-header relative sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-editorial-border px-4 py-3">
@@ -1015,9 +1107,9 @@ function AgentKioskContent() {
 
             {/* B. LIST VIEW MODE */}
             {propertyViewMode === "LIST" && activeTab === "PROPERTIES" && (
-              <div className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
                 {filteredProperties.length === 0 ? (
-                  <div className="bg-white border border-editorial-border p-8 text-center space-y-3">
+                  <div className="col-span-full bg-white border border-editorial-border p-8 text-center space-y-3">
                     <Building2 className="w-8 h-8 text-neutral-400 mx-auto" />
                     <div>
                       <h4 className="text-sm font-heading font-bold text-editorial-black uppercase">
@@ -1048,23 +1140,27 @@ function AgentKioskContent() {
                   return (
                     <div
                       key={p.id}
-                      className="bg-white border border-editorial-border p-4 space-y-3 text-editorial-black transition-colors"
+                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 text-editorial-black transition-colors hover:border-editorial-black/50"
                     >
-                      {p.photos?.[0] && (
-                        <div className="relative h-36 overflow-hidden border border-editorial-border bg-neutral-100">
+                      {p.photos?.[0] ? (
+                        <div className="relative h-44 sm:h-48 overflow-hidden border border-editorial-border bg-neutral-100 shrink-0">
                           <Image
                             src={p.photos[0]}
-                            alt=""
+                            alt={p.title || "Property image"}
                             fill
                             className="h-full w-full object-cover"
                           />
+                        </div>
+                      ) : (
+                        <div className="relative h-44 sm:h-48 overflow-hidden border border-editorial-border bg-neutral-100 shrink-0 flex items-center justify-center text-neutral-400">
+                          <Building2 className="w-8 h-8" />
                         </div>
                       )}
 
                       {/* Header: Title & Suburb */}
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-editorial-black bg-neutral-100 px-2 py-0.5 border border-editorial-border">
                               {p.suburb || "Lusaka"}
                             </span>
@@ -1078,7 +1174,7 @@ function AgentKioskContent() {
                               </span>
                             )}
                           </div>
-                          <h3 className="font-heading text-base font-bold text-editorial-black mt-1 leading-snug">
+                          <h3 className="font-heading text-base font-bold text-editorial-black mt-1 leading-snug line-clamp-2">
                             {p.title}
                           </h3>
                         </div>
@@ -1258,7 +1354,7 @@ function AgentKioskContent() {
             </div>
 
             {/* Clients List */}
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
               {(() => {
                 const filteredClients = clients.filter((c: any) => {
                   const isAssigned =
@@ -1270,7 +1366,7 @@ function AgentKioskContent() {
 
                 if (filteredClients.length === 0) {
                   return (
-                    <div className="bg-white border border-editorial-border p-8 text-center space-y-3">
+                    <div className="col-span-full bg-white border border-editorial-border p-8 text-center space-y-3">
                       <Users className="w-8 h-8 text-editorial-muted mx-auto" />
                       <div>
                         <h4 className="text-sm font-heading font-semibold text-editorial-black">No client inquiries found</h4>
@@ -1295,7 +1391,7 @@ function AgentKioskContent() {
                 return filteredClients.map((c: any) => (
                   <div
                     key={c.id}
-                    className="bg-white border border-editorial-border p-4 space-y-3"
+                    className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -1385,11 +1481,11 @@ function AgentKioskContent() {
             </div>
 
             {/* Deals Stream */}
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
               {agentDeals.map((deal) => (
                 <div
                   key={deal.id}
-                  className="bg-white border border-editorial-border p-4 space-y-3"
+                  className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
