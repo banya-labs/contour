@@ -63,6 +63,29 @@ async function testPublicApi() {
     `Found ${orgData.properties?.length} properties for org '${orgData.organization?.name}'`
   );
 
+  // 3b. Multi-Tenant Isolation Verification
+  console.log("\n--- 3b. Strict Multi-Tenant Isolation (Different Agency Scoping) ---");
+  const otherOrgReq = new NextRequest("http://localhost:3000/api/properties?org=banya-labs&status=AVAILABLE");
+  const otherOrgRes = await getProperties(otherOrgReq);
+  const otherOrgData = await otherOrgRes.json();
+  assert(
+    otherOrgRes.status === 200 &&
+    otherOrgData.success === true &&
+    otherOrgData.agency?.slug === "banya-labs" &&
+    otherOrgData.properties.length === 0,
+    "Guarantees 100% tenant isolation: Agency 'banya-labs' cannot see or access 'contour-demo' listings",
+    `Scoped to '${otherOrgData.agency?.name}', listings count: ${otherOrgData.properties?.length}`
+  );
+
+  const unknownOrgReq = new NextRequest("http://localhost:3000/api/properties?org=non-existent-agency&status=AVAILABLE");
+  const unknownOrgRes = await getProperties(unknownOrgReq);
+  const unknownOrgData = await unknownOrgRes.json();
+  assert(
+    unknownOrgRes.status === 404 && unknownOrgData.success === false,
+    "Rejects queries for non-existent agency slugs with HTTP 404 Not Found",
+    `Status: ${unknownOrgRes.status}, Error: ${unknownOrgData.error}`
+  );
+
   // 4. Suburb Filtering
   console.log("\n--- 4. Suburb Filtering (?suburb=Kabulonga) ---");
   const suburbReq = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&suburb=Kabulonga&status=AVAILABLE");

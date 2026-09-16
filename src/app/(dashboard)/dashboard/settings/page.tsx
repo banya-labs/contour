@@ -101,6 +101,7 @@ function SettingsContent() {
   const [billingSummary, setBillingSummary] = useState<{
     subscription: { planName: string; status: string; trialEndsAt: string; nextPaymentAt: string | null; nextPayment: { formatted: string } | null; lastPayment: { amount: number; currency: string; completedAt: string | null; createdAt: string } | null };
   } | null>(null);
+  const activeOrgSlug = workspace?.slug || "contour-demo";
 
   useEffect(() => {
     setSettings(getAgencySettings());
@@ -1135,158 +1136,158 @@ function SettingsContent() {
 
           {/* Working Clickable Links Card */}
           <div className="p-6 bg-white border border-editorial-border space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-editorial-border">
-              <div className="flex items-center gap-2">
-                <ExternalLink className="w-4 h-4 text-contour-red" />
-                <h4 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
-                  Live Working Endpoints (Click to Open & Test)
-                </h4>
-              </div>
-              <span className="text-[11px] font-geist text-editorial-muted">
-                Tested against contour.banyalabs.com • Zero Auth Barrier
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2.5">
-              {[
-                {
-                  label: "1. All Available Listings (Default)",
-                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE",
-                  description: "Returns active properties with public photos, specs, pricing, and direct shareable listing URLs.",
-                },
-                {
-                  label: "2. Search & Suburb Filter (Kabulonga)",
-                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE&suburb=Kabulonga&sortBy=price&sortOrder=asc",
-                  description: "Filters by Lusaka suburb 'Kabulonga', ordered by price ascending (lowest to highest).",
-                },
-                {
-                  label: "3. Keyword Search (e.g. 'villa')",
-                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE&search=villa",
-                  description: "Performs full-text keyword search across property titles, suburbs, and descriptions.",
-                },
-                {
-                  label: "4. Paginated Query (Page 1, 5 per page)",
-                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE&page=1&limit=5&sortBy=date&sortOrder=desc",
-                  description: "Returns the 5 newest listings with total count, page numbers, and next/prev indicators.",
-                },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-editorial-border bg-neutral-50 hover:bg-neutral-100/70 transition-colors"
-                >
-                  <div className="space-y-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-editorial-border">
                     <div className="flex items-center gap-2">
-                      <span className="font-heading font-bold text-xs text-editorial-black uppercase">
-                        {item.label}
-                      </span>
+                      <ExternalLink className="w-4 h-4 text-contour-red" />
+                      <h4 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                        Live Working Endpoints for {settings.agencyName || "Your Agency"} (Click to Open & Test)
+                      </h4>
                     </div>
-                    <p className="text-[11px] text-editorial-muted font-geist">
-                      {item.description}
-                    </p>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 font-mono text-[11px] text-contour-red hover:underline break-all"
-                    >
-                      {item.url}
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                    </a>
+                    <span className="text-[11px] font-geist text-emerald-800 font-semibold px-2 py-0.5 border border-emerald-300 bg-emerald-50">
+                      Tenant-Isolated • org={activeOrgSlug}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 bg-editorial-black hover:bg-contour-red text-white text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1"
-                    >
-                      Open Link <ExternalLink className="w-3 h-3" />
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(item.url, `link_${idx}`)}
-                      className="px-2.5 py-1.5 border border-editorial-border bg-white hover:bg-neutral-100 text-editorial-black text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1"
-                      title="Copy Link"
-                    >
-                      {copiedText === `link_${idx}` ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-600" /> Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" /> Copy
-                        </>
-                      )}
-                    </button>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {[
+                      {
+                        label: "1. All Available Listings (Scoped to your agency)",
+                        url: `https://contour.banyalabs.com/api/properties?org=${activeOrgSlug}&status=AVAILABLE`,
+                        description: `Returns active properties belonging strictly to ${settings.agencyName || "your agency"}.`,
+                      },
+                      {
+                        label: "2. Search & Suburb Filter (Kabulonga)",
+                        url: `https://contour.banyalabs.com/api/properties?org=${activeOrgSlug}&status=AVAILABLE&suburb=Kabulonga&sortBy=price&sortOrder=asc`,
+                        description: "Filters by Lusaka suburb 'Kabulonga', ordered by price ascending (lowest to highest).",
+                      },
+                      {
+                        label: "3. Keyword Search (e.g. 'villa')",
+                        url: `https://contour.banyalabs.com/api/properties?org=${activeOrgSlug}&status=AVAILABLE&search=villa`,
+                        description: "Performs full-text keyword search across your property titles, suburbs, and descriptions.",
+                      },
+                      {
+                        label: "4. Paginated Query (Page 1, 5 per page)",
+                        url: `https://contour.banyalabs.com/api/properties?org=${activeOrgSlug}&status=AVAILABLE&page=1&limit=5&sortBy=date&sortOrder=desc`,
+                        description: "Returns the 5 newest listings with total count, page numbers, and next/prev indicators.",
+                      },
+                    ].map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-editorial-border bg-neutral-50 hover:bg-neutral-100/70 transition-colors"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                              {item.label}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-editorial-muted font-geist">
+                            {item.description}
+                          </p>
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 font-mono text-[11px] text-contour-red hover:underline break-all"
+                          >
+                            {item.url}
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-editorial-black hover:bg-contour-red text-white text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1"
+                          >
+                            Open Link <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(item.url, `link_${idx}`)}
+                            className="px-2.5 py-1.5 border border-editorial-border bg-white hover:bg-neutral-100 text-editorial-black text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1"
+                            title="Copy Link"
+                          >
+                            {copiedText === `link_${idx}` ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" /> Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" /> Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Interactive Code Snippets & Guide */}
-          <div className="p-4 sm:p-6 bg-white border border-editorial-border space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-editorial-border">
-              <div className="flex items-center gap-2">
-                <Code className="w-4 h-4 text-contour-red" />
-                <h4 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
-                  Developer Code Examples & Reference
-                </h4>
-              </div>
-              <div className="flex items-center gap-2 overflow-x-auto">
-                <button
-                  type="button"
-                  onClick={() => setDocSubTab("FETCH")}
-                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
-                    docSubTab === "FETCH"
-                      ? "bg-editorial-black text-white border-editorial-black"
-                      : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
-                  }`}
-                >
-                  1. GET Listings (Search & Paginate)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDocSubTab("INQUIRE")}
-                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
-                    docSubTab === "INQUIRE"
-                      ? "bg-editorial-black text-white border-editorial-black"
-                      : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
-                  }`}
-                >
-                  2. POST Inquiries (Lead Capture)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDocSubTab("SEARCH")}
-                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
-                    docSubTab === "SEARCH"
-                      ? "bg-editorial-black text-white border-editorial-black"
-                      : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
-                  }`}
-                >
-                  3. Query Parameters Spec
-                </button>
-              </div>
-            </div>
+                {/* Interactive Code Snippets & Guide */}
+                <div className="p-4 sm:p-6 bg-white border border-editorial-border space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-editorial-border">
+                    <div className="flex items-center gap-2">
+                      <Code className="w-4 h-4 text-contour-red" />
+                      <h4 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                        Developer Code Examples & Reference
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto">
+                      <button
+                        type="button"
+                        onClick={() => setDocSubTab("FETCH")}
+                        className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
+                          docSubTab === "FETCH"
+                            ? "bg-editorial-black text-white border-editorial-black"
+                            : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
+                        }`}
+                      >
+                        1. GET Listings (Search & Paginate)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDocSubTab("INQUIRE")}
+                        className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
+                          docSubTab === "INQUIRE"
+                            ? "bg-editorial-black text-white border-editorial-black"
+                            : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
+                        }`}
+                      >
+                        2. POST Inquiries (Lead Capture)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDocSubTab("SEARCH")}
+                        className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
+                          docSubTab === "SEARCH"
+                            ? "bg-editorial-black text-white border-editorial-black"
+                            : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
+                        }`}
+                      >
+                        3. Query Parameters Spec
+                      </button>
+                    </div>
+                  </div>
 
-            {docSubTab === "FETCH" && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-heading font-bold text-xs text-editorial-black uppercase">
-                    JavaScript / TypeScript Fetch with Search, Ordering & Pagination
-                  </span>
-                  <span className="text-[10px] font-geist text-emerald-800 font-semibold px-2 py-0.5 border border-emerald-300 bg-emerald-50">
-                    Works on Next.js, React, Vue, Svelte, or Vanilla JS
-                  </span>
-                </div>
-                <p className="text-editorial-muted text-xs font-geist">
-                  Pass search keywords, Lusaka suburbs, sort criteria (<code className="text-editorial-black font-semibold">date</code>, <code className="text-editorial-black font-semibold">price</code>, <code className="text-editorial-black font-semibold">bedrooms</code>), and pagination (<code className="text-editorial-black font-semibold">page</code>, <code className="text-editorial-black font-semibold">limit</code>). All landlord PII and private documents are automatically filtered out.
-                </p>
-                <div className="relative">
-                  <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
-{`// 1. Reusable helper to fetch properties from Contour
+                  {docSubTab === "FETCH" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                          JavaScript / TypeScript Fetch with Agency Scoping, Search & Pagination
+                        </span>
+                        <span className="text-[10px] font-geist text-emerald-800 font-semibold px-2 py-0.5 border border-emerald-300 bg-emerald-50">
+                          Scoped to org={activeOrgSlug}
+                        </span>
+                      </div>
+                      <p className="text-editorial-muted text-xs font-geist">
+                        Pass <code className="text-editorial-black font-semibold">org: &apos;{activeOrgSlug}&apos;</code> to ensure only your agency&apos;s listings are returned. Pass search keywords, Lusaka suburbs, sort criteria (<code className="text-editorial-black font-semibold">date</code>, <code className="text-editorial-black font-semibold">price</code>, <code className="text-editorial-black font-semibold">bedrooms</code>), and pagination (<code className="text-editorial-black font-semibold">page</code>, <code className="text-editorial-black font-semibold">limit</code>).
+                      </p>
+                      <div className="relative">
+                        <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
+{`// 1. Reusable helper to fetch properties for ${settings.agencyName || "your agency"}
 async function fetchContourProperties({
   search = "",
   suburb = "",
@@ -1298,6 +1299,7 @@ async function fetchContourProperties({
   limit = 12
 } = {}) {
   const params = new URLSearchParams({
+    org: "${activeOrgSlug}", // Pinned strictly to your agency
     status: "AVAILABLE",
     sortBy,
     sortOrder,
@@ -1340,48 +1342,49 @@ fetchContourProperties({
 }).then(({ properties, pagination }) => {
   console.log(\`Showing \${properties.length} of \${pagination.total} homes:\`, properties);
 });`}
-                  </pre>
-                  <button
-                    onClick={() =>
-                      handleCopy(
-                        `async function fetchContourProperties({ search = "", suburb = "", propertyType = "", listingType = "SALE", sortBy = "date", sortOrder = "desc", page = 1, limit = 12 } = {}) {\n  const params = new URLSearchParams({ status: "AVAILABLE", sortBy, sortOrder, page: String(page), limit: String(limit) });\n  if (search) params.set("search", search);\n  if (suburb) params.set("suburb", suburb);\n  if (propertyType) params.set("propertyType", propertyType);\n  if (listingType) params.set("listingType", listingType);\n  const response = await fetch(\`https://contour.banyalabs.com/api/properties?\${params.toString()}\`);\n  return response.json();\n}`,
-                        "fetch_code"
-                      )
-                    }
-                    className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 text-white"
-                    title="Copy Code"
-                  >
-                    {copiedText === "fetch_code" ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+                        </pre>
+                        <button
+                          onClick={() =>
+                            handleCopy(
+                              `async function fetchContourProperties({ search = "", suburb = "", propertyType = "", listingType = "SALE", sortBy = "date", sortOrder = "desc", page = 1, limit = 12 } = {}) {\n  const params = new URLSearchParams({ org: "${activeOrgSlug}", status: "AVAILABLE", sortBy, sortOrder, page: String(page), limit: String(limit) });\n  if (search) params.set("search", search);\n  if (suburb) params.set("suburb", suburb);\n  if (propertyType) params.set("propertyType", propertyType);\n  if (listingType) params.set("listingType", listingType);\n  const response = await fetch(\`https://contour.banyalabs.com/api/properties?\${params.toString()}\`);\n  return response.json();\n}`,
+                              "fetch_code"
+                            )
+                          }
+                          className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 text-white"
+                          title="Copy Code"
+                        >
+                          {copiedText === "fetch_code" ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-            {docSubTab === "INQUIRE" && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-heading font-bold text-xs text-editorial-black uppercase">
-                    POST /api/inquiries
-                  </span>
-                  <span className="text-[10px] font-geist text-contour-red font-semibold px-2 py-0.5 border border-contour-red/30 bg-contour-red/5">
-                    Rate Limited • Lead Assigned to Contour Pipeline
-                  </span>
-                </div>
-                <p className="text-editorial-muted text-xs font-geist">
-                  Submit inquiries directly from your website contact forms. Leads immediately route into your Contour CRM pipeline and assign to your agents with automated WhatsApp alerts.
-                </p>
-                <div className="relative">
-                  <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
+                  {docSubTab === "INQUIRE" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                          POST /api/inquiries
+                        </span>
+                        <span className="text-[10px] font-geist text-contour-red font-semibold px-2 py-0.5 border border-contour-red/30 bg-contour-red/5">
+                          Assigned to {settings.agencyName || "your agency"} Pipeline
+                        </span>
+                      </div>
+                      <p className="text-editorial-muted text-xs font-geist">
+                        Submit inquiries directly from your website contact forms. Leads immediately route into your Contour CRM pipeline and assign to your agents with automated WhatsApp alerts.
+                      </p>
+                      <div className="relative">
+                        <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
 {`// Submit lead from your website inquiry form to Contour
 async function submitListingInquiry({ clientName, clientPhone, clientEmail, propertyId, notes }) {
   const response = await fetch("https://contour.banyalabs.com/api/inquiries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      org: "${activeOrgSlug}", // Directs lead to your agency CRM
       clientName,
       clientPhone,
       clientEmail,
@@ -1406,114 +1409,120 @@ submitListingInquiry({
   propertyId: "prop_01",
   notes: "Interested in scheduling a viewing this Saturday morning."
 });`}
-                  </pre>
-                  <button
-                    onClick={() =>
-                      handleCopy(
-                        `fetch("https://contour.banyalabs.com/api/inquiries", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({\n    clientName: "Dr. Mutale Kapwepwe",\n    clientPhone: "+260977112233",\n    clientEmail: "mutale@example.com",\n    propertyId: "prop_01",\n    notes: "Interested in viewing this house."\n  })\n}).then(res => res.json()).then(console.log);`,
-                        "inquiry_code"
-                      )
-                    }
-                    className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 text-white"
-                    title="Copy Code"
-                  >
-                    {copiedText === "inquiry_code" ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+                        </pre>
+                        <button
+                          onClick={() =>
+                            handleCopy(
+                              `fetch("https://contour.banyalabs.com/api/inquiries", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({\n    org: "${activeOrgSlug}",\n    clientName: "Dr. Mutale Kapwepwe",\n    clientPhone: "+260977112233",\n    clientEmail: "mutale@example.com",\n    propertyId: "prop_01",\n    notes: "Interested in viewing this house."\n  })\n}).then(res => res.json()).then(console.log);`,
+                              "inquiry_code"
+                            )
+                          }
+                          className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 text-white"
+                          title="Copy Code"
+                        >
+                          {copiedText === "inquiry_code" ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-            {docSubTab === "SEARCH" && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-heading font-bold text-xs text-editorial-black uppercase">
-                    Supported Query Parameters Reference
-                  </span>
-                  <span className="text-[10px] font-geist text-editorial-muted">
-                    GET https://contour.banyalabs.com/api/properties
-                  </span>
+                  {docSubTab === "SEARCH" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                          Supported Query Parameters Reference
+                        </span>
+                        <span className="text-[10px] font-geist text-editorial-muted">
+                          GET https://contour.banyalabs.com/api/properties
+                        </span>
+                      </div>
+                      <div className="border border-editorial-border overflow-x-auto">
+                        <table className="w-full text-left text-xs font-geist">
+                          <thead className="bg-neutral-50 border-b border-editorial-border font-heading font-semibold text-[11px] uppercase tracking-wider text-editorial-muted">
+                            <tr>
+                              <th className="py-2.5 px-3">Parameter</th>
+                              <th className="py-2.5 px-3">Type</th>
+                              <th className="py-2.5 px-3">Default</th>
+                              <th className="py-2.5 px-3">Description & Examples</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-editorial-border text-editorial-black">
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">org</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">{activeOrgSlug}</td>
+                              <td className="py-2.5 px-3"><strong>Mandatory for website isolation:</strong> Agency slug or organization ID. Ensures queries strictly return only your agency&apos;s listings.</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">search</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3">Case-insensitive keyword match across title, suburb, and description (e.g. <code className="bg-neutral-100 px-1 py-0.5">search=villa</code>).</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">suburb</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3">Filter by Lusaka neighborhood (e.g. <code className="bg-neutral-100 px-1 py-0.5">suburb=Kabulonga</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Woodlands</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Roma</code>).</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">sortBy</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px]">date</td>
+                              <td className="py-2.5 px-3">Order by field: <code className="bg-neutral-100 px-1 py-0.5">date</code> (creation date), <code className="bg-neutral-100 px-1 py-0.5">price</code>, <code className="bg-neutral-100 px-1 py-0.5">bedrooms</code>, or <code className="bg-neutral-100 px-1 py-0.5">title</code>.</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">sortOrder</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px]">desc</td>
+                              <td className="py-2.5 px-3">Direction: <code className="bg-neutral-100 px-1 py-0.5">asc</code> (ascending / lowest first) or <code className="bg-neutral-100 px-1 py-0.5">desc</code> (descending / highest first).</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">page</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px]">1</td>
+                              <td className="py-2.5 px-3">1-indexed page number for pagination.</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">limit</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px]">20</td>
+                              <td className="py-2.5 px-3">Number of results per page (1 to 100).</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">listingType</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">SALE</code> (or <code className="bg-neutral-100 px-1 py-0.5">FOR_SALE</code>) or <code className="bg-neutral-100 px-1 py-0.5">RENT</code> (or <code className="bg-neutral-100 px-1 py-0.5">FOR_RENT</code>).</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">propertyType</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">STANDALONE_HOUSE</code> (or <code className="bg-neutral-100 px-1 py-0.5">HOUSE</code>), <code className="bg-neutral-100 px-1 py-0.5">APARTMENT</code>, <code className="bg-neutral-100 px-1 py-0.5">COMMERCIAL_OFFICE</code>, <code className="bg-neutral-100 px-1 py-0.5">WAREHOUSE</code>, <code className="bg-neutral-100 px-1 py-0.5">VACANT_LAND_PLOT</code>.</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">minPrice / maxPrice</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3">Price range filtering in listing currency (e.g. <code className="bg-neutral-100 px-1 py-0.5">minPrice=500000&maxPrice=2500000</code>).</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">bedrooms / bathrooms</td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3">Minimum room counts (e.g. <code className="bg-neutral-100 px-1 py-0.5">bedrooms=3</code>).</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="border border-editorial-border overflow-x-auto">
-                  <table className="w-full text-left text-xs font-geist">
-                    <thead className="bg-neutral-50 border-b border-editorial-border font-heading font-semibold text-[11px] uppercase tracking-wider text-editorial-muted">
-                      <tr>
-                        <th className="py-2.5 px-3">Parameter</th>
-                        <th className="py-2.5 px-3">Type</th>
-                        <th className="py-2.5 px-3">Default</th>
-                        <th className="py-2.5 px-3">Description & Examples</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-editorial-border text-editorial-black">
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">search</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
-                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
-                        <td className="py-2.5 px-3">Case-insensitive keyword match across title, suburb, and description (e.g. <code className="bg-neutral-100 px-1 py-0.5">search=villa</code>).</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">suburb</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
-                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
-                        <td className="py-2.5 px-3">Filter by Lusaka neighborhood (e.g. <code className="bg-neutral-100 px-1 py-0.5">suburb=Kabulonga</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Woodlands</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Roma</code>).</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">sortBy</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px]">date</td>
-                        <td className="py-2.5 px-3">Order by field: <code className="bg-neutral-100 px-1 py-0.5">date</code> (creation date), <code className="bg-neutral-100 px-1 py-0.5">price</code>, <code className="bg-neutral-100 px-1 py-0.5">bedrooms</code>, or <code className="bg-neutral-100 px-1 py-0.5">title</code>.</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">sortOrder</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px]">desc</td>
-                        <td className="py-2.5 px-3">Direction: <code className="bg-neutral-100 px-1 py-0.5">asc</code> (ascending / lowest first) or <code className="bg-neutral-100 px-1 py-0.5">desc</code> (descending / highest first).</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">page</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px]">1</td>
-                        <td className="py-2.5 px-3">1-indexed page number for pagination.</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">limit</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px]">20</td>
-                        <td className="py-2.5 px-3">Number of results per page (1 to 100).</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">listingType</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
-                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
-                        <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">SALE</code> or <code className="bg-neutral-100 px-1 py-0.5">RENT</code>.</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">propertyType</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
-                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
-                        <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">RESIDENTIAL</code>, <code className="bg-neutral-100 px-1 py-0.5">COMMERCIAL</code>, <code className="bg-neutral-100 px-1 py-0.5">LAND</code>, <code className="bg-neutral-100 px-1 py-0.5">INDUSTRIAL</code>.</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">minPrice / maxPrice</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
-                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
-                        <td className="py-2.5 px-3">Price range filtering in listing currency (e.g. <code className="bg-neutral-100 px-1 py-0.5">minPrice=500000&maxPrice=2500000</code>).</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">bedrooms / bathrooms</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
-                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
-                        <td className="py-2.5 px-3">Minimum room counts (e.g. <code className="bg-neutral-100 px-1 py-0.5">bedrooms=3</code>).</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
