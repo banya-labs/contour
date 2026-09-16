@@ -77,6 +77,14 @@ export async function middleware(request: NextRequest) {
     const role = tenant?.contourRole || resolveContourRole(session.user.role ?? undefined, "member", tenant?.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
     const requiredPermission = pathname.startsWith("/agent") || pathname.startsWith("/kiosk") ? "pwa.access" : "dashboard.read";
     if (!tenant || !roleHasPermission(role, requiredPermission)) {
+      if (!tenant) {
+        const onboardingUrl = new URL("/onboarding", request.url);
+        onboardingUrl.searchParams.set("redirect_url", pathname);
+        onboardingUrl.searchParams.set("notice", "no_organization");
+        const response = NextResponse.redirect(onboardingUrl);
+        response.headers.set(CORRELATION_HEADER, correlationId);
+        return response;
+      }
       const destination = pathname.startsWith("/dashboard") && roleHasPermission(role, "pwa.access") ? "/agent" : "/sign-in";
       const response = NextResponse.redirect(new URL(destination, request.url));
       response.headers.set(CORRELATION_HEADER, correlationId);

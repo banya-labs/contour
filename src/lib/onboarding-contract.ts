@@ -35,3 +35,37 @@ export type AgencyProfileInput = z.infer<typeof agencyProfileSchema>;
 export function normalizeSlug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
 }
+
+export function parseInviteInput(input?: string): { invitationId?: string; token?: string } {
+  if (!input) return {};
+  const trimmed = input.trim();
+  if (!trimmed) return {};
+
+  try {
+    const url = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? new URL(trimmed)
+      : new URL(trimmed, "http://dummy.local");
+
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const acceptIndex = pathParts.indexOf("accept-invitation");
+    let invitationId: string | undefined;
+    if (acceptIndex !== -1 && pathParts[acceptIndex + 1]) {
+      invitationId = pathParts[acceptIndex + 1];
+    }
+    const token = url.searchParams.get("token") || undefined;
+    if (invitationId || token) {
+      return { invitationId, token };
+    }
+  } catch {
+    // Not a URL
+  }
+
+  if (trimmed.includes("token=")) {
+    const match = trimmed.match(/token=([a-zA-Z0-9_-]+)/);
+    if (match) {
+      return { token: match[1] };
+    }
+  }
+
+  return { invitationId: trimmed, token: trimmed };
+}

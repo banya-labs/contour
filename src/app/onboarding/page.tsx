@@ -2,8 +2,23 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
-import { Scale, ShieldCheck } from "lucide-react";
+import { ContourLogo } from "@/components/brand/contour-logo";
+import {
+  Scale,
+  ShieldCheck,
+  Building2,
+  Smartphone,
+  ArrowRight,
+  RefreshCw,
+  LogOut,
+  KeyRound,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  ArrowLeft,
+} from "lucide-react";
 
 function slugify(value: string): string {
   return value
@@ -18,11 +33,18 @@ function safeRedirect(value: string | null): string {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
 }
 
+type OnboardingView = "CHECKING" | "NO_ORGANIZATION_DECISION" | "CREATE_WORKSPACE";
+
 function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = safeRedirect(searchParams.get("redirect_url"));
+  const rawRedirectUrl = searchParams.get("redirect_url");
+  const redirectUrl = safeRedirect(rawRedirectUrl);
+  const noticeParam = searchParams.get("notice");
+  const isAgentPwaIntent = redirectUrl.startsWith("/agent") || redirectUrl.startsWith("/kiosk");
+
   const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const [view, setView] = useState<OnboardingView>("CHECKING");
   const [organizationName, setOrganizationName] = useState("");
   const [slug, setSlug] = useState("");
   const [country, setCountry] = useState("ZM");
@@ -30,6 +52,12 @@ function OnboardingContent() {
   const [agencyType, setAgencyType] = useState("BROKERAGE");
   const [city, setCity] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+
+  // Invite lookup & claim state
+  const [isCheckingInvite, setIsCheckingInvite] = useState(false);
+  const [inviteStatusMessage, setInviteStatusMessage] = useState<{ type: "info" | "success" | "error"; text: string } | null>(null);
+  const [inviteInput, setInviteInput] = useState("");
+  const [isClaimingInvite, setIsClaimingInvite] = useState(false);
 
   // Statutory Zambia Regulatory & DPA Declarations
   const [pacraNumber, setPacraNumber] = useState("");
@@ -39,77 +67,135 @@ function OnboardingContent() {
   const [regulatoryDeclarationAgreed, setRegulatoryDeclarationAgreed] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  async function checkInvitationsAndMembership(manualTrigger = false) {
+    if (manualTrigger) {
+      setIsCheckingInvite(true);
+      setInviteStatusMessage(null);
+    }
+
+    try {
+      // 1. Check if user has a pending invitation to claim or active membership
+      const claimRes = await fetch("/api/organization/invitations/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const claimData = await claimRes.json().catch(() => null);
+
+      if (claimData?.success && (claimData.claimed || claimData.hasMembership || claimData.isAlreadyMember) && claimData.organizationId) {
+        await authClient.organization.setActive({
+          organizationId: claimData.organizationId,
+        });
+        const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
+        router.replace(target);
+        router.refresh();
+        return;
+      }
+
+      // 2. Check existing organizations from Better Auth client
+      const result = await authClient.organization.list();
+      if (result.data && result.data.length > 0) {
+        const firstOrganization = result.data[0];
+        const activeResult = await authClient.organization.setActive({
+          organizationId: firstOrganization.id,
+        });
+        if (!activeResult.error) {
+          router.replace(redirectUrl);
+          router.refresh();
+          return;
+        }
+      }
+
+      // 3. User is authenticated, but no active agency membership was found
+      setView("NO_ORGANIZATION_DECISION");
+      if (manualTrigger) {
+        const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        setInviteStatusMessage({
+          type: "info",
+          text: `Checked at ${timestamp}: No pending invite found yet for ${session?.user?.email}. Please request an invite from your agency manager.`,
+        });
+      }
+    } catch {
+      setView("NO_ORGANIZATION_DECISION");
+      if (manualTrigger) {
+        setInviteStatusMessage({
+          type: "error",
+          text: "Unable to check invitations due to a network error. Please try again.",
+        });
+      }
+    } finally {
+      if (manualTrigger) {
+        setIsCheckingInvite(false);
+      }
+    }
+  }
 
   useEffect(() => {
     if (isSessionPending) return;
     if (!session) {
-      router.replace(`/sign-in?redirect_url=${encodeURIComponent("/onboarding")}`);
+      router.replace(`/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`);
       return;
     }
 
-    let cancelled = false;
-
-    async function checkInvitationsAndMembership() {
-      try {
-        // First, check if user has a pending invitation to claim or active membership
-        const claimRes = await fetch("/api/organization/invitations/claim", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        });
-        const claimData = await claimRes.json().catch(() => null);
-
-        if (cancelled) return;
-
-        if (claimData?.success && (claimData.claimed || claimData.hasMembership || claimData.isAlreadyMember) && claimData.organizationId) {
-          await authClient.organization.setActive({
-            organizationId: claimData.organizationId,
-          });
-          const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
-          router.replace(target);
-          router.refresh();
-          return;
-        }
-
-        // Fallback: Check existing organizations from Better Auth client
-        const result = await authClient.organization.list();
-        if (cancelled) return;
-
-        if (result.error) {
-          setError(result.error.message || "Unable to load your organizations.");
-          setIsLoadingOrganizations(false);
-          return;
-        }
-
-        const firstOrganization = result.data?.[0];
-        if (firstOrganization) {
-          const activeResult = await authClient.organization.setActive({
-            organizationId: firstOrganization.id,
-          });
-          if (!activeResult.error) {
-            router.replace(redirectUrl);
-            router.refresh();
-            return;
-          }
-          setError(activeResult.error.message || "Unable to activate your organization.");
-        }
-
-        setIsLoadingOrganizations(false);
-      } catch {
-        if (!cancelled) {
-          setIsLoadingOrganizations(false);
-        }
-      }
-    }
-
-    void checkInvitationsAndMembership();
-
-    return () => {
-      cancelled = true;
-    };
+    void checkInvitationsAndMembership(false);
   }, [isSessionPending, redirectUrl, router, session]);
+
+  // Handle explicit invite code or URL submission
+  async function handleClaimInvite(e: FormEvent) {
+    e.preventDefault();
+    if (!inviteInput.trim()) return;
+
+    setIsClaimingInvite(true);
+    setInviteStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/organization/invitations/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteInput: inviteInput.trim() }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setInviteStatusMessage({
+          type: "error",
+          text: data.error || "The invite link or code provided could not be claimed.",
+        });
+        setIsClaimingInvite(false);
+        return;
+      }
+
+      if (data.organizationId) {
+        await authClient.organization.setActive({ organizationId: data.organizationId });
+      }
+
+      const target = data.destination || (data.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
+      setInviteStatusMessage({
+        type: "success",
+        text: `Connected to ${data.organizationName || "agency"}! Redirecting...`,
+      });
+
+      setTimeout(() => {
+        router.replace(target);
+        router.refresh();
+      }, 800);
+    } catch {
+      setInviteStatusMessage({
+        type: "error",
+        text: "Network error claiming invite. Please check your internet connection.",
+      });
+      setIsClaimingInvite(false);
+    }
+  }
+
+  // Handle Sign Out to switch to another account
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.replace(`/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`);
+    router.refresh();
+  }
 
   function handleNameChange(value: string) {
     setOrganizationName(value);
@@ -190,13 +276,235 @@ function OnboardingContent() {
     router.refresh();
   }
 
-  if (isSessionPending || isLoadingOrganizations) {
-    return <main className="flex min-h-screen items-center justify-center bg-white text-sm text-editorial-muted">Preparing your workspace...</main>;
+  // 1. Initial State: Checking memberships
+  if (isSessionPending || view === "CHECKING") {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
+        <ContourLogo size="md" variant="dark" />
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <RefreshCw className="h-4 w-4 animate-spin text-contour-red" />
+          <p className="font-heading text-xs font-bold uppercase tracking-wider text-editorial-black">
+            Verifying agency membership & invitations...
+          </p>
+        </div>
+        <p className="mt-2 text-xs text-editorial-muted">
+          Connecting your authenticated account to Contour real estate operations.
+        </p>
+      </main>
+    );
   }
 
+  // 2. Decision State: User is authenticated, but NO organization or invitation was found
+  if (view === "NO_ORGANIZATION_DECISION") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-12 sm:px-6">
+        <section className="w-full max-w-2xl border border-editorial-border bg-white p-6 shadow-sm sm:p-10">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-editorial-border pb-6">
+            <ContourLogo size="sm" variant="dark" />
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-editorial-muted">
+                AUTHENTICATED // NO AGENCY LINKED
+              </span>
+            </div>
+          </div>
+
+          {/* Context Banner */}
+          {noticeParam === "no_organization" && (
+            <div className="mt-6 flex items-start gap-3 border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <p>
+                Access restricted: The page you requested requires membership in a registered Contour agency workspace.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-6 space-y-2">
+            <p className="text-[10px] font-heading font-bold uppercase tracking-[0.24em] text-contour-red">
+              Agency Workspace Required
+            </p>
+            <h1 className="font-heading font-bold text-2xl sm:text-3xl text-editorial-black uppercase tracking-tight">
+              No Agency Linked to This Email
+            </h1>
+            <p className="text-xs text-editorial-muted leading-relaxed">
+              You are signed in as <strong className="text-editorial-black font-mono">{session?.user?.email}</strong>,
+              but this email address is not currently associated with any registered agency on Contour.
+            </p>
+          </div>
+
+          {/* Intent Clarification & Two Branch Paths */}
+          <div className="mt-8 space-y-6">
+            {/* PATH 1: Field Agent / Agency Team Member */}
+            <div
+              className={`border p-6 transition-all ${
+                isAgentPwaIntent
+                  ? "border-contour-red bg-[#fffaf8] shadow-sm ring-1 ring-contour-red/20"
+                  : "border-editorial-border bg-neutral-50/50"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center border border-editorial-border bg-white text-contour-red shrink-0">
+                    <Smartphone className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-heading font-bold text-sm uppercase tracking-wider text-editorial-black">
+                        Field Agent or Agency Staff
+                      </h2>
+                      {isAgentPwaIntent && (
+                        <span className="border border-contour-red bg-white px-2 py-0.5 text-[9px] font-heading font-bold uppercase tracking-wider text-contour-red">
+                          Target: Agent PWA
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-editorial-muted">
+                      Trying to access your agency workspace or the Lusaka Field Agent PWA
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-editorial-border/60 pt-4 space-y-3">
+                <p className="text-xs text-editorial-black leading-relaxed">
+                  Field agents and team members must be invited by their agency manager. If your agency already uses Contour, your email has not been added to their team yet.
+                </p>
+
+                <div className="rounded border border-neutral-200 bg-white p-3 text-xs text-editorial-muted space-y-1.5">
+                  <div className="flex items-center gap-2 text-editorial-black font-semibold">
+                    <HelpCircle className="h-3.5 w-3.5 text-contour-red" />
+                    <span>How to get access:</span>
+                  </div>
+                  <ul className="list-disc pl-5 space-y-1 text-[11px] text-editorial-muted">
+                    <li>
+                      Contact your agency manager or principal broker to add{" "}
+                      <strong className="text-editorial-black font-mono">{session?.user?.email}</strong> from their
+                      Agency Dashboard.
+                    </li>
+                    <li>Or ask your manager to send you a direct <strong>Invite Link</strong> (e.g. via WhatsApp).</li>
+                  </ul>
+                </div>
+
+                {/* Status Message */}
+                {inviteStatusMessage && (
+                  <div
+                    className={`border p-3 text-xs flex items-start gap-2 ${
+                      inviteStatusMessage.type === "success"
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                        : inviteStatusMessage.type === "error"
+                        ? "border-red-300 bg-red-50 text-red-900"
+                        : "border-blue-300 bg-blue-50 text-blue-900"
+                    }`}
+                  >
+                    {inviteStatusMessage.type === "success" ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    )}
+                    <p>{inviteStatusMessage.text}</p>
+                  </div>
+                )}
+
+                {/* Real-time actions: Check for invite */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => checkInvitationsAndMembership(true)}
+                    disabled={isCheckingInvite}
+                    className="flex-1 flex items-center justify-center gap-2 border border-editorial-border bg-white px-4 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-100 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isCheckingInvite ? "animate-spin text-contour-red" : ""}`} />
+                    <span>{isCheckingInvite ? "Checking Invitations..." : "Check for Invite"}</span>
+                  </button>
+                </div>
+
+                {/* Paste Invite Code / URL Form */}
+                <form onSubmit={handleClaimInvite} className="pt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-editorial-muted" />
+                      <input
+                        value={inviteInput}
+                        onChange={(e) => setInviteInput(e.target.value)}
+                        placeholder="Paste invite link or code from your manager..."
+                        className="w-full border border-editorial-border bg-white pl-9 pr-3 py-2 text-xs text-editorial-black outline-none focus:border-editorial-black"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isClaimingInvite || !inviteInput.trim()}
+                      className="bg-editorial-black px-4 py-2 text-xs font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      {isClaimingInvite ? "Claiming..." : "Claim Link"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* PATH 2: Agency Principal / Broker (New Agency Workspace) */}
+            <div className="border border-editorial-border bg-white p-6 hover:border-editorial-black transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center border border-editorial-border bg-neutral-50 text-editorial-black shrink-0">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-heading font-bold text-sm uppercase tracking-wider text-editorial-black">
+                      Register a New Agency
+                    </h2>
+                    <p className="mt-0.5 text-[11px] text-editorial-muted">
+                      For brokerages, property managers, and developers establishing a new Contour tenant
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setView("CREATE_WORKSPACE")}
+                  className="bg-editorial-black px-5 py-3 text-xs font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red transition-colors flex items-center justify-center gap-2 shrink-0"
+                >
+                  <span>Create Agency</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Controls: Switch Account & Back to Home */}
+          <div className="mt-8 pt-6 border-t border-editorial-border flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-editorial-muted">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex items-center gap-2 hover:text-editorial-black transition-colors text-[11px] font-mono"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Signed in as {session?.user?.email} · Click to sign out</span>
+            </button>
+            <Link href="/" className="text-[11px] hover:text-editorial-black underline">
+              ← Return to public website
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // 3. Agency Creation Form State
   return (
     <main className="flex min-h-screen items-center justify-center bg-white px-6 py-16">
       <section className="w-full max-w-lg border border-editorial-border bg-white p-8 shadow-sm">
+        {/* Back button to intent decision */}
+        <button
+          type="button"
+          onClick={() => setView("NO_ORGANIZATION_DECISION")}
+          className="mb-4 inline-flex items-center gap-1.5 text-xs text-editorial-muted hover:text-editorial-black font-semibold transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to agency options</span>
+        </button>
+
         <p className="mb-3 text-[10px] font-heading font-bold uppercase tracking-[0.24em] text-contour-red">Contour onboarding</p>
         <h1 className="font-display text-4xl text-editorial-black">Create your workspace</h1>
         <p className="mt-3 text-sm leading-6 text-editorial-muted">

@@ -5,9 +5,12 @@ import { db } from "@/lib/db";
 import { ROLE_DESCRIPTIONS, ROLE_PRESETS, type ContourRoleKey, roleHasPermission } from "@/lib/authorization";
 import { hashAccessToken } from "@/lib/access-request";
 
+import { parseInviteInput } from "@/lib/onboarding-contract";
+
 const claimSchema = z.object({
   invitationId: z.string().optional(),
   token: z.string().optional(),
+  inviteInput: z.string().optional(),
   confirmRoleChange: z.boolean().optional(),
 });
 
@@ -120,18 +123,35 @@ export async function POST(req: NextRequest) {
   const parsed = claimSchema.safeParse(body);
   const userEmail = session.user.email.toLowerCase().trim();
 
+  const explicitInvite = parseInviteInput(parsed.success ? parsed.data.inviteInput : undefined);
+  const targetInvitationId = (parsed.success && parsed.data.invitationId) || explicitInvite.invitationId;
+  const targetToken = (parsed.success && parsed.data.token) || explicitInvite.token;
+  const hasExplicitTarget = Boolean(targetInvitationId || targetToken);
+
   // 1. Locate the invitation to claim:
   let invitation;
-  if (parsed.success && parsed.data.invitationId) {
+  if (targetInvitationId) {
     invitation = await db.invitation.findUnique({
-      where: { id: parsed.data.invitationId },
+      where: { id: targetInvitationId },
       include: { organization: true },
     });
 
-    if (invitation && parsed.data.token && invitation.tokenHash && invitation.tokenHash !== hashAccessToken(parsed.data.token)) {
+    if (invitation && targetToken && invitation.tokenHash && invitation.tokenHash !== hashAccessToken(targetToken)) {
       return NextResponse.json({ success: false, error: "Invalid security token for this invitation." }, { status: 403 });
     }
-  } else {
+  } else if (targetToken) {
+    const tokenHash = hashAccessToken(targetToken);
+    invitation = await db.invitation.findFirst({
+      where: {
+        tokenHash,
+        status: "pending",
+        expiresAt: { gt: new Date() },
+      },
+      include: { organization: true },
+    });
+  }
+
+  if (!invitation && !hasExplicitTarget) {
     invitation = await db.invitation.findFirst({
       where: {
         email: userEmail,
@@ -145,6 +165,13 @@ export async function POST(req: NextRequest) {
 
   // 2. If no valid pending invitation found:
   if (!invitation || invitation.status !== "pending" || invitation.expiresAt < new Date()) {
+    if (hasExplicitTarget) {
+      return NextResponse.json({
+        success: false,
+        error: "The invite link or code provided is invalid, expired, or has already been accepted.",
+      }, { status: 404 });
+    }
+
     const activeMember = await db.member.findFirst({
       where: { userId: session.user.id, status: "active" },
       include: {

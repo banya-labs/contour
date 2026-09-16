@@ -2,7 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import { AlertCircle, Smartphone, ShieldCheck } from "lucide-react";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -20,6 +22,7 @@ function GoogleLogo() {
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = authClient.useSession();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,11 +36,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       : rawRedirectUrl;
   const onboardingUrl = `/onboarding?redirect_url=${encodeURIComponent(redirectUrl)}`;
   const isSignUp = mode === "sign-up";
-  const isLocalDevelopment =
-    !redirectUrl.startsWith("/agent") &&
-    !redirectUrl.startsWith("/kiosk") &&
-    process.env.NODE_ENV !== "production" &&
-    process.env.NEXT_PUBLIC_DEV_MODE === "true";
+  const noticeParam = searchParams.get("notice");
+  const errorParam = searchParams.get("error");
+  const isAgentPwaIntent = redirectUrl.startsWith("/agent") || redirectUrl.startsWith("/kiosk");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,7 +62,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     setIsSubmitting(false);
 
     if (result.error) {
-      setError(result.error.message || "Authentication failed. Please try again.");
+      let friendly = result.error.message || "Authentication failed. Please try again.";
+      if (friendly.toLowerCase().includes("invalid email or password")) {
+        friendly = isSignUp
+          ? "Unable to create account. An account with this email may already exist, or credentials were invalid."
+          : "Invalid email or password. If you do not have an agency workspace yet, please register your agency or check your invitation link.";
+      }
+      setError(friendly);
       return;
     }
 
@@ -81,10 +88,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         return;
       }
     } catch {
-      // Fallback to normal redirection
+      // Fallback to onboarding resolution
     }
 
-    window.location.href = redirectUrl;
+    // Redirect to onboarding to resolve membership or create agency (avoids middleware loop)
+    window.location.href = onboardingUrl;
   }
 
   async function handleQuickLogin(quickEmail: string) {
@@ -146,6 +154,64 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
   return (
     <div className="space-y-4">
+      {/* Notice Banner from query parameters */}
+      {noticeParam === "no_organization" && (
+        <div className="border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+          <AlertCircle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">No Agency Membership Found</p>
+            <p className="mt-0.5 text-[11px] text-amber-800 leading-relaxed">
+              Your account is not linked to any agency. Please sign in with your registered agency credentials, request an invite from your manager, or register a new agency below.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Field Agent PWA Contextual Header */}
+      {isAgentPwaIntent && (
+        <div className="border border-emerald-900/30 bg-[#0F1B14] p-3 text-white space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold">
+              Field Agent Gateway // Lusaka Operations
+            </p>
+          </div>
+          <p className="text-[11px] text-stone-300 leading-relaxed">
+            Sign in with your registered email or Google account to access the Lusaka Field Agent Mobile PWA.
+          </p>
+        </div>
+      )}
+
+      {/* Active Session Status */}
+      {session?.user && (
+        <div className="border border-emerald-300 bg-emerald-50/70 p-3 text-xs text-emerald-950 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px]">
+              Signed in as <strong className="font-mono">{session.user.email}</strong>
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                await authClient.signOut();
+                router.refresh();
+              }}
+              className="text-[10px] text-stone-500 hover:text-stone-900 underline font-mono"
+            >
+              Sign out
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = onboardingUrl;
+            }}
+            className="w-full bg-editorial-black text-white px-3 py-2 text-[11px] font-heading font-bold uppercase tracking-wider hover:bg-contour-red transition-colors"
+          >
+            Continue to workspace / Onboarding →
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={handleGoogleSignIn}
@@ -247,6 +313,36 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           {isSubmitting ? "Please wait..." : isSignUp ? "Create account" : "Sign in"}
         </button>
       </form>
+
+      {/* Switch between Sign In and Sign Up */}
+      <div className="pt-3 border-t border-editorial-border text-center space-y-2 text-xs text-editorial-muted">
+        {isSignUp ? (
+          <p>
+            Already have an account or invitation?{" "}
+            <Link
+              href={`/sign-in${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+              className="font-bold text-editorial-black underline hover:text-contour-red"
+            >
+              Sign in here
+            </Link>
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            <p>
+              Don&apos;t have an agency account yet?{" "}
+              <Link
+                href={`/sign-up${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+                className="font-bold text-editorial-black underline hover:text-contour-red"
+              >
+                Register a new agency
+              </Link>
+            </p>
+            <p className="text-[11px] text-editorial-muted">
+              Field agent? Ask your agency manager to invite you or share an invite link.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

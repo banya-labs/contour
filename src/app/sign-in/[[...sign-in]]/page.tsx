@@ -14,7 +14,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SignInPage() {
+export default async function SignInPage(props: {
+  searchParams?: Promise<{ redirect_url?: string; notice?: string }>;
+}) {
+  const resolvedParams = props.searchParams ? await props.searchParams : {};
+  const isAgent =
+    resolvedParams?.redirect_url === "/agent" ||
+    resolvedParams?.redirect_url?.startsWith("/agent") ||
+    resolvedParams?.redirect_url?.startsWith("/kiosk");
+
   return (
     <div className="min-h-screen bg-white text-editorial-black font-geist flex flex-col justify-between relative selection:bg-editorial-red selection:text-white">
       {/* Top Header Bar */}
@@ -27,7 +35,7 @@ export default function SignInPage() {
         </Link>
         <div className="flex items-center gap-6">
           <span className="hidden sm:inline-block font-geist text-xs text-editorial-muted uppercase tracking-wider">
-            AUTHENTICATION GATEWAY // ENCRYPTED
+            {isAgent ? "FIELD AGENT GATEWAY // ENCRYPTED" : "AUTHENTICATION GATEWAY // ENCRYPTED"}
           </span>
           <Link
             href="/"
@@ -47,10 +55,12 @@ export default function SignInPage() {
           {/* Editorial Title Block */}
           <div className="text-center mb-6 pb-4 border-b border-editorial-border">
             <h1 className="font-heading font-bold text-3xl tracking-tight uppercase text-editorial-black">
-              SIGN IN
+              {isAgent ? "FIELD AGENT LOGIN" : "SIGN IN"}
             </h1>
             <p className="mt-1 font-geist text-xs text-editorial-muted">
-              Enter your credentials to access the Contour agency workspace.
+              {isAgent
+                ? "Enter your credentials to access the Contour Lusaka Field Agent PWA."
+                : "Enter your credentials to access the Contour agency workspace."}
             </p>
           </div>
 
