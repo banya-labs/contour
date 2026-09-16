@@ -3,6 +3,12 @@ import { db } from "@/lib/db";
 import { publicInquirySchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/rate-limiter";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+};
+
 function getClientIp(req: NextRequest): string {
   const forwardedFor = req.headers.get("x-forwarded-for");
   if (forwardedFor) {
@@ -13,6 +19,13 @@ function getClientIp(req: NextRequest): string {
   return "127.0.0.1";
 }
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. IP Rate Limiting to prevent spam (max 5 inquiries/min)
@@ -21,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (!limitResult.allowed) {
       return NextResponse.json(
         { success: false, error: "Too many inquiries. Please wait a minute before submitting again." },
-        { status: 429, headers: { "Retry-After": limitResult.resetSeconds.toString() } }
+        { status: 429, headers: { ...CORS_HEADERS, "Retry-After": limitResult.resetSeconds.toString() } }
       );
     }
 
@@ -85,22 +98,25 @@ export async function POST(req: NextRequest) {
     });
 
     // 6. Return response
-    return NextResponse.json({
-      success: true,
-      message: "Inquiry successfully submitted.",
-      inquiryId: inquiry.id
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Inquiry successfully submitted.",
+        inquiryId: inquiry.id,
+      },
+      { headers: CORS_HEADERS }
+    );
   } catch (error: any) {
     if (error.name === "ZodError") {
       return NextResponse.json(
         { success: false, error: "Validation failed", details: error.errors },
-        { status: 400 }
+        { status: 400, headers: CORS_HEADERS }
       );
     }
 
     return NextResponse.json(
       { success: false, error: "Failed to submit inquiry", details: error.message },
-      { status: 500 }
+      { status: 500, headers: CORS_HEADERS }
     );
   }
 }

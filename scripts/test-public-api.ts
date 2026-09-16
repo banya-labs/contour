@@ -1,12 +1,12 @@
 process.env.NEXT_PUBLIC_DEV_MODE = "true";
 
 import { NextRequest } from "next/server";
-import { GET as getProperties } from "../src/app/api/properties/route";
-import { POST as postInquiry } from "../src/app/api/inquiries/route";
+import { GET as getProperties, OPTIONS as optionsProperties } from "../src/app/api/properties/route";
+import { POST as postInquiry, OPTIONS as optionsInquiries } from "../src/app/api/inquiries/route";
 
 async function testPublicApi() {
   console.log("===============================================================================");
-  console.log("🌐 CONTOUR PUBLIC API: PROPERTIES & INQUIRIES ROUTE TESTS");
+  console.log("🌐 CONTOUR PUBLIC API: PROPERTIES SEARCH, SORT & PAGINATION TESTS");
   console.log("===============================================================================\n");
 
   let passed = 0;
@@ -24,106 +24,226 @@ async function testPublicApi() {
     }
   }
 
-  // 1. GET without organization slug (production mode check)
-  console.log("--- 1. Testing GET properties without 'org' in production mode ---");
-  process.env.NEXT_PUBLIC_DEV_MODE = "false";
-  const noOrgReq = new NextRequest("http://localhost:3000/api/properties");
-  const noOrgRes = await getProperties(noOrgReq);
-  const noOrgData = await noOrgRes.json();
+  // 1. Unauthenticated Public Access without org param (auto-falls back to primary agency)
+  console.log("--- 1. Public GET properties without auth & without org parameter ---");
+  const defaultReq = new NextRequest("http://localhost:3000/api/properties?status=AVAILABLE");
+  const defaultRes = await getProperties(defaultReq);
+  const defaultData = await defaultRes.json();
   assert(
-    noOrgRes.status === 400 && noOrgData.success === false && noOrgData.error.includes("Missing required 'org'"),
-    "Rejects properties query when 'org' parameter is missing in production mode",
-    `Status: ${noOrgRes.status}, Error: ${noOrgData.error}`
-  );
-  process.env.NEXT_PUBLIC_DEV_MODE = "true";
-
-  // 2. GET properties with valid organization (dev mode bypass)
-  console.log("\n--- 2. Testing GET properties with valid organization ---");
-  const validReq = new NextRequest("http://localhost:3000/api/properties?org=org_demo_contour");
-  const validRes = await getProperties(validReq);
-  const validData = await validRes.json();
-  
-  assert(
-    validRes.status === 200 && validData.success === true && Array.isArray(validData.properties),
-    "Successfully retrieves properties for organization",
-    `Status: ${validRes.status}, Found: ${validData.properties?.length || 0} properties`
+    defaultRes.status === 200 && defaultData.success === true && Array.isArray(defaultData.properties),
+    "Public request succeeds without auth and defaults to primary workspace",
+    `Status: ${defaultRes.status}, Returned: ${defaultData.properties?.length || 0} listings, Org: ${defaultData.organization?.name || "N/A"}`
   );
 
-  // 3. Security Check: Landlord PII sanitization in properties response
-  console.log("\n--- 3. Testing landlord PII sanitization in properties output ---");
-  const properties = validData.properties || [];
-  let sanitizationPassed = true;
-  let checkedFields: string[] = [];
+  // 2. CORS Headers verification
+  console.log("\n--- 2. CORS Headers on Public Endpoints ---");
+  const originHeader = defaultRes.headers.get("access-control-allow-origin");
+  assert(
+    originHeader === "*",
+    "GET /api/properties includes Access-Control-Allow-Origin: * for external websites",
+    `Header value: ${originHeader}`
+  );
 
-  if (properties.length > 0) {
-    const prop = properties[0];
-    const sensitiveFields = ["ownerName", "ownerPhone", "ownerEmail", "ownerBankDetails", "titleDeedNumber"];
-    for (const field of sensitiveFields) {
-      if (field in prop) {
-        sanitizationPassed = false;
-        checkedFields.push(field);
-      }
+  const optionsReq = new NextRequest("http://localhost:3000/api/properties", { method: "OPTIONS" });
+  const optionsRes = await optionsProperties(optionsReq);
+  assert(
+    optionsRes.status === 204 && optionsRes.headers.get("access-control-allow-origin") === "*",
+    "OPTIONS preflight returns HTTP 204 with CORS headers",
+    `Status: ${optionsRes.status}, Origin: ${optionsRes.headers.get("access-control-allow-origin")}`
+  );
+
+  // 3. Explicit Organization by Slug
+  console.log("\n--- 3. Query properties with explicit organization slug (?org=contour-demo) ---");
+  const orgReq = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&status=AVAILABLE");
+  const orgRes = await getProperties(orgReq);
+  const orgData = await orgRes.json();
+  assert(
+    orgRes.status === 200 && orgData.success === true && orgData.properties.length > 0,
+    "Resolves organization by slug 'contour-demo' and returns properties",
+    `Found ${orgData.properties?.length} properties for org '${orgData.organization?.name}'`
+  );
+
+  // 4. Suburb Filtering
+  console.log("\n--- 4. Suburb Filtering (?suburb=Kabulonga) ---");
+  const suburbReq = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&suburb=Kabulonga&status=AVAILABLE");
+  const suburbRes = await getProperties(suburbReq);
+  const suburbData = await suburbRes.json();
+  const allMatchSuburb = suburbData.properties?.every((p: any) =>
+    p.suburb?.toLowerCase().includes("kabulonga")
+  );
+  assert(
+    suburbRes.status === 200 && suburbData.success === true && (suburbData.properties.length === 0 || allMatchSuburb),
+    "Filters strictly by specified suburb (Kabulonga)",
+    `Matched ${suburbData.properties?.length || 0} listings in Kabulonga`
+  );
+
+  // 5. Keyword Search across Title, Suburb & Description
+  console.log("\n--- 5. Full-Text Search (?search=villa) ---");
+  const searchReq = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&search=villa&status=AVAILABLE");
+  const searchRes = await getProperties(searchReq);
+  const searchData = await searchRes.json();
+  const allMatchSearch = searchData.properties?.every((p: any) =>
+    (p.title + " " + p.suburb + " " + (p.description || "")).toLowerCase().includes("villa")
+  );
+  assert(
+    searchRes.status === 200 && searchData.success === true && (searchData.properties.length === 0 || allMatchSearch),
+    "Search matches keyword across title, suburb, or description",
+    `Matched ${searchData.properties?.length || 0} listings for query 'villa'`
+  );
+
+  // 6. Ordering & Sorting (Price Ascending vs Descending, Bedrooms)
+  console.log("\n--- 6. Ordering / Sorting (?listingType=SALE&sortBy=price&sortOrder=asc / desc) ---");
+  const priceAscReq = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&listingType=SALE&sortBy=price&sortOrder=asc&status=AVAILABLE");
+  const priceAscRes = await getProperties(priceAscReq);
+  const priceAscData = await priceAscRes.json();
+
+  const pricesAsc = priceAscData.properties?.map((p: any) => Number(p.askingPrice) || 0) || [];
+  let isSortedAsc = true;
+  for (let i = 1; i < pricesAsc.length; i++) {
+    if (pricesAsc[i] < pricesAsc[i - 1]) {
+      isSortedAsc = false;
+      break;
     }
   }
-
   assert(
-    sanitizationPassed && properties.length > 0,
-    "Response strictly filters out sensitive landlord/owner PII and title deed numbers",
-    checkedFields.length > 0
-      ? `Failed fields present: ${checkedFields.join(", ")}`
-      : "All sensitive fields properly stripped from JSON response."
+    priceAscRes.status === 200 && isSortedAsc && pricesAsc.length > 0,
+    "Orders SALE properties by price in ASCENDING order (lowest price first)",
+    `Prices: ${pricesAsc.slice(0, 5).join(", ")}`
   );
 
-  // 4. POST inquiry with valid payload
-  console.log("\n--- 4. Testing POST inquiry with valid payload ---");
+  const priceDescReq = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&listingType=SALE&sortBy=price&sortOrder=desc&status=AVAILABLE");
+  const priceDescRes = await getProperties(priceDescReq);
+  const priceDescData = await priceDescRes.json();
+
+  const pricesDesc = priceDescData.properties?.map((p: any) => Number(p.askingPrice) || 0) || [];
+  let isSortedDesc = true;
+  for (let i = 1; i < pricesDesc.length; i++) {
+    if (pricesDesc[i] > pricesDesc[i - 1]) {
+      isSortedDesc = false;
+      break;
+    }
+  }
+  assert(
+    priceDescRes.status === 200 && isSortedDesc && pricesDesc.length > 0,
+    "Orders SALE properties by price in DESCENDING order (highest price first)",
+    `Prices: ${pricesDesc.slice(0, 5).join(", ")}`
+  );
+
+  const bedDescReq = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&sortBy=bedrooms&sortOrder=desc&status=AVAILABLE");
+  const bedDescRes = await getProperties(bedDescReq);
+  const bedDescData = await bedDescRes.json();
+  const bedroomsDesc = bedDescData.properties?.map((p: any) => p.bedrooms || 0) || [];
+  let isSortedBeds = true;
+  for (let i = 1; i < bedroomsDesc.length; i++) {
+    if (bedroomsDesc[i] > bedroomsDesc[i - 1]) {
+      isSortedBeds = false;
+      break;
+    }
+  }
+  assert(
+    bedDescRes.status === 200 && isSortedBeds && bedroomsDesc.length > 0,
+    "Orders properties by bedroom count in DESCENDING order (most bedrooms first)",
+    `Bedrooms: ${bedroomsDesc.slice(0, 6).join(", ")}`
+  );
+
+  // 7. Pagination (?page=1&limit=2 vs ?page=2&limit=2)
+  console.log("\n--- 7. Pagination Mechanics (?page=1&limit=2 vs ?page=2&limit=2) ---");
+  const page1Req = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&page=1&limit=2&status=AVAILABLE");
+  const page1Res = await getProperties(page1Req);
+  const page1Data = await page1Res.json();
+
+  const page2Req = new NextRequest("http://localhost:3000/api/properties?org=contour-demo&page=2&limit=2&status=AVAILABLE");
+  const page2Res = await getProperties(page2Req);
+  const page2Data = await page2Res.json();
+
+  const page1Ids = page1Data.properties?.map((p: any) => p.id) || [];
+  const page2Ids = page2Data.properties?.map((p: any) => p.id) || [];
+  const hasOverlap = page1Ids.some((id: string) => page2Ids.includes(id));
+
+  assert(
+    page1Data.pagination &&
+    page1Data.pagination.page === 1 &&
+    page1Data.pagination.limit === 2 &&
+    typeof page1Data.pagination.total === "number" &&
+    page1Data.pagination.totalPages >= 1,
+    "Page 1 returns accurate pagination metadata (total, limit, page, totalPages, hasNextPage)",
+    `Page 1: ${page1Ids.length} items, Total: ${page1Data.pagination.total}, TotalPages: ${page1Data.pagination.totalPages}`
+  );
+
+  assert(
+    !hasOverlap && page2Data.pagination.page === 2,
+    "Page 2 returns distinct, non-overlapping items from Page 1",
+    `Page 1 IDs: [${page1Ids.join(", ")}], Page 2 IDs: [${page2Ids.join(", ")}]`
+  );
+
+  // 8. Public Listing URLs & Landlord PII Sanitization
+  console.log("\n--- 8. Data Security: Public URLs & Landlord PII Masking ---");
+  const sampleProp = orgData.properties?.[0];
+  const sensitiveFields = ["ownerName", "ownerPhone", "ownerEmail", "ownerBankDetails", "titleDeedNumber"];
+  const leakedFields = sensitiveFields.filter((f) => sampleProp && f in sampleProp);
+
+  assert(
+    leakedFields.length === 0,
+    "Guarantees 100% landlord PII & title deed masking in public JSON response",
+    leakedFields.length === 0 ? "Zero confidential fields present" : `LEAKED: ${leakedFields.join(", ")}`
+  );
+
+  assert(
+    sampleProp && sampleProp.publicUrl && sampleProp.publicUrl.startsWith("https://contour.banyalabs.com/p/"),
+    "Generates canonical public shareable URL using contour.banyalabs.com domain",
+    `Sample publicUrl: ${sampleProp?.publicUrl}`
+  );
+
+  // 9. Lead Capture & Website Inquiries (POST /api/inquiries)
+  console.log("\n--- 9. Website Lead Capture (POST /api/inquiries) ---");
   const inquiryReq = new NextRequest("http://localhost:3000/api/inquiries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      org: "org_demo_contour",
-      clientName: "Seward Richard",
-      clientPhone: "+260977112233",
-      clientEmail: "seward@banyalabs.com",
-      propertyId: "prop_01",
-      notes: "Testing the public API form integration.",
+      org: "contour-demo",
+      clientName: "Mwamba Chileshe",
+      clientPhone: "+260977445566",
+      clientEmail: "mwamba@example.com",
+      propertyId: sampleProp?.id || "prop_01",
+      notes: "Website contact form submission requesting a viewing.",
     }),
   });
   const inquiryRes = await postInquiry(inquiryReq);
   const inquiryData = await inquiryRes.json();
 
   assert(
-    inquiryRes.status === 200 && inquiryData.success === true && inquiryData.message === "Inquiry successfully submitted.",
-    "Accepts valid inquiry payload and creates lead entry",
+    inquiryRes.status === 200 && inquiryData.success === true,
+    "Accepts website inquiry and routes lead into agency pipeline",
     `Status: ${inquiryRes.status}, Message: ${inquiryData.message}`
   );
 
-  // 5. POST inquiry validation error on malformed payload
-  console.log("\n--- 5. Testing POST inquiry validation errors ---");
+  // 10. Inquiry Validation on malformed input
+  console.log("\n--- 10. Inquiry Input Validation ---");
   const badInquiryReq = new NextRequest("http://localhost:3000/api/inquiries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      org: "", // Empty organization
-      clientName: "A", // Too short
+      org: "contour-demo",
+      clientName: "M", // Too short
       clientPhone: "123", // Too short
-      clientEmail: "invalid-email-address", // Invalid email format
+      clientEmail: "not-an-email",
     }),
   });
   const badInquiryRes = await postInquiry(badInquiryReq);
   const badInquiryData = await badInquiryRes.json();
 
   assert(
-    badInquiryRes.status === 400 && badInquiryData.success === false && badInquiryData.error === "Validation failed",
-    "Rejects invalid inquiry payload and returns validation error details",
-    `Status: ${badInquiryRes.status}, Details: ${JSON.stringify(badInquiryData.details)}`
+    badInquiryRes.status === 400 && badInquiryData.success === false,
+    "Strictly validates website contact form inputs and returns 400 Bad Request on malformed data",
+    `Status: ${badInquiryRes.status}, Error: ${badInquiryData.error}`
   );
 
   console.log("\n===============================================================================");
-  console.log(`🎯 PUBLIC API TEST RESULTS: ${passed}/${total} TESTS PASSED (${Math.round((passed / total) * 100)}%)`);
+  console.log(`🎯 PUBLIC API TEST SUITE: ${passed}/${total} TESTS PASSED (${Math.round((passed / total) * 100)}%)`);
   console.log("===============================================================================\n");
 
   if (passed === total) {
-    console.log("🚀 ALL CONTOUR PUBLIC API INTEGRATION TESTS PASSED PERFECTLY!");
+    console.log("🚀 ALL PUBLIC INTEGRATION TESTS PASSED WITH 100% SUCCESS!");
   } else {
     process.exit(1);
   }

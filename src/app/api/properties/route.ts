@@ -6,49 +6,118 @@ import { z } from "zod";
 
 import { smartCache } from "@/lib/cache";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+};
+
 const getHandler = createApiHandler({
-  requirePermissions: ["properties.read"],
+  requireAuth: false,
   querySchema: z.object({
     org: z.string().optional(),
     search: z.string().optional(),
+    suburb: z.string().optional(),
     listingType: z.string().optional(),
     propertyType: z.string().optional(),
     status: z.string().optional(),
+    minPrice: z.string().optional(),
+    maxPrice: z.string().optional(),
+    bedrooms: z.string().optional(),
+    bathrooms: z.string().optional(),
     assigned: z.string().optional(), // "me" | "all"
     assignedAgentId: z.string().optional(),
+    sortBy: z.enum(["date", "price", "bedrooms", "title"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
     page: z.string().optional(),
     limit: z.string().optional(),
   }).partial(),
   handler: async (req, ctx) => {
     const { organizationId, userId, query } = ctx;
-    const { org, search, listingType, propertyType, status, assigned, assignedAgentId, page, limit } = query;
+    const {
+      org,
+      search,
+      suburb,
+      listingType,
+      propertyType,
+      status,
+      minPrice,
+      maxPrice,
+      bedrooms,
+      bathrooms,
+      assigned,
+      assignedAgentId,
+      sortBy = "date",
+      sortOrder = "desc",
+      page,
+      limit,
+    } = query;
 
-    if (process.env.NEXT_PUBLIC_DEV_MODE !== "true" && !org && !ctx.session) {
+    // 1. Resolve target organization context (by ID or Slug)
+    let targetOrgId: string | null = null;
+    let targetOrgData: { id: string; name: string; slug: string } | null = null;
+
+    if (org) {
+      const found = await db.organization.findFirst({
+        where: {
+          OR: [{ id: org }, { slug: org }],
+        },
+        select: { id: true, name: true, slug: true },
+      });
+      if (found) {
+        targetOrgId = found.id;
+        targetOrgData = found;
+      } else {
+        return NextResponse.json(
+          { success: false, error: `Organization '${org}' not found.` },
+          { status: 404, headers: CORS_HEADERS }
+        );
+      }
+    } else if (organizationId) {
+      targetOrgId = organizationId;
+      const found = await db.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, slug: true },
+      });
+      if (found) targetOrgData = found;
+    } else {
+      // Fallback to primary active agency organization
+      const defaultOrg = await db.organization.findFirst({
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true, slug: true },
+      });
+      if (defaultOrg) {
+        targetOrgId = defaultOrg.id;
+        targetOrgData = defaultOrg;
+      }
+    }
+
+    if (!targetOrgId) {
       return NextResponse.json(
-        { success: false, error: "Missing required 'org' parameter in public request" },
-        { status: 400 }
+        { success: false, error: "Organization context required. Pass ?org=<your-agency-slug-or-id>" },
+        { status: 400, headers: CORS_HEADERS }
       );
     }
 
-    const targetOrgId = ctx.session ? organizationId : org;
-    if (!targetOrgId) {
-      return NextResponse.json({ success: false, error: "Organization context required" }, { status: 403 });
-    }
-
+    // 2. Status filtering
     const allowedStatuses = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
-    let statusFilter: any = { in: allowedStatuses };
+    let statusFilter: any = { in: ["AVAILABLE"] }; // Default to public AVAILABLE listings
     
     if (status) {
-      const statuses = status.split(",").map(s => s.trim().toUpperCase());
-      const validStatuses = statuses.filter(s => allowedStatuses.includes(s));
-      if (validStatuses.length > 0) {
-        statusFilter = { in: validStatuses };
+      if (status.toUpperCase() === "ALL") {
+        statusFilter = { in: allowedStatuses };
+      } else {
+        const statuses = status.split(",").map((s) => s.trim().toUpperCase());
+        const validStatuses = statuses.filter((s) => allowedStatuses.includes(s));
+        if (validStatuses.length > 0) {
+          statusFilter = { in: validStatuses };
+        }
       }
     }
 
     const whereClause: any = {
       organizationId: targetOrgId,
-      status: statusFilter
+      status: statusFilter,
     };
 
     if (assigned === "me" && userId) {
@@ -58,26 +127,125 @@ const getHandler = createApiHandler({
     }
 
     if (listingType && listingType !== "ALL") {
-      whereClause.listingType = listingType;
+      const upper = listingType.trim().toUpperCase();
+      if (upper === "SALE" || upper === "FOR_SALE") {
+        whereClause.listingType = "FOR_SALE";
+      } else if (upper === "RENT" || upper === "FOR_RENT") {
+        whereClause.listingType = "FOR_RENT";
+      } else if (upper === "BOTH") {
+        whereClause.listingType = "BOTH";
+      }
     }
     if (propertyType && propertyType !== "ALL") {
-      whereClause.propertyType = propertyType;
+      const upper = propertyType.trim().toUpperCase();
+      const typeMap: Record<string, string> = {
+        HOUSE: "STANDALONE_HOUSE",
+        STANDALONE: "STANDALONE_HOUSE",
+        STANDALONE_HOUSE: "STANDALONE_HOUSE",
+        RESIDENTIAL: "STANDALONE_HOUSE",
+        APARTMENT: "APARTMENT",
+        FLAT: "APARTMENT",
+        OFFICE: "COMMERCIAL_OFFICE",
+        COMMERCIAL: "COMMERCIAL_OFFICE",
+        COMMERCIAL_OFFICE: "COMMERCIAL_OFFICE",
+        WAREHOUSE: "WAREHOUSE",
+        INDUSTRIAL: "WAREHOUSE",
+        LAND: "VACANT_LAND_PLOT",
+        PLOT: "VACANT_LAND_PLOT",
+        VACANT_LAND_PLOT: "VACANT_LAND_PLOT",
+        FARM: "FARM_AGRICULTURAL",
+        AGRICULTURAL: "FARM_AGRICULTURAL",
+        FARM_AGRICULTURAL: "FARM_AGRICULTURAL",
+      };
+      if (typeMap[upper]) {
+        whereClause.propertyType = typeMap[upper];
+      }
     }
-    if (search) {
-      whereClause.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { suburb: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ];
+    if (suburb) {
+      whereClause.suburb = { contains: suburb, mode: "insensitive" };
+    }
+    if (bedrooms) {
+      const b = parseInt(bedrooms, 10);
+      if (!isNaN(b)) whereClause.bedrooms = { gte: b };
+    }
+    if (bathrooms) {
+      const b = parseInt(bathrooms, 10);
+      if (!isNaN(b)) whereClause.bathrooms = { gte: b };
     }
 
+    const andConditions: any[] = [];
+
+    if (search) {
+      andConditions.push({
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { suburb: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    if (minPrice) {
+      const min = parseFloat(minPrice);
+      if (!isNaN(min)) {
+        andConditions.push({
+          OR: [
+            { askingPrice: { gte: min } },
+            { rentalPrice: { gte: min } },
+          ],
+        });
+      }
+    }
+
+    if (maxPrice) {
+      const max = parseFloat(maxPrice);
+      if (!isNaN(max)) {
+        andConditions.push({
+          OR: [
+            { askingPrice: { lte: max } },
+            { rentalPrice: { lte: max } },
+          ],
+        });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      whereClause.AND = andConditions;
+    }
+
+    // 3. Sorting & Ordering
+    const validSortOrder: "asc" | "desc" = sortOrder === "asc" ? "asc" : "desc";
+    let orderBy: any = { createdAt: validSortOrder };
+
+    if (sortBy === "price") {
+      if (listingType === "RENT") {
+        orderBy = { rentalPrice: validSortOrder };
+      } else if (listingType === "SALE") {
+        orderBy = { askingPrice: validSortOrder };
+      } else {
+        orderBy = [
+          { askingPrice: validSortOrder },
+          { rentalPrice: validSortOrder },
+        ];
+      }
+    } else if (sortBy === "bedrooms") {
+      orderBy = { bedrooms: validSortOrder };
+    } else if (sortBy === "title") {
+      orderBy = { title: validSortOrder };
+    } else {
+      orderBy = { createdAt: validSortOrder };
+    }
+
+    // 4. Pagination
     const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
-    const take = limit ? Math.min(100, Math.max(1, parseInt(limit, 10))) : 50;
+    const take = limit ? Math.min(100, Math.max(1, parseInt(limit, 10))) : 20;
     const skip = (pageNum - 1) * take;
 
-    const cacheKey = `props:${targetOrgId}:${listingType || "all"}:${status || "all"}:${search || "none"}:${pageNum}:${take}`;
+    const cacheKey = `props:${targetOrgId}:${listingType || "all"}:${status || "all"}:${search || "none"}:${suburb || "none"}:${sortBy}:${validSortOrder}:${pageNum}:${take}`;
 
-    const { properties, total } = await smartCache.getOrSet(
+    const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
+
+    const { rawProperties, total } = await smartCache.getOrSet(
       targetOrgId,
       "properties",
       cacheKey,
@@ -85,7 +253,7 @@ const getHandler = createApiHandler({
         const [items, count] = await Promise.all([
           db.property.findMany({
             where: whereClause,
-            orderBy: { createdAt: "desc" },
+            orderBy,
             take,
             skip,
             select: {
@@ -121,36 +289,60 @@ const getHandler = createApiHandler({
                   phone: true,
                   image: true,
                   email: true,
-                }
-              }
-            }
+                },
+              },
+            },
           }),
-          db.property.count({ where: whereClause })
+          db.property.count({ where: whereClause }),
         ]);
 
-        return { properties: items, total: count };
+        return { rawProperties: items, total: count };
       },
       60
     );
 
+    const properties = rawProperties.map((p) => ({
+      ...p,
+      publicUrl: `${siteUrl}/p/${p.slug || p.id}`,
+    }));
+
+    const totalPages = Math.ceil(total / take);
+
     return NextResponse.json(
       {
         success: true,
+        agency: targetOrgData
+          ? {
+              id: targetOrgData.id,
+              name: targetOrgData.name,
+              slug: targetOrgData.slug,
+            }
+          : null,
+        organization: targetOrgData
+          ? {
+              id: targetOrgData.id,
+              name: targetOrgData.name,
+              slug: targetOrgData.slug,
+            }
+          : null,
         properties,
         pagination: {
           total,
           page: pageNum,
           limit: take,
-          totalPages: Math.ceil(total / take),
+          totalPages,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1,
         },
       },
       {
         headers: {
-          "Cache-Control": "private, s-maxage=60, stale-while-revalidate=300",
+          ...CORS_HEADERS,
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
         },
       }
     );
-  }
+  },
 });
 
 const postHandler = createApiHandler({
@@ -287,4 +479,11 @@ export async function POST(req: NextRequest, context?: any) {
 
 export async function PATCH(req: NextRequest, context?: any) {
   return patchHandler(req, context);
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
 }

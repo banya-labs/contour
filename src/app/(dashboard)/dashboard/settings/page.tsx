@@ -78,26 +78,14 @@ function SettingsContent() {
   const [settings, setSettings] = useState<AgencySettings>(DEFAULT_AGENCY_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(
-    ["BRANDING", "ORGANIZATION", "ACCOUNT", "DEVELOPER", "BILLING"].includes(initialTab)
+    ["BRANDING", "ORGANIZATION", "DEVELOPER", "BILLING"].includes(initialTab)
       ? initialTab
       : "BRANDING"
   );
   const [copiedText, setCopiedText] = useState<string | null>(null);
-
-  // Developer tab state
-  const [apiKeys, setApiKeys] = useState([
-    {
-      id: "key_01",
-      name: "WordPress Main Website",
-      key: "contour_live_pg_3f82a17cbef762a1",
-      status: "active",
-      createdAt: "2026-06-15",
-    },
-  ]);
-  const [newKeyName, setNewKeyName] = useState("");
-  const [docSubTab, setDocSubTab] = useState<"FETCH" | "INQUIRE">("FETCH");
+  const [docSubTab, setDocSubTab] = useState<"FETCH" | "SEARCH" | "INQUIRE">("FETCH");
   const { data: session } = authClient.useSession();
-  const [workspace, setWorkspace] = useState<{ name: string; subscriptionTier: string; subscriptionStatus: string; trialEndsAt: string } | null>(null);
+  const [workspace, setWorkspace] = useState<{ id?: string; slug?: string; name: string; subscriptionTier: string; subscriptionStatus: string; trialEndsAt: string } | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [roles, setRoles] = useState<Array<{ key: string; displayName: string }>>([]);
   const [accessLink, setAccessLink] = useState<string | null>(null);
@@ -348,33 +336,10 @@ function SettingsContent() {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  const handleGenerateKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKeyName.trim()) return;
-
-    const newKey = {
-      id: `key_${Date.now()}`,
-      name: newKeyName,
-      key: `contour_live_${newKeyName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Math.random().toString(36).substring(2, 10)}`,
-      status: "active" as const,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setApiKeys((prev) => [newKey, ...prev]);
-    setNewKeyName("");
-  };
-
-  const handleRevokeKey = (id: string) => {
-    setApiKeys((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, status: "revoked" as const } : k))
-    );
-  };
-
   const tabs = [
     { id: "BRANDING", label: "Agency Profile & Brand", icon: Building2 },
     { id: "ORGANIZATION", label: "Team & Permissions", icon: Users },
-    { id: "ACCOUNT", label: "My Account & Security", icon: UserCheck },
-    { id: "DEVELOPER", label: "API Keys & Integrations", icon: Code },
+    { id: "DEVELOPER", label: "Public API & Website Integration", icon: Code },
     { id: "BILLING", label: "Plans & Subscription", icon: CreditCard },
   ];
 
@@ -1074,39 +1039,7 @@ function SettingsContent() {
         </div>
       )}
 
-      {/* TAB 3: BETTER AUTH USER ACCOUNT & SECURITY */}
-      {activeTab === "ACCOUNT" && (
-        <div className="pt-2">
-          <div className="bg-white border border-editorial-border p-4 sm:p-6">
-            <div className="mb-6 pb-4 border-b border-editorial-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="font-heading font-bold text-base text-editorial-black uppercase tracking-tight">
-                  Personal Account & Security Credentials
-                </h3>
-                <p className="text-xs font-geist text-editorial-muted mt-1">
-                  Manage your personal email addresses, phone verification, password, two-factor authentication, and active sessions.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-geist px-2 py-0.5 border border-emerald-300 bg-emerald-50 text-emerald-800 uppercase tracking-wider font-semibold">
-                  POPIA Encrypted
-                </span>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              <div className="border border-editorial-border p-4">
-                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Account email</p>
-                <p className="mt-2 text-sm font-semibold text-editorial-black">{session?.user.email || "Loading..."}</p>
-              </div>
-              <div className="border border-editorial-border p-4">
-                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Authentication providers</p>
-                <p className="mt-2 text-xs text-editorial-muted">Email/password is enabled. Google OAuth is available when the server Google credentials are configured.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {activeTab === "BILLING" && (
         <div className="space-y-6 pt-2">
@@ -1121,191 +1054,297 @@ function SettingsContent() {
         </div>
       )}
 
-      {/* TAB 4: DEVELOPER & MCP KEYS */}
+      {/* TAB 4: PUBLIC API & WEBSITE INTEGRATION */}
       {activeTab === "DEVELOPER" && (
         <div className="space-y-6 pt-2">
-          {/* Key Generator */}
+          {/* Top Banner & Overview */}
           <div className="p-6 bg-white border border-editorial-border space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-editorial-border">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-editorial-border">
               <div className="flex items-center gap-2">
-                <Key className="w-4 h-4 text-contour-red" />
-                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
-                  Named Machine & API Keys
-                </h3>
+                <Code className="w-5 h-5 text-contour-red" />
+                <div>
+                  <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                    Public API & Website Integration
+                  </h3>
+                  <p className="text-xs text-editorial-muted font-geist mt-0.5">
+                    Embed your agency listings on your website (Next.js, Webflow, WordPress, React, HTML). No API keys or authorization headers required for public listings.
+                  </p>
+                </div>
               </div>
-              <span className="text-[10px] font-geist text-editorial-muted">
-                HTTP Bearer Tokens
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] font-geist text-emerald-800 font-semibold px-2.5 py-1 border border-emerald-300 bg-emerald-50 uppercase tracking-wider">
+                  Public Read • CORS Enabled • Landlord PII Masked
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Specs / Workspace Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="border border-editorial-border p-3 bg-neutral-50">
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Live Base Endpoint</p>
+                <div className="mt-1.5 flex items-center justify-between gap-1">
+                  <span className="font-mono text-xs text-editorial-black font-semibold truncate">
+                    https://contour.banyalabs.com/api/properties
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("https://contour.banyalabs.com/api/properties", "base_url")}
+                    className="p-1 hover:bg-neutral-200 text-editorial-muted hover:text-editorial-black shrink-0"
+                    title="Copy URL"
+                  >
+                    {copiedText === "base_url" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-editorial-border p-3 bg-neutral-50">
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Agency Workspace Identifier</p>
+                <div className="mt-1.5 flex items-center justify-between gap-1">
+                  <span className="font-mono text-xs text-editorial-black font-semibold">
+                    {workspace?.slug || "contour-demo"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(workspace?.slug || "contour-demo", "org_slug")}
+                    className="p-1 hover:bg-neutral-200 text-editorial-muted hover:text-editorial-black shrink-0"
+                    title="Copy Slug"
+                  >
+                    {copiedText === "org_slug" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-editorial-border p-3 bg-neutral-50">
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Lead Ingestion Endpoint</p>
+                <div className="mt-1.5 flex items-center justify-between gap-1">
+                  <span className="font-mono text-xs text-editorial-black font-semibold truncate">
+                    https://contour.banyalabs.com/api/inquiries
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("https://contour.banyalabs.com/api/inquiries", "inquiry_url")}
+                    className="p-1 hover:bg-neutral-200 text-editorial-muted hover:text-editorial-black shrink-0"
+                    title="Copy URL"
+                  >
+                    {copiedText === "inquiry_url" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Working Clickable Links Card */}
+          <div className="p-6 bg-white border border-editorial-border space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-editorial-border">
+              <div className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-contour-red" />
+                <h4 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Live Working Endpoints (Click to Open & Test)
+                </h4>
+              </div>
+              <span className="text-[11px] font-geist text-editorial-muted">
+                Tested against contour.banyalabs.com • Zero Auth Barrier
               </span>
             </div>
 
-            <form onSubmit={handleGenerateKey} className="flex flex-col sm:flex-row gap-2 max-w-lg">
-              <input
-                type="text"
-                placeholder="Key label (e.g. 'Marketing Website', 'Cursor IDE')..."
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                className="flex-1 px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black font-geist"
-              />
-              <button
-                type="submit"
-                disabled={!newKeyName.trim()}
-                className="px-4 py-2 bg-editorial-black hover:bg-contour-red disabled:opacity-40 text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors shadow-none shrink-0"
-              >
-                Generate Key
-              </button>
-            </form>
-
-            {/* Mobile Keys List (md:hidden) */}
-            <div className="md:hidden divide-y divide-editorial-border border border-editorial-border p-3 space-y-3 font-geist text-xs">
-              {apiKeys.map((k) => (
-                <div key={k.id} className="pt-2 first:pt-0 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-editorial-black">{k.name}</span>
-                    <span
-                      className={`text-[9px] font-heading font-bold uppercase tracking-wider px-1.5 py-0.5 border ${
-                        k.status === "active"
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                          : "bg-neutral-100 text-editorial-muted border-editorial-border"
-                      }`}
+            <div className="grid grid-cols-1 gap-2.5">
+              {[
+                {
+                  label: "1. All Available Listings (Default)",
+                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE",
+                  description: "Returns active properties with public photos, specs, pricing, and direct shareable listing URLs.",
+                },
+                {
+                  label: "2. Search & Suburb Filter (Kabulonga)",
+                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE&suburb=Kabulonga&sortBy=price&sortOrder=asc",
+                  description: "Filters by Lusaka suburb 'Kabulonga', ordered by price ascending (lowest to highest).",
+                },
+                {
+                  label: "3. Keyword Search (e.g. 'villa')",
+                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE&search=villa",
+                  description: "Performs full-text keyword search across property titles, suburbs, and descriptions.",
+                },
+                {
+                  label: "4. Paginated Query (Page 1, 5 per page)",
+                  url: "https://contour.banyalabs.com/api/properties?status=AVAILABLE&page=1&limit=5&sortBy=date&sortOrder=desc",
+                  description: "Returns the 5 newest listings with total count, page numbers, and next/prev indicators.",
+                },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-editorial-border bg-neutral-50 hover:bg-neutral-100/70 transition-colors"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                        {item.label}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-editorial-muted font-geist">
+                      {item.description}
+                    </p>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 font-mono text-[11px] text-contour-red hover:underline break-all"
                     >
-                      {k.status}
-                    </span>
+                      {item.url}
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                    </a>
                   </div>
-                  <div className="font-mono text-[11px] text-editorial-muted break-all">
-                    {k.key.substring(0, 16)}••••••••
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-editorial-muted pt-1">
-                    <span>Created {k.createdAt}</span>
-                    {k.status === "active" && (
-                      <button
-                        type="button"
-                        onClick={() => handleRevokeKey(k.id)}
-                        className="font-heading font-semibold text-contour-red hover:underline"
-                      >
-                        Revoke
-                      </button>
-                    )}
+
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-editorial-black hover:bg-contour-red text-white text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1"
+                    >
+                      Open Link <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(item.url, `link_${idx}`)}
+                      className="px-2.5 py-1.5 border border-editorial-border bg-white hover:bg-neutral-100 text-editorial-black text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1"
+                      title="Copy Link"
+                    >
+                      {copiedText === `link_${idx}` ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" /> Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" /> Copy
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Keys Table (hidden md:block) */}
-            <div className="hidden md:block border border-editorial-border overflow-x-auto">
-              <table className="w-full text-left text-xs font-geist">
-                <thead className="bg-neutral-50 border-b border-editorial-border font-heading font-semibold text-[11px] uppercase tracking-wider text-editorial-muted">
-                  <tr>
-                    <th className="py-2.5 px-3">Name</th>
-                    <th className="py-2.5 px-3">Key Token</th>
-                    <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3">Created</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-editorial-border">
-                  {apiKeys.map((k) => (
-                    <tr key={k.id} className="hover:bg-neutral-50/50">
-                      <td className="py-3 px-3 font-medium text-editorial-black">
-                        {k.name}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-[11px] text-editorial-muted">
-                        {k.key.substring(0, 16)}••••••••
-                      </td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`text-[9px] font-heading font-bold uppercase tracking-wider px-1.5 py-0.5 border ${
-                            k.status === "active"
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                              : "bg-neutral-100 text-editorial-muted border-editorial-border"
-                          }`}
-                        >
-                          {k.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-editorial-muted">
-                        {k.createdAt}
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        {k.status === "active" && (
-                          <button
-                            type="button"
-                            onClick={() => handleRevokeKey(k.id)}
-                            className="text-xs font-heading font-semibold text-contour-red hover:underline"
-                          >
-                            Revoke
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
 
-          {/* External Integration Code Snippets */}
+          {/* Interactive Code Snippets & Guide */}
           <div className="p-4 sm:p-6 bg-white border border-editorial-border space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-editorial-border">
               <div className="flex items-center gap-2">
                 <Code className="w-4 h-4 text-contour-red" />
-                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
-                  Public Integration Endpoints
-                </h3>
+                <h4 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Developer Code Examples & Reference
+                </h4>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setDocSubTab("FETCH")}
-                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border ${
+                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
                     docSubTab === "FETCH"
                       ? "bg-editorial-black text-white border-editorial-black"
                       : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
                   }`}
                 >
-                  1. GET Listings
+                  1. GET Listings (Search & Paginate)
                 </button>
                 <button
                   type="button"
                   onClick={() => setDocSubTab("INQUIRE")}
-                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border ${
+                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
                     docSubTab === "INQUIRE"
                       ? "bg-editorial-black text-white border-editorial-black"
                       : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
                   }`}
                 >
-                  2. POST Inquiries
+                  2. POST Inquiries (Lead Capture)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDocSubTab("SEARCH")}
+                  className={`px-3 py-1 text-xs font-heading font-semibold uppercase tracking-wider border whitespace-nowrap ${
+                    docSubTab === "SEARCH"
+                      ? "bg-editorial-black text-white border-editorial-black"
+                      : "bg-white text-editorial-black border-editorial-border hover:bg-neutral-50"
+                  }`}
+                >
+                  3. Query Parameters Spec
                 </button>
               </div>
             </div>
 
-            {docSubTab === "FETCH" ? (
+            {docSubTab === "FETCH" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-heading font-bold text-xs text-editorial-black uppercase">
-                    GET /api/properties
+                    JavaScript / TypeScript Fetch with Search, Ordering & Pagination
                   </span>
                   <span className="text-[10px] font-geist text-emerald-800 font-semibold px-2 py-0.5 border border-emerald-300 bg-emerald-50">
-                    Public Read • Sandbox Safe
+                    Works on Next.js, React, Vue, Svelte, or Vanilla JS
                   </span>
                 </div>
-                <p className="text-editorial-muted text-xs">
-                  Call this endpoint directly from your corporate website or Webflow. It strictly filters out landlord PII and returns active listings.
+                <p className="text-editorial-muted text-xs font-geist">
+                  Pass search keywords, Lusaka suburbs, sort criteria (<code className="text-editorial-black font-semibold">date</code>, <code className="text-editorial-black font-semibold">price</code>, <code className="text-editorial-black font-semibold">bedrooms</code>), and pagination (<code className="text-editorial-black font-semibold">page</code>, <code className="text-editorial-black font-semibold">limit</code>). All landlord PII and private documents are automatically filtered out.
                 </p>
                 <div className="relative">
                   <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
-{`// Fetch available properties from Contour
-fetch('https://app.contour.co.zm/api/properties?status=AVAILABLE')
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      console.log('Active listings:', data.properties);
-    }
-  });`}
+{`// 1. Reusable helper to fetch properties from Contour
+async function fetchContourProperties({
+  search = "",
+  suburb = "",
+  propertyType = "",
+  listingType = "SALE", // or 'RENT'
+  sortBy = "date",      // 'date' | 'price' | 'bedrooms' | 'title'
+  sortOrder = "desc",   // 'asc' | 'desc'
+  page = 1,
+  limit = 12
+} = {}) {
+  const params = new URLSearchParams({
+    status: "AVAILABLE",
+    sortBy,
+    sortOrder,
+    page: String(page),
+    limit: String(limit)
+  });
+
+  if (search) params.set("search", search);
+  if (suburb) params.set("suburb", suburb);
+  if (propertyType) params.set("propertyType", propertyType);
+  if (listingType) params.set("listingType", listingType);
+
+  const response = await fetch(\`https://contour.banyalabs.com/api/properties?\${params.toString()}\`, {
+    headers: { "Accept": "application/json" },
+    next: { revalidate: 60 } // Next.js ISR revalidation cache (optional)
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.error || "Failed to load listings");
+  }
+
+  // Returns:
+  // properties: Array of property cards with images, specs, price, suburb, publicUrl
+  // pagination: { total, page, limit, totalPages, hasNextPage, hasPrevPage }
+  return {
+    properties: data.properties,
+    pagination: data.pagination
+  };
+}
+
+// 2. Example Usage: Search 3+ bedroom homes in Kabulonga, sorted lowest price first
+fetchContourProperties({
+  suburb: "Kabulonga",
+  sortBy: "price",
+  sortOrder: "asc",
+  page: 1,
+  limit: 6
+}).then(({ properties, pagination }) => {
+  console.log(\`Showing \${properties.length} of \${pagination.total} homes:\`, properties);
+});`}
                   </pre>
                   <button
                     onClick={() =>
                       handleCopy(
-                        `fetch('https://app.contour.co.zm/api/properties?status=AVAILABLE')\n  .then(res => res.json())\n  .then(data => {\n    if (data.success) {\n      console.log('Active listings:', data.properties);\n    }\n  });`,
+                        `async function fetchContourProperties({ search = "", suburb = "", propertyType = "", listingType = "SALE", sortBy = "date", sortOrder = "desc", page = 1, limit = 12 } = {}) {\n  const params = new URLSearchParams({ status: "AVAILABLE", sortBy, sortOrder, page: String(page), limit: String(limit) });\n  if (search) params.set("search", search);\n  if (suburb) params.set("suburb", suburb);\n  if (propertyType) params.set("propertyType", propertyType);\n  if (listingType) params.set("listingType", listingType);\n  const response = await fetch(\`https://contour.banyalabs.com/api/properties?\${params.toString()}\`);\n  return response.json();\n}`,
                         "fetch_code"
                       )
                     }
@@ -1320,40 +1359,58 @@ fetch('https://app.contour.co.zm/api/properties?status=AVAILABLE')
                   </button>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {docSubTab === "INQUIRE" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-heading font-bold text-xs text-editorial-black uppercase">
                     POST /api/inquiries
                   </span>
                   <span className="text-[10px] font-geist text-contour-red font-semibold px-2 py-0.5 border border-contour-red/30 bg-contour-red/5">
-                    Rate Limited • Lead Assigned
+                    Rate Limited • Lead Assigned to Contour Pipeline
                   </span>
                 </div>
-                <p className="text-editorial-muted text-xs">
-                  Submit inquiries directly from your website contact forms. Leads immediately route into your Contour CRM pipeline.
+                <p className="text-editorial-muted text-xs font-geist">
+                  Submit inquiries directly from your website contact forms. Leads immediately route into your Contour CRM pipeline and assign to your agents with automated WhatsApp alerts.
                 </p>
                 <div className="relative">
                   <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
 {`// Submit lead from your website inquiry form to Contour
-fetch('https://app.contour.co.zm/api/inquiries', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    clientName: 'Dr. Mutale Kapwepwe',
-    clientPhone: '+260977112233',
-    clientEmail: 'mutale@example.com',
-    propertyId: 'prop_01',
-    notes: 'Interested in viewing this house.'
-  })
-})
-.then(res => res.json())
-.then(data => console.log('Lead submitted:', data));`}
+async function submitListingInquiry({ clientName, clientPhone, clientEmail, propertyId, notes }) {
+  const response = await fetch("https://contour.banyalabs.com/api/inquiries", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      clientName,
+      clientPhone,
+      clientEmail,
+      propertyId,
+      notes
+    })
+  });
+
+  const data = await response.json();
+  if (data.success) {
+    console.log("Inquiry registered! Lead created in Contour pipeline:", data.inquiry);
+  } else {
+    console.error("Error submitting inquiry:", data.error);
+  }
+}
+
+// Example submission
+submitListingInquiry({
+  clientName: "Dr. Mutale Kapwepwe",
+  clientPhone: "+260977112233",
+  clientEmail: "mutale@example.com",
+  propertyId: "prop_01",
+  notes: "Interested in scheduling a viewing this Saturday morning."
+});`}
                   </pre>
                   <button
                     onClick={() =>
                       handleCopy(
-                        `fetch('https://app.contour.co.zm/api/inquiries', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({\n    clientName: 'Dr. Mutale Kapwepwe',\n    clientPhone: '+260977112233',\n    clientEmail: 'mutale@example.com',\n    propertyId: 'prop_01',\n    notes: 'Interested in viewing this house.'\n  })\n})\n.then(res => res.json())\n.then(data => console.log('Lead submitted:', data));`,
+                        `fetch("https://contour.banyalabs.com/api/inquiries", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({\n    clientName: "Dr. Mutale Kapwepwe",\n    clientPhone: "+260977112233",\n    clientEmail: "mutale@example.com",\n    propertyId: "prop_01",\n    notes: "Interested in viewing this house."\n  })\n}).then(res => res.json()).then(console.log);`,
                         "inquiry_code"
                       )
                     }
@@ -1366,6 +1423,93 @@ fetch('https://app.contour.co.zm/api/inquiries', {
                       <Copy className="w-3.5 h-3.5" />
                     )}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {docSubTab === "SEARCH" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-bold text-xs text-editorial-black uppercase">
+                    Supported Query Parameters Reference
+                  </span>
+                  <span className="text-[10px] font-geist text-editorial-muted">
+                    GET https://contour.banyalabs.com/api/properties
+                  </span>
+                </div>
+                <div className="border border-editorial-border overflow-x-auto">
+                  <table className="w-full text-left text-xs font-geist">
+                    <thead className="bg-neutral-50 border-b border-editorial-border font-heading font-semibold text-[11px] uppercase tracking-wider text-editorial-muted">
+                      <tr>
+                        <th className="py-2.5 px-3">Parameter</th>
+                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Default</th>
+                        <th className="py-2.5 px-3">Description & Examples</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-editorial-border text-editorial-black">
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">search</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
+                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                        <td className="py-2.5 px-3">Case-insensitive keyword match across title, suburb, and description (e.g. <code className="bg-neutral-100 px-1 py-0.5">search=villa</code>).</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">suburb</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
+                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                        <td className="py-2.5 px-3">Filter by Lusaka neighborhood (e.g. <code className="bg-neutral-100 px-1 py-0.5">suburb=Kabulonga</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Woodlands</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Roma</code>).</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">sortBy</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px]">date</td>
+                        <td className="py-2.5 px-3">Order by field: <code className="bg-neutral-100 px-1 py-0.5">date</code> (creation date), <code className="bg-neutral-100 px-1 py-0.5">price</code>, <code className="bg-neutral-100 px-1 py-0.5">bedrooms</code>, or <code className="bg-neutral-100 px-1 py-0.5">title</code>.</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">sortOrder</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px]">desc</td>
+                        <td className="py-2.5 px-3">Direction: <code className="bg-neutral-100 px-1 py-0.5">asc</code> (ascending / lowest first) or <code className="bg-neutral-100 px-1 py-0.5">desc</code> (descending / highest first).</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">page</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px]">1</td>
+                        <td className="py-2.5 px-3">1-indexed page number for pagination.</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">limit</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px]">20</td>
+                        <td className="py-2.5 px-3">Number of results per page (1 to 100).</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">listingType</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                        <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">SALE</code> or <code className="bg-neutral-100 px-1 py-0.5">RENT</code>.</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">propertyType</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
+                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                        <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">RESIDENTIAL</code>, <code className="bg-neutral-100 px-1 py-0.5">COMMERCIAL</code>, <code className="bg-neutral-100 px-1 py-0.5">LAND</code>, <code className="bg-neutral-100 px-1 py-0.5">INDUSTRIAL</code>.</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">minPrice / maxPrice</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                        <td className="py-2.5 px-3">Price range filtering in listing currency (e.g. <code className="bg-neutral-100 px-1 py-0.5">minPrice=500000&maxPrice=2500000</code>).</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">bedrooms / bathrooms</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
+                        <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                        <td className="py-2.5 px-3">Minimum room counts (e.g. <code className="bg-neutral-100 px-1 py-0.5">bedrooms=3</code>).</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
