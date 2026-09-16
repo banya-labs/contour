@@ -16,6 +16,7 @@ import {
   Scale,
   Calendar,
 } from "lucide-react";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 interface RequestDetails {
   id: string;
@@ -260,7 +261,10 @@ export default function ClientUploadPortalPage() {
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col justify-between p-4 sm:p-8 font-sans">
       <div className="max-w-xl w-full mx-auto space-y-6 pt-4 pb-12">
         {/* Header Branding */}
-        <div className="text-center space-y-1">
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center pb-1">
+            <ContourLogo size="sm" />
+          </div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 rounded-full text-xs font-semibold text-amber-800 dark:text-amber-300">
             <Building className="w-3.5 h-3.5" />
             <span>{request.agencyName}</span>

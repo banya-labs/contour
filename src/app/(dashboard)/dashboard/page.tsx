@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/utils";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { DashboardMetricSkeleton, ActionQueueSkeleton } from "@/components/ui/skeleton";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export default function DashboardOverviewPage() {
   const [metrics, setMetrics] = useState<any>({
@@ -180,6 +181,7 @@ export default function DashboardOverviewPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
           <div className="flex items-center gap-2">
+            <ContourLogo size="sm" compact />
             <span className="text-[9px] sm:text-[10px] font-geist font-bold px-1.5 sm:px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
               Lusaka Operating HQ
             </span>
@@ -195,24 +197,24 @@ export default function DashboardOverviewPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0 w-full sm:w-auto">
           <Link
             href="/dashboard/analytics"
-            className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
+            className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none shrink-0"
           >
             <BarChart3 className="w-3.5 h-3.5 text-[#16382B]" />
             <span>BI Analytics</span>
           </Link>
           <Link
             href="/dashboard/pipeline"
-            className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
+            className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none shrink-0"
           >
             <TrendingUp className="w-3.5 h-3.5 text-contour-red" />
             <span>Deal Pipeline</span>
           </Link>
           <Link
             href="/dashboard/map"
-            className="px-3 sm:px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
+            className="px-3 sm:px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none shrink-0"
           >
             <MapPin className="w-3.5 h-3.5" />
             <span>Cadastral Map</span>

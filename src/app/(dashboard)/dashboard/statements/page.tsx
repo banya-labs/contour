@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 function LandlordStatementsContent() {
   const [statements, setStatements] = useState<any[]>([]);
@@ -141,9 +142,12 @@ function LandlordStatementsContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>
-          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
-            FINANCIAL RECONCILIATION // SEAM V2
-          </span>
+          <div className="flex items-center gap-2 mb-1">
+            <ContourLogo size="sm" compact />
+            <span className="text-[10px] sm:text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
+              FINANCIAL RECONCILIATION // SEAM V2
+            </span>
+          </div>
           <h1 className="font-serif text-xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-0.5 sm:mt-1">
             Landlord Remittance Statements
           </h1>
@@ -154,7 +158,7 @@ function LandlordStatementsContent() {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 self-start sm:self-auto"
+          className="px-4 sm:px-5 py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 self-stretch sm:self-auto min-h-[44px] sm:min-h-0"
         >
           <Plus className="w-3.5 h-3.5 text-editorial-red" />
           <span>Generate Statement</span>
@@ -223,7 +227,7 @@ function LandlordStatementsContent() {
                 </div>
 
                 {/* Equation Breakdown Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-editorial-paper/40 border border-editorial-border text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 p-4 bg-editorial-paper/40 border border-editorial-border text-xs">
                   <div>
                     <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Gross Rent Collected</div>
                     <div className="font-mono font-bold text-editorial-black text-sm mt-1">
@@ -242,7 +246,7 @@ function LandlordStatementsContent() {
                       - {formatCurrency(Number(stmt.maintenanceDeducted), stmt.currency)}
                     </div>
                   </div>
-                  <div className="border-l border-editorial-border pl-4">
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1 border-t sm:border-t-0 lg:border-l border-editorial-border pt-3 sm:pt-0 lg:pl-4">
                     <div className="text-emerald-700 text-[10px] font-mono uppercase tracking-wider font-bold">Net Landlord Payout</div>
                     <div className="font-mono font-bold text-base text-emerald-800 mt-0.5">
                       {formatCurrency(Number(stmt.netLandlordPayout), stmt.currency)}
@@ -251,8 +255,8 @@ function LandlordStatementsContent() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                  <button className="px-4 py-2 rounded-none bg-white border border-editorial-border hover:bg-editorial-paper text-editorial-black text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                  <button className="w-full sm:w-auto px-4 py-2.5 rounded-none bg-white border border-editorial-border hover:bg-editorial-paper text-editorial-black text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors min-h-[44px] sm:min-h-0">
                     <Download className="w-3.5 h-3.5" />
                     <span>Download PDF Statement</span>
                   </button>
@@ -260,7 +264,7 @@ function LandlordStatementsContent() {
                   {!isAuthorized ? (
                     <button
                       onClick={() => handleAuthorizeSeam(stmt.id)}
-                      className="px-5 py-2.5 rounded-none bg-editorial-red hover:bg-editorial-red/90 text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-none bg-editorial-red hover:bg-editorial-red/90 text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
                     >
                       <Lock className="w-3.5 h-3.5" />
                       <span>Authorize &amp; Disburse Remittance</span>

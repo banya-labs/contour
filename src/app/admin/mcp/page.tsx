@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Key, ShieldAlert, Copy, Check, Plus, Terminal, RefreshCw } from "lucide-react";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export default function AdminMcpPage() {
   const [keys, setKeys] = useState([
@@ -43,17 +44,33 @@ export default function AdminMcpPage() {
   };
 
   return (
-    <div className="p-3 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto w-full font-geist pb-20 sm:pb-32">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto w-full font-geist pb-20 sm:pb-32">
+      {/* Top Admin Brand Navigation */}
+      <div className="flex items-center justify-between border-b border-editorial-border pb-4">
+        <div className="flex items-center gap-2">
+          <ContourLogo size="sm" />
+          <span className="text-[9px] font-mono uppercase tracking-wider text-editorial-muted bg-neutral-100 px-1.5 py-0.5 border border-editorial-border font-bold">
+            MCP Studio
+          </span>
+        </div>
+        <Link
+          href="/admin"
+          className="text-xs font-mono uppercase tracking-wider text-editorial-muted hover:text-editorial-black flex items-center gap-1 transition-colors"
+        >
+          <span>&larr; Back to Admin Control</span>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-editorial-border pb-6">
         <div>
-          <span className="text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
+          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
             MACHINE INTERFACE // BEARER TOKEN HUB
           </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-1">
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-1 uppercase">
             Model Context Protocol (MCP) Studio
           </h1>
-          <p className="text-xs text-editorial-neutral mt-1">
+          <p className="text-xs text-editorial-muted mt-1 max-w-2xl">
             Generate and manage user-scoped Bearer tokens for external AI agents with 1-click compromise revocation.
           </p>
         </div>

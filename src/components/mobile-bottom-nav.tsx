@@ -23,6 +23,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
@@ -175,7 +176,17 @@ export default function MobileBottomNav() {
         title={workspaceTitle}
         subtitle={user?.email || "Workspace Menu"}
       >
-        <div className="space-y-5 pb-4 font-geist">
+        <div className="space-y-4 pb-4 font-geist">
+          {/* Contour Brand Stamp */}
+          <div className="flex items-center justify-between p-2.5 bg-neutral-50 border border-editorial-border">
+            <div className="flex items-center gap-2">
+              <ContourLogo size="sm" />
+              <span className="font-geist text-[9px] uppercase tracking-wider text-editorial-muted bg-white px-1.5 py-0.5 border border-editorial-border font-bold">
+                OS 2.0
+              </span>
+            </div>
+            <span className="text-[10px] font-geist text-editorial-muted">Lusaka Operating HQ</span>
+          </div>
           {moreNavLinks.map((group) => (
             <div key={group.category} className="space-y-1">
               <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted px-2 block">

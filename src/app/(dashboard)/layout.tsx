@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { roleHasPermission, type ContourRoleKey } from "@/lib/authorization";
 import WorkspaceSidebar from "@/components/workspace-sidebar";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
+import { MobileTopHeader } from "@/components/mobile-top-header";
 
 export default async function DashboardLayout({
   children,
@@ -35,6 +36,7 @@ export default async function DashboardLayout({
 
       {/* Main Workspace Area (padded bottom on mobile to accommodate bottom nav) */}
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative pb-14 md:pb-0">
+        <MobileTopHeader />
         {children}
       </main>
 

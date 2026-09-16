@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { ArrowLeft, Cookie, ShieldCheck, Database, Lock } from "lucide-react";
+import { ContourLogo } from "@/components/brand/contour-logo";
 
 export const metadata: Metadata = {
   title: "Cookie & Technical Storage Notice (Zambia DPA § 21)",
@@ -18,13 +19,20 @@ export default function CookiePolicyPage() {
       {/* Header */}
       <header className="border-b border-editorial-border bg-white sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-editorial-muted hover:text-editorial-black transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Contour Home</span>
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-editorial-muted hover:text-editorial-black transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back to Contour Home</span>
+              <span className="sm:hidden">Back</span>
+            </Link>
+            <div className="h-4 w-px bg-editorial-border hidden sm:block" />
+            <Link href="/" className="inline-flex items-center">
+              <ContourLogo size="sm" />
+            </Link>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-mono bg-editorial-bg text-editorial-black px-2 py-0.5 rounded-none border border-editorial-border uppercase">
               Zambia DPA 2021 § 21
