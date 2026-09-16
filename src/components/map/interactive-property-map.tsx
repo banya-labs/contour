@@ -100,6 +100,9 @@ type InteractivePropertyMapProps = {
   viewMode?: "STANDARD" | "CHOROPLETH";
   onViewModeChange?: (mode: "STANDARD" | "CHOROPLETH") => void;
   minimal?: boolean;
+  searchPosition?: "top" | "bottom";
+  hideZoomControls?: boolean;
+  hideLocateButton?: boolean;
 };
 
 const DEFAULT_LUSAKA_CENTER: [number, number] = [-15.4167, 28.2833];
@@ -147,7 +150,14 @@ export default function InteractivePropertyMap({
   viewMode: externalViewMode,
   onViewModeChange,
   minimal = false,
+  searchPosition,
+  hideZoomControls = false,
+  hideLocateButton = false,
 }: InteractivePropertyMapProps) {
+  const isBottomSearch = searchPosition === "bottom" || minimal;
+  const shouldHideZoom = hideZoomControls || minimal;
+  const shouldHideLocate = hideLocateButton || minimal;
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const leafletRef = useRef<any>(null);
@@ -751,8 +761,8 @@ export default function InteractivePropertyMap({
   return (
     <div data-map-minimal={minimal ? "true" : undefined} className={`relative w-full h-full flex flex-col rounded-2xl overflow-hidden border border-border shadow-card bg-paper-100 ${className}`}>
       
-      {/* 1. CENTERED TOP MAP SEARCH BAR WITH FILTER PRESETS */}
-      <div className="map-search-shell absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xl w-full px-4 pointer-events-none font-sans flex flex-col items-center gap-2">
+      {/* 1. MAP SEARCH BAR WITH FILTER PRESETS */}
+      <div className={`map-search-shell absolute ${isBottomSearch ? "bottom-4" : "top-4"} left-1/2 -translate-x-1/2 z-[1000] max-w-xl w-full px-4 pointer-events-none font-sans flex ${isBottomSearch ? "flex-col-reverse" : "flex-col"} items-center gap-2`}>
         {/* Clean Input Bar */}
         <div className="relative w-full group pointer-events-auto">
           <div className="relative w-full flex items-center gap-2 bg-white/95 backdrop-blur-xl px-3.5 sm:px-4 py-2 rounded-none border border-editorial-border shadow-sm">
@@ -787,7 +797,7 @@ export default function InteractivePropertyMap({
 
             <button
               onClick={() => handleMapFilter()}
-              className="px-3.5 py-1.5 rounded-none bg-editorial-black hover:bg-neutral-800 text-white text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors shrink-0"
+              className="px-3.5 py-1.5 rounded-none bg-editorial-black hover:bg-contour-red text-white text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors shrink-0"
             >
               <Search className="w-3 h-3" />
               <span className="hidden sm:inline">Filter</span>
@@ -795,7 +805,7 @@ export default function InteractivePropertyMap({
           </div>
         </div>
 
-        {/* Preset Buttons BELOW Search Bar */}
+        {/* Preset Buttons */}
         <div className="map-search-presets pointer-events-auto flex flex-wrap items-center justify-center gap-1.5">
           {PRESET_BUTTONS.map((btn) => (
             <button
@@ -810,80 +820,86 @@ export default function InteractivePropertyMap({
       </div>
 
       {/* 2. RIGHT TOP — UTILITY ACTIONS (Stand Draw, Zoom, Fit, Locate, Suburb Intel) */}
-      <div className="map-utility-controls absolute top-16 right-4 z-[1000] pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-full border border-border shadow-subtle">
-          {/* Stand Drawer Toggle */}
-          <button
-            onClick={() => setIsDrawingStand((prev) => !prev)}
-            title="Interactive Stand Boundary Polygon Drawer"
-            className={`map-stand-control p-2 rounded-full text-xs font-bold flex items-center gap-1 transition-all ${
-              isDrawingStand
-                ? "bg-contour-red text-white shadow-subtle animate-pulse"
-                : "hover:bg-paper-200 text-ink-900"
-            }`}
-          >
-            <PenTool className={`w-3.5 h-3.5 ${isDrawingStand ? "text-white" : "text-contour-red"}`} />
-            <span className="hidden lg:inline">{isDrawingStand ? "Drawing..." : "Map Stand"}</span>
-          </button>
+      {!minimal && (
+        <div className="map-utility-controls absolute top-16 right-4 z-[1000] pointer-events-none">
+          <div className="pointer-events-auto flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-full border border-border shadow-subtle">
+            {/* Stand Drawer Toggle */}
+            <button
+              onClick={() => setIsDrawingStand((prev) => !prev)}
+              title="Interactive Stand Boundary Polygon Drawer"
+              className={`map-stand-control p-2 rounded-full text-xs font-bold flex items-center gap-1 transition-all ${
+                isDrawingStand
+                  ? "bg-contour-red text-white shadow-subtle animate-pulse"
+                  : "hover:bg-paper-200 text-ink-900"
+              }`}
+            >
+              <PenTool className={`w-3.5 h-3.5 ${isDrawingStand ? "text-white" : "text-contour-red"}`} />
+              <span className="hidden lg:inline">{isDrawingStand ? "Drawing..." : "Map Stand"}</span>
+            </button>
 
-          <div className="w-px h-4 bg-border" />
+            {!shouldHideZoom && (
+              <>
+                <div className="w-px h-4 bg-border" />
+                <button
+                  onClick={() => mapInstanceRef.current?.zoomIn()}
+                  title="Zoom In"
+                  className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors"
+                >
+                  <Plus className="w-4 h-4 text-contour-red" />
+                </button>
+                <button
+                  onClick={() => mapInstanceRef.current?.zoomOut()}
+                  title="Zoom Out"
+                  className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors"
+                >
+                  <Minus className="w-4 h-4 text-contour-red" />
+                </button>
+              </>
+            )}
 
-          {/* Zoom In / Out */}
-          <button
-            onClick={() => mapInstanceRef.current?.zoomIn()}
-            title="Zoom In"
-            className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors"
-          >
-            <Plus className="w-4 h-4 text-contour-red" />
-          </button>
-          <button
-            onClick={() => mapInstanceRef.current?.zoomOut()}
-            title="Zoom Out"
-            className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors"
-          >
-            <Minus className="w-4 h-4 text-contour-red" />
-          </button>
+            <div className="w-px h-4 bg-border" />
 
-          <div className="w-px h-4 bg-border" />
+            {/* Fit All */}
+            <button
+              onClick={handleFitBounds}
+              title="Reset Map Fit (See All Properties)"
+              className="map-fit-control p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors flex items-center gap-1 text-xs font-medium px-2.5"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-contour-red" />
+              <span className="hidden sm:inline">Fit All</span>
+            </button>
 
-          {/* Fit All */}
-          <button
-            onClick={handleFitBounds}
-            title="Reset Map Fit (See All Properties)"
-            className="map-fit-control p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors flex items-center gap-1 text-xs font-medium px-2.5"
-          >
-            <Maximize2 className="w-3.5 h-3.5 text-contour-red" />
-            <span className="hidden sm:inline">Fit All</span>
-          </button>
+            {!shouldHideLocate && (
+              <>
+                <div className="w-px h-4 bg-border" />
+                <button
+                  onClick={handleLocateUser}
+                  title="Locate Current Position"
+                  className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors"
+                >
+                  <Navigation className="w-3.5 h-3.5 text-contour-red" />
+                </button>
+              </>
+            )}
 
-          <div className="w-px h-4 bg-border" />
-
-          {/* Locate User */}
-          <button
-            onClick={handleLocateUser}
-            title="Locate Current Position"
-            className="p-2 hover:bg-paper-200 text-ink-900 rounded-full transition-colors"
-          >
-            <Navigation className="w-3.5 h-3.5 text-contour-red" />
-          </button>
-
-          {onToggleSuburbIntel && (
-            <>
-              <div className="w-px h-4 bg-border" />
-              <button
-                onClick={onToggleSuburbIntel}
-                title="Toggle Suburb Intelligence Stats"
-                className={`p-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                  suburbIntelOpen ? "bg-ink-900 text-white" : "hover:bg-paper-200 text-ink-900"
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5 text-contour-amber" />
-                <span className="hidden md:inline">Suburb Intel</span>
-              </button>
-            </>
-          )}
+            {onToggleSuburbIntel && (
+              <>
+                <div className="w-px h-4 bg-border" />
+                <button
+                  onClick={onToggleSuburbIntel}
+                  title="Toggle Suburb Intelligence Stats"
+                  className={`p-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                    suburbIntelOpen ? "bg-ink-900 text-white" : "hover:bg-paper-200 text-ink-900"
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5 text-contour-amber" />
+                  <span className="hidden md:inline">Suburb Intel</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 🗺️ CHOROPLETH DRILL-DOWN BREADCRUMB & CONTROL BAR */}
       {viewMode === "CHOROPLETH" && !minimal && (

@@ -65,3 +65,21 @@ export function roleHasPermission(role: ContourRoleKey, permission: Permission):
 export function permissionsForRole(role: ContourRoleKey): readonly Permission[] {
   return ROLE_PRESETS[role];
 }
+
+export function isManagementRole(role: ContourRoleKey | string | undefined | null): boolean {
+  if (!role) return false;
+  const normalized = role.toUpperCase();
+  return normalized === "OWNER" || normalized === "BROKER_MANAGER" || normalized === "SUPER_ADMIN";
+}
+
+export function canManagePropertyPhotos(
+  user: { id: string; role?: string | null; contourRole?: ContourRoleKey },
+  property: { assignedAgentId?: string | null; createdById?: string | null }
+): boolean {
+  if (!user || !user.id) return false;
+  if (isManagementRole(user.contourRole) || isManagementRole(user.role)) return true;
+  return Boolean(
+    (property.assignedAgentId && property.assignedAgentId === user.id) ||
+    (property.createdById && property.createdById === user.id)
+  );
+}

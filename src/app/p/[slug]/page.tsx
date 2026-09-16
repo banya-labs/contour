@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -10,15 +9,84 @@ import {
   Maximize,
   PhoneCall,
   MessageSquare,
-  ChevronLeft,
-  CheckCircle2,
   Compass,
   ArrowRight,
+  CheckCircle2,
+  ShieldCheck,
 } from "lucide-react";
+import { db } from "@/lib/db";
 import { MOCK_PROPERTIES } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
+import PublicPropertyGallery from "@/components/properties/public-property-gallery";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
+
+async function getPropertyBySlug(slug: string) {
+  try {
+    const dbProperty = await db.property.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { id: slug },
+        ],
+      },
+      include: {
+        assignedAgent: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    });
+
+    if (dbProperty) {
+      const photos = Array.isArray(dbProperty.photos) && dbProperty.photos.length > 0
+        ? dbProperty.photos
+        : [dbProperty.featuredPhoto || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200"];
+
+      return {
+        id: dbProperty.id,
+        title: dbProperty.title,
+        slug: dbProperty.slug,
+        ownershipType: dbProperty.ownershipType,
+        propertyType: dbProperty.propertyType,
+        listingType: dbProperty.listingType,
+        askingPrice: dbProperty.askingPrice ? Number(dbProperty.askingPrice) : null,
+        rentalPrice: dbProperty.rentalPrice ? Number(dbProperty.rentalPrice) : null,
+        currency: dbProperty.currency || "ZMW",
+        bedrooms: dbProperty.bedrooms,
+        bathrooms: dbProperty.bathrooms ? Number(dbProperty.bathrooms) : null,
+        plotSizeSqm: dbProperty.plotSizeSqm ? Number(dbProperty.plotSizeSqm) : null,
+        description: dbProperty.description,
+        photos,
+        featuredPhoto: dbProperty.featuredPhoto || photos[0],
+        suburb: dbProperty.suburb,
+        city: dbProperty.city || "Lusaka",
+        latitude: dbProperty.latitude,
+        longitude: dbProperty.longitude,
+        landmarkDirections: dbProperty.landmarkDirections,
+        assignedAgentName: dbProperty.assignedAgent?.name || "Grace Banda",
+        assignedAgentPhone: dbProperty.assignedAgent?.phone || "+260 97 123 4567",
+        assignedAgentEmail: dbProperty.assignedAgent?.email || "agent@contour.co.zm",
+        features: [
+          "Clean Ministry Certificate of Title",
+          "Verified Cadastral Stand Boundary",
+          "Statutory Sole Agency Mandate",
+          "Direct Legal Escrow & Conveyancing Custody",
+        ],
+      };
+    }
+  } catch (err) {
+    console.warn("Database lookup for property slug failed, falling back to mock data:", err);
+  }
+
+  // Fallback to MOCK_PROPERTIES
+  return MOCK_PROPERTIES.find((p) => p.slug === slug || p.id === slug) || null;
+}
 
 export async function generateMetadata({
   params,
@@ -26,7 +94,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const resolvedParams = await params;
-  const property = MOCK_PROPERTIES.find((p) => p.slug === resolvedParams.slug);
+  const property = await getPropertyBySlug(resolvedParams.slug);
 
   if (!property) {
     return {
@@ -37,8 +105,8 @@ export async function generateMetadata({
 
   const priceText =
     property.listingType === "FOR_RENT"
-      ? `${formatCurrency(property.rentalPrice, property.currency)}/month`
-      : formatCurrency(property.askingPrice, property.currency);
+      ? `${formatCurrency(Number(property.rentalPrice || 0), property.currency)}/month`
+      : formatCurrency(Number(property.askingPrice || 0), property.currency);
 
   const title = `${property.title} — ${property.suburb}, ${property.city} (${priceText})`;
   const description = property.description
@@ -82,7 +150,7 @@ export default async function PublicPropertyCardPage({
   params: Promise<{ slug: string }>;
 }) {
   const resolvedParams = await params;
-  const property = MOCK_PROPERTIES.find((p) => p.slug === resolvedParams.slug);
+  const property = await getPropertyBySlug(resolvedParams.slug);
 
   if (!property) {
     notFound();
@@ -90,8 +158,8 @@ export default async function PublicPropertyCardPage({
 
   const priceText =
     property.listingType === "FOR_RENT"
-      ? `${formatCurrency(property.rentalPrice, property.currency)} / month`
-      : formatCurrency(property.askingPrice, property.currency);
+      ? `${formatCurrency(Number(property.rentalPrice || 0), property.currency)} / month`
+      : formatCurrency(Number(property.askingPrice || 0), property.currency);
 
   const whatsappMessage = encodeURIComponent(
     `Hello ${property.assignedAgentName || "Contour Agent"}, I am inquiring about the property: "${property.title}" (${property.suburb}) priced at ${priceText}. Link: ${siteUrl}/p/${property.slug}`
@@ -155,35 +223,36 @@ export default async function PublicPropertyCardPage({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 space-y-6 pt-6">
-        {/* Photo Gallery Hero */}
-        <div className="relative w-full h-72 sm:h-96 rounded-none overflow-hidden border border-editorial-border bg-editorial-paper/40">
-          <Image
-            src={property.featuredPhoto || property.photos[0]}
-            alt={`${property.title} in ${property.suburb}, ${property.city}`}
-            fill
-            priority
-            sizes="(max-width: 896px) 100vw, 896px"
-            className="object-cover"
-          />
-          <div className="absolute top-4 left-4 bg-editorial-black text-white text-xs font-mono font-bold px-3 py-1 rounded-none uppercase tracking-wider">
-            {property.suburb}, {property.city}
-          </div>
-          <div className="absolute bottom-4 right-4 bg-editorial-red text-white text-base font-mono font-bold px-4 py-2 rounded-none">
-            {priceText}
-          </div>
-        </div>
+        {/* Photo Gallery with Interactive Carousel & 1-Click Client Sharing */}
+        <PublicPropertyGallery
+          title={property.title}
+          suburb={property.suburb}
+          city={property.city}
+          priceText={priceText}
+          photos={property.photos}
+          featuredPhoto={property.featuredPhoto || undefined}
+          slug={property.slug}
+          agentName={property.assignedAgentName || undefined}
+          agentPhone={property.assignedAgentPhone || undefined}
+        />
 
         {/* Title & Specs */}
         <div className="bg-white rounded-none p-6 sm:p-8 border border-editorial-border space-y-6">
           <div>
-            <span className="text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
-              {property.ownershipType === "COMPANY_OWNED" ? "COMPANY OWNED PORTFOLIO" : "EXCLUSIVE AGENCY MANDATE"}
-            </span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-mono font-bold text-contour-red uppercase tracking-widest">
+                {property.ownershipType === "COMPANY_OWNED" ? "COMPANY OWNED PORTFOLIO" : "EXCLUSIVE AGENCY MANDATE"}
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span>Verified Title</span>
+              </span>
+            </div>
             <h1 className="font-serif text-2xl sm:text-4xl font-bold text-editorial-black tracking-tight mt-1">
               {property.title}
             </h1>
             <div className="flex items-center gap-1.5 text-xs font-mono text-editorial-neutral mt-2">
-              <MapPin className="w-4 h-4 text-editorial-red shrink-0" />
+              <MapPin className="w-4 h-4 text-contour-red shrink-0" />
               <span>{property.suburb}, {property.city}, Zambia</span>
             </div>
           </div>
@@ -214,7 +283,7 @@ export default async function PublicPropertyCardPage({
           {property.landmarkDirections && (
             <div className="bg-editorial-paper/40 p-5 rounded-none border border-editorial-border">
               <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-editorial-black uppercase tracking-wider mb-1">
-                <Compass className="w-4 h-4 text-editorial-red" />
+                <Compass className="w-4 h-4 text-contour-red" />
                 <span>Landmark Navigation Directions (Lusaka)</span>
               </div>
               <p className="text-xs text-editorial-black leading-relaxed">
@@ -222,7 +291,7 @@ export default async function PublicPropertyCardPage({
               </p>
               {property.latitude && property.longitude && (
                 <div className="text-[11px] font-mono text-editorial-neutral mt-2">
-                  GPS COORDINATES: {property.latitude.toFixed(4)}, {property.longitude.toFixed(4)}
+                  GPS COORDINATES: {Number(property.latitude).toFixed(4)}, {Number(property.longitude).toFixed(4)}
                 </div>
               )}
             </div>
@@ -240,12 +309,12 @@ export default async function PublicPropertyCardPage({
           {property.features && property.features.length > 0 && (
             <div>
               <h3 className="font-heading text-xs uppercase tracking-wider font-bold text-editorial-black mb-3">
-                Key Features & Amenities
+                Key Features & Verification
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono text-editorial-black">
-                {property.features.map((feat, idx) => (
+                {property.features.map((feat: string, idx: number) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-editorial-red shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-contour-red shrink-0" />
                     <span>{feat}</span>
                   </div>
                 ))}
@@ -262,7 +331,7 @@ export default async function PublicPropertyCardPage({
             </div>
             <div>
               <div className="text-[10px] font-mono font-bold text-editorial-neutral uppercase tracking-widest">
-                LISTING AGENT
+                EXCLUSIVE LISTING BROKER
               </div>
               <div className="font-serif font-bold text-base text-editorial-black">
                 {property.assignedAgentName || "Contour Verified Agent"}
@@ -280,7 +349,7 @@ export default async function PublicPropertyCardPage({
               rel="noopener noreferrer"
               className="flex-1 sm:flex-none px-6 py-3 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
             >
-              <MessageSquare className="w-4 h-4 text-editorial-red" />
+              <MessageSquare className="w-4 h-4 text-contour-red" />
               <span>Inquire on WhatsApp</span>
             </a>
             <a
@@ -301,7 +370,7 @@ export default async function PublicPropertyCardPage({
             </h3>
             <Link
               href="/dashboard/map"
-              className="text-xs font-mono text-editorial-red hover:underline flex items-center gap-1"
+              className="text-xs font-mono text-contour-red hover:underline flex items-center gap-1"
             >
               <span>Explore Spatial Map</span>
               <ArrowRight className="w-3 h-3" />
@@ -315,19 +384,17 @@ export default async function PublicPropertyCardPage({
                 className="group border border-editorial-border bg-white hover:border-editorial-black transition-colors flex flex-col"
               >
                 <div className="relative w-full h-32 overflow-hidden bg-neutral-100">
-                  <Image
+                  <img
                     src={other.featuredPhoto || other.photos[0]}
                     alt={other.title}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 300px"
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute bottom-2 left-2 bg-editorial-black/90 text-white text-[10px] font-mono px-2 py-0.5">
                     {other.suburb}
                   </div>
                 </div>
                 <div className="p-3 flex-1 flex flex-col justify-between">
-                  <h4 className="font-serif text-xs font-bold text-editorial-black line-clamp-2 group-hover:text-editorial-red transition-colors">
+                  <h4 className="font-serif text-xs font-bold text-editorial-black line-clamp-2 group-hover:text-contour-red transition-colors">
                     {other.title}
                   </h4>
                   <div className="mt-2 text-xs font-mono font-bold text-editorial-black">

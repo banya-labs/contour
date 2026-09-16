@@ -22,6 +22,8 @@ import {
   Share2,
   ShieldCheck,
   Scale,
+  Check,
+  Copy,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { evaluatePropertyAgainstAlerts, AlertMatchResult } from "@/lib/alerts/matchmaker";
@@ -29,6 +31,7 @@ import PropertyMatchSummaryModal from "@/components/alerts/property-match-summar
 import Property360DetailModal from "@/components/properties/property-360-detail-modal";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
 import PropertyStandEditor from "@/components/properties/property-stand-editor";
+import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
@@ -124,38 +127,36 @@ function PropertiesCatalogContent() {
     assignedAgentId: "",
     assignedAgentName: "",
     landmarkDirections: "",
-    photos: [
-      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200&auto=format&fit=crop&q=80",
-    ],
+    photos: [] as string[],
+    featuredPhoto: undefined as string | undefined,
     standBoundary: undefined as any,
     mandateType: "SOLE_MANDATE",
     mandateReference: "",
     mandateDeclarationAgreed: false,
   });
 
-  const [newPhotoInput, setNewPhotoInput] = useState("");
+  const [copiedPropertyId, setCopiedPropertyId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const handleAddPhoto = () => {
-    if (newPhotoInput.trim() && newPhotoInput.startsWith("http")) {
-      setFormData((prev) => ({
-        ...prev,
-        photos: [...prev.photos, newPhotoInput.trim()],
-      }));
-      setNewPhotoInput("");
+  const handleSharePropertyLink = (p: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
+    const publicUrl = `${origin}/p/${p.slug || p.id}`;
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(publicUrl).catch(() => {});
     }
-  };
-
-  const handleRemovePhoto = (indexToRemove: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      photos: prev.photos.filter((_, idx) => idx !== indexToRemove),
-    }));
+    setCopiedPropertyId(p.id);
+    setTimeout(() => setCopiedPropertyId(null), 2500);
   };
 
   const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (formData.photos.length === 0) {
+      setFormError("Please upload at least one property photo from your device.");
+      return;
+    }
 
     if (!formData.mandateDeclarationAgreed) {
       setFormError("Statutory Mandate & Title Warranty required: You must confirm that your agency holds an active mandate from the lawful owner before publishing.");
@@ -484,14 +485,34 @@ function PropertiesCatalogContent() {
                   <span className="text-[10px] font-geist text-editorial-muted truncate">
                     Agent: <strong className="text-editorial-black">{p.assignedAgent?.name || p.assignedAgentName || "Grace Banda"}</strong>
                   </span>
-                  <Link
-                    href={`/p/${p.slug}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-[10px] font-heading font-semibold uppercase tracking-wider text-contour-red hover:underline flex items-center gap-1"
-                  >
-                    <span>Public Card</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </Link>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={(e) => handleSharePropertyLink(p, e)}
+                      title="Copy Public Link for Client"
+                      className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-black hover:text-contour-red flex items-center gap-1 transition-colors"
+                    >
+                      {copiedPropertyId === p.id ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-600">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-editorial-muted" />
+                          <span>Share Link</span>
+                        </>
+                      )}
+                    </button>
+                    <Link
+                      href={`/p/${p.slug || p.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[10px] font-heading font-semibold uppercase tracking-wider text-contour-red hover:underline flex items-center gap-1"
+                    >
+                      <span>Public Card</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             );
@@ -606,50 +627,25 @@ function PropertiesCatalogContent() {
 
               {/* Photos Section */}
               <div className="p-3 bg-neutral-50 border border-editorial-border space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-1">
                   <label className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5 text-contour-red" />
-                    <span>Photos ({formData.photos.length})</span>
+                    <span>Upload Property Photos *</span>
                   </label>
-                  <span className="text-[10px] font-geist text-editorial-muted">First photo is hero</span>
+                  <span className="text-[10px] font-geist text-editorial-muted">Direct file upload (no URLs)</span>
                 </div>
 
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {formData.photos.map((url, idx) => (
-                    <div key={idx} className="relative w-16 h-14 border border-editorial-border shrink-0">
-                      <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
-                      {idx === 0 && (
-                        <div className="absolute top-0.5 left-0.5 bg-contour-red text-white text-[7px] font-bold px-1">
-                          HERO
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePhoto(idx)}
-                        className="absolute top-0.5 right-0.5 bg-black/80 text-white p-0.5 hover:bg-red-600 transition-colors"
-                      >
-                        <Trash2 className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Paste image URL (https://...)"
-                    value={newPhotoInput}
-                    onChange={(e) => setNewPhotoInput(e.target.value)}
-                    className="flex-1 bg-white px-2.5 py-1 border border-editorial-border text-xs focus:outline-none font-geist"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddPhoto}
-                    className="px-3 py-1 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors"
-                  >
-                    + Add
-                  </button>
-                </div>
+                <PropertyImageUploader
+                  photos={formData.photos}
+                  featuredPhoto={formData.featuredPhoto}
+                  onChange={(updatedPhotos, updatedCover) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      photos: updatedPhotos,
+                      featuredPhoto: updatedCover,
+                    }))
+                  }
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-3">

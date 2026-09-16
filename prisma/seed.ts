@@ -123,8 +123,10 @@ async function main() {
   });
   console.log("- Developer API Key created.");
 
-  // 5. Seeding 16 properties (10 Sales, 6 Rentals)
-  const propertiesData = [
+  // 5. Seeding demo properties (Only when SEED_DEMO_DATA=true)
+  if (process.env.SEED_DEMO_DATA === "true") {
+    console.log("🌱 SEED_DEMO_DATA=true: Seeding 16 demo properties...");
+    const propertiesData = [
     // === SALES (10 Listings) ===
     {
       id: "prop_01",
@@ -905,7 +907,9 @@ async function main() {
       closedAt: new Date("2026-08-15"),
     },
   });
-  console.log("- Transactions & splits seeded.");
+  } else {
+    console.log("ℹ️ Clean slate mode: Demo properties, leases, and transactions skipped.");
+  }
 
   await prisma.auditLog.upsert({
     where: { id: "audit_init" },
@@ -918,9 +922,8 @@ async function main() {
       entityType: "System",
       entityId: "prisma_seeder",
       details: {
-        environment: "development",
-        seedVersion: "2.1.0",
-        propertiesCount: propertiesData.length,
+        environment: "clean_slate",
+        seedVersion: "2.2.0",
       },
     },
   });

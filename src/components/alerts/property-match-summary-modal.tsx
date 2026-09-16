@@ -17,6 +17,7 @@ import {
   ExternalLink,
   ShieldCheck,
   UserCheck,
+  Share2,
 } from "lucide-react";
 import { AlertMatchResult } from "@/lib/alerts/matchmaker";
 import { formatCurrency } from "@/lib/utils";
@@ -56,24 +57,27 @@ export default function PropertyMatchSummaryModal({
   const price = isSale ? property.askingPrice : property.rentalPrice;
 
   return (
-    <div className="fixed inset-0 z-[2200] bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl border border-border shadow-2xl flex flex-col overflow-hidden w-full max-w-3xl max-h-[90vh]">
+    <div className="fixed inset-0 z-[2200] bg-[#282828]/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200 font-sans">
+      <div className="bg-white rounded-none border border-[#e0e0e0] shadow-none flex flex-col overflow-hidden w-full max-w-3xl max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-paper-100 border-b border-border flex items-center justify-between shrink-0">
+        <div className="px-5 py-3.5 bg-white border-b border-[#e0e0e0] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-contour-red text-white flex items-center justify-center font-bold shadow-subtle">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-none bg-[#fa3600] text-white flex items-center justify-center font-bold text-xs shrink-0">
+              <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif font-bold text-base text-ink-900">
+                <span className="text-[10px] font-mono font-bold text-[#fa3600] uppercase tracking-widest">
+                  [MATCH-01]
+                </span>
+                <h3 className="font-heading font-bold text-base text-[#282828] uppercase tracking-tight">
                   Reverse-Match Engine Triggered
                 </h3>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  {matches.length} Matching Buyer{matches.length !== 1 ? "s" : ""} Found
+                <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-none bg-[#fff5f3] text-[#fa3600] border border-[#fa3600]/30 uppercase">
+                  {matches.length} Matching Buyer{matches.length !== 1 ? "s" : ""}
                 </span>
               </div>
-              <p className="text-[11px] text-ink-600">
+              <p className="text-[11px] font-mono text-[#6b6b6b] mt-0.5">
                 Automated WhatsApp alerts dispatched. You can also reach out manually with customized offers.
               </p>
             </div>
@@ -81,39 +85,41 @@ export default function PropertyMatchSummaryModal({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-ink-600 hover:bg-paper-200 transition-colors"
+            className="p-1.5 text-[#282828] hover:bg-[#fff5f3] hover:text-[#fa3600] border border-transparent hover:border-[#fa3600] transition-colors"
+            title="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Modal Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {/* 1. Newly Added Property Card Banner */}
-          <div className="p-4 rounded-2xl bg-paper-100 border border-paper-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-4 rounded-none bg-neutral-50 border border-[#e0e0e0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-paper-300 shrink-0 border border-paper-200">
+              <div className="w-16 h-16 rounded-none overflow-hidden bg-neutral-200 shrink-0 border border-[#e0e0e0]">
                 <img
                   src={property.featuredPhoto || (property.photos && property.photos[0]) || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400"}
                   alt={property.title}
+                  crossOrigin="anonymous"
                   className="w-full h-full object-cover"
                 />
               </div>
               <div>
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-ink-900 text-white">
+                <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-none bg-[#282828] text-white uppercase">
                   {property.suburb} • {isSale ? "FOR SALE" : "FOR RENT"}
                 </span>
-                <h4 className="font-bold text-sm text-ink-900 mt-1">{property.title}</h4>
-                <div className="font-mono text-xs font-bold text-contour-red">
+                <h4 className="font-heading font-bold text-sm text-[#282828] uppercase mt-1">{property.title}</h4>
+                <div className="font-mono text-xs font-bold text-[#fa3600]">
                   {formatCurrency(price || 0, property.currency || "ZMW")}
-                  {!isSale && <span className="text-[10px] text-ink-600 font-normal"> / month</span>}
+                  {!isSale && <span className="text-[10px] text-[#6b6b6b] font-normal"> / month</span>}
                 </div>
               </div>
             </div>
 
             <div className="text-right text-xs">
-              <div className="text-[10px] text-ink-500">Assigned Closing Agent</div>
-              <div className="font-bold text-ink-900">{property.assignedAgentName || "Tembo Mwape"}</div>
+              <div className="text-[9px] font-mono text-[#6b6b6b] uppercase">Assigned Closing Agent</div>
+              <div className="font-heading font-bold text-[#282828] uppercase">{property.assignedAgentName || "Tembo Mwape"}</div>
             </div>
           </div>
 
@@ -191,10 +197,10 @@ export default function PropertyMatchSummaryModal({
                         href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(match.customOfferText)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-2 px-3 rounded-xl bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors"
+                        className="py-2 px-3 rounded-none bg-white hover:bg-[#fff5f3] border border-[#e0e0e0] text-[#282828] text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
                       >
-                        <span className="text-sm">🔗</span>
-                        <span>WhatsApp Web Link</span>
+                        <Share2 className="w-3.5 h-3.5 text-[#fa3600]" />
+                        <span>WhatsApp Link</span>
                       </a>
 
                       {/* Option 2: WhatsApp Image Flyer */}
@@ -205,7 +211,7 @@ export default function PropertyMatchSummaryModal({
                           navigator.clipboard.writeText(flyerText);
                           window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(flyerText)}`, "_blank");
                         }}
-                        className="py-2 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold shadow-subtle flex items-center gap-1.5 transition-transform active:scale-95"
+                        className="py-2 px-3 rounded-none bg-[#fa3600] hover:bg-[#d92f00] text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span>WhatsApp Image Flyer</span>
@@ -214,22 +220,22 @@ export default function PropertyMatchSummaryModal({
                       {/* Phone Call */}
                       <a
                         href={`tel:${match.alert.clientPhone}`}
-                        className="py-2 px-3 rounded-xl bg-paper-100 hover:bg-paper-200 border border-border text-ink-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                        className="py-2 px-3 rounded-none bg-white hover:bg-[#fff5f3] border border-[#e0e0e0] text-[#282828] text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
                       >
-                        <PhoneCall className="w-3.5 h-3.5 text-contour-emerald" />
+                        <PhoneCall className="w-3.5 h-3.5 text-[#282828]" />
                         <span>Call</span>
                       </a>
 
                       {/* Mark Delivered Toggle */}
                       <button
                         onClick={() => toggleDelivered(match.id)}
-                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                        className={`py-2 px-3 rounded-none border text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
                           isDelivered
-                            ? "bg-emerald-600 text-white border-emerald-600"
-                            : "bg-white border-border text-ink-700 hover:bg-paper-100"
+                            ? "bg-[#282828] text-white border-[#282828]"
+                            : "bg-white border-[#e0e0e0] text-[#282828] hover:bg-neutral-50"
                         }`}
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#fa3600]" />
                         <span>{isDelivered ? "Offer Confirmed" : "Mark Contacted"}</span>
                       </button>
                     </div>
@@ -241,11 +247,11 @@ export default function PropertyMatchSummaryModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-paper-100 border-t border-border flex items-center justify-between shrink-0">
+        <div className="p-3.5 bg-white border-t border-[#e0e0e0] flex items-center justify-between shrink-0">
           <Link
             href="/dashboard/pipeline"
             onClick={onClose}
-            className="text-xs font-semibold text-contour-red hover:underline flex items-center gap-1"
+            className="text-xs font-heading font-semibold uppercase tracking-wider text-[#fa3600] hover:underline flex items-center gap-1"
           >
             <span>View All Deals in Pipeline Kanban</span>
             <ExternalLink className="w-3 h-3" />
@@ -253,9 +259,9 @@ export default function PropertyMatchSummaryModal({
 
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-full bg-ink-900 hover:bg-ink-950 text-white text-xs font-semibold shadow-subtle"
+            className="px-4 py-2 rounded-none bg-[#282828] hover:bg-black text-white text-xs font-heading font-semibold uppercase tracking-wider"
           >
-            Done & Close
+            Done &amp; Close
           </button>
         </div>
       </div>
