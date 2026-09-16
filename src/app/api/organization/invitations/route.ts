@@ -15,6 +15,38 @@ const revokeSchema = z.object({
   invitationId: z.string().min(1).optional(),
 });
 
+function getRequestOrigin(req: Request): string {
+  // 1. Origin header (sent automatically by browser on fetch/POST)
+  const originHeader = req.headers.get("origin");
+  if (originHeader && !originHeader.includes("undefined") && !originHeader.includes("null")) {
+    return originHeader.replace(/\/$/, "");
+  }
+
+  // 2. Referer header (e.g. https://0.0.0.0:3000/dashboard/settings)
+  const referer = req.headers.get("referer");
+  if (referer) {
+    try {
+      const parsed = new URL(referer);
+      return parsed.origin.replace(/\/$/, "");
+    } catch {}
+  }
+
+  // 3. X-Forwarded headers (proxies)
+  const forwardedProto = req.headers.get("x-forwarded-proto") || "http";
+  const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/$/, "");
+  }
+
+  // 4. Fallback to process.env.NEXT_PUBLIC_APP_URL or req.url
+  try {
+    const parsed = new URL(req.url);
+    return parsed.origin.replace(/\/$/, "");
+  } catch {
+    return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  }
+}
+
 export const GET = createApiHandler({
   requireAuth: true,
   requirePermissions: ["org.members.read"],
@@ -31,7 +63,7 @@ export const GET = createApiHandler({
       orderBy: { createdAt: "desc" },
     });
 
-    const origin = req.nextUrl.origin;
+    const origin = getRequestOrigin(req);
     const enriched = invitations.map((inv) => {
       let rawToken: string | null = null;
       let label: string | null = null;
@@ -134,7 +166,7 @@ export const POST = createApiHandler({
       },
     });
 
-    const origin = req.nextUrl.origin;
+    const origin = getRequestOrigin(req);
     const inviteUrl = `${origin}/accept-invitation/${invitation.id}?token=${token}`;
 
     return NextResponse.json({

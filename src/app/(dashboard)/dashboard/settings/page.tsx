@@ -249,9 +249,19 @@ function SettingsContent() {
         return;
       }
 
-      setGeneratedInviteLink(data.inviteUrl);
+      let clientInviteUrl = data.inviteUrl;
+      if (typeof window !== "undefined" && window.location?.origin) {
+        try {
+          const parsed = new URL(data.inviteUrl);
+          clientInviteUrl = `${window.location.origin}${parsed.pathname}${parsed.search}`;
+        } catch {
+          clientInviteUrl = `${window.location.origin}${data.inviteUrl}`;
+        }
+      }
+
+      setGeneratedInviteLink(clientInviteUrl);
       if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(data.inviteUrl);
+        await navigator.clipboard.writeText(clientInviteUrl);
       }
       setSettingsMessage(
         trimmedEmail
@@ -823,9 +833,19 @@ function SettingsContent() {
 
                 <div className="divide-y divide-editorial-border border border-editorial-border">
                   {invitations.map((inv) => {
-                    const fullInviteUrl = inv.inviteUrl || (typeof window !== "undefined"
-                      ? `${window.location.origin}/accept-invitation/${inv.id}`
-                      : `/accept-invitation/${inv.id}`);
+                    let fullInviteUrl: string = inv.inviteUrl || `/accept-invitation/${inv.id}`;
+                    if (typeof window !== "undefined" && window.location?.origin) {
+                      try {
+                        if (inv.inviteUrl) {
+                          const parsed = new URL(inv.inviteUrl);
+                          fullInviteUrl = `${window.location.origin}${parsed.pathname}${parsed.search}`;
+                        } else {
+                          fullInviteUrl = `${window.location.origin}/accept-invitation/${inv.id}`;
+                        }
+                      } catch {
+                        fullInviteUrl = `${window.location.origin}/accept-invitation/${inv.id}`;
+                      }
+                    }
                     const isTargetedEmail = Boolean(inv.email && !inv.email.endsWith("@invite.contour.app"));
 
                     return (
