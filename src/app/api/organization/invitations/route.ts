@@ -12,7 +12,7 @@ const inviteSchema = z.object({
 });
 
 const revokeSchema = z.object({
-  invitationId: z.string().min(1),
+  invitationId: z.string().min(1).optional(),
 });
 
 export const GET = createApiHandler({
@@ -156,10 +156,18 @@ export const DELETE = createApiHandler({
   requireAuth: true,
   requirePermissions: ["org.members.invite"],
   bodySchema: revokeSchema,
-  handler: async (_req, { body, organizationId }) => {
+  handler: async (req, { body, organizationId }) => {
+    const invitationId = body?.invitationId || req.nextUrl.searchParams.get("invitationId");
+    if (!invitationId) {
+      return NextResponse.json(
+        { success: false, error: "Invitation ID is required." },
+        { status: 400 }
+      );
+    }
+
     const invitation = await db.invitation.findFirst({
       where: {
-        id: body.invitationId,
+        id: invitationId,
         organizationId: organizationId!,
         status: "pending",
       },

@@ -12,7 +12,7 @@ const memberUpdateSchema = z.object({
 });
 
 const memberDeleteSchema = z.object({
-  memberId: z.string().min(1),
+  memberId: z.string().min(1).optional(),
 });
 
 export const GET = createApiHandler({
@@ -103,9 +103,14 @@ export const DELETE = createApiHandler({
   requireAuth: true,
   requirePermissions: ["org.members.update_role"],
   bodySchema: memberDeleteSchema,
-  handler: async (_req, { body, organizationId, userId }) => {
+  handler: async (req, { body, organizationId, userId }) => {
+    const memberId = body?.memberId || req.nextUrl.searchParams.get("memberId");
+    if (!memberId) {
+      return NextResponse.json({ success: false, error: "Member ID is required" }, { status: 400 });
+    }
+
     const member = await db.member.findFirst({
-      where: { id: body.memberId, organizationId: organizationId! },
+      where: { id: memberId, organizationId: organizationId! },
     });
 
     if (!member) {

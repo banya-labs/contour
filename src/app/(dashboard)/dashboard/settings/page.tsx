@@ -96,6 +96,7 @@ function SettingsContent() {
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
   const [memberToDelete, setMemberToDelete] = useState<WorkspaceMember | null>(null);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
+  const [deleteMemberError, setDeleteMemberError] = useState<string | null>(null);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
   const [billingSummary, setBillingSummary] = useState<{
     subscription: { planName: string; status: string; trialEndsAt: string; nextPaymentAt: string | null; nextPayment: { formatted: string } | null; lastPayment: { amount: number; currency: string; completedAt: string | null; createdAt: string } | null };
@@ -287,6 +288,7 @@ function SettingsContent() {
 
   const handleDeleteMember = async (memberId: string) => {
     setIsDeletingMember(true);
+    setDeleteMemberError(null);
     setSettingsMessage(null);
     try {
       const res = await fetch("/api/organization/members", {
@@ -296,19 +298,22 @@ function SettingsContent() {
       });
       const data = await res.json();
       setIsDeletingMember(false);
-      setMemberToDelete(null);
 
       if (!res.ok || !data.success) {
-        setSettingsMessage(data.error || "Failed to remove member.");
+        const errorMsg = data.error || "Failed to remove member.";
+        setDeleteMemberError(errorMsg);
+        setSettingsMessage(errorMsg);
         return;
       }
 
+      setMemberToDelete(null);
       setSettingsMessage("Member successfully removed from workspace.");
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
       const refreshed = await fetch("/api/organization/members").then((r) => r.json());
       if (refreshed.success) setMembers(refreshed.members || []);
     } catch {
       setIsDeletingMember(false);
-      setMemberToDelete(null);
+      setDeleteMemberError("Network error removing member.");
       setSettingsMessage("Network error removing member.");
     }
   };
@@ -853,6 +858,19 @@ function SettingsContent() {
                 </div>
               </div>
 
+              {settingsMessage && (
+                <div className="p-3 border border-editorial-border bg-neutral-50 text-xs text-editorial-black flex items-center justify-between">
+                  <span>{settingsMessage}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsMessage(null)}
+                    className="text-[10px] font-bold uppercase tracking-wider text-editorial-muted hover:text-editorial-black"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
               <div className="divide-y divide-editorial-border border border-editorial-border bg-white">
                 {members.map((member) => {
                   const isSelf = member.user.id === session?.user?.id;
@@ -940,7 +958,10 @@ function SettingsContent() {
                         {!isSelf && !isOwner && (
                           <button
                             type="button"
-                            onClick={() => setMemberToDelete(member)}
+                            onClick={() => {
+                              setMemberToDelete(member);
+                              setDeleteMemberError(null);
+                            }}
                             className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1 transition-colors"
                             title="Remove member from workspace"
                           >
@@ -976,6 +997,13 @@ function SettingsContent() {
                   <p className="text-[11px] text-editorial-muted">
                     They will immediately lose access to all agency properties, leads, pipeline, and vault records.
                   </p>
+
+                  {deleteMemberError && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                      {deleteMemberError}
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-2 pt-2 border-t border-editorial-border">
                     <button
                       type="button"

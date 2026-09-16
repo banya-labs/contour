@@ -129,7 +129,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
 
       // Parse Body
       let body: any = {};
-      if (options.bodySchema && ["POST", "PUT", "PATCH"].includes(req.method)) {
+      if (options.bodySchema && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
         const json = await req.json().catch(() => ({}));
         const parsed = options.bodySchema.safeParse(json);
         if (!parsed.success) {
