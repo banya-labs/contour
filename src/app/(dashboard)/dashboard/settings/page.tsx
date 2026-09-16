@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import {
   Building2,
@@ -25,7 +25,6 @@ import {
   ExternalLink,
   Link as LinkIcon,
   Upload,
-  CreditCard,
   ArrowRight,
   AlertTriangle,
   Ban,
@@ -72,12 +71,20 @@ type WorkspaceInvitation = {
 
 function SettingsContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialTab = searchParams.get("tab")?.toUpperCase() || "BRANDING";
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab")?.toUpperCase();
+    if (tabParam === "BILLING" || tabParam === "SUBSCRIPTION") {
+      router.replace("/dashboard/billing");
+    }
+  }, [searchParams, router]);
 
   const [settings, setSettings] = useState<AgencySettings>(DEFAULT_AGENCY_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(
-    ["BRANDING", "ORGANIZATION", "DEVELOPER", "BILLING"].includes(initialTab)
+    ["BRANDING", "ORGANIZATION", "DEVELOPER"].includes(initialTab)
       ? initialTab
       : "BRANDING"
   );
@@ -99,9 +106,6 @@ function SettingsContent() {
   const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [deleteMemberError, setDeleteMemberError] = useState<string | null>(null);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
-  const [billingSummary, setBillingSummary] = useState<{
-    subscription: { planName: string; status: string; trialEndsAt: string; nextPaymentAt: string | null; nextPayment: { formatted: string } | null; lastPayment: { amount: number; currency: string; completedAt: string | null; createdAt: string } | null };
-  } | null>(null);
   const activeOrgSlug = workspace?.slug || "contour-demo";
 
   useEffect(() => {
@@ -140,14 +144,6 @@ function SettingsContent() {
         if (invitationsData.success) setInvitations(invitationsData.invitations || []);
         if (linkData.active) setAccessLink("active");
       }).catch(() => undefined);
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== "BILLING") return;
-    void fetch("/api/billing/summary", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => { if (data.success) setBillingSummary(data); })
-      .catch(() => undefined);
   }, [activeTab]);
 
   const handleSave = (e?: React.FormEvent) => {
@@ -354,7 +350,6 @@ function SettingsContent() {
     { id: "BRANDING", label: "Agency Profile & Brand", icon: Building2 },
     { id: "ORGANIZATION", label: "Team & Permissions", icon: Users },
     { id: "DEVELOPER", label: "Public API & Website Integration", icon: Code },
-    { id: "BILLING", label: "Plans & Subscription", icon: CreditCard },
   ];
 
   return (
@@ -1096,22 +1091,7 @@ function SettingsContent() {
         </div>
       )}
 
-
-
-      {activeTab === "BILLING" && (
-        <div className="space-y-6 pt-2">
-          <div className="border border-editorial-black bg-editorial-black p-6 text-white">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div><p className="text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-white/60">Workspace billing</p><h3 className="mt-2 font-heading text-2xl font-bold">Know what you have, what is next, and what it costs.</h3><p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">{billingSummary?.subscription.status === "trialing" ? `You are on ${billingSummary.subscription.planName}. Your trial ends ${billingSummary.subscription.trialEndsAt ? new Date(billingSummary.subscription.trialEndsAt).toLocaleDateString("en-ZM", { day: "numeric", month: "long", year: "numeric" }) : "soon"}.` : `You are on ${billingSummary?.subscription.planName || workspace?.subscriptionTier || "Starter"}. Your billing status is ${billingSummary?.subscription.status || workspace?.subscriptionStatus || "trialing"}.`}</p></div>
-              <a href="/dashboard/billing" className="inline-flex shrink-0 items-center justify-center bg-contour-red px-4 py-3 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-white hover:text-editorial-black">View plans & billing</a>
-            </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3"><div className="border border-white/20 p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/60">Current plan</p><p className="mt-2 text-lg font-semibold">{billingSummary?.subscription.planName || workspace?.subscriptionTier || "Loading…"}</p></div><div className="border border-white/20 p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/60">Next payment</p><p className="mt-2 text-lg font-semibold">{billingSummary?.subscription.nextPayment?.formatted || "Not scheduled"}</p><p className="mt-1 text-xs text-white/60">{billingSummary?.subscription.nextPaymentAt ? new Date(billingSummary.subscription.nextPaymentAt).toLocaleDateString("en-ZM", { day: "numeric", month: "short", year: "numeric" }) : "After first payment"}</p></div><div className="border border-white/20 p-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-white/60">Last payment</p><p className="mt-2 text-lg font-semibold">{billingSummary?.subscription.lastPayment ? `${billingSummary.subscription.lastPayment.currency} ${billingSummary.subscription.lastPayment.amount.toLocaleString()}` : "No payments yet"}</p><p className="mt-1 text-xs text-white/60">Receipts are available in billing.</p></div></div>
-          </div>
-          <div className="border border-editorial-border bg-white p-5"><p className="text-sm font-semibold text-editorial-black">Need to change your plan?</p><p className="mt-1 text-xs leading-5 text-editorial-muted">Compare all three tiers, see their features and limits, choose monthly or annual billing, and start payment from the billing workspace.</p><a href="/dashboard/billing#plans" className="mt-4 inline-flex items-center gap-2 text-[10px] font-heading font-bold uppercase tracking-wider text-contour-red">Compare plans <ArrowRight className="h-3.5 w-3.5" /></a></div>
-        </div>
-      )}
-
-      {/* TAB 4: PUBLIC API & WEBSITE INTEGRATION */}
+      {/* TAB 3: PUBLIC API & WEBSITE INTEGRATION */}
       {activeTab === "DEVELOPER" && (
         <div className="space-y-6 pt-2">
           {/* Top Banner & Overview */}

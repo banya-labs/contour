@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   LogOut,
   Building,
+  CreditCard,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -96,7 +97,7 @@ export default function MobileBottomNav() {
       items: [
         { label: "Commissions Ledger", href: "/dashboard/commissions", icon: DollarSign },
         { label: "Landlord Statements", href: "/dashboard/statements", icon: FileText },
-        { label: "Subscription & Billing", href: "/dashboard/billing", icon: DollarSign },
+        { label: "Subscription & Billing", href: "/dashboard/billing", icon: CreditCard },
       ],
     },
     {

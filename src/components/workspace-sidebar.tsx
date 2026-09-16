@@ -42,9 +42,9 @@ export default function WorkspaceSidebar() {
 
   // Determine user role in current active agency organization
   const role = (user as (typeof user & { role?: string }) | undefined)?.role;
-  const isPrincipalBroker = !role || role === "SUPER_ADMIN" || role === "BROKER_MANAGER";
+  const isPrincipalBroker = role === "SUPER_ADMIN" || role === "BROKER_MANAGER" || role === "OWNER";
   const roleLabel =
-    role === "SUPER_ADMIN"
+    role === "SUPER_ADMIN" || role === "OWNER"
       ? "Principal Broker"
       : role === "BROKER_MANAGER"
       ? "Branch Manager"
@@ -133,11 +133,7 @@ export default function WorkspaceSidebar() {
       items: [
         { name: "Commissions Ledger", href: "/dashboard/commissions" },
         { name: "Landlord Statements", href: "/dashboard/statements" },
-        {
-          name: "Subscription & Billing",
-          href: "/dashboard/billing",
-          adminOnly: true,
-        },
+        { name: "Subscription & Billing", href: "/dashboard/billing" },
       ],
     },
   ];
