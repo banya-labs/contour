@@ -40,7 +40,6 @@ import {
   DEFAULT_AGENCY_SETTINGS,
 } from "@/lib/settings/agency-settings";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
-import { ContourLogo } from "@/components/brand/contour-logo";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -408,28 +407,6 @@ function SettingsContent() {
               </div>
 
               <div className="space-y-4">
-                {/* 1. Permanent Contour Workspace Logo (System Managed / Locked) */}
-                <div className="pb-4 border-b border-editorial-border/70">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black">
-                      Workspace Application Logo
-                    </label>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 bg-neutral-100 border border-editorial-border text-editorial-muted font-semibold uppercase tracking-wider">
-                      <Lock className="w-3 h-3 text-editorial-muted" /> Locked • System Brand
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden border border-editorial-border bg-editorial-black text-xl font-heading font-bold text-white shrink-0 shadow-sm">
-                      <ContourLogo size="md" variant="dark" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-heading font-semibold text-editorial-black">Contour System OS</p>
-                      <p className="mt-0.5 text-[11px] text-editorial-muted max-w-md">
-                        The workspace shell and core system headers always display the official Contour logo. This is permanent and cannot be modified.
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
                 {/* 2. Agency Brand Logo (Customizable: Used on Flyers & Generated Reports) */}
                 <div className="pb-2">
