@@ -53,6 +53,7 @@ import {
   ClipboardList,
   CalendarClock,
   Upload,
+  Tag,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
@@ -263,11 +264,20 @@ function AgentKioskContent() {
   const [newClientBudget, setNewClientBudget] = useState("");
   const [newClientCurrency, setNewClientCurrency] = useState<"ZMW" | "USD">("ZMW");
   const [newClientSuburb, setNewClientSuburb] = useState("Kabulonga");
+  const [newClientLookingFor, setNewClientLookingFor] = useState<"FOR_SALE" | "FOR_RENT">("FOR_SALE");
+  const [newClientPropertyType, setNewClientPropertyType] = useState("");
+  const [newClientMinBeds, setNewClientMinBeds] = useState("");
+  const [newClientRequestNotes, setNewClientRequestNotes] = useState("");
+  const [newClientAttachOffer, setNewClientAttachOffer] = useState(false);
+  const [newClientOfferPropertyId, setNewClientOfferPropertyId] = useState("");
+  const [newClientOfferAmount, setNewClientOfferAmount] = useState("");
 
   const [offerPropertyId, setOfferPropertyId] = useState("");
+  const [offerClientMode, setOfferClientMode] = useState<"EXISTING" | "NEW">("EXISTING");
+  const [selectedExistingClientId, setSelectedExistingClientId] = useState("");
   const [offerClientName, setOfferClientName] = useState("");
+  const [offerClientPhone, setOfferClientPhone] = useState("");
   const [offerAmount, setOfferAmount] = useState("");
-  const [offerTerms, setOfferTerms] = useState("CASH_30_DAYS");
 
   // Dynamic Suburbs List derived directly from loaded properties
   const dynamicSuburbs = React.useMemo(() => {
@@ -395,15 +405,20 @@ function AgentKioskContent() {
     setCaptureError(null);
 
     const payload = {
-      title: newPropTitle,
+      title: newPropTitle.trim(),
+      description: newPropTitle.trim().length >= 10 ? newPropTitle.trim() : `${newPropTitle.trim()} located in ${newPropSuburb}, Lusaka.`,
       suburb: newPropSuburb,
       price,
+      askingPrice: newPropType === "SALE" ? price : undefined,
+      rentalPrice: newPropType === "RENT" ? price : undefined,
       currency: newPropCurrency,
-      propertyType: newPropType === "SALE" ? "RESIDENTIAL_SALE" : "RESIDENTIAL_RENTAL",
+      propertyType: "STANDALONE_HOUSE",
       listingType: newPropType === "SALE" ? "FOR_SALE" : "FOR_RENT",
       bedrooms: Number(newPropBeds),
       bathrooms: Math.max(1, Number(newPropBeds) - 1),
       mandateType: newPropMandate,
+      assignedAgentId: currentAgent.id,
+      assignedAgentName: currentAgent.name,
       agentId: currentAgent.id,
       agentName: currentAgent.name,
       photos: newPropPhotos,
@@ -422,7 +437,7 @@ function AgentKioskContent() {
     setNewPropFeaturedPhoto(undefined);
   };
 
-  // Submit Intake: New Client
+  // Submit Intake: New Client (Search Request & Optional Immediate Offer)
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newClientName.trim().length < 2) {
@@ -437,17 +452,66 @@ function AgentKioskContent() {
       setCaptureError("Budget cannot be negative.");
       return;
     }
+
+    let attachedOfferProperty: any = null;
+    let offerVal = 0;
+
+    if (newClientAttachOffer) {
+      if (!newClientOfferPropertyId) {
+        setCaptureError("Select the mandate connected to the client's offer.");
+        return;
+      }
+      offerVal = Number(newClientOfferAmount);
+      if (!Number.isFinite(offerVal) || offerVal <= 0) {
+        setCaptureError("Enter an offer amount greater than zero.");
+        return;
+      }
+      attachedOfferProperty = displayProperties.find((p: any) => p.id === newClientOfferPropertyId);
+    }
+
     setCaptureError(null);
 
-    const payload = {
-      clientName: newClientName,
-      clientPhone: newClientPhone,
-      budgetMax: Number(newClientBudget) || 0,
-      currency: newClientCurrency,
-      preferredSuburbs: [newClientSuburb],
+    const clientCurrency = attachedOfferProperty ? (attachedOfferProperty.currency || "ZMW") : newClientCurrency;
+    const finalBudget = newClientBudget ? Number(newClientBudget) : (newClientAttachOffer ? offerVal : undefined);
+
+    const enrichedNotes = [
+      newClientRequestNotes ? newClientRequestNotes.trim() : "",
+      newClientPropertyType ? `Type: ${newClientPropertyType.replace(/_/g, " ")}` : "",
+      newClientMinBeds ? `Min ${newClientMinBeds} beds` : "",
+      newClientAttachOffer && attachedOfferProperty ? `[Immediate Offer] ${clientCurrency} ${offerVal.toLocaleString()} for ${attachedOfferProperty.title} (${attachedOfferProperty.suburb})` : "",
+    ].filter(Boolean).join(" | ");
+
+    const payload: any = {
+      clientName: newClientName.trim(),
+      clientPhone: newClientPhone.trim(),
+      budgetMax: finalBudget,
+      currency: clientCurrency,
+      preferredSuburbs: attachedOfferProperty?.suburb ? [attachedOfferProperty.suburb] : (newClientSuburb ? [newClientSuburb] : []),
       assignedAgentId: currentAgent.id,
+      lookingFor: attachedOfferProperty ? (attachedOfferProperty.listingType || "FOR_SALE") : newClientLookingFor,
+      propertyType: newClientPropertyType ? newClientPropertyType : undefined,
+      notes: enrichedNotes || undefined,
+      status: newClientAttachOffer ? "OFFER_MADE" : "NEW_INQUIRY",
+      propertyId: newClientAttachOffer && attachedOfferProperty ? attachedOfferProperty.id : undefined,
+      dealValue: newClientAttachOffer && offerVal > 0 ? offerVal : undefined,
       exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
+
+    if (newClientAttachOffer && attachedOfferProperty) {
+      const newDeal = {
+        id: `deal_${Date.now()}`,
+        propertyTitle: attachedOfferProperty.title,
+        suburb: attachedOfferProperty.suburb || "Lusaka",
+        clientName: newClientName.trim(),
+        value: `${clientCurrency === "USD" ? "$" : "K"} ${offerVal.toLocaleString()}`,
+        stage: "OFFER_MADE",
+        stageLabel: "Formal Offer Submitted",
+        agentSplitEst: `${clientCurrency === "USD" ? "$" : "K"} ${(offerVal * 0.025).toLocaleString()} (50% Split)`,
+        lockDaysRemaining: 30,
+        updatedAt: "Just now",
+      };
+      setAgentDeals((prev) => [newDeal, ...prev]);
+    }
 
     await addToOutbox("INQUIRY", "/api/clients", payload);
     playSuccessTone();
@@ -455,21 +519,50 @@ function AgentKioskContent() {
     setNewClientName("");
     setNewClientPhone("");
     setNewClientBudget("");
+    setNewClientRequestNotes("");
+    setNewClientPropertyType("");
+    setNewClientMinBeds("");
+    setNewClientAttachOffer(false);
+    setNewClientOfferPropertyId("");
+    setNewClientOfferAmount("");
   };
 
-  // Submit Intake: Formal Offer
+  // Submit Intake: Formal Offer (Select Existing or New Client)
   const handleCreateOffer = async (e: React.FormEvent) => {
     e.preventDefault();
     const selectedOfferProperty = displayProperties.find((p: any) => p.id === offerPropertyId);
-    const amount = Number(offerAmount);
     if (!selectedOfferProperty) {
       setCaptureError("Select the mandate connected to this offer.");
       return;
     }
-    if (offerClientName.trim().length < 2) {
-      setCaptureError("Enter the buyer or client name.");
-      return;
+
+    let resolvedClientName = "";
+    let resolvedClientPhone = "";
+
+    if (offerClientMode === "EXISTING") {
+      const existingClient = (clients || []).find(
+        (c: any) => c.id === selectedExistingClientId || c.name === offerClientName
+      );
+      if (!existingClient && !offerClientName.trim()) {
+        setCaptureError("Select a registered client or switch to add a new client.");
+        return;
+      }
+      resolvedClientName = existingClient ? existingClient.name : offerClientName.trim();
+      resolvedClientPhone = existingClient ? existingClient.phone : "+260 97 000 0000";
+    } else {
+      if (offerClientName.trim().length < 2) {
+        setCaptureError("Enter the buyer or client name.");
+        return;
+      }
+      if (!/^[+\d][\d\s()-]{7,}$/.test(offerClientPhone.trim())) {
+        setCaptureError("Enter a valid WhatsApp phone number for the client.");
+        return;
+      }
+      resolvedClientName = offerClientName.trim();
+      resolvedClientPhone = offerClientPhone.trim();
     }
+
+    const amount = Number(offerAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       setCaptureError("Enter an offer amount greater than zero.");
       return;
@@ -482,7 +575,7 @@ function AgentKioskContent() {
       id: `deal_${Date.now()}`,
       propertyTitle: selectedOfferProperty.title,
       suburb: selectedOfferProperty.suburb || "Lusaka",
-      clientName: offerClientName,
+      clientName: resolvedClientName,
       value: `${offerCurrency === "USD" ? "$" : "K"} ${amount.toLocaleString()}`,
       stage: "OFFER_MADE",
       stageLabel: "Formal Offer Submitted",
@@ -491,10 +584,30 @@ function AgentKioskContent() {
       updatedAt: "Just now",
     };
 
-    setAgentDeals([newDeal, ...agentDeals]);
+    setAgentDeals((prev) => [newDeal, ...prev]);
+
+    const payload: any = {
+      clientName: resolvedClientName,
+      clientPhone: resolvedClientPhone,
+      budgetMax: amount,
+      dealValue: amount,
+      currency: offerCurrency,
+      preferredSuburbs: [selectedOfferProperty.suburb || "Lusaka"],
+      assignedAgentId: currentAgent.id,
+      propertyId: selectedOfferProperty.id,
+      status: "OFFER_MADE",
+      lookingFor: selectedOfferProperty.listingType || "FOR_SALE",
+      notes: `[Lodge Offer Intake] Formal offer of ${offerCurrency} ${amount.toLocaleString()} submitted by ${currentAgent.name}`,
+      exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    await addToOutbox("INQUIRY", "/api/clients", payload);
     playSuccessTone();
     setIntakeDrawer("NONE");
+    setOfferPropertyId("");
+    setSelectedExistingClientId("");
     setOfferClientName("");
+    setOfferClientPhone("");
     setOfferAmount("");
   };
 
@@ -1759,37 +1872,43 @@ function AgentKioskContent() {
             {/* Intake Mode Switcher */}
             <div className="grid grid-cols-3 gap-1 bg-neutral-100 p-1 border border-editorial-border text-xs">
               <button
+                type="button"
                 onClick={() => {
                   setCaptureError(null);
                   setIntakeDrawer("PROPERTY");
                 }}
-                className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors ${
+                className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
                   intakeDrawer === "PROPERTY" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"
                 }`}
               >
-                🏡 Listing
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Listing</span>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setCaptureError(null);
                   setIntakeDrawer("CLIENT");
                 }}
-                className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors ${
+                className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
                   intakeDrawer === "CLIENT" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"
                 }`}
               >
-                👤 Client
+                <Users className="w-3.5 h-3.5" />
+                <span>Client</span>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setCaptureError(null);
                   setIntakeDrawer("OFFER");
                 }}
-                className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors ${
+                className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
                   intakeDrawer === "OFFER" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"
                 }`}
               >
-                📝 Offer
+                <Tag className="w-3.5 h-3.5" />
+                <span>Offer</span>
               </button>
             </div>
 
@@ -1897,7 +2016,9 @@ function AgentKioskContent() {
             {intakeDrawer === "CLIENT" && (
               <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-editorial-black font-heading font-semibold mb-1">Client Full Name</label>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">
+                    Client Full Name <span className="text-contour-red">*</span>
+                  </label>
                   <input
                     type="text"
                     required
@@ -1909,7 +2030,9 @@ function AgentKioskContent() {
                 </div>
 
                 <div>
-                  <label className="block text-editorial-black font-heading font-semibold mb-1">WhatsApp Phone Number</label>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">
+                    WhatsApp Phone Number <span className="text-contour-red">*</span>
+                  </label>
                   <input
                     type="text"
                     required
@@ -1920,29 +2043,189 @@ function AgentKioskContent() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                {/* Optional Search Criteria & Request Accordion/Box */}
+                <div className="border border-editorial-border p-3 bg-neutral-50/50 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-heading font-semibold text-editorial-black text-xs uppercase tracking-wider">
+                      Search Criteria & Matchmaker (Optional)
+                    </span>
+                    <span className="text-[10px] text-editorial-muted font-mono">Optional</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Looking For</label>
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setNewClientLookingFor("FOR_SALE")}
+                          className={`py-1 text-center font-heading font-semibold text-[11px] uppercase transition-colors border ${
+                            newClientLookingFor === "FOR_SALE"
+                              ? "bg-editorial-black text-white border-editorial-black"
+                              : "bg-white text-editorial-muted border-editorial-border"
+                          }`}
+                        >
+                          Buy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewClientLookingFor("FOR_RENT")}
+                          className={`py-1 text-center font-heading font-semibold text-[11px] uppercase transition-colors border ${
+                            newClientLookingFor === "FOR_RENT"
+                              ? "bg-editorial-black text-white border-editorial-black"
+                              : "bg-white text-editorial-muted border-editorial-border"
+                          }`}
+                        >
+                          Rent
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Target Zone</label>
+                      <select
+                        value={newClientSuburb}
+                        onChange={(e) => setNewClientSuburb(e.target.value)}
+                        className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
+                      >
+                        {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Property Type</label>
+                      <select
+                        value={newClientPropertyType}
+                        onChange={(e) => setNewClientPropertyType(e.target.value)}
+                        className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
+                      >
+                        <option value="">Any Type</option>
+                        <option value="STANDALONE_HOUSE">Standalone House</option>
+                        <option value="APARTMENT">Apartment</option>
+                        <option value="COMMERCIAL_OFFICE">Commercial Office</option>
+                        <option value="WAREHOUSE">Warehouse</option>
+                        <option value="VACANT_LAND_PLOT">Vacant Land Plot</option>
+                        <option value="FARM_AGRICULTURAL">Farm / Agricultural</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Min Bedrooms</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 3"
+                        value={newClientMinBeds}
+                        onChange={(e) => setNewClientMinBeds(e.target.value)}
+                        className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Budget Max</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 4000000"
+                        value={newClientBudget}
+                        onChange={(e) => setNewClientBudget(e.target.value)}
+                        className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Currency</label>
+                      <select
+                        value={newClientCurrency}
+                        onChange={(e) => setNewClientCurrency(e.target.value as any)}
+                        className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
+                      >
+                        <option value="ZMW">ZMW (K)</option>
+                        <option value="USD">USD ($)</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-editorial-black font-heading font-semibold mb-1">Budget Max</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 4000000"
-                      value={newClientBudget}
-                      onChange={(e) => setNewClientBudget(e.target.value)}
-                      className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                    <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">
+                      Specific Client Requirements / Features
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g. 4-bed standalone with swimming pool, borehole, large garden for pets, near American School..."
+                      value={newClientRequestNotes}
+                      onChange={(e) => setNewClientRequestNotes(e.target.value)}
+                      className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none resize-none placeholder:text-editorial-muted/60"
                     />
                   </div>
-                  <div>
-                    <label className="block text-editorial-black font-heading font-semibold mb-1">Target Zone</label>
-                    <select
-                      value={newClientSuburb}
-                      onChange={(e) => setNewClientSuburb(e.target.value)}
-                      className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
-                    >
-                      {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
+                </div>
+
+                {/* Optional Immediate Offer Section */}
+                <div className="border border-editorial-border bg-neutral-50/50 p-3 space-y-2.5">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newClientAttachOffer}
+                      onChange={(e) => setNewClientAttachOffer(e.target.checked)}
+                      className="w-4 h-4 text-editorial-black rounded border-editorial-border focus:ring-0"
+                    />
+                    <span className="font-heading font-semibold text-editorial-black text-xs">
+                      Attach an Immediate Offer to a House (Optional)
+                    </span>
+                  </label>
+
+                  {newClientAttachOffer && (
+                    <div className="space-y-2.5 pt-2 border-t border-editorial-border animate-in fade-in-50 duration-200">
+                      <div>
+                        <label className="block text-editorial-black font-heading font-semibold mb-1">
+                          Select House / Mandate <span className="text-contour-red">*</span>
+                        </label>
+                        <select
+                          value={newClientOfferPropertyId}
+                          onChange={(e) => {
+                            setNewClientOfferPropertyId(e.target.value);
+                            const p = displayProperties.find((item: any) => item.id === e.target.value);
+                            if (p && !newClientOfferAmount) {
+                              setNewClientOfferAmount((p.price || p.askingPrice || p.rentalPrice || "").toString());
+                            }
+                          }}
+                          className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                        >
+                          <option value="">Choose Mandate...</option>
+                          {displayProperties.map((p: any) => (
+                            <option key={p.id} value={p.id}>
+                              {p.title} ({p.suburb}) — {formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-editorial-black font-heading font-semibold mb-1">
+                          Offer Amount <span className="text-contour-red">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          required={newClientAttachOffer}
+                          placeholder="e.g. 3200000"
+                          value={newClientOfferAmount}
+                          onChange={(e) => setNewClientOfferAmount(e.target.value)}
+                          className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                        />
+                        {Number(newClientOfferAmount) > 0 && (
+                          <p className="mt-1 text-[11px] font-mono text-contour-red font-semibold">
+                            Est. 50% Agent Split: {formatCurrency(
+                              Number(newClientOfferAmount) * 0.025,
+                              displayProperties.find((p: any) => p.id === newClientOfferPropertyId)?.currency || newClientCurrency
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-neutral-50 p-2.5 border border-editorial-border text-[11px] text-editorial-black flex items-center gap-2">
@@ -1955,7 +2238,7 @@ function AgentKioskContent() {
                   className="w-full py-3 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider transition-all mt-2 flex items-center justify-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Lock & Register Client</span>
+                  <span>{newClientAttachOffer ? "Lock Client & Submit Offer to Pipeline" : "Lock & Register Client"}</span>
                 </button>
               </form>
             )}
@@ -1964,33 +2247,127 @@ function AgentKioskContent() {
             {intakeDrawer === "OFFER" && (
               <form onSubmit={handleCreateOffer} className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-editorial-black font-heading font-semibold mb-1">Select Property</label>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">
+                    Select Mandate <span className="text-contour-red">*</span>
+                  </label>
                   <select
                     value={offerPropertyId}
-                    onChange={(e) => setOfferPropertyId(e.target.value)}
+                    onChange={(e) => {
+                      setOfferPropertyId(e.target.value);
+                      const p = displayProperties.find((item: any) => item.id === e.target.value);
+                      if (p && !offerAmount) {
+                        setOfferAmount((p.price || p.askingPrice || p.rentalPrice || "").toString());
+                      }
+                    }}
                     className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
                   >
                     <option value="">Choose Mandate...</option>
                     {displayProperties.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.title} ({p.suburb})</option>
+                      <option key={p.id} value={p.id}>
+                        {p.title} ({p.suburb}) — {formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW")}
+                      </option>
                     ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-editorial-black font-heading font-semibold mb-1">Buyer / Client Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Nchimunya Mweene"
-                    value={offerClientName}
-                    onChange={(e) => setOfferClientName(e.target.value)}
-                    className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
-                  />
+                {/* Client Selection: Choose Existing or Register New */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-editorial-black font-heading font-semibold">
+                      Buyer / Client <span className="text-contour-red">*</span>
+                    </label>
+                    <div className="flex items-center gap-1 text-[10px] font-heading font-semibold uppercase">
+                      <button
+                        type="button"
+                        onClick={() => setOfferClientMode("EXISTING")}
+                        className={`px-2 py-0.5 border transition-colors ${
+                          offerClientMode === "EXISTING"
+                            ? "bg-editorial-black text-white border-editorial-black"
+                            : "bg-white text-editorial-muted border-editorial-border hover:text-editorial-black"
+                        }`}
+                      >
+                        Registered Client
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOfferClientMode("NEW")}
+                        className={`px-2 py-0.5 border transition-colors ${
+                          offerClientMode === "NEW"
+                            ? "bg-editorial-black text-white border-editorial-black"
+                            : "bg-white text-editorial-muted border-editorial-border hover:text-editorial-black"
+                        }`}
+                      >
+                        + New Client
+                      </button>
+                    </div>
+                  </div>
+
+                  {offerClientMode === "EXISTING" ? (
+                    <div>
+                      <select
+                        value={selectedExistingClientId}
+                        onChange={(e) => {
+                          setSelectedExistingClientId(e.target.value);
+                          const found = (clients || []).find((c: any) => c.id === e.target.value);
+                          if (found) {
+                            setOfferClientName(found.name);
+                            setOfferClientPhone(found.phone);
+                          }
+                        }}
+                        className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                      >
+                        <option value="">Choose Registered Client...</option>
+                        {(clients || []).map((c: any) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.phone})
+                          </option>
+                        ))}
+                      </select>
+                      {(!clients || clients.length === 0) && (
+                        <p className="mt-1 text-[11px] text-editorial-muted">
+                          No registered clients found. Click <strong>+ New Client</strong> above to add one.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 bg-neutral-50 p-3 border border-editorial-border">
+                      <div>
+                        <label className="block text-editorial-black font-heading font-semibold mb-1">
+                          Client Full Name <span className="text-contour-red">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required={offerClientMode === "NEW"}
+                          placeholder="e.g. Nchimunya Mweene"
+                          value={offerClientName}
+                          onChange={(e) => setOfferClientName(e.target.value)}
+                          className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-editorial-black font-heading font-semibold mb-1">
+                          WhatsApp Phone Number <span className="text-contour-red">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required={offerClientMode === "NEW"}
+                          placeholder="e.g. +260 97 999 8888"
+                          value={offerClientPhone}
+                          onChange={(e) => setOfferClientPhone(e.target.value)}
+                          className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                        />
+                      </div>
+                      <p className="text-[10px] text-editorial-muted">
+                        This client will automatically be protected under your 30-day anti-poaching registry.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-editorial-black font-heading font-semibold mb-1">Offer Amount</label>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">
+                    Offer Amount <span className="text-contour-red">*</span>
+                  </label>
                   <input
                     type="number"
                     required
@@ -1999,19 +2376,14 @@ function AgentKioskContent() {
                     onChange={(e) => setOfferAmount(e.target.value)}
                     className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-editorial-black font-heading font-semibold mb-1">Payment Terms</label>
-                  <select
-                    value={offerTerms}
-                    onChange={(e) => setOfferTerms(e.target.value)}
-                    className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
-                  >
-                    <option value="CASH_30_DAYS">Cash Settlement (30 Days)</option>
-                    <option value="MORTGAGE_FINANCE">Bank Mortgage / Financing</option>
-                    <option value="INSTALLMENTS">Developer Installments (6 Months)</option>
-                  </select>
+                  {Number(offerAmount) > 0 && (
+                    <p className="mt-1 text-[11px] font-mono text-contour-red font-semibold">
+                      Est. 50% Agent Split: {formatCurrency(
+                        Number(offerAmount) * 0.025,
+                        displayProperties.find((p: any) => p.id === offerPropertyId)?.currency || "ZMW"
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -2019,7 +2391,7 @@ function AgentKioskContent() {
                   className="w-full py-3 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider transition-all mt-2 flex items-center justify-center gap-1.5"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Submit Offer to Principal Broker</span>
+                  <span>Submit Offer to Deal Pipeline</span>
                 </button>
               </form>
             )}

@@ -36,7 +36,7 @@ export function normalizeSlug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
 }
 
-export function parseInviteInput(input?: string): { invitationId?: string; token?: string } {
+export function parseInviteInput(input?: string): { invitationId?: string; token?: string; type?: "invitation" | "access-link" } {
   if (!input) return {};
   const trimmed = input.trim();
   if (!trimmed) return {};
@@ -44,17 +44,35 @@ export function parseInviteInput(input?: string): { invitationId?: string; token
   try {
     const url = trimmed.startsWith("http://") || trimmed.startsWith("https://")
       ? new URL(trimmed)
-      : new URL(trimmed, "http://dummy.local");
+      : new URL(trimmed.startsWith("/") ? trimmed : `/${trimmed}`, "http://dummy.local");
 
     const pathParts = url.pathname.split("/").filter(Boolean);
+
+    // 1. Accept-invitation URL: /accept-invitation/:invitationId?token=:token
     const acceptIndex = pathParts.indexOf("accept-invitation");
-    let invitationId: string | undefined;
     if (acceptIndex !== -1 && pathParts[acceptIndex + 1]) {
-      invitationId = pathParts[acceptIndex + 1];
+      const invitationId = pathParts[acceptIndex + 1];
+      const token = url.searchParams.get("token") || undefined;
+      return { invitationId, token, type: "invitation" };
     }
-    const token = url.searchParams.get("token") || undefined;
-    if (invitationId || token) {
-      return { invitationId, token };
+
+    // 2. Public access-request URL: /request-access/:token
+    const requestIndex = pathParts.indexOf("request-access");
+    if (requestIndex !== -1 && pathParts[requestIndex + 1]) {
+      const token = pathParts[requestIndex + 1];
+      return { token, type: "access-link" };
+    }
+
+    // 3. Direct join URL: /join/:token
+    const joinIndex = pathParts.indexOf("join");
+    if (joinIndex !== -1 && pathParts[joinIndex + 1]) {
+      const token = pathParts[joinIndex + 1];
+      return { token, type: "access-link" };
+    }
+
+    const tokenParam = url.searchParams.get("token");
+    if (tokenParam) {
+      return { token: tokenParam };
     }
   } catch {
     // Not a URL

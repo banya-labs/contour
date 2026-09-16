@@ -385,7 +385,7 @@ const postHandler = createApiHandler({
         ownerBankDetails: body.ownerBankDetails,
         titleDeedNumber: body.titleDeedNumber,
         createdById: userId!,
-        assignedAgentId: body.assignedAgentId,
+        assignedAgentId: body.assignedAgentId || userId || undefined,
       }
     });
 

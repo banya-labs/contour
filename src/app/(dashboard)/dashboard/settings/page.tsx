@@ -91,6 +91,7 @@ function SettingsContent() {
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const [inviteRoleKey, setInviteRoleKey] = useState("FIELD_AGENT");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [inviteNote, setInviteNote] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
@@ -231,11 +232,14 @@ function SettingsContent() {
     setIsInviting(true);
     setSettingsMessage(null);
 
+    const trimmedEmail = inviteEmail.trim();
+
     try {
       const res = await fetch("/api/organization/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email: trimmedEmail || undefined,
           roleKey: inviteRoleKey,
           note: inviteNote.trim() || undefined,
         }),
@@ -252,8 +256,13 @@ function SettingsContent() {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
         await navigator.clipboard.writeText(data.inviteUrl);
       }
-      setSettingsMessage(`Active invite link generated for ${inviteRoleKey.replaceAll("_", " ")} and copied to clipboard!`);
+      setSettingsMessage(
+        trimmedEmail
+          ? `Teammate ${trimmedEmail} pre-authorized as ${inviteRoleKey.replaceAll("_", " ")}! Invite link generated and copied.`
+          : `Active invite link generated for ${inviteRoleKey.replaceAll("_", " ")} and copied to clipboard!`
+      );
       setInviteNote("");
+      setInviteEmail("");
 
       // Refresh invitations
       const refreshed = await fetch("/api/organization/invitations").then((r) => r.json());
@@ -703,52 +712,81 @@ function SettingsContent() {
               <div className="flex items-center gap-2 pb-3 border-b border-editorial-border">
                 <UserPlus className="w-4 h-4 text-contour-red" />
                 <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
-                  Generate Team Invite Link
+                  Invite & Pre-Authorize Teammates
                 </h4>
               </div>
               <p className="text-xs text-editorial-muted">
-                Generate an official signup link with pre-assigned role permissions. Anyone with this link can sign in with Google or email to join <strong>{settings.agencyName || "this agency"}</strong> without creating a separate workspace. Field agents are directed straight to the field agent PWA.
+                Pre-authorize team members by email for seamless one-click sign-in, or generate an open signup link with pre-assigned role permissions. Anyone invited can sign in with Google or email to join <strong>{settings.agencyName || "this agency"}</strong> without creating a separate workspace.
               </p>
 
-              <form onSubmit={handleGenerateInviteLink} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
-                <label className="sm:w-64 space-y-1">
-                  <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
-                    Assigned Role
-                  </span>
-                  <select
-                    value={inviteRoleKey}
-                    onChange={(e) => setInviteRoleKey(e.target.value)}
-                    className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black bg-white"
+              <form onSubmit={handleGenerateInviteLink} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <label className="sm:col-span-5 space-y-1">
+                    <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                      Teammate Email Address (Optional)
+                    </span>
+                    <input
+                      type="email"
+                      placeholder="agent@domain.zm (optional)"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black"
+                    />
+                  </label>
+
+                  <label className="sm:col-span-3 space-y-1">
+                    <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                      Assigned Role
+                    </span>
+                    <select
+                      value={inviteRoleKey}
+                      onChange={(e) => setInviteRoleKey(e.target.value)}
+                      className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black bg-white"
+                    >
+                      <option value="FIELD_AGENT">Field Agent (Field App Only)</option>
+                      <option value="BROKER_MANAGER">Broker Manager (Operations & Invites)</option>
+                      <option value="ADMIN_STAFF">Admin Staff (Read Access)</option>
+                      <option value="FINANCE_OFFICER">Finance Officer (Ledger & Payouts)</option>
+                      <option value="VAULT_MANAGER">Vault Manager (Deed Custody)</option>
+                    </select>
+                  </label>
+
+                  <label className="sm:col-span-4 space-y-1">
+                    <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
+                      Invite Label or Note (Optional)
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="e.g. Lusaka East Field Agents"
+                      value={inviteNote}
+                      onChange={(e) => setInviteNote(e.target.value)}
+                      className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black"
+                    />
+                  </label>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+                  <p className="text-[11px] text-editorial-muted">
+                    {inviteEmail.trim()
+                      ? `Pre-authorizing ${inviteEmail.trim()}: they will automatically join ${settings.agencyName || "this agency"} when they sign in with this email.`
+                      : "Leave email blank to create an open link anyone can use to join this agency."}
+                  </p>
+
+                  <button
+                    type="submit"
+                    disabled={isInviting}
+                    className="bg-editorial-black hover:bg-contour-red px-5 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
-                    <option value="FIELD_AGENT">Field Agent (Field App Only)</option>
-                    <option value="BROKER_MANAGER">Broker Manager (Operations & Invites)</option>
-                    <option value="ADMIN_STAFF">Admin Staff (Read Access)</option>
-                    <option value="FINANCE_OFFICER">Finance Officer (Ledger & Payouts)</option>
-                    <option value="VAULT_MANAGER">Vault Manager (Deed Custody)</option>
-                  </select>
-                </label>
-
-                <label className="flex-1 space-y-1">
-                  <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">
-                    Invite Label or Note (Optional)
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="e.g. Lusaka East Field Agents"
-                    value={inviteNote}
-                    onChange={(e) => setInviteNote(e.target.value)}
-                    className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black"
-                  />
-                </label>
-
-                <button
-                  type="submit"
-                  disabled={isInviting}
-                  className="bg-editorial-black hover:bg-contour-red px-5 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center gap-2"
-                >
-                  <LinkIcon className="w-3.5 h-3.5" />
-                  <span>{isInviting ? "Generating..." : "Generate Invite Link"}</span>
-                </button>
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    <span>
+                      {isInviting
+                        ? "Creating..."
+                        : inviteEmail.trim()
+                        ? "Pre-Authorize & Generate Link"
+                        : "Generate Invite Link"}
+                    </span>
+                  </button>
+                </div>
               </form>
 
               {generatedInviteLink && (
@@ -781,7 +819,7 @@ function SettingsContent() {
               <div className="mb-6 border border-editorial-border bg-white p-5 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-editorial-border">
                   <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black">
-                    Active Invite Links ({invitations.length})
+                    Active Invitations ({invitations.length})
                   </h4>
                   <span className="text-[10px] text-editorial-muted font-mono">1-click copy to share</span>
                 </div>
@@ -791,21 +829,34 @@ function SettingsContent() {
                     const fullInviteUrl = inv.inviteUrl || (typeof window !== "undefined"
                       ? `${window.location.origin}/accept-invitation/${inv.id}`
                       : `/accept-invitation/${inv.id}`);
+                    const isTargetedEmail = Boolean(inv.email && !inv.email.endsWith("@invite.contour.app"));
 
                     return (
                       <div key={inv.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="font-mono font-bold text-[10px] bg-neutral-100 border border-editorial-border px-2 py-0.5 text-editorial-black uppercase">
                               {inv.roleKey.replaceAll("_", " ")}
                             </span>
+                            {isTargetedEmail ? (
+                              <span className="font-mono text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5">
+                                {inv.email}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-editorial-muted italic">
+                                Open Join Link
+                              </span>
+                            )}
                             {inv.label && (
                               <span className="text-xs text-editorial-black font-semibold">
-                                {inv.label}
+                                · {inv.label}
                               </span>
                             )}
                           </div>
                           <p className="text-[11px] text-editorial-muted">
+                            {isTargetedEmail
+                              ? "Pre-authorized for sign-in · "
+                              : "Sharable link · "}
                             Expires {new Date(inv.expiresAt).toLocaleDateString()}
                           </p>
                         </div>

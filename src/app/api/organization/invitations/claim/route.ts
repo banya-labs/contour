@@ -163,6 +163,95 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // 1b. Check if targetToken matches an active Public Access Link (AccessRequestLink)
+  if (!invitation && targetToken) {
+    const tokenHash = hashAccessToken(targetToken);
+    const accessLink = await db.accessRequestLink.findFirst({
+      where: {
+        tokenHash,
+        revokedAt: null,
+      },
+      include: { organization: true },
+    });
+
+    if (accessLink) {
+      // Connect authenticated user directly to this organization as FIELD_AGENT
+      const roleKey: ContourRoleKey = "FIELD_AGENT";
+      const roleInfo = ROLE_DESCRIPTIONS.FIELD_AGENT;
+      const destination = "/agent";
+
+      await db.$transaction(async (tx) => {
+        const member = await tx.member.upsert({
+          where: {
+            organizationId_userId: {
+              organizationId: accessLink.organizationId,
+              userId: session.user.id,
+            },
+          },
+          create: {
+            organizationId: accessLink.organizationId,
+            userId: session.user.id,
+            role: "member",
+            status: "active",
+          },
+          update: {
+            status: "active",
+            role: "member",
+            deactivatedAt: null,
+            deactivatedById: null,
+          },
+        });
+
+        const orgRole = await tx.organizationRole.upsert({
+          where: {
+            organizationId_key: {
+              organizationId: accessLink.organizationId,
+              key: roleKey,
+            },
+          },
+          create: {
+            organizationId: accessLink.organizationId,
+            key: roleKey,
+            displayName: roleInfo.displayName,
+            description: roleInfo.description,
+            isSystem: true,
+            permissions: {
+              create: (ROLE_PRESETS[roleKey] || []).map((permission) => ({ permission })),
+            },
+          },
+          update: {},
+        });
+
+        await tx.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });
+        await tx.memberRoleAssignment.create({
+          data: {
+            memberId: member.id,
+            roleId: orgRole.id,
+            assignedById: accessLink.createdById,
+          },
+        });
+
+        await tx.session.updateMany({
+          where: { userId: session.user.id },
+          data: {
+            activeOrganizationId: accessLink.organizationId,
+            organizationId: accessLink.organizationId,
+          },
+        });
+      });
+
+      return NextResponse.json({
+        success: true,
+        claimed: true,
+        hasMembership: true,
+        organizationId: accessLink.organizationId,
+        organizationName: accessLink.organization.name,
+        roleKey,
+        destination,
+      });
+    }
+  }
+
   // 2. If no valid pending invitation found:
   if (!invitation || invitation.status !== "pending" || invitation.expiresAt < new Date()) {
     if (hasExplicitTarget) {

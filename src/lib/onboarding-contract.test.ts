@@ -37,6 +37,19 @@ describe("onboarding contracts", () => {
       expect(parsed.token).toBe("my_secret_token_abc");
     });
 
+    it("parses request-access public link URLs", () => {
+      const parsedFull = parseInviteInput("https://contour.app/request-access/tok_access_request_123");
+      expect(parsedFull.token).toBe("tok_access_request_123");
+
+      const parsedRel = parseInviteInput("/request-access/access_token_xyz");
+      expect(parsedRel.token).toBe("access_token_xyz");
+    });
+
+    it("parses join link URLs", () => {
+      const parsed = parseInviteInput("https://contour.app/join/tok_join_789");
+      expect(parsed.token).toBe("tok_join_789");
+    });
+
     it("returns raw string as fallback for invitationId/token", () => {
       const parsed = parseInviteInput("inv_standalone_999");
       expect(parsed.invitationId).toBe("inv_standalone_999");

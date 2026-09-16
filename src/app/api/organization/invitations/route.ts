@@ -6,7 +6,7 @@ import { CONTOUR_ROLE_KEYS } from "@/lib/authorization";
 import { createAccessToken, hashAccessToken } from "@/lib/access-request";
 
 const inviteSchema = z.object({
-  email: z.string().trim().toLowerCase().email().optional(),
+  email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
   roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).default("FIELD_AGENT"),
   note: z.string().trim().max(200).optional(),
 });
@@ -74,12 +74,13 @@ export const POST = createApiHandler({
     const tokenHash = hashAccessToken(token);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    const normalizedEmail = body.email
-      ? body.email.toLowerCase().trim()
+    const hasEmail = Boolean(body.email && body.email.trim().length > 0);
+    const normalizedEmail = hasEmail
+      ? body.email!.toLowerCase().trim()
       : `invite_${token.slice(0, 10)}@invite.contour.app`;
 
     // If an explicit email was provided, check if user is already an active member of this organization
-    if (body.email) {
+    if (hasEmail) {
       const existingUser = await db.user.findUnique({
         where: { email: normalizedEmail },
         include: {
@@ -113,7 +114,7 @@ export const POST = createApiHandler({
     const notePayload = JSON.stringify({
       token,
       label: body.note || null,
-      isDirectLink: !body.email,
+      isDirectLink: !hasEmail,
     });
 
     const invitation = await db.invitation.create({

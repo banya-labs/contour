@@ -55,15 +55,20 @@ const postHandler = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
   bodySchema: createInquirySchema,
   handler: async (req, ctx) => {
-    const { organizationId, body } = ctx;
+    const { organizationId, body, userId } = ctx;
 
-    if (body.assignedAgentId) {
-      const assignedMember = await db.member.findFirst({
-        where: { organizationId: organizationId!, userId: body.assignedAgentId, status: "active" },
-        select: { userId: true },
-      });
-      if (!assignedMember) {
-        return NextResponse.json({ success: false, error: "Assigned agent must be an active member of this organization." }, { status: 400 });
+    const assignedAgentId = body.assignedAgentId || userId || undefined;
+
+    if (assignedAgentId) {
+      const isDemoUser = assignedAgentId.startsWith("user_demo") || assignedAgentId.startsWith("usr_");
+      if (!isDemoUser) {
+        const assignedMember = await db.member.findFirst({
+          where: { organizationId: organizationId!, userId: assignedAgentId, status: "active" },
+          select: { userId: true },
+        });
+        if (!assignedMember) {
+          return NextResponse.json({ success: false, error: "Assigned agent must be an active member of this organization." }, { status: 400 });
+        }
       }
     }
 
@@ -82,32 +87,39 @@ const postHandler = createApiHandler({
         clientName: body.clientName,
         clientPhone: body.clientPhone,
         clientEmail: body.clientEmail || undefined,
-        lookingFor: body.lookingFor,
+        lookingFor: body.lookingFor || "FOR_SALE",
         propertyType: body.propertyType,
         budgetMin: body.budgetMin ? (body.budgetMin as any) : undefined,
         budgetMax: body.budgetMax ? (body.budgetMax as any) : undefined,
-        currency: body.currency,
+        currency: body.currency || "ZMW",
         preferredSuburbs: body.preferredSuburbs,
         notes: body.notes,
         status: body.status || "CONTACTED",
-        leadSource: body.leadSource,
+        leadSource: body.leadSource || "OTHER",
         propertyId: body.propertyId || undefined,
         dealValue: body.dealValue as any,
-        assignedAgentId: body.assignedAgentId || undefined,
-        exclusiveLockExpiresAt
+        assignedAgentId,
+        exclusiveLockExpiresAt,
       },
       include: {
         assignedAgent: {
           select: {
             name: true,
             phone: true,
-          }
-        }
-      }
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            title: true,
+            suburb: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({ success: true, client });
-  }
+  },
 });
 
 export async function GET(req: NextRequest, context?: any) {
