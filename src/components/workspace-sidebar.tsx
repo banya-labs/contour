@@ -19,8 +19,10 @@ import {
   ChevronRight,
   Building,
   BarChart3,
+  Download,
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { triggerPwaInstallModal } from "@/components/pwa/pwa-install-banner";
 
 type NavItem = {
   name: string;
@@ -340,6 +342,15 @@ export default function WorkspaceSidebar() {
           <ShieldCheck className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
           <span className="hidden lg:inline">Admin Control</span>
         </Link>
+        <button
+          type="button"
+          onClick={triggerPwaInstallModal}
+          title="Install Desktop App"
+          className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-contour-red hover:bg-red-50/60 transition-colors w-full text-left"
+        >
+          <Download className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
+          <span className="hidden lg:inline">Install Desktop App</span>
+        </button>
 
         {/* Live Better Auth User Profile Card */}
         <div className="flex items-center justify-center lg:justify-between p-1.5 lg:p-2 border border-editorial-border bg-neutral-50/70 mt-1">

@@ -113,6 +113,23 @@ const nextConfig = {
             key: "X-XSS-Protection",
             value: "1; mode=block",
           },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co https://unpkg.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
+              "img-src 'self' blob: data: https:",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "connect-src 'self' https://*.tile.openstreetmap.org https://api.paystack.co https://checkout.paystack.com https://openrouter.ai https://api.openai.com",
+              "frame-src 'self' https://checkout.paystack.com",
+              "worker-src 'self' blob:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'self'",
+            ].join("; "),
+          },
         ],
       },
       {

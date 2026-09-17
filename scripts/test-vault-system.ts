@@ -48,7 +48,7 @@ async function runVaultTests() {
   assert(testKey.includes("org_contour_demo/title_deed/"), `Tenant-isolated objectKey: ${testKey}`);
 
   const presignedDownload = await s3Storage.getPresignedDownloadUrl(testKey, 900);
-  assert(presignedDownload.includes("expires=900"), `Presigned URL expires in 900s (15 min): ${presignedDownload}`);
+  assert(presignedDownload.toLowerCase().includes("expires=900"), `Presigned URL expires in 900s (15 min): ${presignedDownload}`);
 
   // ── TEST 3: Cryptographic Token & PIN Validation ─────────────────────────────
   console.log("\n── TEST GROUP 3: Client Document Request Token & PIN Challenge");

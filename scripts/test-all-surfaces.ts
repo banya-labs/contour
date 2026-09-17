@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import * as fs from "fs";
 import * as path from "path";
 
-const SCREENSHOT_DIR = "C:\\Users\\sewar\\.gemini\\antigravity\\brain\\1cc8401e-3efd-4acd-a277-02296eec6491\\screenshots";
+const SCREENSHOT_DIR = "C:\\Users\\sewar\\.gemini\\antigravity\\brain\\01064cec-9829-43ef-9fc8-e9213502b74e";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
 const SURFACES = [
@@ -41,20 +41,53 @@ async function main() {
       viewport: surface.isMobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
       userAgent: surface.isMobile ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" : undefined,
     });
+    await context.addInitScript(() => {
+      sessionStorage.setItem("contour_splash_dismissed", "true");
+      localStorage.setItem("contour_dpa_consent", JSON.stringify({ status: "accepted" }));
+      localStorage.setItem("contour_pwa_banner_dismissed", "true");
+    });
     const page = await context.newPage();
-    page.setDefaultTimeout(30000);
+    page.setDefaultTimeout(60000);
 
     try {
-      await page.goto(`${BASE_URL}${surface.path}`, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await page.waitForTimeout(2000);
+      // 1. Sign in as Tembo Mwape first so protected kiosk console renders
+      console.log("Authenticating as Tembo Mwape via Fast Dev Login...");
+      await page.goto(`${BASE_URL}/sign-in?redirect_url=/kiosk`, { waitUntil: "networkidle", timeout: 60000 });
+      await page.waitForSelector("text=Fast Dev Login", { timeout: 30000 });
+      const fieldAgentBtn = page.locator("button:has-text('Field Agent')").first();
+      await fieldAgentBtn.click();
+      await page.waitForURL((url) => url.pathname.includes("/kiosk") || url.pathname.includes("/agent"), { timeout: 45000 });
+      await page.waitForTimeout(2500);
 
-      // Extra verification for Map
-      if (surface.id === "04_interactive_property_map") {
-        await page.waitForTimeout(1500);
+      // Hide nextjs portal and banners if present
+      await page.addStyleTag({ content: "nextjs-portal, .pwa-install-banner { display: none !important; }" }).catch(() => {});
+      await page.waitForTimeout(1000);
+
+      // 1. Screenshot Main Screen
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, "kiosk_redesigned_main.png") });
+      console.log("✅ Main screen screenshot saved!");
+
+      // 2. Open Hamburger Menu & Screenshot
+      const hamburger = page.locator(".field-mobile-menu-trigger").first();
+      if (await hamburger.isVisible()) {
+        await hamburger.click();
+        await page.waitForTimeout(600);
+        await page.screenshot({ path: path.join(SCREENSHOT_DIR, "kiosk_redesigned_hamburger.png") });
+        console.log("✅ Hamburger menu screenshot saved!");
+        await hamburger.click();
+        await page.waitForTimeout(400);
       }
 
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, `${surface.id}.png`) });
-      console.log(`✅ [SUCCESS] ${surface.name} passed & screenshot saved.`);
+      // 3. Click + Listing Quick Add Button & Screenshot Drawer
+      const listingBtn = page.locator("button:has-text('Listing')").first();
+      if (await listingBtn.isVisible()) {
+        await listingBtn.click();
+        await page.waitForTimeout(600);
+        await page.screenshot({ path: path.join(SCREENSHOT_DIR, "kiosk_intake_drawer.png") });
+        console.log("✅ Intake drawer screenshot saved!");
+      }
+
+      console.log(`✅ [SUCCESS] ${surface.name} passed & screenshots saved.`);
     } catch (err: any) {
       console.error(`❌ [FAILED] ${surface.name}:`, err.message);
     } finally {

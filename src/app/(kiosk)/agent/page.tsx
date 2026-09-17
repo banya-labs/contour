@@ -63,7 +63,6 @@ import { authClient } from "@/lib/auth-client";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import { canManagePropertyPhotos } from "@/lib/authorization";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
-import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -752,67 +751,94 @@ function AgentKioskContent() {
             </Link>
           </div>
 
-          {/* Right Controls: Network / Profile / Dashboard / Sign Out */}
-          <div className="flex items-center gap-1.5">
-
-            {isManagerOrAdmin && (
-              <Link href="/dashboard" aria-label="Open operations dashboard" title="Dashboard" className="inline-flex h-9 w-9 items-center justify-center border border-editorial-border bg-white text-editorial-black hover:bg-neutral-100 transition-colors">
-                <Home className="h-4 w-4" />
-              </Link>
-            )}
-
-            {/* Offline/Online PowerSync Badge */}
+          {/* Right Controls: Online/Offline Dot & Hamburger Menu */}
+          <div className="flex items-center gap-2">
+            {/* Minimal Online/Offline Status Dot (no square container) */}
             <button
               onClick={toggleNetwork}
-              aria-label={isOnline ? "Switch to offline preview" : "Switch to live connection"}
-              aria-pressed={!isOnline}
-              className="inline-flex h-9 items-center gap-1.5 border border-editorial-border bg-white px-2.5 text-[10px] font-mono uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
-              title={isOnline ? "Live · synced with Contour" : "Offline · changes are queued locally"}
+              type="button"
+              aria-label={isOnline ? "Live: synced with Contour (click to toggle offline mode)" : "Offline: working locally (click to toggle online)"}
+              title={isOnline ? "Live · Synced with Contour" : "Offline · Changes queued locally"}
+              className="p-2 flex items-center justify-center rounded-full hover:bg-neutral-100 transition-colors"
             >
-              <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500"}`} />
-              <span className="hidden sm:inline">{isOnline ? "Live" : "Offline"}</span>
+              <span
+                className={`h-2.5 w-2.5 rounded-full transition-colors ${
+                  isOnline
+                    ? "bg-emerald-500 shadow-xs shadow-emerald-500/50"
+                    : "bg-amber-500 shadow-xs shadow-amber-500/50"
+                }`}
+              />
             </button>
 
-            {/* Agent Persona Pill */}
-            <button
-              onClick={() => setIsPersonaModalOpen(true)}
-              aria-label={`Open profile for ${currentAgent.name}`}
-              title={currentAgent.name}
-              className="inline-flex h-9 items-center gap-2 border border-editorial-border bg-white px-2.5 text-xs font-heading font-semibold text-editorial-black hover:bg-neutral-50 transition-colors"
-            >
-              <div className="w-5 h-5 rounded-full bg-editorial-black text-white flex items-center justify-center text-[10px] font-bold">
-                {currentAgent.name.charAt(0)}
-              </div>
-              <span className="hidden sm:inline">{currentAgent.name.split(" ")[0]}</span>
-            </button>
-
-            <button onClick={() => void handleSignOut()} aria-label="Sign out" title="Sign out" className="inline-flex h-9 w-9 items-center justify-center border border-editorial-border bg-white text-editorial-muted hover:text-contour-red hover:bg-neutral-50 transition-colors">
-              <LogOut className="h-4 w-4" />
-            </button>
-
+            {/* Hamburger Menu Trigger */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
               aria-expanded={isMobileMenuOpen}
               aria-controls="field-mobile-menu"
               aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-              className="field-mobile-menu-trigger sm:hidden inline-flex h-9 w-9 items-center justify-center border border-editorial-border bg-white text-editorial-black hover:bg-neutral-100"
+              className="field-mobile-menu-trigger inline-flex h-9 w-9 items-center justify-center border border-editorial-border bg-white text-editorial-black hover:bg-neutral-100 transition-colors"
             >
               {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        <div id="field-mobile-menu" className={`${isMobileMenuOpen ? "block" : "hidden"} field-mobile-menu-panel absolute left-3 right-3 top-full mt-1 border border-editorial-border bg-white p-2 text-editorial-black shadow-lg z-50`}>
-          <p className="border-b border-editorial-border px-3 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-editorial-muted">{currentAgent.name} · {currentAgent.zone}</p>
-          {isManagerOrAdmin && (
-            <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 px-3 text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><Home className="h-4 w-4" /> Dashboard</Link>
-          )}
-          <button type="button" onClick={() => { setIsMobileMenuOpen(false); setIsPersonaModalOpen(true); }} className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-xs font-bold uppercase tracking-wider hover:bg-neutral-100"><User className="h-4 w-4" /> Profile</button>
-          <button type="button" onClick={() => void handleSignOut()} className="flex min-h-11 w-full items-center gap-3 border-t border-editorial-border px-3 text-left text-xs font-bold uppercase tracking-wider text-contour-red hover:bg-neutral-100"><LogOut className="h-4 w-4" /> Sign out</button>
+        {/* Hamburger Dropdown Menu (Contains Avatar, Profile, Dashboard, and Logout) */}
+        <div
+          id="field-mobile-menu"
+          className={`${
+            isMobileMenuOpen ? "block" : "hidden"
+          } field-mobile-menu-panel absolute left-3 right-3 top-full mt-1 border border-editorial-border bg-white p-3 text-editorial-black shadow-xl z-50`}
+        >
+          {/* User Profile Header with Avatar */}
+          <div className="flex items-center gap-3 border-b border-editorial-border pb-3 mb-2">
+            <div className="w-9 h-9 rounded-full bg-editorial-black text-white flex items-center justify-center text-xs font-bold shrink-0">
+              {currentAgent.name.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-heading font-bold text-editorial-black truncate">{currentAgent.name}</p>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-editorial-muted truncate">
+                {currentAgent.role} · {currentAgent.zone}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsPersonaModalOpen(true);
+              }}
+              className="flex min-h-10 w-full items-center gap-3 px-3 text-left text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
+            >
+              <User className="h-4 w-4 text-editorial-muted" />
+              <span>View Agent Profile</span>
+            </button>
+
+            {isManagerOrAdmin && (
+              <Link
+                href="/dashboard"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex min-h-10 items-center gap-3 px-3 text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
+              >
+                <Home className="h-4 w-4 text-editorial-muted" />
+                <span>Operations Dashboard</span>
+              </Link>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              className="flex min-h-10 w-full items-center gap-3 border-t border-editorial-border pt-2 mt-2 px-3 text-left text-xs font-heading font-semibold uppercase tracking-wider text-contour-red hover:bg-red-50/50 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
       </header>
-      <PwaInstallBanner />
 
       {/* 2. Main Scrollable Canvas */}
       <main className="field-main flex-1 px-4 py-4 space-y-4 pb-28 overflow-y-auto">
@@ -875,6 +901,48 @@ function AgentKioskContent() {
                 <span>{outboxCount > 0 ? `${outboxCount} queued` : "No queued actions"}</span>
               </div>
             </section>
+
+            {/* Quick Field Intake Actions: Listing, Client, Offer */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCaptureError(null);
+                  setIntakeDrawer("PROPERTY");
+                  playSuccessTone();
+                }}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-editorial-black border border-editorial-border font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-2xs hover:border-editorial-black"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#E57A1A]" />
+                <span>Listing</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCaptureError(null);
+                  setIntakeDrawer("CLIENT");
+                  playSuccessTone();
+                }}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-editorial-black border border-editorial-border font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-2xs hover:border-editorial-black"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#E57A1A]" />
+                <span>Client</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCaptureError(null);
+                  setIntakeDrawer("OFFER");
+                  playSuccessTone();
+                }}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-editorial-black border border-editorial-border font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-2xs hover:border-editorial-black"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#E57A1A]" />
+                <span>Offer</span>
+              </button>
+            </div>
 
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -1766,7 +1834,7 @@ function AgentKioskContent() {
 
       {/* 3. Dedicated Bottom Dock Navigation Bar */}
       <footer className="field-footer fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-editorial-border max-w-md md:max-w-2xl mx-auto pb-safe">
-        <div className="grid grid-cols-5 items-center px-1 py-2">
+        <div className="grid grid-cols-5 items-center px-2 py-2.5">
           
           {/* Properties (Catalog & Map) Tab */}
           <button
@@ -1774,13 +1842,14 @@ function AgentKioskContent() {
               setActiveTab("PROPERTIES");
               playNeutralTone();
             }}
+            aria-label="Properties"
+            title="Properties"
             aria-current={activeTab === "PROPERTIES" || activeTab === "MAP" ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 py-1 transition-colors ${
+            className={`flex items-center justify-center py-2 transition-colors ${
               activeTab === "PROPERTIES" || activeTab === "MAP" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] font-heading font-semibold uppercase tracking-wider">Properties</span>
+            <Building2 className="w-5 h-5" />
           </button>
 
           {/* Clients Tab */}
@@ -1789,27 +1858,30 @@ function AgentKioskContent() {
               setActiveTab("CLIENTS");
               playNeutralTone();
             }}
+            aria-label="Clients"
+            title="Clients"
             aria-current={activeTab === "CLIENTS" ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 py-1 transition-colors ${
+            className={`flex items-center justify-center py-2 transition-colors ${
               activeTab === "CLIENTS" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
             <Users className="w-5 h-5" />
-            <span className="text-[10px] font-heading font-semibold uppercase tracking-wider">Clients</span>
           </button>
 
-          {/* Center Intake Action FAB */}
+          {/* Center Home Action Button (Round Orange Circle with Home Icon) */}
           <div className="flex justify-center -mt-5">
             <button
               onClick={() => {
-                setIntakeDrawer("PROPERTY");
-                playSuccessTone();
+                setActiveTab("QUEUE");
+                playNeutralTone();
               }}
-              aria-label="Open field capture menu"
-              className="field-primary-action w-12 h-12 bg-editorial-black hover:bg-contour-red text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all ring-4 ring-white"
-              title="Add Listing / Client / Offer"
+              aria-label="Home"
+              title="Home"
+              aria-current={activeTab === "QUEUE" ? "page" : undefined}
+              className="field-home-action w-12 h-12 rounded-full !rounded-full text-white flex items-center justify-center shadow-lg transition-all ring-4 ring-white active:scale-95"
+              style={{ borderRadius: "9999px", backgroundColor: "#E57A1A" }}
             >
-              <Plus className="w-6 h-6 stroke-[2.5]" />
+              <Home className="w-6 h-6 text-white" />
             </button>
           </div>
 
@@ -1819,13 +1891,14 @@ function AgentKioskContent() {
               setActiveTab("DEALS");
               playNeutralTone();
             }}
+            aria-label="Deals"
+            title="Deals"
             aria-current={activeTab === "DEALS" ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 py-1 transition-colors ${
+            className={`flex items-center justify-center py-2 transition-colors ${
               activeTab === "DEALS" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
             <Briefcase className="w-5 h-5" />
-            <span className="text-[10px] font-heading font-semibold uppercase tracking-wider">Deals</span>
           </button>
 
           {/* Earnings Tab */}
@@ -1834,13 +1907,14 @@ function AgentKioskContent() {
               setActiveTab("EARNINGS");
               playNeutralTone();
             }}
+            aria-label="Earnings"
+            title="Earnings"
             aria-current={activeTab === "EARNINGS" ? "page" : undefined}
-            className={`flex flex-col items-center gap-1 py-1 transition-colors ${
+            className={`flex items-center justify-center py-2 transition-colors ${
               activeTab === "EARNINGS" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
             <Wallet className="w-5 h-5" />
-            <span className="text-[10px] font-heading font-semibold uppercase tracking-wider">Earnings</span>
           </button>
         </div>
       </footer>

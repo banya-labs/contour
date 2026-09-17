@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Download } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { triggerPwaInstallModal } from "@/components/pwa/pwa-install-banner";
 
 export function ContourNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -73,7 +74,16 @@ export function ContourNavbar() {
         </nav>
 
         {/* Right: CTA & Mobile Hamburger */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            onClick={triggerPwaInstallModal}
+            className="inline-flex items-center gap-1.5 font-geist text-xs font-semibold uppercase tracking-wider text-contour-red hover:text-editorial-black border border-red-200 bg-red-50/70 hover:bg-red-50 px-2.5 py-1.5 transition-colors"
+            title="Download Contour App"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Install App</span>
+          </button>
           <Link
             href="/sign-in"
             className="hidden md:inline-flex font-geist text-xs uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover-un px-2 py-1"

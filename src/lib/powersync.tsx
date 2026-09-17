@@ -105,12 +105,52 @@ export function playErrorTone() {
   osc.stop(now + 0.25);
 }
 
-// Simulated IndexedDB storage helper
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24-hour TTL for offline client caches
+
+interface CachedPayload<T = any> {
+  version: number;
+  timestamp: number;
+  data: T;
+}
+
+/**
+ * Purges all PowerSync offline data from browser storage.
+ * Called automatically upon sign-out to prevent sensitive real estate records
+ * from remaining on shared field kiosks or mobile tablets.
+ */
+export function clearLocalOfflineCache() {
+  if (typeof window === "undefined") return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("powersync_cache_") || key === "powersync_online_state")) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch (err) {
+    console.error("Failed to clear local offline cache:", err);
+  }
+}
+
+// Simulated IndexedDB storage helper with 24h TTL eviction
 function getLocalCache(key: string, defaultVal: any) {
   if (typeof window === "undefined") return defaultVal;
   try {
-    const cached = localStorage.getItem(`powersync_cache_${key}`);
-    return cached ? JSON.parse(cached) : defaultVal;
+    const raw = localStorage.getItem(`powersync_cache_${key}`);
+    if (!raw) return defaultVal;
+
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "timestamp" in parsed && "data" in parsed) {
+      const age = Date.now() - parsed.timestamp;
+      if (age > CACHE_TTL_MS) {
+        localStorage.removeItem(`powersync_cache_${key}`);
+        return defaultVal;
+      }
+      return parsed.data;
+    }
+    return parsed;
   } catch {
     return defaultVal;
   }
@@ -118,7 +158,16 @@ function getLocalCache(key: string, defaultVal: any) {
 
 function setLocalCache(key: string, data: any) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(`powersync_cache_${key}`, JSON.stringify(data));
+  try {
+    const payload: CachedPayload = {
+      version: 1,
+      timestamp: Date.now(),
+      data,
+    };
+    localStorage.setItem(`powersync_cache_${key}`, JSON.stringify(payload));
+  } catch (err) {
+    console.warn("Failed to update local cache:", err);
+  }
 }
 
 export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
@@ -198,8 +247,18 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (leasesData.success) {
-        setLeases(leasesData.leases);
-        setLocalCache("leases", leasesData.leases);
+        // Strip sensitive PII (tenant NRC/passport ID, bank accounts) from offline client cache
+        const safeLeases = (leasesData.leases || []).map((l: any) => {
+          const { tenantIdNumber, tenantBankDetails, depositBankReference, ...safeFields } = l;
+          return {
+            ...safeFields,
+            tenantPhone: safeFields.tenantPhone
+              ? `${safeFields.tenantPhone.slice(0, 4)}***${safeFields.tenantPhone.slice(-2)}`
+              : undefined,
+          };
+        });
+        setLeases(safeLeases);
+        setLocalCache("leases", safeLeases);
       }
 
       if (clientsData.success) {
@@ -226,8 +285,13 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (salesData.success) {
-        setSales(salesData.transactions);
-        setLocalCache("sales", salesData.transactions);
+        // Strip internal accounting / escrow account identifiers from offline cache
+        const safeSales = (salesData.transactions || []).map((t: any) => {
+          const { escrowAccountNumber, bankReference, internalNotes, ...safeFields } = t;
+          return safeFields;
+        });
+        setSales(safeSales);
+        setLocalCache("sales", safeSales);
       }
     } catch (err) {
       console.error("PowerSync failed to background sync local SQLite WASM:", err);

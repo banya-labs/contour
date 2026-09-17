@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { CookieConsentBanner } from "@/components/ui/cookie-consent-banner";
+import { ContourSplashScreen } from "@/components/pwa/contour-splash-screen";
+import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
 import "./globals.css";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
@@ -76,10 +78,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/brand/contour-mark.svg", type: "image/svg+xml" },
       { url: "/favicon.ico", sizes: "any" },
     ],
-    shortcut: "/icon.svg",
+    shortcut: "/icon-192.png",
     apple: [
       { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
     ],
@@ -87,7 +91,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Contour Agent",
+    title: "Contour",
   },
   verification: {
     google:
@@ -174,7 +178,9 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-white text-editorial-black min-h-screen flex flex-col antialiased selection:bg-contour-red selection:text-white">
+        <ContourSplashScreen />
         <main className="flex-1 flex flex-col">{children}</main>
+        <PwaInstallBanner />
         <CookieConsentBanner />
       </body>
     </html>
