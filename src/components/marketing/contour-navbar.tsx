@@ -73,16 +73,16 @@ export function ContourNavbar() {
           ))}
         </nav>
 
-        {/* Right: CTA & Mobile Hamburger */}
+        {/* Right: Desktop CTA & Mobile Hamburger */}
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             type="button"
             onClick={triggerPwaInstallModal}
-            className="inline-flex items-center gap-1.5 font-geist text-xs font-semibold uppercase tracking-wider text-contour-red hover:text-editorial-black border border-red-200 bg-red-50/70 hover:bg-red-50 px-2.5 py-1.5 transition-colors"
+            className="hidden md:inline-flex items-center gap-1.5 font-geist text-xs font-semibold uppercase tracking-wider text-contour-red hover:text-editorial-black border border-red-200 bg-red-50/70 hover:bg-red-50 px-2.5 py-1.5 transition-colors"
             title="Download Contour App"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Install App</span>
+            <span className="hidden lg:inline">Install App</span>
           </button>
           <Link
             href="/sign-in"
@@ -113,7 +113,7 @@ export function ContourNavbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b border-editorial-border px-6 py-6 flex flex-col gap-4"
+            className="md:hidden bg-white border-b border-editorial-border px-6 py-6 flex flex-col gap-4 shadow-xl"
           >
             {navLinks.map((link) => (
               <a
@@ -126,17 +126,28 @@ export function ContourNavbar() {
               </a>
             ))}
             <div className="pt-2 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  triggerPwaInstallModal();
+                }}
+                className="w-full font-geist text-xs font-semibold uppercase tracking-wider text-contour-red hover:text-editorial-black border border-red-200 bg-red-50/70 hover:bg-red-50 py-3 flex items-center justify-center gap-2 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                <span>Install Contour App</span>
+              </button>
               <Link
                 href="/sign-in"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full font-geist text-sm text-center py-2 text-editorial-muted hover:text-editorial-black border border-editorial-border"
+                className="w-full font-geist text-sm text-center py-2.5 text-editorial-muted hover:text-editorial-black border border-editorial-border font-medium transition-colors"
               >
                 Log In
               </Link>
               <Link
                 href="/sign-up"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full bg-editorial-black text-white text-center py-3 font-heading text-sm font-semibold"
+                className="w-full bg-editorial-black text-white text-center py-3 font-heading text-sm font-semibold tracking-wide hover:bg-editorial-red transition-colors"
               >
                 Get Started
               </Link>

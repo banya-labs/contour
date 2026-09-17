@@ -154,7 +154,33 @@ export function HeroStage() {
       {/* ── Stat Strip ── */}
       <div className="w-full border-t border-b border-editorial-black bg-white">
         <div className="max-w-[1400px] mx-auto border-x border-editorial-black">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-editorial-black">
+          {/* Mobile View: Single compact row infinite marquee (< md) */}
+          <div className="md:hidden overflow-hidden py-2.5 bg-white flex whitespace-nowrap select-none">
+            <motion.div
+              className="flex items-center gap-6 shrink-0 pr-6"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{
+                repeat: Infinity,
+                ease: "linear",
+                duration: 16,
+              }}
+            >
+              {[...stats, ...stats, ...stats, ...stats].map((stat, idx) => (
+                <div key={idx} className="flex items-baseline gap-1.5 shrink-0">
+                  <span className="font-heading font-bold text-base text-editorial-black">
+                    {stat.value}
+                  </span>
+                  <span className="font-geist text-[10px] font-semibold uppercase tracking-wider text-editorial-muted">
+                    {stat.label}
+                  </span>
+                  <span className="text-neutral-300 ml-3 font-mono text-xs">•</span>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* Desktop View (md+): 4-column architectural grid (unchanged) */}
+          <div className="hidden md:grid md:grid-cols-4 divide-x divide-editorial-black">
             {stats.map((stat) => (
               <div
                 key={stat.label}
