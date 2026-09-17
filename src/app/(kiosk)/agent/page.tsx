@@ -1834,7 +1834,7 @@ function AgentKioskContent() {
 
       {/* 3. Dedicated Bottom Dock Navigation Bar */}
       <footer className="field-footer fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-editorial-border max-w-md md:max-w-2xl mx-auto pb-safe">
-        <div className="grid grid-cols-5 items-center px-2 py-2.5">
+        <div className="grid grid-cols-5 items-center px-2 py-1.5 sm:py-2">
           
           {/* Properties (Catalog & Map) Tab */}
           <button
@@ -1845,11 +1845,12 @@ function AgentKioskContent() {
             aria-label="Properties"
             title="Properties"
             aria-current={activeTab === "PROPERTIES" || activeTab === "MAP" ? "page" : undefined}
-            className={`flex items-center justify-center py-2 transition-colors ${
-              activeTab === "PROPERTIES" || activeTab === "MAP" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
+            className={`flex flex-col items-center justify-center gap-1 py-1 transition-colors ${
+              activeTab === "PROPERTIES" || activeTab === "MAP" ? "text-contour-red font-semibold" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
-            <Building2 className="w-5 h-5" />
+            <Building2 className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] leading-tight tracking-tight">Properties</span>
           </button>
 
           {/* Clients Tab */}
@@ -1861,15 +1862,16 @@ function AgentKioskContent() {
             aria-label="Clients"
             title="Clients"
             aria-current={activeTab === "CLIENTS" ? "page" : undefined}
-            className={`flex items-center justify-center py-2 transition-colors ${
-              activeTab === "CLIENTS" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
+            className={`flex flex-col items-center justify-center gap-1 py-1 transition-colors ${
+              activeTab === "CLIENTS" ? "text-contour-red font-semibold" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] leading-tight tracking-tight">Clients</span>
           </button>
 
-          {/* Center Home Action Button (Round Orange Circle with Home Icon) */}
-          <div className="flex justify-center -mt-5">
+          {/* Center Home Action Button (Round Contour Red #FA3600 Circle with Home Icon) */}
+          <div className="flex flex-col items-center justify-center -mt-5">
             <button
               onClick={() => {
                 setActiveTab("QUEUE");
@@ -1878,11 +1880,21 @@ function AgentKioskContent() {
               aria-label="Home"
               title="Home"
               aria-current={activeTab === "QUEUE" ? "page" : undefined}
-              className="field-home-action w-12 h-12 rounded-full !rounded-full text-white flex items-center justify-center shadow-lg transition-all ring-4 ring-white active:scale-95"
-              style={{ borderRadius: "9999px", backgroundColor: "#E57A1A" }}
+              className="field-home-action w-12 h-12 rounded-full !rounded-full text-white flex items-center justify-center shadow-lg transition-all ring-4 ring-white active:scale-95 bg-[#FA3600] md:w-full md:h-12 md:!rounded-md md:ring-0 md:gap-3 md:justify-start md:px-4"
+              style={{ borderRadius: "9999px", backgroundColor: "#FA3600" }}
             >
-              <Home className="w-6 h-6 text-white" />
+              <Home className="w-6 h-6 text-white shrink-0" />
+              <span className="hidden md:inline text-xs font-bold uppercase tracking-wider text-white">
+                Today / Home
+              </span>
             </button>
+            <span
+              className={`text-[10px] font-semibold leading-tight tracking-tight mt-1 md:hidden ${
+                activeTab === "QUEUE" ? "text-contour-red font-semibold" : "text-editorial-muted"
+              }`}
+            >
+              Home
+            </span>
           </div>
 
           {/* Deals Tab */}
@@ -1894,11 +1906,12 @@ function AgentKioskContent() {
             aria-label="Deals"
             title="Deals"
             aria-current={activeTab === "DEALS" ? "page" : undefined}
-            className={`flex items-center justify-center py-2 transition-colors ${
-              activeTab === "DEALS" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
+            className={`flex flex-col items-center justify-center gap-1 py-1 transition-colors ${
+              activeTab === "DEALS" ? "text-contour-red font-semibold" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
-            <Briefcase className="w-5 h-5" />
+            <Briefcase className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] leading-tight tracking-tight">Deals</span>
           </button>
 
           {/* Earnings Tab */}
@@ -1910,11 +1923,12 @@ function AgentKioskContent() {
             aria-label="Earnings"
             title="Earnings"
             aria-current={activeTab === "EARNINGS" ? "page" : undefined}
-            className={`flex items-center justify-center py-2 transition-colors ${
-              activeTab === "EARNINGS" ? "text-contour-red" : "text-editorial-muted hover:text-editorial-black"
+            className={`flex flex-col items-center justify-center gap-1 py-1 transition-colors ${
+              activeTab === "EARNINGS" ? "text-contour-red font-semibold" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
-            <Wallet className="w-5 h-5" />
+            <Wallet className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] leading-tight tracking-tight">Earnings</span>
           </button>
         </div>
       </footer>

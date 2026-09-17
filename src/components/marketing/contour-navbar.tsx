@@ -75,27 +75,32 @@ export function ContourNavbar() {
 
         {/* Right: Desktop CTA & Mobile Hamburger */}
         <div className="flex items-center gap-3 sm:gap-4">
-          <button
-            type="button"
-            onClick={triggerPwaInstallModal}
-            className="hidden md:inline-flex items-center gap-1.5 font-geist text-xs font-semibold uppercase tracking-wider text-contour-red hover:text-editorial-black border border-red-200 bg-red-50/70 hover:bg-red-50 px-2.5 py-1.5 transition-colors"
-            title="Download Contour App"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Install App</span>
-          </button>
-          <Link
-            href="/sign-in"
-            className="hidden md:inline-flex font-geist text-xs uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover-un px-2 py-1"
-          >
-            Log In
-          </Link>
-          <Link
-            href="/sign-up"
-            className="hidden md:inline-flex btn-fill-wipe bg-editorial-black text-white px-5 sm:px-6 py-2.5 sm:py-3 font-heading text-xs sm:text-sm font-semibold tracking-wide border-none rounded-none"
-          >
-            <span>Get Started</span>
-          </Link>
+          {/* Desktop-Only Action Buttons */}
+          <div className="hidden md:flex items-center gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={triggerPwaInstallModal}
+              className="inline-flex items-center gap-1.5 font-geist text-xs font-semibold uppercase tracking-wider text-contour-red hover:text-editorial-black border border-red-200 bg-red-50/70 hover:bg-red-50 px-2.5 py-1.5 transition-colors"
+              title="Download Contour App"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Install App</span>
+            </button>
+            <Link
+              href="/sign-in"
+              className="font-geist text-xs uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover-un px-2 py-1"
+            >
+              Log In
+            </Link>
+            <Link
+              href="/sign-up"
+              className="btn-fill-wipe bg-editorial-black text-white px-5 sm:px-6 py-2.5 sm:py-3 font-heading text-xs sm:text-sm font-semibold tracking-wide border-none rounded-none"
+            >
+              <span>Get Started</span>
+            </Link>
+          </div>
+
+          {/* Mobile Hamburger Toggle Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 text-editorial-black hover:text-editorial-red focus:outline-none cursor-pointer"
