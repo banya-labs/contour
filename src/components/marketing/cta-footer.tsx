@@ -98,7 +98,7 @@ export function CtaFooter() {
             </motion.h2>
 
             <p className="mt-4 sm:mt-6 font-geist text-xs sm:text-base text-editorial-muted max-w-prose leading-relaxed">
-              Join 180+ Lusaka agents already running their agency on Contour.
+              The high-precision real estate operating system engineered for Lusaka brokerages.
             </p>
 
             <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">

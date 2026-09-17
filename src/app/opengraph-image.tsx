@@ -105,10 +105,10 @@ export default async function OpenGraphImage() {
           }}
         >
           <div style={{ display: "flex", gap: "24px", fontSize: "16px", color: "#333333", fontWeight: 600 }}>
-            <span>• 180+ Active Mandates</span>
-            <span>• K 2.4B Portfolio Value</span>
-            <span>• 5% Fixed Split Ledger</span>
-            <span>• ZMW / USD Billing</span>
+            <span>• Legal & Title Custody</span>
+            <span>• POPIA Data Sovereignty</span>
+            <span>• Offline-First Field PWA</span>
+            <span>• WhatsApp Sentinel</span>
           </div>
           <div style={{ fontSize: "14px", color: "#888888", fontWeight: 500 }}>
             contour.banyalabs.com
