@@ -34,7 +34,7 @@ export default async function OpenGraphImage() {
                 width: "28px",
                 height: "28px",
                 borderRadius: "9999px",
-                backgroundColor: "#DC2626",
+                backgroundColor: "#FA3600",
               }}
             />
             <span

@@ -214,29 +214,35 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Get auth token first to check access validity
-      const tokenRes = await fetch("/api/powersync/token");
-      const tokenData = await tokenRes.json();
-      if (!tokenData.success) {
-        throw new Error("PowerSync token authentication failed.");
+      // 1. Attempt auth token for PowerSync streaming (non-blocking for REST datasets)
+      try {
+        const tokenRes = await fetch("/api/powersync/token");
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json().catch(() => null);
+          if (tokenData?.success) {
+            // PowerSync stream token active
+          }
+        }
+      } catch (tokenErr) {
+        console.warn("PowerSync background stream token deferred:", tokenErr);
       }
 
-      // Fetch dynamic datasets in parallel
+      // 2. Fetch dynamic agency datasets in parallel with cache-busting
       const [propsRes, leasesRes, clientsRes, salesRes] = await Promise.all([
-        fetch("/api/properties"),
-        fetch("/api/leases"),
-        fetch("/api/clients"),
-        fetch("/api/sales")
+        fetch("/api/properties?status=ALL", { cache: "no-store" }),
+        fetch("/api/leases", { cache: "no-store" }),
+        fetch("/api/clients", { cache: "no-store" }),
+        fetch("/api/sales", { cache: "no-store" }),
       ]);
 
       const [propsData, leasesData, clientsData, salesData] = await Promise.all([
-        propsRes.json(),
-        leasesRes.json(),
-        clientsRes.json(),
-        salesRes.json()
+        propsRes.ok ? propsRes.json().catch(() => ({ success: false })) : { success: false },
+        leasesRes.ok ? leasesRes.json().catch(() => ({ success: false })) : { success: false },
+        clientsRes.ok ? clientsRes.json().catch(() => ({ success: false })) : { success: false },
+        salesRes.ok ? salesRes.json().catch(() => ({ success: false })) : { success: false },
       ]);
 
-      if (propsData.success) {
+      if (propsData.success && Array.isArray(propsData.properties)) {
         // Enforce POPIA compliance by stripping owner details on client
         const safeProperties = propsData.properties.map((p: any) => {
           const { ownerName, ownerPhone, ownerEmail, ownerBankDetails, titleDeedNumber, ...publicFields } = p;

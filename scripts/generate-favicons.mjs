@@ -3,16 +3,19 @@ import path from "node:path";
 import sharp from "sharp";
 
 const rootDir = process.cwd();
+const publicDir = path.resolve(rootDir, "public");
 
-// Clean orange circle with subtle 2px breathing margin in a 32x32 viewbox
-const SVG_CONTENT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+// Strictly just the crisp orange circle (#FA3600)
+const SVG_MARK = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <circle cx="256" cy="256" r="230" fill="#FA3600"/>
+</svg>`;
+
+const SVG_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <circle cx="16" cy="16" r="14" fill="#FA3600"/>
-</svg>
-`;
+</svg>`;
 
 // Helper to assemble PNGs into an ICO file
 function createIco(images) {
-  // images: Array<{ width: number, height: number, buffer: Buffer }>
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0); // Reserved
   header.writeUInt16LE(1, 2); // Type 1 = ICO
@@ -42,19 +45,24 @@ function createIco(images) {
 }
 
 async function run() {
-  console.log("Generating favicons and brand icons...");
-  const svgBuffer = Buffer.from(SVG_CONTENT, "utf-8");
+  console.log("Generating favicons and brand icons (strictly crisp orange circle)...");
+  const svgBuffer = Buffer.from(SVG_MARK, "utf-8");
 
   // Save SVG icons
   const svgTargets = [
-    path.join(rootDir, "public", "icon.svg"),
-    path.join(rootDir, "public", "favicon.svg"),
+    path.join(publicDir, "brand", "contour-mark.svg"),
+    path.join(publicDir, "icon.svg"),
+    path.join(publicDir, "favicon.svg"),
     path.join(rootDir, "src", "app", "icon.svg"),
   ];
 
   for (const target of svgTargets) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, SVG_CONTENT, "utf-8");
+    if (target.endsWith("contour-mark.svg")) {
+      fs.writeFileSync(target, SVG_MARK.trim(), "utf-8");
+    } else {
+      fs.writeFileSync(target, SVG_FAVICON.trim(), "utf-8");
+    }
     console.log(`Wrote ${path.relative(rootDir, target)}`);
   }
 
@@ -70,7 +78,7 @@ async function run() {
   ]);
 
   const icoTargets = [
-    path.join(rootDir, "public", "favicon.ico"),
+    path.join(publicDir, "favicon.ico"),
     path.join(rootDir, "src", "app", "favicon.ico"),
   ];
 
@@ -83,7 +91,7 @@ async function run() {
   // Generate Apple Touch Icon (180x180)
   const p180 = await sharp(svgBuffer).resize(180, 180).png().toBuffer();
   const appleTargets = [
-    path.join(rootDir, "public", "apple-icon.png"),
+    path.join(publicDir, "apple-icon.png"),
     path.join(rootDir, "src", "app", "apple-icon.png"),
   ];
   for (const target of appleTargets) {
@@ -95,10 +103,12 @@ async function run() {
   const p192 = await sharp(svgBuffer).resize(192, 192).png().toBuffer();
   const p512 = await sharp(svgBuffer).resize(512, 512).png().toBuffer();
 
-  fs.writeFileSync(path.join(rootDir, "public", "icon-192.png"), p192);
+  fs.writeFileSync(path.join(publicDir, "icon-192.png"), p192);
   console.log("Wrote public/icon-192.png");
-  fs.writeFileSync(path.join(rootDir, "public", "icon-512.png"), p512);
+  fs.writeFileSync(path.join(publicDir, "icon-512.png"), p512);
   console.log("Wrote public/icon-512.png");
+  fs.writeFileSync(path.join(publicDir, "icon-maskable-512.png"), p512);
+  console.log("Wrote public/icon-maskable-512.png");
 
   console.log("All favicon and brand icon assets generated successfully!");
 }

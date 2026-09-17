@@ -157,9 +157,10 @@ export default function SocialMediaCardGeneratorModal({
         {/* Modal Header: Swiss Editorial Rule Grid */}
         <div className="px-5 py-3.5 bg-white border-b border-[#e0e0e0] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#fa3600] text-white flex items-center justify-center font-bold text-xs shrink-0">
-              C
-            </div>
+            <div
+              aria-hidden="true"
+              className="w-7 h-7 rounded-full bg-[#fa3600] shrink-0"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[10px] text-[#fa3600] font-bold uppercase tracking-widest">
@@ -515,9 +516,10 @@ export default function SocialMediaCardGeneratorModal({
                         />
                       </div>
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-[#fa3600] flex items-center justify-center font-bold text-[10px] text-white shrink-0">
-                        {agencySettings?.agencyName?.[0] || "C"}
-                      </div>
+                      <div
+                        aria-hidden="true"
+                        className="w-5 h-5 rounded-full bg-[#fa3600] shrink-0"
+                      />
                     )}
                     <div className="font-heading font-bold text-[9px] uppercase tracking-wider text-white truncate max-w-[110px]">
                       {agencySettings?.agencyName || "CONTOUR"}
@@ -768,9 +770,10 @@ export default function SocialMediaCardGeneratorModal({
                         />
                       </div>
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-[#fa3600] flex items-center justify-center text-white font-bold text-[9px] shrink-0">
-                        {agencySettings?.agencyName?.[0] || "C"}
-                      </div>
+                      <div
+                        aria-hidden="true"
+                        className="w-4 h-4 rounded-full bg-[#fa3600] shrink-0"
+                      />
                     )}
                     <span className="font-heading font-bold text-[8px] uppercase tracking-wider truncate max-w-[100px]">
                       {agencySettings?.agencyName || "CONTOUR"}

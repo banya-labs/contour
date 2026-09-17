@@ -28,15 +28,50 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
   const userId = session.user.id;
   let organizationId = session.session?.activeOrganizationId;
 
-  if (!organizationId) {
+  let membership: any = null;
+  if (organizationId) {
     try {
-      const activeMember = await db.member.findFirst({
-        where: { userId, status: "active" },
-        select: { organizationId: true },
-        orderBy: { createdAt: "asc" },
+      membership = await db.member.findUnique({
+        where: { organizationId_userId: { organizationId, userId } },
+        select: { id: true, role: true, status: true, roleAssignments: { include: { role: { include: { permissions: true } } } }, permissionOverrides: true },
       });
-      if (activeMember) {
-        organizationId = activeMember.organizationId;
+    } catch {
+      // Allow an application rollout before the additive RBAC migration has been applied.
+      const legacyMembership = await db.member.findUnique({
+        where: { organizationId_userId: { organizationId, userId } },
+        select: { id: true, role: true },
+      });
+      membership = legacyMembership ? { ...legacyMembership, status: "active", roleAssignments: [], permissionOverrides: [] } : null;
+    }
+  }
+
+  // If organizationId was unset or membership is not active in that organization,
+  // resolve the user's latest active organization membership
+  if (!membership || membership.status !== "active") {
+    try {
+      const latestMember = await db.member.findFirst({
+        where: { userId, status: "active" },
+        select: {
+          id: true,
+          organizationId: true,
+          role: true,
+          status: true,
+          roleAssignments: { include: { role: { include: { permissions: true } } } },
+          permissionOverrides: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      if (latestMember) {
+        organizationId = latestMember.organizationId;
+        membership = latestMember;
+
+        // Persist activeOrganizationId into the active session record
+        if (session.session?.id) {
+          db.session.update({
+            where: { id: session.session.id },
+            data: { activeOrganizationId: organizationId, organizationId },
+          }).catch(() => {});
+        }
       } else {
         return null;
       }
@@ -44,22 +79,8 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
       return null;
     }
   }
-  let membership;
-  try {
-    membership = await db.member.findUnique({
-      where: { organizationId_userId: { organizationId, userId } },
-      select: { id: true, role: true, status: true, roleAssignments: { include: { role: { include: { permissions: true } } } }, permissionOverrides: true },
-    });
-  } catch {
-    // Allow an application rollout before the additive RBAC migration has been applied.
-    const legacyMembership = await db.member.findUnique({
-      where: { organizationId_userId: { organizationId, userId } },
-      select: { id: true, role: true },
-    });
-    membership = legacyMembership ? { ...legacyMembership, status: "active", roleAssignments: [], permissionOverrides: [] } : null;
-  }
 
-  if (!membership || membership.status !== "active") {
+  if (!membership || membership.status !== "active" || !organizationId) {
     return null;
   }
 

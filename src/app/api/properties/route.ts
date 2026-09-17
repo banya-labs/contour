@@ -81,14 +81,29 @@ const getHandler = createApiHandler({
       });
       if (found) targetOrgData = found;
     } else {
-      // Fallback to primary active agency organization
-      const defaultOrg = await db.organization.findFirst({
-        orderBy: { createdAt: "asc" },
-        select: { id: true, name: true, slug: true },
-      });
-      if (defaultOrg) {
-        targetOrgId = defaultOrg.id;
-        targetOrgData = defaultOrg;
+      // If user is authenticated, look up their active agency organization
+      if (userId) {
+        const member = await db.member.findFirst({
+          where: { userId, status: "active" },
+          select: { organization: { select: { id: true, name: true, slug: true } } },
+          orderBy: { createdAt: "desc" },
+        });
+        if (member?.organization) {
+          targetOrgId = member.organization.id;
+          targetOrgData = member.organization;
+        }
+      }
+
+      // Public visitor fallback only when truly unauthenticated
+      if (!targetOrgId) {
+        const defaultOrg = await db.organization.findFirst({
+          orderBy: { createdAt: "asc" },
+          select: { id: true, name: true, slug: true },
+        });
+        if (defaultOrg) {
+          targetOrgId = defaultOrg.id;
+          targetOrgData = defaultOrg;
+        }
       }
     }
 
@@ -505,6 +520,7 @@ const postHandler = createApiHandler({
 
     // Invalidate tenant cache tags for instant UI consistency
     smartCache.invalidateTag(organizationId!, "properties", "/dashboard/properties");
+    smartCache.invalidateTag(organizationId!, "properties", "/agent");
     smartCache.invalidateTag(organizationId!, "dashboard-metrics");
     smartCache.invalidateTag(organizationId!, "dashboard-action-queue");
 

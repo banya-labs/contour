@@ -3,6 +3,7 @@ import React from "react";
 type ContourLogoProps = {
   className?: string;
   compact?: boolean;
+  iconOnly?: boolean;
   size?: "sm" | "md" | "lg";
   variant?: "light" | "dark";
 };
@@ -16,10 +17,26 @@ const sizeClasses = {
 export function ContourLogo({
   className = "",
   compact = false,
+  iconOnly = false,
   size = "md",
   variant = "light",
 }: ContourLogoProps) {
   const textColor = variant === "dark" ? "text-white" : "text-editorial-black";
+
+  if (compact || iconOnly) {
+    return (
+      <span
+        role="img"
+        aria-label="Contour"
+        className={`inline-flex items-center justify-center shrink-0 leading-none ${sizeClasses[size]} ${className}`}
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block h-[1em] w-[1em] shrink-0 rounded-full bg-editorial-red"
+        />
+      </span>
+    );
+  }
 
   return (
     <span
@@ -32,7 +49,7 @@ export function ContourLogo({
         aria-hidden="true"
         className="inline-block h-[1em] w-[1em] shrink-0 rounded-full bg-editorial-red"
       />
-      {!compact && <span aria-hidden="true">NTOUR</span>}
+      <span aria-hidden="true">NTOUR</span>
     </span>
   );
 }

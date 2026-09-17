@@ -9,7 +9,6 @@ import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 import { checkRateLimit } from "@/lib/rate-limiter";
 
 const PUBLIC_PATHS = [
-  "/",
   "/login",
   "/sign-in",
   "/sign-up",
@@ -67,6 +66,68 @@ export async function middleware(request: NextRequest) {
     const canonicalUrl = new URL("/agent", request.url);
     canonicalUrl.search = request.nextUrl.search;
     return NextResponse.redirect(canonicalUrl);
+  }
+
+  // Intercept root "/" to handle mobile app / PWA routing and authenticated session restoration
+  if (request.nextUrl.pathname === "/") {
+    const isPwa =
+      request.nextUrl.searchParams.get("source") === "pwa" ||
+      request.nextUrl.searchParams.get("source") === "mobile" ||
+      request.nextUrl.searchParams.get("source") === "app" ||
+      request.headers.get("sec-ch-ua-mobile") === "?1" ||
+      /Android|iPhone|iPad|iPod|Mobile/i.test(request.headers.get("user-agent") || "") ||
+      request.cookies.get("contour_is_pwa")?.value === "true";
+
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    if (session?.user) {
+      // User is already logged in with a valid token: restore last visited page
+      const lastPage = request.cookies.get("contour_last_page")?.value;
+      const isValidLastPage =
+        lastPage &&
+        (lastPage.startsWith("/dashboard") || lastPage.startsWith("/agent") || lastPage.startsWith("/kiosk")) &&
+        !lastPage.startsWith("/sign-in") &&
+        !lastPage.startsWith("/login");
+
+      if (isValidLastPage) {
+        const redirectUrl = new URL(lastPage, request.url);
+        const response = NextResponse.redirect(redirectUrl);
+        response.headers.set(CORRELATION_HEADER, correlationId);
+        if (isPwa) {
+          response.cookies.set("contour_is_pwa", "true", { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+        }
+        return response;
+      }
+
+      // No previous page saved: route based on role
+      const tenant = await getTenantContext(request);
+      const role = tenant?.contourRole || resolveContourRole(session.user.role ?? undefined, "member", tenant?.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
+      const destination = roleHasPermission(role, "dashboard.read") ? "/dashboard" : "/agent";
+      const redirectUrl = new URL(destination, request.url);
+      const response = NextResponse.redirect(redirectUrl);
+      response.headers.set(CORRELATION_HEADER, correlationId);
+      if (isPwa) {
+        response.cookies.set("contour_is_pwa", "true", { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+      }
+      return response;
+    }
+
+    // Unauthenticated user:
+    // If opening from mobile app / PWA, go straight to login screen, never marketing home page
+    if (isPwa) {
+      const signInUrl = new URL("/sign-in", request.url);
+      const response = NextResponse.redirect(signInUrl);
+      response.headers.set(CORRELATION_HEADER, correlationId);
+      response.cookies.set("contour_is_pwa", "true", { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+      return response;
+    }
+
+    // Standard desktop browser: show public marketing home page
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set(CORRELATION_HEADER, correlationId);
+    return response;
   }
 
   if (isPublicPath(request.nextUrl.pathname)) {
@@ -137,6 +198,20 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set(CORRELATION_HEADER, correlationId);
+
+  // Track last visited application path for seamless session restoration
+  if (
+    (pathname.startsWith("/dashboard") || pathname.startsWith("/agent") || pathname.startsWith("/kiosk")) &&
+    !pathname.startsWith("/dashboard/billing")
+  ) {
+    response.cookies.set("contour_last_page", pathname, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30-day persistence
+      sameSite: "lax",
+      httpOnly: false,
+    });
+  }
+
   return response;
 }
 

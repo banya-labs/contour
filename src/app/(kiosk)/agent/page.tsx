@@ -188,8 +188,21 @@ function AgentKioskContent() {
         email: session.user.email || current.email,
       }));
       loadSummary();
+      void syncData();
     }
-  }, [session]);
+  }, [session, syncData]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void syncData();
+    };
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", handleFocus);
+    };
+  }, [syncData]);
 
   const handleSignOut = async () => {
     await authClient.signOut();
@@ -296,10 +309,15 @@ function AgentKioskContent() {
 
   const isPropertyAssignedToMe = (p: any) => {
     if (!p) return false;
+    const userId = session?.user?.id || currentAgent.id;
+    const userName = session?.user?.name || currentAgent.name;
+    const userEmail = session?.user?.email || currentAgent.email;
     return Boolean(
-      p.assignedAgentId === currentAgent.id ||
-      p.assignedAgent?.id === currentAgent.id ||
-      p.assignedAgent?.name === currentAgent.name
+      (p.assignedAgentId && p.assignedAgentId === userId) ||
+      (p.assignedAgent?.id && p.assignedAgent.id === userId) ||
+      (p.assignedAgent?.email && userEmail && p.assignedAgent.email.toLowerCase() === userEmail.toLowerCase()) ||
+      (p.assignedAgent?.name && userName && p.assignedAgent.name.toLowerCase() === userName.toLowerCase()) ||
+      (p.createdById && p.createdById === userId)
     );
   };
 

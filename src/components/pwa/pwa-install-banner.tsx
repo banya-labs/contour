@@ -76,9 +76,10 @@ export function PwaInstallBanner() {
 
         {/* Header */}
         <div className="flex items-center gap-3 pb-4 border-b border-editorial-border">
-          <div className="w-10 h-10 bg-[#FA3600] text-white flex items-center justify-center font-heading font-black text-lg">
-            C
-          </div>
+          <div
+            aria-hidden="true"
+            className="w-9 h-9 rounded-full bg-[#FA3600] shrink-0"
+          />
           <div>
             <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-editorial-black">
               Install Contour App

@@ -91,17 +91,38 @@ export const auth = betterAuth({
         try {
           const ip = ctx.request?.headers?.get("x-forwarded-for") ?? "unknown";
           const userAgent = ctx.request?.headers?.get("user-agent") ?? "unknown";
-          const succeeded = !!ctx.context?.newSession;
-          await db.auditLog.create({
-            data: {
-              action: succeeded ? "USER_SIGN_IN" : "USER_SIGN_IN_FAILED",
-              entityType: "User",
-              entityId: ctx.body?.email ?? "unknown",
-              ipAddress: ip,
-              userAgent,
-              details: { method: "email" },
-            },
-          });
+          const newSession = ctx.context?.newSession;
+          const succeeded = !!newSession;
+          const userEmail = ctx.body?.email ?? "unknown";
+
+          let orgId = newSession?.session?.activeOrganizationId || newSession?.session?.organizationId;
+          if (!orgId && newSession?.user?.id) {
+            const member = await db.member.findFirst({
+              where: { userId: newSession.user.id, status: "active" },
+              select: { organizationId: true },
+              orderBy: { createdAt: "desc" },
+            });
+            orgId = member?.organizationId;
+          }
+          if (!orgId) {
+            const defaultOrg = await db.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
+            orgId = defaultOrg?.id;
+          }
+
+          if (orgId) {
+            await db.auditLog.create({
+              data: {
+                organizationId: orgId,
+                userId: newSession?.user?.id,
+                action: succeeded ? "USER_SIGN_IN" : "USER_SIGN_IN_FAILED",
+                entityType: "User",
+                entityId: userEmail,
+                ipAddress: ip,
+                userAgent,
+                details: { method: "email" },
+              },
+            });
+          }
         } catch {
           // Non-blocking — never let audit failures break login
         }
@@ -109,14 +130,25 @@ export const auth = betterAuth({
         try {
           const sessionUserId = ctx.context?.session?.userId;
           if (sessionUserId) {
-            await db.auditLog.create({
-              data: {
-                action: "USER_SIGN_OUT",
-                entityType: "User",
-                entityId: sessionUserId,
-                details: { method: "explicit" },
-              },
+            const member = await db.member.findFirst({
+              where: { userId: sessionUserId, status: "active" },
+              select: { organizationId: true },
+              orderBy: { createdAt: "desc" },
             });
+            const defaultOrg = !member ? await db.organization.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } }) : null;
+            const orgId = member?.organizationId || defaultOrg?.id;
+            if (orgId) {
+              await db.auditLog.create({
+                data: {
+                  organizationId: orgId,
+                  userId: sessionUserId,
+                  action: "USER_SIGN_OUT",
+                  entityType: "User",
+                  entityId: sessionUserId,
+                  details: { method: "explicit" },
+                },
+              });
+            }
           }
         } catch {
           // Non-blocking
