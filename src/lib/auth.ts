@@ -4,19 +4,48 @@ import { organization, bearer, twoFactor } from "better-auth/plugins";
 import { db } from "./db";
 import { env } from "@/env";
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID || env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
+
+const resolvedBaseUrl =
+  process.env.BETTER_AUTH_URL ||
+  (process.env.NODE_ENV === "production" && env.BETTER_AUTH_URL === "http://localhost:3000"
+    ? (env.NEXT_PUBLIC_APP_URL && env.NEXT_PUBLIC_APP_URL !== "http://localhost:3000"
+        ? env.NEXT_PUBLIC_APP_URL
+        : "https://contour.banyalabs.com")
+    : env.BETTER_AUTH_URL);
+
 export const auth = betterAuth({
   database: prismaAdapter(db, {
     provider: "postgresql",
   }),
   secret: env.BETTER_AUTH_SECRET,
-  baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: [env.BETTER_AUTH_URL],
+  baseURL: resolvedBaseUrl,
+  trustedOrigins: (request) => {
+    const origins = [
+      resolvedBaseUrl,
+      env.BETTER_AUTH_URL,
+      env.NEXT_PUBLIC_APP_URL,
+      process.env.BETTER_AUTH_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+      "https://contour.banyalabs.com",
+      "http://localhost:3000",
+    ];
+    if (request) {
+      const origin = request.headers.get("origin");
+      if (origin) origins.push(origin);
+      const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+      const proto = request.headers.get("x-forwarded-proto") || "https";
+      if (host) origins.push(`${proto}://${host}`);
+    }
+    return Array.from(new Set(origins.filter((o): o is string => Boolean(o))));
+  },
   socialProviders:
-    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+    googleClientId && googleClientSecret
       ? {
           google: {
-            clientId: env.GOOGLE_CLIENT_ID,
-            clientSecret: env.GOOGLE_CLIENT_SECRET,
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
           },
         }
       : undefined,

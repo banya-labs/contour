@@ -142,13 +142,24 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
   async function handleGoogleSignIn() {
     setError(null);
-    const result = await authClient.signIn.social({
-      provider: "google",
-      callbackURL: onboardingUrl,
-    });
+    try {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: onboardingUrl,
+      });
 
-    if (result.error) {
-      setError(result.error.message || "Google authentication is not configured.");
+      if (result.error) {
+        console.error("Google sign in error:", result.error);
+        setError(
+          result.error.message ||
+            (result.error.status
+              ? `Google authentication failed (${result.error.status}${result.error.statusText ? `: ${result.error.statusText}` : ""}). Verify GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set in Dokploy.`
+              : "Google authentication is not configured. Please ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set in Dokploy.")
+        );
+      }
+    } catch (err: any) {
+      console.error("Google sign in exception:", err);
+      setError(err?.message || "Failed to initiate Google sign in.");
     }
   }
 

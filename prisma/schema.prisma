@@ -30,6 +30,7 @@ model User {
   image         String?
   role          UserRole  @default(FIELD_AGENT)
   phone         String?
+  twoFactorEnabled Boolean? @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -109,12 +110,15 @@ model Verification {
 
 // Required by Better Auth twoFactor() plugin — stores TOTP secret and backup codes.
 model TwoFactor {
-  id          String @id @default(cuid())
-  secret      String
-  backupCodes String
-  userId      String @unique
+  id                      String    @id @default(cuid())
+  secret                  String
+  backupCodes             String
+  userId                  String    @unique
+  verified                Boolean   @default(false)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
 
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("two_factor")
 }
