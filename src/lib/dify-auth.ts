@@ -63,7 +63,8 @@ export async function authenticateDifyRequest(
     const token = authHeader.replace("Bearer ", "").trim();
 
     // 2. Master service secret validation (configured in Dokploy / .env)
-    const masterSecret = process.env.BETTER_AUTH_SECRET;
+    // Uses a SEPARATE DIFY_MASTER_SECRET — never reuse BETTER_AUTH_SECRET here.
+    const masterSecret = process.env.DIFY_MASTER_SECRET;
     if (masterSecret && token === masterSecret) {
       if (!targetOrgId) {
         return {

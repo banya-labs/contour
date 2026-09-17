@@ -6,6 +6,7 @@ import { CORRELATION_HEADER, getOrCreateCorrelationId } from "@/lib/correlation"
 import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
+import { checkRateLimit } from "@/lib/rate-limiter";
 
 const PUBLIC_PATHS = [
   "/",
@@ -38,6 +39,29 @@ export async function middleware(request: NextRequest) {
   const correlationId = getOrCreateCorrelationId(request);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CORRELATION_HEADER, correlationId);
+
+  // Fix 2: Rate-limit login attempts BEFORE the public-path bypass.
+  // /api/auth/ is public for cookie handling, but brute-force on sign-in must be throttled.
+  if (
+    request.nextUrl.pathname === "/api/auth/sign-in/email" ||
+    request.nextUrl.pathname === "/api/auth/sign-in/social"
+  ) {
+    const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown";
+    const result = await checkRateLimit(`login:ip:${ip}`, 10, 60); // 10 attempts / 60s
+    if (!result.allowed) {
+      return NextResponse.json(
+        { error: "Too many login attempts. Please wait before trying again." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(result.resetSeconds),
+            "X-RateLimit-Limit": "10",
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      );
+    }
+  }
 
   if (request.nextUrl.pathname === "/agent/kiosk" || request.nextUrl.pathname === "/kiosk/agent") {
     const canonicalUrl = new URL("/agent", request.url);

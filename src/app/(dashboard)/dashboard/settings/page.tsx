@@ -40,6 +40,7 @@ import {
 } from "@/lib/settings/agency-settings";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { MfaSetupDialog } from "@/components/auth/mfa-setup-dialog";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -107,6 +108,22 @@ function SettingsContent() {
   const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [deleteMemberError, setDeleteMemberError] = useState<string | null>(null);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [showMfaSetup, setShowMfaSetup] = useState(false);
+  const [mfaDisabling, setMfaDisabling] = useState(false);
+
+  async function handleDisableMfa() {
+    setMfaDisabling(true);
+    try {
+      await (authClient as any).twoFactor.disable();
+      setMfaEnabled(false);
+    } catch {
+      // silent fail — user can try again
+    } finally {
+      setMfaDisabling(false);
+    }
+  }
+
   const activeOrgSlug = workspace?.slug || "contour-demo";
 
   useEffect(() => {
@@ -1111,6 +1128,75 @@ function SettingsContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TWO-FACTOR AUTHENTICATION SECTION */}
+      {activeTab === "ORGANIZATION" && (
+        <div className="p-6 bg-white border border-editorial-border space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-editorial-border">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-contour-red" />
+              <div>
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Two-Factor Authentication
+                </h3>
+                <p className="text-[11px] text-editorial-muted font-geist mt-0.5">
+                  Add a second layer of security using an authenticator app. No email required.
+                </p>
+              </div>
+            </div>
+            {mfaEnabled ? (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Enabled
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-neutral-100 text-editorial-muted border border-editorial-border">
+                Not Enabled
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-editorial-black font-semibold">
+                {mfaEnabled
+                  ? "Your account is protected with TOTP two-factor authentication."
+                  : "Protect your account with Google Authenticator or Authy."}
+              </p>
+              <p className="text-[11px] text-editorial-muted font-geist">
+                {mfaEnabled
+                  ? "You will be prompted for a 6-digit code every time you sign in."
+                  : "Scan a QR code once — then enter a 6-digit code each login. Free forever."}
+              </p>
+            </div>
+            {!mfaEnabled ? (
+              <button
+                type="button"
+                onClick={() => setShowMfaSetup(true)}
+                className="shrink-0 px-4 py-2.5 bg-editorial-black text-white text-[10px] font-bold uppercase tracking-wider hover:bg-editorial-black/90 transition-colors flex items-center gap-1.5"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Enable 2FA
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleDisableMfa()}
+                disabled={mfaDisabling}
+                className="shrink-0 px-4 py-2.5 border border-red-200 text-red-600 text-[10px] font-bold uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                {mfaDisabling ? "Disabling..." : "Disable 2FA"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showMfaSetup && (
+        <MfaSetupDialog
+          onClose={() => setShowMfaSetup(false)}
+          onEnabled={() => setMfaEnabled(true)}
+        />
       )}
 
       {/* TAB 3: PUBLIC API & WEBSITE INTEGRATION */}

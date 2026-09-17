@@ -37,6 +37,7 @@ model User {
   accounts           Account[]
   members            Member[]
   apiKeys            ApiKey[]
+  twoFactor          TwoFactor?
   assignedProperties Property[]          @relation("AssignedAgent")
   createdProperties  Property[]          @relation("CreatedProperties")
   inquiries          Inquiry[]           @relation("AssignedInquiries")
@@ -104,6 +105,18 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@map("verification")
+}
+
+// Required by Better Auth twoFactor() plugin — stores TOTP secret and backup codes.
+model TwoFactor {
+  id          String @id @default(cuid())
+  secret      String
+  backupCodes String
+  userId      String @unique
+
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("two_factor")
 }
 
 model Organization {

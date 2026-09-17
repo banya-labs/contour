@@ -1,10 +1,10 @@
 import { createAuthClient } from "better-auth/react";
-import { organizationClient } from "better-auth/client/plugins";
+import { organizationClient, twoFactorClient } from "better-auth/client/plugins";
 import { clearLocalOfflineCache } from "./powersync";
 
 export const authClient = createAuthClient({
   baseURL: typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
-  plugins: [organizationClient()],
+  plugins: [organizationClient(), twoFactorClient()],
 });
 
 const rawSignOut = authClient.signOut.bind(authClient);

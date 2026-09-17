@@ -4,10 +4,13 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().url().default("postgresql://postgres:postgres@localhost:5432/contour_db"),
-    BETTER_AUTH_SECRET: z.string().min(1).default("dev-better-auth-secret-change-in-production-12345"),
+    // No default — must be set explicitly. Use: openssl rand -base64 32
+    BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
+    // Separate secret for Dify agent-to-app bearer auth. Must NOT be the same as BETTER_AUTH_SECRET.
+    DIFY_MASTER_SECRET: z.string().min(32).optional(),
     LENCO_API_KEY: z.string().optional(),
     LENCO_API_URL: z.string().url().default("https://api.lenco.co"),
     LENCO_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
@@ -34,6 +37,7 @@ export const env = createEnv({
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    DIFY_MASTER_SECRET: process.env.DIFY_MASTER_SECRET,
     LENCO_API_KEY: process.env.LENCO_API_KEY,
     LENCO_API_URL: process.env.LENCO_API_URL,
     LENCO_ENVIRONMENT: process.env.LENCO_ENVIRONMENT as "sandbox" | "production" | undefined,
