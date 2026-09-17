@@ -40,22 +40,21 @@ export default function PropertyImageUploader({
 
   const isDark = theme === "dark";
 
+  const [uploadingCount, setUploadingCount] = useState(0);
+
   const handleUploadFiles = async (files: FileList | File[]) => {
     if (disabled || files.length === 0) return;
     setError(null);
-    setUploading(true);
 
     const validFiles: File[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (!file.type.startsWith("image/")) {
         setError(`"${file.name}" is not a valid image file.`);
-        setUploading(false);
         return;
       }
       if (file.size > 15 * 1024 * 1024) {
         setError(`"${file.name}" exceeds the 15MB file size limit.`);
-        setUploading(false);
         return;
       }
       validFiles.push(file);
@@ -63,37 +62,41 @@ export default function PropertyImageUploader({
 
     if (photos.length + validFiles.length > maxPhotos) {
       setError(`You can only upload up to ${maxPhotos} photos per listing.`);
-      setUploading(false);
       return;
     }
 
-    const uploadedUrls: string[] = [];
+    setUploadingCount(validFiles.length);
+    setUploading(true);
 
     try {
+      const formData = new FormData();
       for (const file of validFiles) {
-        const formData = new FormData();
-        formData.append("file", file);
-        if (propertyId) {
-          formData.append("propertyId", propertyId);
-        }
-
-        const res = await fetch("/api/properties/upload-image", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          const errMsg = data.details
-            ? `${data.error || "Failed to upload image"}: ${data.details}`
-            : data.error || `Failed to upload "${file.name}"`;
-          throw new Error(errMsg);
-        }
-
-        uploadedUrls.push(data.url);
+        formData.append("files", file);
+      }
+      if (propertyId) {
+        formData.append("propertyId", propertyId);
       }
 
-      const updatedPhotos = [...photos, ...uploadedUrls];
+      const res = await fetch("/api/properties/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        const errMsg = data.details
+          ? `${data.error || "Failed to upload image"}: ${data.details}`
+          : data.error || `Failed to upload ${validFiles.length} photo(s)`;
+        throw new Error(errMsg);
+      }
+
+      const newUrls: string[] = Array.isArray(data.urls) && data.urls.length > 0
+        ? data.urls
+        : data.url
+        ? [data.url]
+        : [];
+
+      const updatedPhotos = [...photos, ...newUrls];
       const updatedFeatured = featuredPhoto || updatedPhotos[0];
       onChange(updatedPhotos, updatedFeatured);
     } catch (err: any) {
@@ -101,6 +104,7 @@ export default function PropertyImageUploader({
       setError(err.message || "An error occurred while uploading photos.");
     } finally {
       setUploading(false);
+      setUploadingCount(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
@@ -190,7 +194,7 @@ export default function PropertyImageUploader({
           <div>
             <p className={`text-xs font-bold ${isDark ? "text-white" : "text-stone-900"}`}>
               {uploading
-                ? "Uploading listing photos..."
+                ? `Uploading ${uploadingCount > 1 ? `${uploadingCount} listing photos` : "listing photo"}...`
                 : "Drop photos here or click to open file dialog"}
             </p>
             <p className={`text-[10px] mt-0.5 ${isDark ? "text-slate-400" : "text-stone-500"}`}>
@@ -276,6 +280,7 @@ export default function PropertyImageUploader({
                     src={url}
                     alt={`Listing photo ${idx + 1}`}
                     fill
+                    unoptimized
                     sizes="(max-width: 640px) 33vw, 25vw"
                     className="object-cover"
                   />

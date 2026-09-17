@@ -32,6 +32,7 @@ import Property360DetailModal from "@/components/properties/property-360-detail-
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
 import TitleDeedOcrUploader from "@/components/properties/title-deed-ocr-uploader";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
+import LocationCoordinatePicker from "@/components/properties/location-coordinate-picker";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
@@ -136,12 +137,13 @@ function PropertiesCatalogContent() {
     bedrooms: "3",
     bathrooms: "2",
     plotSizeSqm: "500",
-    latitude: -15.4211,
-    longitude: 28.3341,
+    latitude: -15.4215,
+    longitude: 28.3345,
     suburb: "Kabulonga",
     assignedAgentId: "",
     assignedAgentName: "",
     landmarkDirections: "",
+    description: "",
     photos: [] as string[],
     featuredPhoto: undefined as string | undefined,
     standBoundary: undefined as any,
@@ -170,50 +172,64 @@ function PropertiesCatalogContent() {
     e.preventDefault();
     setFormError(null);
 
-    if (formData.photos.length === 0) {
-      setFormError("Please upload at least one property photo from your device.");
-      return;
-    }
-
     if (!formData.mandateDeclarationAgreed) {
       setFormError("Statutory Mandate & Title Warranty required: You must confirm that your agency holds an active mandate from the lawful owner before publishing.");
       return;
     }
 
     try {
+      const askingPriceNum =
+        formData.listingType === "FOR_SALE" && formData.askingPrice && !isNaN(parseFloat(formData.askingPrice))
+          ? parseFloat(formData.askingPrice)
+          : undefined;
+      const rentalPriceNum =
+        formData.listingType === "FOR_RENT" && formData.rentalPrice && !isNaN(parseFloat(formData.rentalPrice))
+          ? parseFloat(formData.rentalPrice)
+          : undefined;
+      const plotSizeNum =
+        formData.plotSizeSqm && !isNaN(parseFloat(formData.plotSizeSqm)) && parseFloat(formData.plotSizeSqm) >= 0
+          ? parseFloat(formData.plotSizeSqm)
+          : undefined;
+      const bedroomsNum =
+        formData.bedrooms && !isNaN(parseInt(formData.bedrooms, 10))
+          ? parseInt(formData.bedrooms, 10)
+          : undefined;
+      const bathroomsNum =
+        formData.bathrooms && !isNaN(parseFloat(formData.bathrooms))
+          ? parseFloat(formData.bathrooms)
+          : undefined;
+
+      const payload = {
+        title: formData.title.trim(),
+        listingType: formData.listingType,
+        ownershipType: formData.ownershipType,
+        askingPrice: askingPriceNum,
+        rentalPrice: rentalPriceNum,
+        currency: formData.currency,
+        bedrooms: bedroomsNum,
+        bathrooms: bathroomsNum,
+        plotSizeSqm: plotSizeNum,
+        latitude: typeof formData.latitude === "number" && !isNaN(formData.latitude) ? formData.latitude : undefined,
+        longitude: typeof formData.longitude === "number" && !isNaN(formData.longitude) ? formData.longitude : undefined,
+        suburb: formData.suburb,
+        assignedAgentId: formData.assignedAgentId || undefined,
+        assignedAgentName: formData.assignedAgentName || undefined,
+        landmarkDirections: formData.landmarkDirections?.trim() || undefined,
+        description: formData.description?.trim() || undefined,
+        photos: formData.photos,
+        featuredPhoto: formData.featuredPhoto || (formData.photos && formData.photos[0]) || undefined,
+        standBoundary: formData.standBoundary,
+        titleDeedNumber: formData.titleDeedNumber || undefined,
+        titleDeedDocumentId: formData.titleDeedDocumentId || undefined,
+        mandateType: formData.mandateType,
+        mandateReference: formData.mandateReference || undefined,
+        mandateDeclarationAgreed: formData.mandateDeclarationAgreed,
+      };
+
       const res = await fetch("/api/properties", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formData.title,
-          listingType: formData.listingType,
-          ownershipType: formData.ownershipType,
-          askingPrice:
-            formData.listingType === "FOR_SALE"
-              ? parseFloat(formData.askingPrice)
-              : undefined,
-          rentalPrice:
-            formData.listingType === "FOR_RENT"
-              ? parseFloat(formData.rentalPrice)
-              : undefined,
-          currency: formData.currency,
-          bedrooms: parseInt(formData.bedrooms) || 0,
-          bathrooms: parseInt(formData.bathrooms) || 0,
-          plotSizeSqm: parseFloat(formData.plotSizeSqm) || 0,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          suburb: formData.suburb,
-          assignedAgentId: formData.assignedAgentId || undefined,
-          assignedAgentName: formData.assignedAgentName || undefined,
-          landmarkDirections: formData.landmarkDirections,
-          photos: formData.photos,
-          standBoundary: formData.standBoundary,
-          titleDeedNumber: formData.titleDeedNumber || undefined,
-          titleDeedDocumentId: formData.titleDeedDocumentId || undefined,
-          mandateType: formData.mandateType,
-          mandateReference: formData.mandateReference || undefined,
-          mandateDeclarationAgreed: formData.mandateDeclarationAgreed,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -221,7 +237,20 @@ function PropertiesCatalogContent() {
         setProperties((prev) => [data.property, ...prev]);
         setIsModalOpen(false);
       } else {
-        setFormError(data.error || "Failed to create property listing");
+        let errorMsg = data.error || "Failed to create property listing";
+        if (data.details && typeof data.details === "object") {
+          const fieldErrors: string[] = [];
+          for (const [key, val] of Object.entries(data.details)) {
+            if (val && typeof val === "object" && "_errors" in val && Array.isArray((val as any)._errors)) {
+              const errs = (val as any)._errors;
+              if (errs.length > 0) fieldErrors.push(`${key}: ${errs.join(", ")}`);
+            }
+          }
+          if (fieldErrors.length > 0) {
+            errorMsg = `${data.error || "Validation error"}: ${fieldErrors.join("; ")}`;
+          }
+        }
+        setFormError(errorMsg);
       }
     } catch (err: any) {
       setFormError(err.message || "Network error occurred");
@@ -649,9 +678,9 @@ function PropertiesCatalogContent() {
                 <div className="flex items-center justify-between mb-1">
                   <label className="font-heading font-bold text-xs uppercase tracking-wider text-editorial-black flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5 text-contour-red" />
-                    <span>Upload Property Photos *</span>
+                    <span>Property Photos (Optional)</span>
                   </label>
-                  <span className="text-[10px] font-geist text-editorial-muted">Direct file upload (no URLs)</span>
+                  <span className="text-[10px] font-geist text-editorial-muted">Single or multiple photos (optional)</span>
                 </div>
 
                 <PropertyImageUploader
@@ -765,6 +794,20 @@ function PropertiesCatalogContent() {
                 </div>
               </div>
 
+              {/* Interactive Location & Coordinate Picker (Map Click, Drag, Address Search, Direct GPS) */}
+              <LocationCoordinatePicker
+                latitude={formData.latitude}
+                longitude={formData.longitude}
+                suburb={formData.suburb}
+                onChange={(lat, lng) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    latitude: lat,
+                    longitude: lng,
+                  }))
+                }
+              />
+
               {/* Title Deed & Cadastral Survey (OCR Boundary Extraction) */}
               <TitleDeedOcrUploader
                 onBoundaryExtracted={({ standBoundary, plotSizeSqm, titleDeedNumber, document }) => {
@@ -797,6 +840,19 @@ function PropertiesCatalogContent() {
                   value={formData.landmarkDirections}
                   onChange={(e) => setFormData({ ...formData, landmarkDirections: e.target.value })}
                   className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist"
+                />
+              </div>
+
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Property Description (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g. Executive standalone residence with verified boundaries, borehole, high perimeter wall, and manicured grounds..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none focus:border-editorial-black text-editorial-black font-geist text-xs"
                 />
               </div>
 

@@ -82,25 +82,37 @@ export async function POST(req: NextRequest) {
     );
 
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
     const propertyId = formData.get("propertyId") as string | null;
 
-    if (!file) {
-      return NextResponse.json({ success: false, error: "Image file is required." }, { status: 400 });
+    // Collect all uploaded files (supports "files" array or "file" single/multiple field)
+    const rawFiles: File[] = [];
+    const filesList = formData.getAll("files");
+    for (const f of filesList) {
+      if (f instanceof File && f.size > 0) rawFiles.push(f);
+    }
+    const singleFiles = formData.getAll("file");
+    for (const f of singleFiles) {
+      if (f instanceof File && f.size > 0 && !rawFiles.includes(f)) rawFiles.push(f);
     }
 
-    if (!ALLOWED_MIME_TYPES.has(file.type.toLowerCase())) {
-      return NextResponse.json(
-        { success: false, error: `Unsupported image format: ${file.type}. Allowed: JPEG, PNG, WebP, AVIF.` },
-        { status: 400 }
-      );
+    if (rawFiles.length === 0) {
+      return NextResponse.json({ success: false, error: "At least one image file is required." }, { status: 400 });
     }
 
-    if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
-      return NextResponse.json(
-        { success: false, error: `File size exceeds the 15MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB).` },
-        { status: 400 }
-      );
+    for (const file of rawFiles) {
+      if (!ALLOWED_MIME_TYPES.has(file.type.toLowerCase())) {
+        return NextResponse.json(
+          { success: false, error: `Unsupported image format in "${file.name}": ${file.type}. Allowed: JPEG, PNG, WebP, AVIF.` },
+          { status: 400 }
+        );
+      }
+
+      if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
+        return NextResponse.json(
+          { success: false, error: `File "${file.name}" exceeds the 15MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB).` },
+          { status: 400 }
+        );
+      }
     }
 
     // If propertyId is provided, verify ownership or management permissions
@@ -142,35 +154,39 @@ export async function POST(req: NextRequest) {
     }
 
     const organizationId = tenant.organizationId;
-    const bytes = await file.arrayBuffer();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const uploadedUrls: string[] = [];
 
-    let photoUrl = "";
+    for (const file of rawFiles) {
+      const bytes = await file.arrayBuffer();
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      let photoUrl = "";
 
-    // 1. Try MinIO / S3 Object Storage first
-    try {
-      const objectKey = s3Storage.generateObjectKey(organizationId, "PROPERTY_PHOTO", sanitizedName);
-      await s3Storage.putObject(objectKey, bytes, file.type);
-      const publicDomain = process.env.S3_PUBLIC_DOMAIN;
-      const bucketName = process.env.S3_BUCKET_NAME || "contour-vault";
+      // 1. Try MinIO / S3 Object Storage first
+      try {
+        const objectKey = s3Storage.generateObjectKey(organizationId, "PROPERTY_PHOTO", sanitizedName);
+        await s3Storage.putObject(objectKey, bytes, file.type);
+        const publicDomain = process.env.S3_PUBLIC_DOMAIN;
+        const bucketName = process.env.S3_BUCKET_NAME || "contour-vault";
 
-      if (publicDomain) {
-        photoUrl = `${publicDomain.replace(/\/$/, "")}/${bucketName}/${objectKey}`;
-      } else {
-        photoUrl = await s3Storage.getPresignedDownloadUrl(objectKey, 604800); // 7 days
+        if (publicDomain) {
+          photoUrl = `${publicDomain.replace(/\/$/, "")}/${bucketName}/${objectKey}`;
+        } else {
+          photoUrl = await s3Storage.getPresignedDownloadUrl(objectKey, 604800); // 7 days
+        }
+      } catch (s3Error: any) {
+        console.warn("S3 upload unavailable or unconfigured, safely falling back to static storage:", s3Error?.message || s3Error);
+        // 2. Resilient fallback to local static storage or inline data URI
+        photoUrl = await saveToLocalStaticStorage(organizationId, file.name, bytes, file.type);
       }
-    } catch (s3Error: any) {
-      console.warn("S3 upload unavailable or unconfigured, safely falling back to static storage:", s3Error?.message || s3Error);
 
-      // 2. Resilient fallback to local static storage or inline data URI
-      photoUrl = await saveToLocalStaticStorage(organizationId, file.name, bytes, file.type);
+      uploadedUrls.push(photoUrl);
     }
 
-    // If attached to an existing property, update database
+    // If attached to an existing property, update database with all new photos
     if (existingProperty) {
       const currentPhotos = Array.isArray(existingProperty.photos) ? existingProperty.photos : [];
-      const updatedPhotos = [...currentPhotos, photoUrl];
-      const updatedFeaturedPhoto = existingProperty.featuredPhoto || photoUrl;
+      const updatedPhotos = [...currentPhotos, ...uploadedUrls];
+      const updatedFeaturedPhoto = existingProperty.featuredPhoto || updatedPhotos[0];
 
       const updated = await db.property.update({
         where: { id: existingProperty.id },
@@ -191,10 +207,8 @@ export async function POST(req: NextRequest) {
             entityId: existingProperty.id,
             details: {
               propertyTitle: existingProperty.title,
-              fileName: file.name,
-              fileSize: file.size,
-              mimeType: file.type,
-              photoUrl,
+              count: uploadedUrls.length,
+              urls: uploadedUrls,
             },
           },
         });
@@ -207,21 +221,21 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        url: photoUrl,
+        url: uploadedUrls[0],
+        urls: uploadedUrls,
         photos: updated.photos,
         featuredPhoto: updated.featuredPhoto,
-        message: "Photo uploaded and attached to property successfully.",
+        message: `${uploadedUrls.length} photo(s) uploaded and attached successfully.`,
       });
     }
 
     // For new listings (not yet created in DB)
     return NextResponse.json({
       success: true,
-      url: photoUrl,
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.type,
-      message: "Photo uploaded successfully.",
+      url: uploadedUrls[0],
+      urls: uploadedUrls,
+      count: uploadedUrls.length,
+      message: `${uploadedUrls.length} photo(s) uploaded successfully.`,
     });
   } catch (error: any) {
     console.error("POST /api/properties/upload-image error:", error);
