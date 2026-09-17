@@ -1,11 +1,12 @@
 import { betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { organization, bearer, twoFactor } from "better-auth/plugins";
 import { db } from "./db";
 import { env } from "@/env";
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID || env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
+const googleClientId = (process.env.GOOGLE_CLIENT_ID || env.GOOGLE_CLIENT_ID)?.trim();
+const googleClientSecret = (process.env.GOOGLE_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET)?.trim();
 
 const resolvedBaseUrl =
   process.env.BETTER_AUTH_URL ||
@@ -21,25 +22,20 @@ export const auth = betterAuth({
   }),
   secret: env.BETTER_AUTH_SECRET,
   baseURL: resolvedBaseUrl,
-  trustedOrigins: (request) => {
-    const origins = [
-      resolvedBaseUrl,
-      env.BETTER_AUTH_URL,
-      env.NEXT_PUBLIC_APP_URL,
-      process.env.BETTER_AUTH_URL,
-      process.env.NEXT_PUBLIC_APP_URL,
-      "https://contour.banyalabs.com",
-      "http://localhost:3000",
-    ];
-    if (request) {
-      const origin = request.headers.get("origin");
-      if (origin) origins.push(origin);
-      const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
-      const proto = request.headers.get("x-forwarded-proto") || "https";
-      if (host) origins.push(`${proto}://${host}`);
-    }
-    return Array.from(new Set(origins.filter((o): o is string => Boolean(o))));
-  },
+  trustedOrigins: Array.from(
+    new Set(
+      [
+        resolvedBaseUrl,
+        env.BETTER_AUTH_URL,
+        env.NEXT_PUBLIC_APP_URL,
+        process.env.BETTER_AUTH_URL,
+        process.env.NEXT_PUBLIC_APP_URL,
+        "https://contour.banyalabs.com",
+        "https://www.contour.banyalabs.com",
+        "http://localhost:3000",
+      ].filter((o): o is string => Boolean(o))
+    )
+  ),
   socialProviders:
     googleClientId && googleClientSecret
       ? {
@@ -90,50 +86,43 @@ export const auth = betterAuth({
   },
   // Fix 7: Auth audit trail — write sign-in / sign-out events to AuditLog.
   hooks: {
-    after: [
-      {
-        matcher: (ctx: any) => ctx.path === "/sign-in/email",
-        handler: async (ctx: any) => {
-          try {
-            const ip = ctx.request?.headers?.get("x-forwarded-for") ?? "unknown";
-            const userAgent = ctx.request?.headers?.get("user-agent") ?? "unknown";
-            const succeeded = !!ctx.context?.newSession;
+    after: createAuthMiddleware(async (ctx: any) => {
+      if (ctx.path === "/sign-in/email") {
+        try {
+          const ip = ctx.request?.headers?.get("x-forwarded-for") ?? "unknown";
+          const userAgent = ctx.request?.headers?.get("user-agent") ?? "unknown";
+          const succeeded = !!ctx.context?.newSession;
+          await db.auditLog.create({
+            data: {
+              action: succeeded ? "USER_SIGN_IN" : "USER_SIGN_IN_FAILED",
+              entityType: "User",
+              entityId: ctx.body?.email ?? "unknown",
+              ipAddress: ip,
+              userAgent,
+              details: { method: "email" },
+            },
+          });
+        } catch {
+          // Non-blocking — never let audit failures break login
+        }
+      } else if (ctx.path === "/sign-out") {
+        try {
+          const sessionUserId = ctx.context?.session?.userId;
+          if (sessionUserId) {
             await db.auditLog.create({
               data: {
-                action: succeeded ? "USER_SIGN_IN" : "USER_SIGN_IN_FAILED",
+                action: "USER_SIGN_OUT",
                 entityType: "User",
-                entityId: ctx.body?.email ?? "unknown",
-                ipAddress: ip,
-                userAgent,
-                details: { method: "email" },
+                entityId: sessionUserId,
+                details: { method: "explicit" },
               },
             });
-          } catch {
-            // Non-blocking — never let audit failures break login
           }
-        },
-      },
-      {
-        matcher: (ctx: any) => ctx.path === "/sign-out",
-        handler: async (ctx: any) => {
-          try {
-            const sessionUserId = ctx.context?.session?.userId;
-            if (sessionUserId) {
-              await db.auditLog.create({
-                data: {
-                  action: "USER_SIGN_OUT",
-                  entityType: "User",
-                  entityId: sessionUserId,
-                  details: { method: "explicit" },
-                },
-              });
-            }
-          } catch {
-            // Non-blocking
-          }
-        },
-      },
-    ],
+        } catch {
+          // Non-blocking
+        }
+      }
+    }),
   },
 });
 
