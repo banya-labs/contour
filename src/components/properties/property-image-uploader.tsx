@@ -84,7 +84,10 @@ export default function PropertyImageUploader({
 
         const data = await res.json();
         if (!res.ok || !data.success) {
-          throw new Error(data.error || `Failed to upload "${file.name}"`);
+          const errMsg = data.details
+            ? `${data.error || "Failed to upload image"}: ${data.details}`
+            : data.error || `Failed to upload "${file.name}"`;
+          throw new Error(errMsg);
         }
 
         uploadedUrls.push(data.url);

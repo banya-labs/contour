@@ -17,3 +17,5 @@ package-lock.json
 .agents/
 skills-lock.json
 *.tsbuildinfo
+public/uploads/*
+!public/uploads/.gitkeep

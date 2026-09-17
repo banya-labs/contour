@@ -67,6 +67,8 @@ export const createPropertySchema = z.object({
   }),
   mandateType: z.enum(["SOLE_MANDATE", "OPEN_MANDATE", "COMPANY_OWNED"]).default("SOLE_MANDATE"),
   mandateReference: z.string().max(100).optional(),
+  standBoundary: z.array(z.tuple([z.number(), z.number()])).optional(),
+  titleDeedDocumentId: z.string().optional(),
 });
 
 export const updatePropertySchema = createPropertySchema.partial().extend({

@@ -1,6 +1,7 @@
 import { HeadObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
+import { Agent as HttpsAgent } from "node:https";
 
 export type StorageCategory =
   | "ORGANIZATION_LOGO"
@@ -53,15 +54,48 @@ export class S3StorageService {
     this.region = process.env.S3_REGION || "auto";
   }
 
+  isConfigured(): boolean {
+    return Boolean(
+      process.env.S3_ACCESS_KEY_ID &&
+      process.env.S3_SECRET_ACCESS_KEY &&
+      process.env.S3_ENDPOINT
+    );
+  }
+
   private getClient(): S3Client {
     if (!this.client) {
       const accessKeyId = getRequiredEnv("S3_ACCESS_KEY_ID");
       const secretAccessKey = getRequiredEnv("S3_SECRET_ACCESS_KEY");
+      
+      const allowSelfSigned =
+        process.env.NODE_ENV !== "production" ||
+        process.env.S3_TLS_REJECT_UNAUTHORIZED === "false";
+
+      // Dynamically instantiate default handler with connection timeout and SSL resilience
+      let customRequestHandler: any = undefined;
+      try {
+        const dummyClient = new S3Client({ region: this.region });
+        const HandlerClass = dummyClient.config.requestHandler?.constructor as any;
+        if (HandlerClass) {
+          customRequestHandler = new HandlerClass({
+            httpsAgent: new HttpsAgent({
+              rejectUnauthorized: !allowSelfSigned,
+              keepAlive: true,
+            }),
+            connectionTimeout: 4000,
+            requestTimeout: 8000,
+          });
+        }
+      } catch {
+        // Fall back to default handler if custom instantiation fails
+      }
+
       this.client = new S3Client({
         region: this.region,
         endpoint: this.endpoint,
         forcePathStyle: Boolean(this.endpoint),
         credentials: { accessKeyId, secretAccessKey },
+        ...(customRequestHandler ? { requestHandler: customRequestHandler } : {}),
       });
     }
     return this.client;

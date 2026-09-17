@@ -30,13 +30,28 @@ import { evaluatePropertyAgainstAlerts, AlertMatchResult } from "@/lib/alerts/ma
 import PropertyMatchSummaryModal from "@/components/alerts/property-match-summary-modal";
 import Property360DetailModal from "@/components/properties/property-360-detail-modal";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
-import PropertyStandEditor from "@/components/properties/property-stand-editor";
+import TitleDeedOcrUploader from "@/components/properties/title-deed-ocr-uploader";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { PropertyCardSkeleton } from "@/components/ui/skeleton";
+
+const SUBURB_GPS_COORDINATES: Record<string, [number, number]> = {
+  "Kabulonga": [-15.4215, 28.3345],
+  "Leopards Hill": [-15.4520, 28.3850],
+  "Roma Park": [-15.3780, 28.3120],
+  "Woodlands": [-15.4350, 28.3250],
+  "Rhodes Park": [-15.4102, 28.2985],
+  "Mass Media": [-15.3980, 28.3150],
+  "Ibex Hill": [-15.4150, 28.3750],
+  "Chudleigh": [-15.3650, 28.3380],
+  "Longacres": [-15.4190, 28.3090],
+  "New Kasama": [-15.4650, 28.3650],
+  "Silverest": [-15.3850, 28.4450],
+  "Makeni": [-15.4550, 28.2450],
+};
 
 function PropertiesCatalogContent() {
   const { data: session } = useSession();
@@ -130,6 +145,8 @@ function PropertiesCatalogContent() {
     photos: [] as string[],
     featuredPhoto: undefined as string | undefined,
     standBoundary: undefined as any,
+    titleDeedNumber: "",
+    titleDeedDocumentId: undefined as string | undefined,
     mandateType: "SOLE_MANDATE",
     mandateReference: "",
     mandateDeclarationAgreed: false,
@@ -191,6 +208,8 @@ function PropertiesCatalogContent() {
           landmarkDirections: formData.landmarkDirections,
           photos: formData.photos,
           standBoundary: formData.standBoundary,
+          titleDeedNumber: formData.titleDeedNumber || undefined,
+          titleDeedDocumentId: formData.titleDeedDocumentId || undefined,
           mandateType: formData.mandateType,
           mandateReference: formData.mandateReference || undefined,
           mandateDeclarationAgreed: formData.mandateDeclarationAgreed,
@@ -689,11 +708,20 @@ function PropertiesCatalogContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Suburb (Lusaka)
+                    Suburb / Area (Lusaka)
                   </label>
                   <select
                     value={formData.suburb}
-                    onChange={(e) => setFormData({ ...formData, suburb: e.target.value })}
+                    onChange={(e) => {
+                      const nextSuburb = e.target.value;
+                      const coords = SUBURB_GPS_COORDINATES[nextSuburb] || [-15.4211, 28.3341];
+                      setFormData({
+                        ...formData,
+                        suburb: nextSuburb,
+                        latitude: coords[0],
+                        longitude: coords[1],
+                      });
+                    }}
                     className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist font-semibold"
                   >
                     <option value="Kabulonga">Kabulonga</option>
@@ -705,6 +733,9 @@ function PropertiesCatalogContent() {
                     <option value="Ibex Hill">Ibex Hill</option>
                     <option value="Chudleigh">Chudleigh</option>
                     <option value="Longacres">Longacres</option>
+                    <option value="New Kasama">New Kasama</option>
+                    <option value="Silverest">Silverest</option>
+                    <option value="Makeni">Makeni</option>
                   </select>
                 </div>
 
@@ -734,21 +765,26 @@ function PropertiesCatalogContent() {
                 </div>
               </div>
 
-              {/* Stand Boundary Editor */}
-              <PropertyStandEditor
-                latitude={formData.latitude}
-                longitude={formData.longitude}
-                standBoundary={formData.standBoundary}
-                plotSizeSqm={formData.plotSizeSqm}
-                onChange={({ latitude, longitude, standBoundary, plotSizeSqm }) => {
+              {/* Title Deed & Cadastral Survey (OCR Boundary Extraction) */}
+              <TitleDeedOcrUploader
+                onBoundaryExtracted={({ standBoundary, plotSizeSqm, titleDeedNumber, document }) => {
                   setFormData((prev) => ({
                     ...prev,
-                    latitude,
-                    longitude,
                     standBoundary,
-                    plotSizeSqm: String(plotSizeSqm),
+                    plotSizeSqm: plotSizeSqm ? String(plotSizeSqm) : prev.plotSizeSqm,
+                    titleDeedNumber: titleDeedNumber || prev.titleDeedNumber,
+                    titleDeedDocumentId: document?.id || prev.titleDeedDocumentId,
                   }));
                 }}
+                onReset={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    standBoundary: undefined,
+                    titleDeedDocumentId: undefined,
+                  }));
+                }}
+                initialBoundary={formData.standBoundary}
+                currentPlotSize={formData.plotSizeSqm}
               />
 
               <div>

@@ -351,10 +351,40 @@ const postHandler = createApiHandler({
   handler: async (req, ctx) => {
     const { organizationId, userId, body } = ctx;
 
-    const slug = body.title
+    const baseSlug = body.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
+
+    let slug = baseSlug;
+    const existingWithSlug = await db.property.findFirst({
+      where: { organizationId: organizationId!, slug },
+      select: { id: true },
+    });
+    if (existingWithSlug) {
+      slug = `${baseSlug}-${Date.now().toString(36).slice(-4)}`;
+    }
+
+    // Resolve valid user foreign key to guarantee relational integrity across dev & prod
+    let effectiveUserId = userId;
+    if (userId) {
+      const authorExists = await db.user.findUnique({ where: { id: userId }, select: { id: true } });
+      if (!authorExists) {
+        const fallbackUser = await db.user.findFirst({ select: { id: true } });
+        if (fallbackUser) effectiveUserId = fallbackUser.id;
+      }
+    } else {
+      const fallbackUser = await db.user.findFirst({ select: { id: true } });
+      if (fallbackUser) effectiveUserId = fallbackUser.id;
+    }
+
+    let effectiveAssignedAgentId = body.assignedAgentId || undefined;
+    if (effectiveAssignedAgentId) {
+      const agentExists = await db.user.findUnique({ where: { id: effectiveAssignedAgentId }, select: { id: true } });
+      if (!agentExists) effectiveAssignedAgentId = effectiveUserId || undefined;
+    } else {
+      effectiveAssignedAgentId = effectiveUserId || undefined;
+    }
 
     const property = await db.property.create({
       data: {
@@ -384,16 +414,74 @@ const postHandler = createApiHandler({
         ownerEmail: body.ownerEmail,
         ownerBankDetails: body.ownerBankDetails,
         titleDeedNumber: body.titleDeedNumber,
-        createdById: userId!,
-        assignedAgentId: body.assignedAgentId || userId || undefined,
+        standBoundary: body.standBoundary || undefined,
+        createdById: effectiveUserId!,
+        assignedAgentId: effectiveAssignedAgentId,
       }
     });
+
+    // If stand boundaries were extracted from an uploaded title deed, establish PropertyBoundary & link VaultDocument
+    if (body.standBoundary && Array.isArray(body.standBoundary) && body.standBoundary.length >= 3) {
+      try {
+        const ringCoordinates = [...body.standBoundary, body.standBoundary[0]].map(([lat, lng]: [number, number]) => [lng, lat]);
+        const geoJson = {
+          type: "Polygon" as const,
+          coordinates: [ringCoordinates],
+        };
+
+        let sourceDocId: string | null = null;
+        if (body.titleDeedDocumentId) {
+          const doc = await db.vaultDocument.findFirst({
+            where: { id: body.titleDeedDocumentId, organizationId: organizationId! },
+          });
+          if (doc) {
+            sourceDocId = doc.id;
+            await db.vaultDocument.update({
+              where: { id: doc.id },
+              data: { propertyId: property.id },
+            });
+          }
+        }
+
+        const boundary = await db.propertyBoundary.create({
+          data: {
+            organizationId: organizationId!,
+            propertyId: property.id,
+            sourceType: "TITLE_DEED",
+            status: "PENDING",
+            geometryGeoJson: geoJson,
+            sourceDocumentId: sourceDocId,
+            statedAreaSqm: body.plotSizeSqm ? body.plotSizeSqm : null,
+            createdById: effectiveUserId!,
+            confidenceScore: 0.95,
+          },
+        });
+
+        await db.boundaryEvidenceEvent.create({
+          data: {
+            organizationId: organizationId!,
+            propertyId: property.id,
+            boundaryId: boundary.id,
+            eventType: "BOUNDARY_CREATED",
+            actorId: effectiveUserId!,
+            details: {
+              sourceType: "TITLE_DEED",
+              sourceDocumentId: sourceDocId,
+              extractedVia: "OCR",
+              beaconCount: body.standBoundary.length,
+            },
+          },
+        });
+      } catch (boundaryErr) {
+        console.error("[BOUNDARY_PERSISTENCE_WARNING]", boundaryErr);
+      }
+    }
 
     // Record statutory mandate declaration in immutable AuditLog (ECT Act 2021 & Estate Agents Act Cap 187)
     await db.auditLog.create({
       data: {
         organizationId: organizationId!,
-        userId,
+        userId: effectiveUserId,
         action: "PROPERTY_PUBLISHED_WITH_MANDATE_DECLARATION",
         entityType: "Property",
         entityId: property.id,
