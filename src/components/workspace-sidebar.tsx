@@ -345,11 +345,11 @@ export default function WorkspaceSidebar() {
         <button
           type="button"
           onClick={triggerPwaInstallModal}
-          title="Install Desktop App"
+          title="Install App"
           className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-contour-red hover:bg-red-50/60 transition-colors w-full text-left"
         >
           <Download className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
-          <span className="hidden lg:inline">Install Desktop App</span>
+          <span className="hidden lg:inline">Install App</span>
         </button>
 
         {/* Live Better Auth User Profile Card */}

@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Smartphone, Settings } from "lucide-react";
+import { Smartphone, Settings, Download } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { authClient } from "@/lib/auth-client";
 import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
+import { triggerPwaInstallModal } from "@/components/pwa/pwa-install-banner";
 
 export function MobileTopHeader() {
   const { data: session } = authClient.useSession();
@@ -87,6 +88,16 @@ export function MobileTopHeader() {
         >
           <Smartphone className="w-3.5 h-3.5 text-contour-red" />
         </Link>
+
+        {/* Install App Button */}
+        <button
+          type="button"
+          onClick={triggerPwaInstallModal}
+          title="Install App"
+          className="w-8 h-8 flex items-center justify-center border border-editorial-border bg-white text-editorial-black hover:bg-neutral-100 hover:text-contour-red transition-colors"
+        >
+          <Download className="w-3.5 h-3.5 text-contour-red" />
+        </button>
 
         {/* User Settings Avatar */}
         <Link
