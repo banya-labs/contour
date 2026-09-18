@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import dynamic from "next/dynamic";
@@ -62,6 +62,8 @@ interface PropertyLocationMapProps {
   standBoundary?: [number, number][] | null;
   landmarkDirections?: string | null;
   featuredPhoto?: string | null;
+  organizationSlug?: string | null;
+  organizationName?: string | null;
 }
 
 export function PropertyLocationMap({
@@ -74,6 +76,8 @@ export function PropertyLocationMap({
   standBoundary,
   landmarkDirections,
   featuredPhoto,
+  organizationSlug,
+  organizationName,
 }: PropertyLocationMapProps) {
   // Resolve latitude & longitude with graceful fallback to suburb coordinates
   let lat = typeof latitude === "number" && !isNaN(latitude) && latitude !== 0 ? latitude : null;
@@ -153,10 +157,10 @@ export function PropertyLocationMap({
         </div>
 
         <Link
-          href="/dashboard/map"
+          href={organizationSlug ? `/map/${encodeURIComponent(organizationSlug)}` : "/map"}
           className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-editorial-black hover:text-contour-red transition-colors shrink-0"
         >
-          <span>Explore All Lusaka Mandates</span>
+          <span>{organizationName ? `Explore ${organizationName} Map` : "Explore Public Spatial Map"}</span>
           <ArrowRight className="w-3.5 h-3.5 text-contour-red" />
         </Link>
       </div>

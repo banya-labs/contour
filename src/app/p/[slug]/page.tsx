@@ -13,6 +13,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ShieldCheck,
+  Building2,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { MOCK_PROPERTIES } from "@/lib/mock-data";
@@ -41,6 +42,13 @@ async function getPropertyBySlug(slug: string) {
             phone: true,
             email: true,
             image: true,
+          },
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
           },
         },
       },
@@ -76,6 +84,9 @@ async function getPropertyBySlug(slug: string) {
         assignedAgentName: dbProperty.assignedAgent?.name || "Grace Banda",
         assignedAgentPhone: dbProperty.assignedAgent?.phone || "+260 97 123 4567",
         assignedAgentEmail: dbProperty.assignedAgent?.email || "agent@contour.co.zm",
+        organizationId: dbProperty.organizationId,
+        organizationName: dbProperty.organization?.name || "Contour Real Estate",
+        organizationSlug: dbProperty.organization?.slug || dbProperty.organizationId,
         features: [
           "Clean Ministry Certificate of Title",
           "Verified Cadastral Stand Boundary",
@@ -89,7 +100,62 @@ async function getPropertyBySlug(slug: string) {
   }
 
   // Fallback to MOCK_PROPERTIES
-  return MOCK_PROPERTIES.find((p) => p.slug === slug || p.id === slug) || null;
+  const mock = MOCK_PROPERTIES.find((p) => p.slug === slug || p.id === slug);
+  if (!mock) return null;
+  return {
+    ...mock,
+    organizationId: "demo-banya-org",
+    organizationName: "Contour Real Estate",
+    organizationSlug: "demo-banya-org",
+  };
+}
+
+async function getOrganizationOtherProperties(organizationId?: string, currentPropertyId?: string) {
+  if (!organizationId) return [];
+  try {
+    const dbProperties = await db.property.findMany({
+      where: {
+        organizationId,
+        id: currentPropertyId ? { not: currentPropertyId } : undefined,
+        status: { in: ["AVAILABLE", "UNDER_OFFER"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      include: {
+        assignedAgent: {
+          select: {
+            name: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    return dbProperties.map((p) => {
+      const photos = Array.isArray(p.photos) && p.photos.length > 0
+        ? p.photos
+        : [p.featuredPhoto || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200"];
+
+      return {
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        listingType: p.listingType,
+        status: p.status,
+        ownershipType: p.ownershipType,
+        askingPrice: p.askingPrice ? Number(p.askingPrice) : null,
+        rentalPrice: p.rentalPrice ? Number(p.rentalPrice) : null,
+        currency: p.currency || "ZMW",
+        suburb: p.suburb,
+        city: p.city || "Lusaka",
+        photos,
+        featuredPhoto: p.featuredPhoto || photos[0],
+      };
+    });
+  } catch (err) {
+    console.warn("Database lookup for other organization properties failed:", err);
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -169,7 +235,7 @@ export default async function PublicPropertyCardPage({
     `Hello ${property.assignedAgentName || "Contour Agent"}, I am inquiring about the property: "${property.title}" (${property.suburb}) priced at ${priceText}. Link: ${siteUrl}/p/${property.slug}`
   );
 
-  const otherProperties = MOCK_PROPERTIES.filter((p) => p.slug !== property.slug).slice(0, 3);
+  const otherProperties = await getOrganizationOtherProperties(property.organizationId, property.id);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -211,7 +277,11 @@ export default async function PublicPropertyCardPage({
       />
 
       {/* Global Navigation Bar linking back to Contour platform */}
-      <PublicPropertyNavbar suburb={property.suburb} />
+      <PublicPropertyNavbar
+        suburb={property.suburb}
+        organizationSlug={property.organizationSlug}
+        organizationName={property.organizationName}
+      />
 
       {/* Top Header & Breadcrumb */}
       <div className="max-w-4xl mx-auto px-4 py-4 border-b border-editorial-border">
@@ -219,7 +289,12 @@ export default async function PublicPropertyCardPage({
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono text-editorial-muted">
             <Link href="/" className="hover:text-editorial-black transition-colors">Home</Link>
             <span>/</span>
-            <Link href="/dashboard/map" className="hover:text-editorial-black transition-colors">Lusaka</Link>
+            <Link
+              href={property.organizationSlug ? `/map/${encodeURIComponent(property.organizationSlug)}` : "/map"}
+              className="hover:text-editorial-black transition-colors"
+            >
+              {property.city} Map
+            </Link>
             <span>/</span>
             <span className="text-editorial-black font-semibold truncate max-w-[200px] sm:max-w-none">{property.suburb}</span>
           </nav>
@@ -341,6 +416,8 @@ export default async function PublicPropertyCardPage({
           standBoundary={property.standBoundary}
           landmarkDirections={property.landmarkDirections}
           featuredPhoto={property.featuredPhoto || property.photos[0]}
+          organizationSlug={property.organizationSlug}
+          organizationName={property.organizationName}
         />
 
         {/* Assigned Agent Contact Card */}
@@ -382,50 +459,77 @@ export default async function PublicPropertyCardPage({
           </div>
         </div>
 
-        {/* Internal Cross-Linking Section: Other Featured Mandates */}
+        {/* Internal Cross-Linking Section: Other Organization Mandates */}
         <div className="pt-6 border-t border-editorial-border">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-sm font-bold uppercase tracking-wider text-editorial-black">
-              Other Featured Mandates in Lusaka
-            </h3>
+            <div>
+              <h3 className="font-heading text-sm font-bold uppercase tracking-wider text-editorial-black">
+                {property.organizationName ? `More Listings by ${property.organizationName}` : "Other Organization Mandates"}
+              </h3>
+              <p className="text-[11px] font-mono text-editorial-muted">
+                Public property mandates from this organization
+              </p>
+            </div>
             <Link
-              href="/dashboard/map"
-              className="text-xs font-mono text-contour-red hover:underline flex items-center gap-1"
+              href={property.organizationSlug ? `/map/${encodeURIComponent(property.organizationSlug)}` : "/map"}
+              className="text-xs font-mono text-contour-red hover:underline flex items-center gap-1 font-semibold shrink-0"
             >
-              <span>Explore Spatial Map</span>
+              <span>Explore Public Map</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {otherProperties.map((other) => (
-              <Link
-                key={other.id}
-                href={`/p/${other.slug}`}
-                className="group border border-editorial-border bg-white hover:border-editorial-black transition-colors flex flex-col"
-              >
-                <div className="relative w-full h-32 overflow-hidden bg-neutral-100">
-                  <img
-                    src={other.featuredPhoto || other.photos[0]}
-                    alt={other.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-editorial-black/90 text-white text-[10px] font-mono px-2 py-0.5">
-                    {other.suburb}
+
+          {otherProperties.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {otherProperties.map((other) => (
+                <Link
+                  key={other.id}
+                  href={`/p/${other.slug}`}
+                  className="group border border-editorial-border bg-white hover:border-editorial-black transition-colors flex flex-col"
+                >
+                  <div className="relative w-full h-32 overflow-hidden bg-neutral-100">
+                    <img
+                      src={other.featuredPhoto || other.photos[0]}
+                      alt={other.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute bottom-2 left-2 bg-editorial-black/90 text-white text-[10px] font-mono px-2 py-0.5">
+                      {other.suburb}
+                    </div>
                   </div>
-                </div>
-                <div className="p-3 flex-1 flex flex-col justify-between">
-                  <h4 className="font-serif text-xs font-bold text-editorial-black line-clamp-2 group-hover:text-contour-red transition-colors">
-                    {other.title}
-                  </h4>
-                  <div className="mt-2 text-xs font-mono font-bold text-editorial-black">
-                    {other.listingType === "FOR_RENT"
-                      ? `${formatCurrency(other.rentalPrice, other.currency)}/mo`
-                      : formatCurrency(other.askingPrice, other.currency)}
+                  <div className="p-3 flex-1 flex flex-col justify-between">
+                    <h4 className="font-serif text-xs font-bold text-editorial-black line-clamp-2 group-hover:text-contour-red transition-colors">
+                      {other.title}
+                    </h4>
+                    <div className="mt-2 text-xs font-mono font-bold text-editorial-black">
+                      {other.listingType === "FOR_RENT"
+                        ? `${formatCurrency(other.rentalPrice, other.currency)}/mo`
+                        : formatCurrency(other.askingPrice, other.currency)}
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-editorial-border bg-neutral-50 p-6 sm:p-8 text-center space-y-2">
+              <Building2 className="w-6 h-6 text-editorial-muted mx-auto" />
+              <h4 className="font-heading text-xs sm:text-sm font-bold uppercase tracking-wider text-editorial-black">
+                No Other Public Properties Listed
+              </h4>
+              <p className="text-xs text-editorial-muted max-w-md mx-auto leading-relaxed">
+                There are currently no other public property mandates listed by {property.organizationName || "this organization"}.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href={property.organizationSlug ? `/map/${encodeURIComponent(property.organizationSlug)}` : "/map"}
+                  className="inline-flex items-center gap-1.5 text-xs font-mono text-contour-red hover:underline font-semibold"
+                >
+                  <span>View Organization Spatial Map</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

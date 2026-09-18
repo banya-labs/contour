@@ -19,9 +19,15 @@ import { ContourLogo } from "@/components/brand/contour-logo";
 
 interface PublicPropertyNavbarProps {
   suburb?: string;
+  organizationSlug?: string | null;
+  organizationName?: string | null;
 }
 
-export function PublicPropertyNavbar({ suburb }: PublicPropertyNavbarProps) {
+export function PublicPropertyNavbar({
+  suburb,
+  organizationSlug,
+  organizationName,
+}: PublicPropertyNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -157,13 +163,13 @@ export function PublicPropertyNavbar({ suburb }: PublicPropertyNavbarProps) {
                 </Link>
 
                 <Link
-                  href="/dashboard/map"
+                  href={organizationSlug ? `/map/${encodeURIComponent(organizationSlug)}` : "/map"}
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center justify-between py-3 text-editorial-black hover:text-contour-red transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
                     <MapPin className="w-4 h-4 text-contour-red" />
-                    <span>Lusaka Spatial Cadastre Map</span>
+                    <span>{organizationName ? `${organizationName} Spatial Map` : "Lusaka Spatial Cadastre Map"}</span>
                   </div>
                   <span className="text-[10px] font-mono text-contour-red font-bold">Live</span>
                 </Link>

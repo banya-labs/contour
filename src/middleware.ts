@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/sitemap.xml",
   "/robots.txt",
   "/p/",
+  "/map",
   "/upload/",
   "/api/auth/",
   "/api/access-requests/",
