@@ -151,6 +151,23 @@ export class S3StorageService {
     );
   }
 
+  async getObject(objectKey: string): Promise<{ body: Buffer; contentType: string; contentLength: number }> {
+    const result = await this.getClient().send(new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey }));
+    const streamToBuffer = async (stream: any): Promise<Buffer> => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
+    };
+    const body = result.Body ? await streamToBuffer(result.Body) : Buffer.alloc(0);
+    return {
+      body,
+      contentType: result.ContentType || "application/octet-stream",
+      contentLength: result.ContentLength ?? body.length,
+    };
+  }
+
   async headObject(objectKey: string): Promise<{ contentLength: number; contentType: string; etag?: string }> {
     const result = await this.getClient().send(new HeadObjectCommand({ Bucket: this.bucketName, Key: objectKey }));
     return {

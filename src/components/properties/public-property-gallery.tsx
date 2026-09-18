@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,6 +13,7 @@ import {
   Copy,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { formatWhatsAppDigits } from "@/lib/phone-utils";
 
 export type PublicPropertyGalleryProps = {
   title: string;
@@ -80,13 +80,14 @@ export default function PublicPropertyGallery({
     <div className="space-y-3 font-sans">
       {/* 1. Main Hero Stage */}
       <div className="relative w-full h-72 sm:h-[440px] overflow-hidden border border-editorial-border bg-editorial-paper/40 group">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={currentPhoto}
           alt={`${title} - Photo ${activeIdx + 1}`}
-          fill
-          priority
-          sizes="(max-width: 896px) 100vw, 896px"
-          className="object-cover transition-transform duration-300 group-hover:scale-[1.01]"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.01]"
+          onError={(e) => {
+            e.currentTarget.src = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80";
+          }}
         />
 
         {/* Top Badges */}
@@ -154,7 +155,15 @@ export default function PublicPropertyGallery({
                     : "border-editorial-border opacity-70 hover:opacity-100"
                 }`}
               >
-                <Image src={url} alt={`Thumbnail ${idx + 1}`} fill className="object-cover" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Thumbnail ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&auto=format&fit=crop&q=80";
+                  }}
+                />
               </button>
             ))}
           </div>
@@ -181,7 +190,7 @@ export default function PublicPropertyGallery({
           </button>
 
           <a
-            href={`https://wa.me/${(agentPhone || "+260971234567").replace(/[^0-9]/g, "")}?text=${whatsappMessage}`}
+            href={`https://wa.me/${formatWhatsAppDigits(agentPhone || "+260971234567")}?text=${whatsappMessage}`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
@@ -203,12 +212,15 @@ export default function PublicPropertyGallery({
             <X className="w-6 h-6" />
           </button>
 
-          <div className="relative w-full max-w-5xl h-[80vh]">
-            <Image
+          <div className="relative w-full max-w-5xl h-[80vh] flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={currentPhoto}
               alt={title}
-              fill
-              className="object-contain"
+              className="max-w-full max-h-full object-contain"
+              onError={(e) => {
+                e.currentTarget.src = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80";
+              }}
             />
           </div>
 

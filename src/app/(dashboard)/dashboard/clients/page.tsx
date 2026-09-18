@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { useSession } from "@/lib/auth-client";
+import { formatWhatsAppDigits } from "@/lib/phone-utils";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -342,7 +343,7 @@ function ClientsCRMContent() {
                 </div>
 
                 <a
-                  href={`https://wa.me/${client.phone.replace(/\+/g, "").replace(/\s/g, "")}`}
+                  href={`https://wa.me/${formatWhatsAppDigits(client.phone)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3.5 py-1.5 rounded-none bg-editorial-black hover:bg-black text-white font-mono font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center gap-1"

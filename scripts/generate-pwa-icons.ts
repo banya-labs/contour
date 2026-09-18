@@ -15,6 +15,12 @@ const SVG_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"
   <circle cx="16" cy="16" r="14" fill="#FA3600"/>
 </svg>`;
 
+// Maskable icon with safe zone padding (80% circle) on Near Black #1C1C1A background
+const SVG_MASKABLE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#1C1C1A"/>
+  <circle cx="256" cy="256" r="190" fill="#FA3600"/>
+</svg>`;
+
 function createIco(images: Array<{ width: number; height: number; buffer: Buffer }>) {
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0); // Reserved
@@ -99,8 +105,12 @@ async function generateIcons() {
   fs.writeFileSync(appAppleIcon, p180);
   console.log("Wrote src/app/apple-icon.png");
 
-  // 5. Maskable icon for Android launcher (512x512) - strictly just the circle
-  fs.writeFileSync(path.join(publicDir, "icon-maskable-512.png"), p512);
+  // 5. Maskable icon for Android launcher (512x512) - strictly safe-zoned circle on theme background
+  const pMaskable = await sharp(Buffer.from(SVG_MASKABLE, "utf-8"))
+    .resize(512, 512)
+    .png({ quality: 100, compressionLevel: 9 })
+    .toBuffer();
+  fs.writeFileSync(path.join(publicDir, "icon-maskable-512.png"), pMaskable);
   console.log("Wrote public/icon-maskable-512.png");
 
   // 6. img/logo.png

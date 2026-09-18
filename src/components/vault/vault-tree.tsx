@@ -166,8 +166,15 @@ export function VaultTree({
       if (!res.ok) {
         throw new Error(data.error || "Failed to generate download link");
       }
-      // Open in new tab or trigger download
-      window.open(data.downloadUrl, "_blank");
+      // Trigger native download via direct attachment link (bypasses browser popup blockers)
+      const link = document.createElement("a");
+      link.href = data.directDownloadUrl || data.downloadUrl || `/api/vault/documents/${docId}/download?direct=true`;
+      link.download = title || "document";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err: any) {
       setErrorMsg(`Download error: ${err.message}`);
     } finally {

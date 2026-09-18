@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { createInquirySchema } from "@/lib/validations";
+import { smartCache } from "@/lib/cache";
+import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { z } from "zod";
 
 const getHandler = createApiHandler({
@@ -57,48 +59,63 @@ const postHandler = createApiHandler({
   handler: async (req, ctx) => {
     const { organizationId, body, userId } = ctx;
 
-    const assignedAgentId = body.assignedAgentId || userId || undefined;
+    // Safely resolve assignedAgentId to an existing User record in DB
+    const candidateAgentId = body.assignedAgentId || userId || undefined;
+    let effectiveAgentId: string | undefined = undefined;
 
-    if (assignedAgentId) {
-      const isDemoUser = assignedAgentId.startsWith("user_demo") || assignedAgentId.startsWith("usr_");
-      if (!isDemoUser) {
-        const assignedMember = await db.member.findFirst({
-          where: { organizationId: organizationId!, userId: assignedAgentId, status: "active" },
-          select: { userId: true },
+    if (candidateAgentId) {
+      const agentUser = await db.user.findUnique({
+        where: { id: candidateAgentId },
+        select: { id: true },
+      });
+      if (agentUser) {
+        effectiveAgentId = agentUser.id;
+      } else if (userId) {
+        const currentUser = await db.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
         });
-        if (!assignedMember) {
-          return NextResponse.json({ success: false, error: "Assigned agent must be an active member of this organization." }, { status: 400 });
+        if (currentUser) {
+          effectiveAgentId = currentUser.id;
         }
       }
     }
 
+    let validPropertyId: string | undefined = undefined;
     if (body.propertyId) {
-      const property = await db.property.findFirst({ where: { id: body.propertyId, organizationId: organizationId! }, select: { id: true } });
-      if (!property) return NextResponse.json({ success: false, error: "Selected property was not found in this organization." }, { status: 400 });
+      const property = await db.property.findFirst({
+        where: { id: body.propertyId, organizationId: organizationId! },
+        select: { id: true },
+      });
+      if (property) {
+        validPropertyId = property.id;
+      }
     }
 
     const lockDurationDays = 30;
     const exclusiveLockExpiresAt = new Date();
     exclusiveLockExpiresAt.setDate(exclusiveLockExpiresAt.getDate() + lockDurationDays);
 
+    const clientPhone = normalizePhoneNumber(body.clientPhone);
+
     const client = await db.inquiry.create({
       data: {
         organizationId: organizationId!,
-        clientName: body.clientName,
-        clientPhone: body.clientPhone,
-        clientEmail: body.clientEmail || undefined,
+        clientName: body.clientName.trim(),
+        clientPhone,
+        clientEmail: body.clientEmail?.trim() || undefined,
         lookingFor: body.lookingFor || "FOR_SALE",
         propertyType: body.propertyType,
         budgetMin: body.budgetMin ? (body.budgetMin as any) : undefined,
         budgetMax: body.budgetMax ? (body.budgetMax as any) : undefined,
         currency: body.currency || "ZMW",
-        preferredSuburbs: body.preferredSuburbs,
+        preferredSuburbs: body.preferredSuburbs || [],
         notes: body.notes,
         status: body.status || "CONTACTED",
         leadSource: body.leadSource || "OTHER",
-        propertyId: body.propertyId || undefined,
+        propertyId: validPropertyId,
         dealValue: body.dealValue as any,
-        assignedAgentId,
+        assignedAgentId: effectiveAgentId,
         exclusiveLockExpiresAt,
       },
       include: {
@@ -117,6 +134,15 @@ const postHandler = createApiHandler({
         },
       },
     });
+
+    // Invalidate client, pipeline, and dashboard caches across all surfaces
+    if (organizationId) {
+      smartCache.invalidateTag(organizationId, "clients", "/dashboard/clients");
+      smartCache.invalidateTag(organizationId, "pipeline", "/dashboard/pipeline");
+      smartCache.invalidateTag(organizationId, "dashboard-metrics");
+      smartCache.invalidateTag(organizationId, "dashboard-action-queue");
+      smartCache.invalidateTag(organizationId, "agent-summary", "/agent");
+    }
 
     return NextResponse.json({ success: true, client });
   },

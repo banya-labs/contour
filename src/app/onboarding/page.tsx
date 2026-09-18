@@ -41,10 +41,11 @@ function OnboardingContent() {
   const rawRedirectUrl = searchParams.get("redirect_url");
   const redirectUrl = safeRedirect(rawRedirectUrl);
   const noticeParam = searchParams.get("notice");
+  const isNewAgencyFlow = searchParams.get("flow") === "new_agency";
   const isAgentPwaIntent = redirectUrl.startsWith("/agent") || redirectUrl.startsWith("/kiosk");
 
   const { data: session, isPending: isSessionPending } = authClient.useSession();
-  const [view, setView] = useState<OnboardingView>("CHECKING");
+  const [view, setView] = useState<OnboardingView>(() => isNewAgencyFlow ? "CREATE_WORKSPACE" : "CHECKING");
   const [organizationName, setOrganizationName] = useState("");
   const [slug, setSlug] = useState("");
   const [country, setCountry] = useState("ZM");
@@ -109,21 +110,29 @@ function OnboardingContent() {
       }
 
       // 3. User is authenticated, but no active agency membership was found
-      setView("NO_ORGANIZATION_DECISION");
-      if (manualTrigger) {
-        const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        setInviteStatusMessage({
-          type: "info",
-          text: `Checked at ${timestamp}: No pending invite found yet for ${session?.user?.email}. Please request an invite from your agency manager.`,
-        });
+      if (!isNewAgencyFlow) {
+        setView("NO_ORGANIZATION_DECISION");
+        if (manualTrigger) {
+          const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          setInviteStatusMessage({
+            type: "info",
+            text: `Checked at ${timestamp}: No pending invite found yet for ${session?.user?.email}. Please request an invite from your agency manager.`,
+          });
+        }
+      } else {
+        setView("CREATE_WORKSPACE");
       }
     } catch {
-      setView("NO_ORGANIZATION_DECISION");
-      if (manualTrigger) {
-        setInviteStatusMessage({
-          type: "error",
-          text: "Unable to check invitations due to a network error. Please try again.",
-        });
+      if (!isNewAgencyFlow) {
+        setView("NO_ORGANIZATION_DECISION");
+        if (manualTrigger) {
+          setInviteStatusMessage({
+            type: "error",
+            text: "Unable to check invitations due to a network error. Please try again.",
+          });
+        }
+      } else {
+        setView("CREATE_WORKSPACE");
       }
     } finally {
       if (manualTrigger) {
@@ -277,14 +286,14 @@ function OnboardingContent() {
   }
 
   // 1. Initial State: Checking memberships
-  if (isSessionPending || view === "CHECKING") {
+  if (isSessionPending || (!isNewAgencyFlow && view === "CHECKING")) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
         <ContourLogo size="md" variant="dark" />
         <div className="mt-8 flex items-center justify-center gap-3">
           <RefreshCw className="h-4 w-4 animate-spin text-contour-red" />
           <p className="font-heading text-xs font-bold uppercase tracking-wider text-editorial-black">
-            Verifying agency membership & invitations...
+            {isNewAgencyFlow ? "Preparing your workspace setup..." : "Verifying agency membership & invitations..."}
           </p>
         </div>
         <p className="mt-2 text-xs text-editorial-muted">

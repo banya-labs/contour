@@ -7,25 +7,53 @@ import { smartCache } from "@/lib/cache";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
+import sharp from "sharp";
 
-const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15MB
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024; // 25MB to accommodate high-res camera photos
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/avif",
   "image/jpg",
+  "image/heic",
+  "image/heif",
+  "image/jfif",
+  "image/tiff",
+  "application/octet-stream",
 ]);
 
-async function saveToLocalStaticStorage(
+function isSupportedImage(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  if (ALLOWED_MIME_TYPES.has(mime)) return true;
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  return ["jpg", "jpeg", "png", "webp", "avif", "heic", "heif", "jfif", "tiff"].includes(ext || "");
+}
+
+async function processAndSaveImage(
   organizationId: string,
   fileName: string,
-  bytes: ArrayBuffer,
-  mimeType: string
-): Promise<string> {
+  rawBytes: ArrayBuffer,
+  originalMime: string
+): Promise<{ buffer: Buffer; localUrl: string; mimeType: string; sanitizedName: string }> {
   const safeOrgId = organizationId.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
-  const uniqueName = `${Date.now()}_${sanitizedName}`;
+  const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const uniqueName = `${Date.now()}_${baseName}.webp`;
+
+  let processedBuffer: Buffer;
+  let finalMime = "image/webp";
+
+  try {
+    processedBuffer = await sharp(Buffer.from(rawBytes))
+      .rotate() // auto-orient based on camera EXIF tags
+      .resize(2048, 2048, { fit: "inside", withoutEnlargement: true }) // optimize huge 48MP photos
+      .webp({ quality: 85 })
+      .toBuffer();
+  } catch (sharpErr: any) {
+    console.warn("Sharp image processing fallback:", sharpErr?.message);
+    processedBuffer = Buffer.from(rawBytes);
+    finalMime = originalMime || "image/jpeg";
+  }
 
   try {
     const uploadDir = join(process.cwd(), "public", "uploads", "properties", safeOrgId);
@@ -33,12 +61,22 @@ async function saveToLocalStaticStorage(
       await mkdir(uploadDir, { recursive: true });
     }
     const filePath = join(uploadDir, uniqueName);
-    await writeFile(filePath, Buffer.from(bytes));
-    return `/uploads/properties/${safeOrgId}/${uniqueName}`;
+    await writeFile(filePath, processedBuffer);
+    return {
+      buffer: processedBuffer,
+      localUrl: `/uploads/properties/${safeOrgId}/${uniqueName}`,
+      mimeType: finalMime,
+      sanitizedName: uniqueName,
+    };
   } catch (fsErr: any) {
     console.warn("Failed to write to public/uploads, falling back to data URI:", fsErr?.message);
-    const base64 = Buffer.from(bytes).toString("base64");
-    return `data:${mimeType};base64,${base64}`;
+    const base64 = processedBuffer.toString("base64");
+    return {
+      buffer: processedBuffer,
+      localUrl: `data:${finalMime};base64,${base64}`,
+      mimeType: finalMime,
+      sanitizedName: uniqueName,
+    };
   }
 }
 
@@ -100,16 +138,16 @@ export async function POST(req: NextRequest) {
     }
 
     for (const file of rawFiles) {
-      if (!ALLOWED_MIME_TYPES.has(file.type.toLowerCase())) {
+      if (!isSupportedImage(file)) {
         return NextResponse.json(
-          { success: false, error: `Unsupported image format in "${file.name}": ${file.type}. Allowed: JPEG, PNG, WebP, AVIF.` },
+          { success: false, error: `Unsupported image format in "${file.name}". Allowed: JPEG, PNG, WebP, AVIF, HEIC/HEIF.` },
           { status: 400 }
         );
       }
 
       if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
         return NextResponse.json(
-          { success: false, error: `File "${file.name}" exceeds the 15MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB).` },
+          { success: false, error: `File "${file.name}" exceeds the 25MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB).` },
           { status: 400 }
         );
       }
@@ -158,25 +196,24 @@ export async function POST(req: NextRequest) {
 
     for (const file of rawFiles) {
       const bytes = await file.arrayBuffer();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      let photoUrl = "";
+      const processed = await processAndSaveImage(organizationId, file.name, bytes, file.type);
+      let photoUrl = processed.localUrl;
 
-      // 1. Try MinIO / S3 Object Storage first
-      try {
-        const objectKey = s3Storage.generateObjectKey(organizationId, "PROPERTY_PHOTO", sanitizedName);
-        await s3Storage.putObject(objectKey, bytes, file.type);
-        const publicDomain = process.env.S3_PUBLIC_DOMAIN;
-        const bucketName = process.env.S3_BUCKET_NAME || "contour-vault";
-
-        if (publicDomain) {
-          photoUrl = `${publicDomain.replace(/\/$/, "")}/${bucketName}/${objectKey}`;
-        } else {
-          photoUrl = await s3Storage.getPresignedDownloadUrl(objectKey, 604800); // 7 days
+      // 2. Concurrently archive to MinIO / S3 Object Storage if configured
+      if (s3Storage.isConfigured()) {
+        try {
+          const objectKey = s3Storage.generateObjectKey(organizationId, "PROPERTY_PHOTO", processed.sanitizedName);
+          await s3Storage.putObject(objectKey, processed.buffer, processed.mimeType);
+          
+          // Only use S3 public domain if explicitly configured and non-empty
+          const publicDomain = (process.env.S3_PUBLIC_DOMAIN || "").trim();
+          const bucketName = process.env.S3_BUCKET_NAME || "contour-vault";
+          if (publicDomain && !publicDomain.includes("cdn.banyalabs.com")) {
+            photoUrl = `${publicDomain.replace(/\/$/, "")}/${bucketName}/${objectKey}`;
+          }
+        } catch (s3Error: any) {
+          console.warn("S3 background archive notice (using local storage):", s3Error?.message || s3Error);
         }
-      } catch (s3Error: any) {
-        console.warn("S3 upload unavailable or unconfigured, safely falling back to static storage:", s3Error?.message || s3Error);
-        // 2. Resilient fallback to local static storage or inline data URI
-        photoUrl = await saveToLocalStaticStorage(organizationId, file.name, bytes, file.type);
       }
 
       uploadedUrls.push(photoUrl);

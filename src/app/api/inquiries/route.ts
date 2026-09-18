@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { publicInquirySchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { smartCache } from "@/lib/cache";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -93,9 +94,16 @@ export async function POST(req: NextRequest) {
         propertyId: parsed.propertyId || undefined,
         status: "NEW_INQUIRY",
         // Enforce the 30-day anti-poaching lock
-        exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      }
+        exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
     });
+
+    // Invalidate caches across agency dashboard, pipeline, and field agent kiosks
+    smartCache.invalidateTag(organization.id, "clients", "/dashboard/clients");
+    smartCache.invalidateTag(organization.id, "pipeline", "/dashboard/pipeline");
+    smartCache.invalidateTag(organization.id, "dashboard-metrics");
+    smartCache.invalidateTag(organization.id, "dashboard-action-queue");
+    smartCache.invalidateTag(organization.id, "agent-summary", "/agent");
 
     // 6. Return response
     return NextResponse.json(

@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { CookieConsentBanner } from "@/components/ui/cookie-consent-banner";
-import { ContourSplashScreen } from "@/components/pwa/contour-splash-screen";
 import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
 import "./globals.css";
 
@@ -178,7 +177,6 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-white text-editorial-black min-h-screen flex flex-col antialiased selection:bg-contour-red selection:text-white">
-        <ContourSplashScreen />
         <main className="flex-1 flex flex-col">{children}</main>
         <PwaInstallBanner />
         <CookieConsentBanner />

@@ -17,6 +17,7 @@ import {
 import type { PropertyMapItem } from "@/types/property-map";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
+import { formatWhatsAppDigits } from "@/lib/phone-utils";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -278,7 +279,7 @@ export default function DashboardMapPage() {
             {/* Actions: 1-Tap WhatsApp & View Full Public Listing */}
             <div className="grid grid-cols-2 gap-2 pt-2">
               <a
-                href={`https://wa.me/${(selectedProperty.assignedAgentPhone || "+260977000000").replace(/\+/g, "").replace(/\s/g, "")}?text=Hi%2C%20inquiring%20about%20${encodeURIComponent(selectedProperty.title)}`}
+                href={`https://wa.me/${formatWhatsAppDigits(selectedProperty.assignedAgentPhone || "+260977000000")}?text=Hi%2C%20inquiring%20about%20${encodeURIComponent(selectedProperty.title)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-fill-wipe bg-[#25D366] text-white py-3 px-3 flex items-center justify-center gap-1.5 font-heading text-xs font-semibold uppercase tracking-wider rounded-none"

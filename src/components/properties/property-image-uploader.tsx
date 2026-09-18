@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
   Upload,
@@ -11,6 +11,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Plus,
+  ImageOff,
+  RefreshCw,
 } from "lucide-react";
 
 export type PropertyImageUploaderProps = {
@@ -21,6 +23,15 @@ export type PropertyImageUploaderProps = {
   maxPhotos?: number;
   theme?: "light" | "dark";
   disabled?: boolean;
+};
+
+type PendingUpload = {
+  id: string;
+  name: string;
+  blobUrl: string;
+  size: number;
+  isUploading: boolean;
+  error?: string;
 };
 
 export default function PropertyImageUploader({
@@ -35,42 +46,81 @@ export default function PropertyImageUploader({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const isDark = theme === "dark";
 
-  const [uploadingCount, setUploadingCount] = useState(0);
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      pendingUploads.forEach((p) => URL.revokeObjectURL(p.blobUrl));
+    };
+  }, [pendingUploads]);
 
   const handleUploadFiles = async (files: FileList | File[]) => {
     if (disabled || files.length === 0) return;
     setError(null);
 
     const validFiles: File[] = [];
+    const skippedNames: string[] = [];
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!file.type.startsWith("image/")) {
-        setError(`"${file.name}" is not a valid image file.`);
-        return;
+      const isImage =
+        file.type.startsWith("image/") ||
+        /\.(jpe?g|png|webp|avif|heic|heif|jfif|tiff)$/i.test(file.name);
+
+      if (!isImage) {
+        skippedNames.push(`"${file.name}" (unsupported format)`);
+        continue;
       }
-      if (file.size > 15 * 1024 * 1024) {
-        setError(`"${file.name}" exceeds the 15MB file size limit.`);
-        return;
+      if (file.size > 25 * 1024 * 1024) {
+        skippedNames.push(`"${file.name}" (exceeds 25MB limit)`);
+        continue;
       }
       validFiles.push(file);
     }
 
-    if (photos.length + validFiles.length > maxPhotos) {
-      setError(`You can only upload up to ${maxPhotos} photos per listing.`);
+    if (validFiles.length === 0) {
+      if (skippedNames.length > 0) {
+        setError(`Unable to upload: ${skippedNames.join(", ")}`);
+      }
       return;
     }
 
-    setUploadingCount(validFiles.length);
+    if (skippedNames.length > 0) {
+      setError(`Some files were skipped: ${skippedNames.join(", ")}`);
+    }
+
+    const availableSlots = maxPhotos - (photos.length + pendingUploads.length);
+    if (availableSlots <= 0) {
+      setError(`You have reached the maximum limit of ${maxPhotos} photos.`);
+      return;
+    }
+
+    const filesToUpload = validFiles.slice(0, availableSlots);
+    if (validFiles.length > availableSlots) {
+      setError(`Only ${availableSlots} more photo(s) could be added (max ${maxPhotos}).`);
+    }
+
+    // 1. Instantly create local object URLs so user SEES the pictures immediately
+    const newPendingItems: PendingUpload[] = filesToUpload.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      name: file.name,
+      blobUrl: URL.createObjectURL(file),
+      size: file.size,
+      isUploading: true,
+    }));
+
+    setPendingUploads((prev) => [...prev, ...newPendingItems]);
     setUploading(true);
 
     try {
       const formData = new FormData();
-      for (const file of validFiles) {
+      for (const file of filesToUpload) {
         formData.append("files", file);
       }
       if (propertyId) {
@@ -86,7 +136,7 @@ export default function PropertyImageUploader({
       if (!res.ok || !data.success) {
         const errMsg = data.details
           ? `${data.error || "Failed to upload image"}: ${data.details}`
-          : data.error || `Failed to upload ${validFiles.length} photo(s)`;
+          : data.error || `Failed to upload ${filesToUpload.length} photo(s)`;
         throw new Error(errMsg);
       }
 
@@ -96,18 +146,37 @@ export default function PropertyImageUploader({
         ? [data.url]
         : [];
 
+      // Clean up object URLs
+      newPendingItems.forEach((p) => URL.revokeObjectURL(p.blobUrl));
+      setPendingUploads((prev) => prev.filter((p) => !newPendingItems.some((n) => n.id === p.id)));
+
       const updatedPhotos = [...photos, ...newUrls];
       const updatedFeatured = featuredPhoto || updatedPhotos[0];
       onChange(updatedPhotos, updatedFeatured);
     } catch (err: any) {
       console.error("Image upload error:", err);
       setError(err.message || "An error occurred while uploading photos.");
+      // Mark pending items with error
+      setPendingUploads((prev) =>
+        prev.map((p) =>
+          newPendingItems.some((n) => n.id === p.id)
+            ? { ...p, isUploading: false, error: err.message || "Upload failed" }
+            : p
+        )
+      );
     } finally {
       setUploading(false);
-      setUploadingCount(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
+  };
+
+  const handleDismissPending = (id: string) => {
+    setPendingUploads((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target) URL.revokeObjectURL(target.blobUrl);
+      return prev.filter((p) => p.id !== id);
+    });
   };
 
   const handleRemove = (indexToRemove: number) => {
@@ -135,26 +204,28 @@ export default function PropertyImageUploader({
     }
   };
 
+  const totalVisibleCount = photos.length + pendingUploads.length;
+
   return (
     <div className="space-y-3 font-sans">
       {/* Hidden Native File Inputs */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/avif"
+        accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp,.avif"
         multiple
         className="hidden"
         onChange={(e) => e.target.files && handleUploadFiles(e.target.files)}
-        disabled={disabled || uploading}
+        disabled={disabled}
       />
       <input
         ref={cameraInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
+        multiple
         className="hidden"
         onChange={(e) => e.target.files && handleUploadFiles(e.target.files)}
-        disabled={disabled || uploading}
+        disabled={disabled}
       />
 
       {/* Upload Dropzone / Action Area */}
@@ -174,7 +245,7 @@ export default function PropertyImageUploader({
             ? "border-emerald-900/60 bg-[#070F0B] hover:border-emerald-700/80"
             : "border-stone-300 bg-stone-50/60 hover:border-editorial-black/40 hover:bg-stone-50"
         } ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
-        onClick={() => !disabled && !uploading && fileInputRef.current?.click()}
+        onClick={() => !disabled && fileInputRef.current?.click()}
       >
         <div className="flex flex-col items-center justify-center gap-2">
           <div
@@ -194,11 +265,11 @@ export default function PropertyImageUploader({
           <div>
             <p className={`text-xs font-bold ${isDark ? "text-white" : "text-stone-900"}`}>
               {uploading
-                ? `Uploading ${uploadingCount > 1 ? `${uploadingCount} listing photos` : "listing photo"}...`
+                ? "Uploading & processing listing photos..."
                 : "Drop photos here or click to open file dialog"}
             </p>
             <p className={`text-[10px] mt-0.5 ${isDark ? "text-slate-400" : "text-stone-500"}`}>
-              Supports high-res JPEG, PNG, WebP up to 15MB each (Max {maxPhotos} photos)
+              Supports JPEG, PNG, WebP, AVIF, HEIC/HEIF up to 25MB each (Max {maxPhotos} photos)
             </p>
           </div>
 
@@ -210,7 +281,7 @@ export default function PropertyImageUploader({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || uploading}
+              disabled={disabled}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isDark
                   ? "bg-emerald-900 hover:bg-emerald-800 text-white"
@@ -224,7 +295,7 @@ export default function PropertyImageUploader({
             <button
               type="button"
               onClick={() => cameraInputRef.current?.click()}
-              disabled={disabled || uploading}
+              disabled={disabled}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isDark
                   ? "bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 border border-emerald-700/50"
@@ -245,16 +316,23 @@ export default function PropertyImageUploader({
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs bg-red-500/10 border border-red-500/30 text-red-500 font-semibold"
         >
           <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
+          <span className="flex-1">{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-red-500 hover:text-red-700 font-bold ml-1 text-xs"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Photo Preview Grid */}
-      {photos.length > 0 && (
+      {/* Photo Preview Grid (Shows both active uploaded photos and immediate local previews) */}
+      {totalVisibleCount > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className={`font-bold ${isDark ? "text-slate-300" : "text-stone-700"}`}>
-              Listing Photos ({photos.length}/{maxPhotos})
+              Listing Photos ({totalVisibleCount}/{maxPhotos})
             </span>
             <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-stone-500"}`}>
               Click ★ to select cover photo
@@ -262,8 +340,10 @@ export default function PropertyImageUploader({
           </div>
 
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {/* 1. Confirmed Uploaded Photos */}
             {photos.map((url, idx) => {
               const isCover = (featuredPhoto || photos[0]) === url;
+              const hasFailed = failedUrls[url];
 
               return (
                 <div
@@ -276,25 +356,39 @@ export default function PropertyImageUploader({
                       : "border-stone-200 bg-stone-100"
                   }`}
                 >
-                  <Image
-                    src={url}
-                    alt={`Listing photo ${idx + 1}`}
-                    fill
-                    unoptimized
-                    sizes="(max-width: 640px) 33vw, 25vw"
-                    className="object-cover"
-                  />
+                  {hasFailed ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-stone-100 dark:bg-stone-800 text-stone-500">
+                      <ImageOff className="w-5 h-5 text-stone-400 mb-1" />
+                      <span className="text-[9px] font-mono leading-tight">Image Offline</span>
+                      <button
+                        type="button"
+                        onClick={() => setFailedUrls((prev) => ({ ...prev, [url]: false }))}
+                        className="mt-1 text-[9px] font-bold text-contour-red hover:underline flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-2.5 h-2.5" />
+                        <span>Retry</span>
+                      </button>
+                    </div>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={url}
+                      alt={`Listing photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={() => setFailedUrls((prev) => ({ ...prev, [url]: true }))}
+                    />
+                  )}
 
                   {/* Cover Badge */}
                   {isCover && (
-                    <div className="absolute top-1 left-1 bg-[#E57A1A] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                    <div className="absolute top-1 left-1 bg-[#E57A1A] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow z-10">
                       COVER
                     </div>
                   )}
 
                   {/* Action Overlay */}
                   {!disabled && (
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1 z-20">
                       <button
                         type="button"
                         onClick={() => handleSetFeatured(url)}
@@ -321,6 +415,50 @@ export default function PropertyImageUploader({
                 </div>
               );
             })}
+
+            {/* 2. Immediate Local Preview Cards (optimistic UI while uploading) */}
+            {pendingUploads.map((pending) => (
+              <div
+                key={pending.id}
+                className="relative aspect-square rounded-xl overflow-hidden border-2 border-dashed border-[#E57A1A] bg-stone-900"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pending.blobUrl}
+                  alt={pending.name}
+                  className="w-full h-full object-cover opacity-60"
+                />
+
+                {/* Uploading Status Overlay */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-black/40">
+                  {pending.isUploading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin text-[#E57A1A] mb-1" />
+                      <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                        Uploading...
+                      </span>
+                      <span className="text-[9px] text-slate-300 truncate max-w-full px-1">
+                        {pending.name}
+                      </span>
+                    </>
+                  ) : pending.error ? (
+                    <>
+                      <AlertCircle className="w-5 h-5 text-red-400 mb-1" />
+                      <span className="text-[9px] font-bold text-red-200 line-clamp-2 px-1">
+                        {pending.error}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDismissPending(pending.id)}
+                        className="mt-1 px-2 py-0.5 text-[9px] font-bold bg-red-600 hover:bg-red-700 text-white rounded"
+                      >
+                        Dismiss
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

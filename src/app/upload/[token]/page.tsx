@@ -413,18 +413,28 @@ export default function ClientUploadPortalPage() {
               {/* Selected Files List */}
               {selectedFiles.length > 0 && (
                 <div className="space-y-1.5 pt-2">
-                  {selectedFiles.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2 bg-stone-50 dark:bg-stone-800/60 rounded-lg text-xs"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <FileText className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span className="truncate">{file.name}</span>
-                        <span className="text-stone-400 font-mono text-[10px]">
-                          ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                        </span>
-                      </div>
+                  {selectedFiles.map((file, idx) => {
+                    const isImg = file.type.startsWith("image/");
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 bg-stone-50 dark:bg-stone-800/60 rounded-lg text-xs"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          {isImg ? (
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              className="w-8 h-8 rounded object-cover border border-stone-300 dark:border-stone-700 shrink-0"
+                            />
+                          ) : (
+                            <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+                          )}
+                          <span className="truncate">{file.name}</span>
+                          <span className="text-stone-400 font-mono text-[10px]">
+                            ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
                       <button
                         type="button"
                         onClick={() => removeFile(idx)}
@@ -433,7 +443,8 @@ export default function ClientUploadPortalPage() {
                         ✕
                       </button>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               )}
             </div>

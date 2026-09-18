@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Upload, Loader2, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, X, RefreshCw } from "lucide-react";
 
 interface UploadDocumentModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ export function UploadDocumentModal({
   defaultPropertyId,
 }: UploadDocumentModalProps) {
   const [file, setFile] = React.useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
   const [title, setTitle] = React.useState("");
   const [docType, setDocType] = React.useState("TITLE_DEED");
   const [classification, setClassification] = React.useState("CONFIDENTIAL_PII");
@@ -30,6 +31,7 @@ export function UploadDocumentModal({
   const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (defaultPropertyId) {
@@ -37,17 +39,63 @@ export function UploadDocumentModal({
     }
   }, [defaultPropertyId]);
 
+  // Clean up object URL when file changes or unmounts
+  React.useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
+
   const selectedProperty = properties.find((p) => p.id === propertyId);
   const isArchived = selectedProperty?.status === "ARCHIVED";
 
+  const handleFileSelect = (selected: File) => {
+    if (selected.size > 25 * 1024 * 1024) {
+      setError("File size exceeds 25MB limit");
+      return;
+    }
+
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+      setImagePreviewUrl(null);
+    }
+
+    setFile(selected);
+    setError(null);
+
+    // If file is an image, create instant local preview URL
+    const isImg =
+      selected.type.startsWith("image/") ||
+      Boolean(selected.name.match(/\.(jpg|jpeg|png|webp|avif)$/i));
+
+    if (isImg) {
+      setImagePreviewUrl(URL.createObjectURL(selected));
+    } else {
+      setImagePreviewUrl(null);
+    }
+
+    if (!title) {
+      // Strip extension for title
+      setTitle(selected.name.replace(/\.[^/.]+$/, ""));
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const selected = e.target.files[0];
-      setFile(selected);
-      if (!title) {
-        // Strip extension for title
-        setTitle(selected.name.replace(/\.[^/.]+$/, ""));
-      }
+      handleFileSelect(e.target.files[0]);
+    }
+  };
+
+  const handleClearFile = () => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+      setImagePreviewUrl(null);
+    }
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -67,58 +115,32 @@ export function UploadDocumentModal({
     setError(null);
 
     try {
-      // 1. Request presigned upload URL
-      const presignRes = await fetch(
-        `/api/storage/upload?filename=${encodeURIComponent(file.name)}&category=${docType}&mimeType=${encodeURIComponent(file.type || "application/octet-stream")}`
-      );
-      const presignData = await presignRes.json();
+      // Direct server-side multipart upload to prevent browser CORS/CSP blocking with MinIO
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", title || file.name);
+      formData.append("docType", docType);
+      formData.append("classification", classification);
+      if (propertyId) formData.append("propertyId", propertyId);
+      if (registryFolio) formData.append("registryFolio", registryFolio);
+      if (standPlotNumber) formData.append("standPlotNumber", standPlotNumber);
+      if (nrcNumber) formData.append("nrcNumber", nrcNumber);
 
-      if (!presignRes.ok || !presignData.success) {
-        throw new Error(presignData.error || "Failed to obtain secure storage slot");
-      }
-
-      // 2. Upload file bytes directly to MinIO
-      const bytes = await file.arrayBuffer();
-      try {
-        await fetch(presignData.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: bytes,
-        });
-      } catch (uploadErr) {
-        console.warn("Direct upload fetch notice (dev fallback active):", uploadErr);
-      }
-
-      // 3. Register document in database with Zambia DPA metadata
-      const saveRes = await fetch("/api/vault/documents", {
+      const res = await fetch("/api/storage/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || file.name,
-          docType,
-          classification,
-          objectKey: presignData.objectKey,
-          originalFileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type || "application/octet-stream",
-          fileType: file.name.split(".").pop()?.toUpperCase() || "PDF",
-          propertyId: propertyId || null,
-          registryFolio: registryFolio || null,
-          standPlotNumber: standPlotNumber || null,
-          nrcNumber: nrcNumber || null,
-        }),
+        body: formData,
       });
 
-      const saveData = await saveRes.json();
+      const data = await res.json();
 
-      if (!saveRes.ok) {
-        throw new Error(saveData.error || "Failed to register document in vault");
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to upload document to vault");
       }
 
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        setFile(null);
+        handleClearFile();
         setTitle("");
         setRegistryFolio("");
         setStandPlotNumber("");
@@ -206,75 +228,69 @@ export function UploadDocumentModal({
 
               <div>
                 <label className="block text-[11px] font-mono uppercase tracking-wider text-editorial-muted mb-1">
-                  Category *
+                  Document Classification *
                 </label>
                 <select
                   value={docType}
                   onChange={(e) => setDocType(e.target.value)}
                   className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-3 py-2 text-editorial-black focus:border-contour-red outline-none"
                 >
-                  <option value="TITLE_DEED">📜 Title Deed & Diagram</option>
-                  <option value="NRC_PASSPORT_ID">🪪 NRC / Passport ID Scan</option>
-                  <option value="MANDATE_AGREEMENT">📝 Sole Mandate Agreement</option>
-                  <option value="LEASE_CONTRACT">🏠 Tenancy Lease Contract</option>
-                  <option value="PACRA_CERTIFICATE">🏢 PACRA Incorporation Cert</option>
-                  <option value="VALUATION_REPORT">📊 Professional Valuation</option>
-                  <option value="PROOF_OF_RESIDENCE">📬 Proof of Residence (ZESCO)</option>
-                  <option value="PAYMENT_RECEIPT">🧾 Bank / Payment Receipt</option>
-                  <option value="OTHER">📁 Other Legal Document</option>
+                  <option value="TITLE_DEED">📜 Title Deed</option>
+                  <option value="NRC_PASSPORT_ID">🪪 NRC / Passport / PACRA</option>
+                  <option value="MANDATE_AGREEMENT">✍️ Mandate Agreement</option>
+                  <option value="SITE_SURVEY_DIAGRAM">📐 Site Survey Diagram</option>
+                  <option value="LEASE_CONTRACT">📝 Lease Contract</option>
+                  <option value="VALUATION_REPORT">📊 Valuation Report</option>
+                  <option value="TAX_CLEARANCE">🏛️ Tax Clearance (ZRA)</option>
+                  <option value="OTHER">📁 Other Legal Asset</option>
                 </select>
               </div>
             </div>
 
-            {/* Zambian Land Metadata */}
-            {docType === "TITLE_DEED" && (
-              <div className="grid grid-cols-2 gap-3 p-3 bg-editorial-bg rounded-none border border-editorial-border">
-                <div>
-                  <label className="block text-[10px] font-mono uppercase tracking-wider text-editorial-muted mb-1">
-                    Ministry Lands Folio #
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Folio 412/108"
-                    value={registryFolio}
-                    onChange={(e) => setRegistryFolio(e.target.value)}
-                    className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-2.5 py-1.5 focus:border-contour-red outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono uppercase tracking-wider text-editorial-muted mb-1">
-                    Stand / Plot #
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Stand 19283/M"
-                    value={standPlotNumber}
-                    onChange={(e) => setStandPlotNumber(e.target.value)}
-                    className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-2.5 py-1.5 focus:border-contour-red outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {docType === "NRC_PASSPORT_ID" && (
+            {/* Statutory Metadata Fields */}
+            <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-editorial-muted mb-1">
-                  National Registration Card (NRC) Number
+                <label className="block text-[10px] font-mono uppercase text-editorial-muted mb-1">
+                  Lands Folio / Registry Ref
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 123456/11/1"
-                  value={nrcNumber}
-                  onChange={(e) => setNrcNumber(e.target.value)}
-                  className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-3 py-2 focus:border-contour-red outline-none"
+                  placeholder="LND/84920/2024"
+                  value={registryFolio}
+                  onChange={(e) => setRegistryFolio(e.target.value)}
+                  className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-2.5 py-1.5 text-editorial-black focus:border-contour-red outline-none"
                 />
               </div>
-            )}
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-editorial-muted mb-1">
+                  Stand / Plot #
+                </label>
+                <input
+                  type="text"
+                  placeholder="Stand 4821"
+                  value={standPlotNumber}
+                  onChange={(e) => setStandPlotNumber(e.target.value)}
+                  className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-2.5 py-1.5 text-editorial-black focus:border-contour-red outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-editorial-muted mb-1">
+                  NRC / Passport #
+                </label>
+                <input
+                  type="text"
+                  placeholder="123456/10/1"
+                  value={nrcNumber}
+                  onChange={(e) => setNrcNumber(e.target.value)}
+                  className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-2.5 py-1.5 text-editorial-black focus:border-contour-red outline-none"
+                />
+              </div>
+            </div>
 
-            {/* Security Classification */}
+            {/* Access Security Tier */}
             <div>
               <label className="block text-[11px] font-mono uppercase tracking-wider text-editorial-muted mb-1">
-                Security Classification (Zambia DPA Tier)
+                Zambia DPA Security Classification
               </label>
               <select
                 value={classification}
@@ -287,36 +303,78 @@ export function UploadDocumentModal({
               </select>
             </div>
 
-            {/* File Dropzone */}
-            <div className="border border-dashed border-editorial-border rounded-none p-5 text-center hover:border-contour-red transition-colors bg-editorial-bg">
+            {/* File Dropzone & Live Image Preview */}
+            <div className="border border-dashed border-editorial-border rounded-none p-4 text-center hover:border-contour-red transition-colors bg-editorial-bg">
               <input
+                ref={fileInputRef}
                 type="file"
                 id="vault-file-input"
                 onChange={handleFileChange}
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.avif,.doc,.docx"
               />
-              <label htmlFor="vault-file-input" className="cursor-pointer block">
-                {file ? (
-                  <div className="flex items-center justify-center gap-2 text-xs font-mono font-medium text-emerald-600">
-                    <FileText className="w-4 h-4" />
-                    <span>{file.name}</span>
-                    <span className="text-editorial-muted font-mono text-[11px]">
-                      ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                    </span>
-                  </div>
-                ) : (
+
+              {file ? (
+                <div className="space-y-3">
+                  {/* Image Preview Card if selected file is an image */}
+                  {imagePreviewUrl ? (
+                    <div className="relative mx-auto max-w-[280px] rounded-lg overflow-hidden border border-editorial-border bg-neutral-900 shadow-md">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imagePreviewUrl}
+                        alt={file.name}
+                        className="w-full h-36 object-contain bg-black/40"
+                      />
+                      <div className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                        IMAGE READY FOR VAULT
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 mx-auto bg-paper-200 border border-editorial-border flex items-center justify-center text-contour-red rounded-lg">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  )}
+
                   <div>
-                    <Upload className="w-6 h-6 mx-auto mb-1.5 text-editorial-muted" />
-                    <p className="text-xs font-mono uppercase tracking-wider text-editorial-black">
-                      Click to choose file or drag and drop
+                    <p className="text-xs font-mono font-bold text-editorial-black truncate max-w-sm mx-auto">
+                      {file.name}
                     </p>
-                    <p className="text-[11px] font-mono text-editorial-muted mt-1">
-                      PDF, JPG, PNG up to 25MB · Streamed directly to encrypted S3
+                    <p className="text-[11px] font-mono text-editorial-muted">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB · {file.type || "Document file"}
                     </p>
                   </div>
-                )}
-              </label>
+
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2.5 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider border border-editorial-border bg-white hover:bg-neutral-100 text-editorial-black transition-colors"
+                    >
+                      Change File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearFile}
+                      className="px-2.5 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition-colors flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label htmlFor="vault-file-input" className="cursor-pointer block py-4">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-white border border-editorial-border flex items-center justify-center text-contour-red shadow-sm">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <p className="text-xs font-mono uppercase tracking-wider text-editorial-black font-semibold">
+                    Click to choose file or drag and drop
+                  </p>
+                  <p className="text-[11px] font-mono text-editorial-muted mt-1">
+                    Supports high-res JPG, PNG, WebP &amp; PDF up to 25MB
+                  </p>
+                </label>
+              )}
             </div>
 
             {/* Actions */}
@@ -332,12 +390,12 @@ export function UploadDocumentModal({
               <button
                 type="submit"
                 disabled={isUploading || !file || isArchived}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-mono font-bold uppercase tracking-wider bg-contour-red hover:bg-contour-red/90 text-white rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-mono font-bold uppercase tracking-wider bg-contour-red hover:bg-contour-red/90 text-white rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 {isUploading ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Encrypting & Streaming...</span>
+                    <span>Encrypting &amp; Saving...</span>
                   </>
                 ) : (
                   <>

@@ -361,10 +361,28 @@ const getHandler = createApiHandler({
 });
 
 const postHandler = createApiHandler({
-  requirePermissions: ["pwa.listings.create"],
+  requirePermissions: ["properties.create"],
   bodySchema: createPropertySchema,
   handler: async (req, ctx) => {
     const { organizationId, userId, body } = ctx;
+
+    // Enforce unique property titles within the same organization context
+    const duplicateProperty = await db.property.findFirst({
+      where: {
+        organizationId: organizationId!,
+        title: { equals: body.title.trim(), mode: "insensitive" },
+      },
+      select: { id: true, title: true },
+    });
+    if (duplicateProperty) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `A property named "${duplicateProperty.title}" already exists in your agency workspace. Each property listing title must be unique.`,
+        },
+        { status: 409, headers: CORS_HEADERS }
+      );
+    }
 
     const baseSlug = body.title
       .toLowerCase()
@@ -518,9 +536,10 @@ const postHandler = createApiHandler({
       },
     });
 
-    // Invalidate tenant cache tags for instant UI consistency
+    // Invalidate tenant cache tags for instant UI consistency across all surfaces
     smartCache.invalidateTag(organizationId!, "properties", "/dashboard/properties");
     smartCache.invalidateTag(organizationId!, "properties", "/agent");
+    smartCache.invalidateTag(organizationId!, "properties", "/dashboard/map");
     smartCache.invalidateTag(organizationId!, "dashboard-metrics");
     smartCache.invalidateTag(organizationId!, "dashboard-action-queue");
 
@@ -566,10 +585,13 @@ const patchHandler = createApiHandler({
       }
     });
 
-    // Invalidate tenant cache tags
+    // Invalidate tenant cache tags across all surfaces
     if (ctx.organizationId) {
       smartCache.invalidateTag(ctx.organizationId, "properties", "/dashboard/properties");
+      smartCache.invalidateTag(ctx.organizationId, "properties", "/agent");
+      smartCache.invalidateTag(ctx.organizationId, "properties", "/dashboard/map");
       smartCache.invalidateTag(ctx.organizationId, "dashboard-metrics");
+      smartCache.invalidateTag(ctx.organizationId, "dashboard-action-queue");
     }
 
     return NextResponse.json({

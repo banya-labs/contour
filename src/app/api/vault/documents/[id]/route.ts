@@ -71,12 +71,15 @@ export const GET = createApiHandler({
       }
     }
 
-    // Generate 15-minute presigned download/preview URL under Zambia DPA / S3 Vault standards
-    let previewUrl: string | null = null;
-    try {
-      previewUrl = await s3Storage.getPresignedDownloadUrl(doc.objectKey, 900);
-    } catch (err: any) {
-      console.error("[Vault] Failed to generate presigned URL:", err);
+    // Use authenticated preview stream endpoint for robust, CORS-free image and PDF previews
+    let previewUrl: string = `/api/vault/documents/${doc.id}/preview`;
+    let presignedS3Url: string | null = null;
+    if (s3Storage.isConfigured() && !doc.objectKey.startsWith("local:")) {
+      try {
+        presignedS3Url = await s3Storage.getPresignedDownloadUrl(doc.objectKey, 900);
+      } catch (err: any) {
+        console.warn("[Vault] S3 presign notice:", err?.message);
+      }
     }
 
     // Record audit log

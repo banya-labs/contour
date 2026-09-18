@@ -29,13 +29,15 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isSignUp = mode === "sign-up";
   const rawRedirectUrl = searchParams.get("redirect_url") || "/dashboard";
   const redirectUrl =
     rawRedirectUrl === "/agent/kiosk" || rawRedirectUrl === "/kiosk/agent"
       ? "/agent"
       : rawRedirectUrl;
-  const onboardingUrl = `/onboarding?redirect_url=${encodeURIComponent(redirectUrl)}`;
-  const isSignUp = mode === "sign-up";
+  const onboardingUrl = isSignUp
+    ? `/onboarding?flow=new_agency&redirect_url=${encodeURIComponent(redirectUrl)}`
+    : `/onboarding?redirect_url=${encodeURIComponent(redirectUrl)}`;
   const noticeParam = searchParams.get("notice");
   const errorParam = searchParams.get("error");
   const isAgentPwaIntent = redirectUrl.startsWith("/agent") || redirectUrl.startsWith("/kiosk");
@@ -56,6 +58,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       : await authClient.signIn.email({
           email,
           password,
+          rememberMe: true,
           callbackURL: onboardingUrl,
         });
 
@@ -104,6 +107,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     const result = await authClient.signIn.email({
       email: quickEmail,
       password: "Password123!",
+      rememberMe: true,
     });
     console.log("[handleQuickLogin] result:", result);
     setIsSubmitting(false);

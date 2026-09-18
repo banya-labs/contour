@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { createLeaseSchema } from "@/lib/validations";
+import { smartCache } from "@/lib/cache";
 
 const getHandler = createApiHandler({
   handler: async (req, ctx) => {
@@ -71,6 +72,22 @@ const postHandler = createApiHandler({
         }
       }
     });
+
+    // Mark the property as RENTED
+    await db.property.update({
+      where: { id: body.propertyId },
+      data: { status: "RENTED" },
+    });
+
+    // Invalidate lease and property caches across all surfaces
+    if (organizationId) {
+      smartCache.invalidateTag(organizationId, "leases", "/dashboard/leases");
+      smartCache.invalidateTag(organizationId, "properties", "/dashboard/properties");
+      smartCache.invalidateTag(organizationId, "properties", "/agent");
+      smartCache.invalidateTag(organizationId, "properties", "/dashboard/map");
+      smartCache.invalidateTag(organizationId, "dashboard-metrics");
+      smartCache.invalidateTag(organizationId, "dashboard-action-queue");
+    }
 
     return NextResponse.json({ success: true, lease });
   }

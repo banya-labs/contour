@@ -145,6 +145,35 @@ export const createInquirySchema = z.object({
   dealValue: z.number().positive().optional(),
 });
 
+export const updateInquirySchema = z.object({
+  // Pipeline fields
+  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"]).optional(),
+  outcome: PipelineOutcomeEnum.optional(),
+  lostReason: z.string().trim().min(10).max(2000).optional(),
+  assignedAgentId: z.string().optional().nullable(),
+  leadSource: LeadSourceEnum.optional(),
+  propertyId: z.string().optional().nullable(),
+  dealValue: z.number().positive().optional().nullable(),
+  matchStatus: z.enum(["UNMATCHED", "PARTIALLY_MATCHED", "MATCHED"]).optional(),
+  unmatchedReason: z.string().max(200).optional(),
+  failedAtStage: z.enum(["VIEWING", "NEGOTIATION", "OFFER"]).optional(),
+
+  // Client profile fields
+  clientName: z.string().min(2).max(100).optional(),
+  name: z.string().min(2).max(100).optional(),
+  clientPhone: z.string().min(6).max(30).optional(),
+  phone: z.string().min(6).max(30).optional(),
+  clientEmail: z.string().email().optional().or(z.literal("")).or(z.null()),
+  email: z.string().email().optional().or(z.literal("")).or(z.null()),
+  lookingFor: ListingTypeEnum.optional(),
+  propertyType: PropertyTypeEnum.optional(),
+  budgetMin: z.number().positive().optional().nullable(),
+  budgetMax: z.number().positive().optional().nullable(),
+  currency: CurrencyEnum.optional(),
+  preferredSuburbs: z.array(z.string()).optional(),
+  notes: z.string().max(1000).optional().nullable(),
+});
+
 export const updateInquiryPipelineSchema = z.object({
   status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"]),
   outcome: PipelineOutcomeEnum.optional(),

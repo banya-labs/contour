@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
+import { smartCache } from "@/lib/cache";
 import { z } from "zod";
 
 const createTransactionSchema = z.object({
@@ -113,6 +114,16 @@ const postHandler = createApiHandler({
       where: { id: body.propertyId },
       data: { status: "SOLD" }
     });
+
+    // Invalidate sales and property caches across all surfaces
+    if (organizationId) {
+      smartCache.invalidateTag(organizationId, "sales", "/dashboard/sales");
+      smartCache.invalidateTag(organizationId, "properties", "/dashboard/properties");
+      smartCache.invalidateTag(organizationId, "properties", "/agent");
+      smartCache.invalidateTag(organizationId, "properties", "/dashboard/map");
+      smartCache.invalidateTag(organizationId, "dashboard-metrics");
+      smartCache.invalidateTag(organizationId, "dashboard-action-queue");
+    }
 
     return NextResponse.json({ success: true, transaction });
   }

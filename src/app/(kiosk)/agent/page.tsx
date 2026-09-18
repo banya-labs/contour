@@ -54,6 +54,7 @@ import {
   CalendarClock,
   Upload,
   Tag,
+  Pencil,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
@@ -63,6 +64,7 @@ import { authClient } from "@/lib/auth-client";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import { canManagePropertyPhotos } from "@/lib/authorization";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
+import { normalizePhoneNumber, formatWhatsAppDigits } from "@/lib/phone-utils";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -131,12 +133,12 @@ function AgentKioskContent() {
   const [clientAssignmentFilter, setClientAssignmentFilter] = useState<"ALL" | "ASSIGNED">("ALL");
 
   const [currentAgent, setCurrentAgent] = useState({
-    id: "usr_field_agent",
-    name: "Tembo Mwape",
+    id: session?.user?.id || "",
+    name: session?.user?.name || "Field Agent",
     role: "Field Agent",
     zone: "Lusaka Real Estate",
-    phone: "+260 97 123 4567",
-    email: "tembo@contour.app",
+    phone: (session?.user as any)?.phone || "",
+    email: session?.user?.email || "",
     earnedSplitUsd: 0,
     earnedSplitZmw: 0,
     pendingSplitZmw: 0,
@@ -148,6 +150,86 @@ function AgentKioskContent() {
 
   const userRole = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined;
   const isManagerOrAdmin = Boolean(userRole && (userRole === "SUPER_ADMIN" || userRole === "BROKER_MANAGER"));
+
+  // Ensure field agents never remain in management-only PROPERTY drawer
+  useEffect(() => {
+    if (!isManagerOrAdmin && intakeDrawer === "PROPERTY") {
+      setIntakeDrawer("CLIENT");
+    }
+  }, [isManagerOrAdmin, intakeDrawer]);
+
+  // Client Edit Modal State (Issue 9)
+  const [editingClient, setEditingClient] = useState<any | null>(null);
+  const [editClientName, setEditClientName] = useState("");
+  const [editClientPhone, setEditClientPhone] = useState("");
+  const [editClientBudget, setEditClientBudget] = useState("");
+  const [editClientCurrency, setEditClientCurrency] = useState<"ZMW" | "USD">("ZMW");
+  const [editClientSuburb, setEditClientSuburb] = useState("Kabulonga");
+  const [isCustomEditSuburb, setIsCustomEditSuburb] = useState(false);
+  const [editClientNotes, setEditClientNotes] = useState("");
+  const [isSavingClientEdit, setIsSavingClientEdit] = useState(false);
+  const [editClientError, setEditClientError] = useState<string | null>(null);
+
+  const handleOpenEditClient = (client: any) => {
+    setEditingClient(client);
+    setEditClientName(client.name || client.clientName || "");
+    setEditClientPhone(client.phone || client.clientPhone || "");
+    const rawBudget = client.budget || client.budgetMax || "";
+    const numBudget = typeof rawBudget === "string" ? rawBudget.replace(/[^0-9.]/g, "") : String(rawBudget || "");
+    setEditClientBudget(numBudget);
+    setEditClientCurrency((client.currency as "ZMW" | "USD") || "ZMW");
+    const sub = client.preferredArea || (client.preferredSuburbs && client.preferredSuburbs[0]) || "Kabulonga";
+    setEditClientSuburb(sub);
+    setIsCustomEditSuburb(!dynamicSuburbs.includes(sub));
+    setEditClientNotes(client.notes || "");
+    setEditClientError(null);
+  };
+
+  const handleSaveClientEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+    if (!editClientName.trim()) {
+      setEditClientError("Client name is required.");
+      return;
+    }
+    if (!editClientPhone.trim() || editClientPhone.replace(/[^0-9]/g, "").length < 6) {
+      setEditClientError("Please provide a valid phone number.");
+      return;
+    }
+
+    setIsSavingClientEdit(true);
+    setEditClientError(null);
+    try {
+      const normalizedPhone = normalizePhoneNumber(editClientPhone);
+      const parsedBudget = editClientBudget ? parseFloat(editClientBudget) : undefined;
+      const payload = {
+        clientName: editClientName.trim(),
+        clientPhone: normalizedPhone,
+        budgetMax: parsedBudget,
+        currency: editClientCurrency,
+        preferredSuburbs: editClientSuburb ? [editClientSuburb] : [],
+        notes: editClientNotes || undefined,
+      };
+
+      const res = await fetch(`/api/clients/${editingClient.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to update client profile.");
+      }
+
+      playSuccessTone();
+      setEditingClient(null);
+      void syncData();
+    } catch (err: any) {
+      setEditClientError(err.message || "Failed to save client changes.");
+    } finally {
+      setIsSavingClientEdit(false);
+    }
+  };
 
   useEffect(() => {
     async function loadSummary() {
@@ -253,11 +335,12 @@ function AgentKioskContent() {
   const [newPropType, setNewPropType] = useState<"SALE" | "RENT">("SALE");
   const [newPropCurrency, setNewPropCurrency] = useState<"ZMW" | "USD">("ZMW");
   const [newPropBeds, setNewPropBeds] = useState("4");
-  const [newPropMandate, setNewPropMandate] = useState("EXCLUSIVE");
+  const [newPropMandate, setNewPropMandate] = useState<"SOLE_MANDATE" | "OPEN_MANDATE" | "COMPANY_OWNED">("SOLE_MANDATE");
   const [newPropPhotos, setNewPropPhotos] = useState<string[]>([]);
   const [newPropFeaturedPhoto, setNewPropFeaturedPhoto] = useState<string | undefined>(undefined);
   const [copiedPublicLinkId, setCopiedPublicLinkId] = useState<string | null>(null);
   const [isAddingPhotosToDetail, setIsAddingPhotosToDetail] = useState(false);
+  const [isCustomAgentSuburb, setIsCustomAgentSuburb] = useState(false);
 
   const handleShareClientLink = (p: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -411,8 +494,20 @@ function AgentKioskContent() {
   const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     const price = Number(newPropPrice);
-    if (newPropTitle.trim().length < 5) {
+    const titleTrimmed = newPropTitle.trim();
+    if (titleTrimmed.length < 5) {
       setCaptureError("Add a property title with at least 5 characters.");
+      return;
+    }
+    const isDuplicate = (properties || []).some(
+      (p: any) => p.title?.trim().toLowerCase() === titleTrimmed.toLowerCase()
+    );
+    if (isDuplicate) {
+      setCaptureError(`A property named "${titleTrimmed}" already exists. Property titles must be unique.`);
+      return;
+    }
+    if (!newPropSuburb || !newPropSuburb.trim()) {
+      setCaptureError("Select or type a suburb / area for this property.");
       return;
     }
     if (!Number.isFinite(price) || price <= 0) {
@@ -422,9 +517,9 @@ function AgentKioskContent() {
     setCaptureError(null);
 
     const payload = {
-      title: newPropTitle.trim(),
-      description: newPropTitle.trim().length >= 10 ? newPropTitle.trim() : `${newPropTitle.trim()} located in ${newPropSuburb}, Lusaka.`,
-      suburb: newPropSuburb,
+      title: titleTrimmed,
+      description: titleTrimmed.length >= 10 ? titleTrimmed : `${titleTrimmed} located in ${newPropSuburb.trim()}, Lusaka.`,
+      suburb: newPropSuburb.trim(),
       price,
       askingPrice: newPropType === "SALE" ? price : undefined,
       rentalPrice: newPropType === "RENT" ? price : undefined,
@@ -433,11 +528,12 @@ function AgentKioskContent() {
       listingType: newPropType === "SALE" ? "FOR_SALE" : "FOR_RENT",
       bedrooms: Number(newPropBeds),
       bathrooms: Math.max(1, Number(newPropBeds) - 1),
-      mandateType: newPropMandate,
-      assignedAgentId: currentAgent.id,
-      assignedAgentName: currentAgent.name,
-      agentId: currentAgent.id,
-      agentName: currentAgent.name,
+      mandateType: newPropMandate === ("EXCLUSIVE" as any) ? "SOLE_MANDATE" : (newPropMandate || "SOLE_MANDATE"),
+      mandateDeclarationAgreed: true,
+      assignedAgentId: session?.user?.id || undefined,
+      assignedAgentName: session?.user?.name || currentAgent.name,
+      agentId: session?.user?.id || undefined,
+      agentName: session?.user?.name || currentAgent.name,
       photos: newPropPhotos,
       featuredPhoto: newPropFeaturedPhoto || newPropPhotos[0],
       latitude: newPropSuburb === "Kabulonga" ? -15.4215 : newPropSuburb === "Leopards Hill" ? -15.4480 : -15.3850,
@@ -461,8 +557,9 @@ function AgentKioskContent() {
       setCaptureError("Enter the client or company name.");
       return;
     }
-    if (!/^[+\d][\d\s()-]{7,}$/.test(newClientPhone.trim())) {
-      setCaptureError("Enter a valid WhatsApp phone number, including the country code where possible.");
+    const normalizedClientPhone = normalizePhoneNumber(newClientPhone.trim());
+    if (!normalizedClientPhone || normalizedClientPhone.length < 10) {
+      setCaptureError("Enter a valid WhatsApp phone number (e.g. 097... or +260...).");
       return;
     }
     if (newClientBudget && Number(newClientBudget) < 0) {
@@ -500,11 +597,11 @@ function AgentKioskContent() {
 
     const payload: any = {
       clientName: newClientName.trim(),
-      clientPhone: newClientPhone.trim(),
+      clientPhone: normalizedClientPhone,
       budgetMax: finalBudget,
       currency: clientCurrency,
       preferredSuburbs: attachedOfferProperty?.suburb ? [attachedOfferProperty.suburb] : (newClientSuburb ? [newClientSuburb] : []),
-      assignedAgentId: currentAgent.id,
+      assignedAgentId: session?.user?.id || undefined,
       lookingFor: attachedOfferProperty ? (attachedOfferProperty.listingType || "FOR_SALE") : newClientLookingFor,
       propertyType: newClientPropertyType ? newClientPropertyType : undefined,
       notes: enrichedNotes || undefined,
@@ -571,12 +668,12 @@ function AgentKioskContent() {
         setCaptureError("Enter the buyer or client name.");
         return;
       }
-      if (!/^[+\d][\d\s()-]{7,}$/.test(offerClientPhone.trim())) {
-        setCaptureError("Enter a valid WhatsApp phone number for the client.");
+      if (!offerClientPhone.trim() || normalizePhoneNumber(offerClientPhone.trim()).length < 10) {
+        setCaptureError("Enter a valid WhatsApp phone number for the client (e.g. 097... or +260...).");
         return;
       }
       resolvedClientName = offerClientName.trim();
-      resolvedClientPhone = offerClientPhone.trim();
+      resolvedClientPhone = normalizePhoneNumber(offerClientPhone.trim());
     }
 
     const amount = Number(offerAmount);
@@ -605,16 +702,16 @@ function AgentKioskContent() {
 
     const payload: any = {
       clientName: resolvedClientName,
-      clientPhone: resolvedClientPhone,
+      clientPhone: normalizePhoneNumber(resolvedClientPhone),
       budgetMax: amount,
       dealValue: amount,
       currency: offerCurrency,
       preferredSuburbs: [selectedOfferProperty.suburb || "Lusaka"],
-      assignedAgentId: currentAgent.id,
+      assignedAgentId: session?.user?.id || undefined,
       propertyId: selectedOfferProperty.id,
       status: "OFFER_MADE",
       lookingFor: selectedOfferProperty.listingType || "FOR_SALE",
-      notes: `[Lodge Offer Intake] Formal offer of ${offerCurrency} ${amount.toLocaleString()} submitted by ${currentAgent.name}`,
+      notes: `[Lodge Offer Intake] Formal offer of ${offerCurrency} ${amount.toLocaleString()} submitted by ${session?.user?.name || currentAgent.name}`,
       exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
 
@@ -628,27 +725,51 @@ function AgentKioskContent() {
     setOfferAmount("");
   };
 
-  // Deal Stage Advancement
-  const advanceDealStage = (dealId: string) => {
+  // Deal Stage Advancement with real-time server synchronization
+  const advanceDealStage = async (dealId: string) => {
+    let nextStage: string = "";
+    let nextStageLabel: string = "";
+    let nextOutcome: "WON" | undefined = undefined;
+
+    const currentDeal = agentDeals.find((d) => d.id === dealId);
+    if (!currentDeal) return;
+
+    if (currentDeal.stage === "VIEWING_SCHEDULED" || currentDeal.stage === "CONTACTED" || currentDeal.stage === "NEW_INQUIRY") {
+      nextStage = "OFFER_MADE";
+      nextStageLabel = "Written Offer Submitted";
+    } else if (currentDeal.stage === "NEGOTIATING") {
+      nextStage = "OFFER_MADE";
+      nextStageLabel = "Written Offer Submitted";
+    } else if (currentDeal.stage === "OFFER_MADE" || currentDeal.stage === "OFFER_ACCEPTED" || currentDeal.stage === "DEEDS_LODGED") {
+      nextStage = "CLOSED";
+      nextStageLabel = "Deal Closed Won";
+      nextOutcome = "WON";
+    } else {
+      return;
+    }
+
     setAgentDeals((prev) =>
       prev.map((deal) => {
         if (deal.id !== dealId) return deal;
-        if (deal.stage === "VIEWING_SCHEDULED") {
-          return { ...deal, stage: "OFFER_MADE", stageLabel: "Offer Made", updatedAt: "Just now" };
-        }
-        if (deal.stage === "OFFER_MADE") {
-          return { ...deal, stage: "OFFER_ACCEPTED", stageLabel: "Offer Accepted", updatedAt: "Just now" };
-        }
-        if (deal.stage === "OFFER_ACCEPTED") {
-          return { ...deal, stage: "DEEDS_LODGED", stageLabel: "Deeds Lodged at Lands", updatedAt: "Just now" };
-        }
-        if (deal.stage === "DEEDS_LODGED") {
-          return { ...deal, stage: "COMMISSION_PAID", stageLabel: "Commission Settled & Paid", updatedAt: "Just now" };
-        }
-        return deal;
+        return { ...deal, stage: nextStage, stageLabel: nextStageLabel, updatedAt: "Just now" };
       })
     );
     playSuccessTone();
+
+    // If it's a real database inquiry, sync to server immediately
+    if (!dealId.startsWith("deal_")) {
+      try {
+        const payload: any = { status: nextStage };
+        if (nextOutcome) payload.outcome = nextOutcome;
+        await fetch(`/api/clients/${dealId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        console.error("Failed to sync deal advancement to server:", err);
+      }
+    }
   };
 
   const isDev = process.env.NEXT_PUBLIC_DEV_MODE === "true";
@@ -921,19 +1042,21 @@ function AgentKioskContent() {
             </section>
 
             {/* Quick Field Intake Actions: Listing, Client, Offer */}
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setCaptureError(null);
-                  setIntakeDrawer("PROPERTY");
-                  playSuccessTone();
-                }}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-editorial-black border border-editorial-border font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-2xs hover:border-editorial-black"
-              >
-                <Plus className="w-3.5 h-3.5 text-[#E57A1A]" />
-                <span>Listing</span>
-              </button>
+            <div className={`grid ${isManagerOrAdmin ? "grid-cols-3" : "grid-cols-2"} gap-2`}>
+              {isManagerOrAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCaptureError(null);
+                    setIntakeDrawer("PROPERTY");
+                    playSuccessTone();
+                  }}
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-editorial-black border border-editorial-border font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-2xs hover:border-editorial-black"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#E57A1A]" />
+                  <span>Listing</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -1322,14 +1445,16 @@ function AgentKioskContent() {
                           : "No properties match your current search or filter criteria."}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIntakeDrawer("PROPERTY")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors shadow-xs"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{displayProperties.length === 0 ? "Add First Mandate" : "Add New Mandate"}</span>
-                    </button>
+                    {isManagerOrAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setIntakeDrawer("PROPERTY")}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors shadow-xs"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{displayProperties.length === 0 ? "Add First Mandate" : "Add New Mandate"}</span>
+                      </button>
+                    )}
                   </div>
                 ) : (
                   filteredProperties.map((p: any) => {
@@ -1341,20 +1466,21 @@ function AgentKioskContent() {
                       key={p.id}
                       className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 text-editorial-black transition-colors hover:border-editorial-black/50"
                     >
-                      {p.photos?.[0] ? (
-                        <div className="relative h-44 sm:h-48 overflow-hidden border border-editorial-border bg-neutral-100 shrink-0">
-                          <Image
-                            src={p.photos[0]}
-                            alt={p.title || "Property image"}
-                            fill
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="relative h-44 sm:h-48 overflow-hidden border border-editorial-border bg-neutral-100 shrink-0 flex items-center justify-center text-neutral-400">
-                          <Building2 className="w-8 h-8" />
-                        </div>
-                      )}
+                      <div className="relative h-44 sm:h-48 overflow-hidden border border-editorial-border bg-neutral-100 shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={
+                            p.photos?.[0] ||
+                            p.featuredPhoto ||
+                            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80"
+                          }
+                          alt={p.title || "Property image"}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80";
+                          }}
+                        />
+                      </div>
 
                       {/* Header: Title & Suburb */}
                       <div className="flex items-start justify-between gap-2">
@@ -1630,24 +1756,34 @@ function AgentKioskContent() {
                       </span>
                     </div>
 
-                    {/* Direct Communication Buttons */}
-                    <div className="grid grid-cols-2 gap-2 pt-0.5">
-                      <a
-                        href={`tel:${c.phone}`}
-                        className="py-2.5 px-3 bg-white hover:bg-neutral-50 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
+                    {/* Direct Communication & Edit Buttons */}
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="grid grid-cols-2 gap-2">
+                        <a
+                          href={`tel:${c.phone}`}
+                          className="py-2.5 px-3 bg-white hover:bg-neutral-50 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-contour-red" />
+                          <span>Call</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/${formatWhatsAppDigits(c.phone)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditClient(c)}
+                        className="w-full py-2 px-3 bg-neutral-50 hover:bg-neutral-100 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
                       >
-                        <Phone className="w-3.5 h-3.5 text-contour-red" />
-                        <span>Call Client</span>
-                      </a>
-                      <a
-                        href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>WhatsApp</span>
-                      </a>
+                        <Pencil className="w-3.5 h-3.5 text-editorial-muted" />
+                        <span>Edit Client Details</span>
+                      </button>
                     </div>
                   </div>
                 ));
@@ -1976,20 +2112,22 @@ function AgentKioskContent() {
             </div>
 
             {/* Intake Mode Switcher */}
-            <div className="grid grid-cols-3 gap-1 bg-neutral-100 p-1 border border-editorial-border text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setCaptureError(null);
-                  setIntakeDrawer("PROPERTY");
-                }}
-                className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
-                  intakeDrawer === "PROPERTY" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Listing</span>
-              </button>
+            <div className={`grid ${isManagerOrAdmin ? "grid-cols-3" : "grid-cols-2"} gap-1 bg-neutral-100 p-1 border border-editorial-border text-xs`}>
+              {isManagerOrAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCaptureError(null);
+                    setIntakeDrawer("PROPERTY");
+                  }}
+                  className={`py-1.5 font-heading text-xs font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 ${
+                    intakeDrawer === "PROPERTY" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Listing</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -2030,7 +2168,7 @@ function AgentKioskContent() {
             )}
 
             {/* 1. Property Intake Form */}
-            {intakeDrawer === "PROPERTY" && (
+            {intakeDrawer === "PROPERTY" && isManagerOrAdmin && (
               <form onSubmit={handleCreateProperty} className="space-y-3 text-xs">
                 <div>
                   <label className="block text-editorial-black font-heading font-semibold mb-1">Property Title</label>
@@ -2046,16 +2184,48 @@ function AgentKioskContent() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-editorial-black font-heading font-semibold mb-1">Suburb</label>
-                    <select
-                      value={newPropSuburb}
-                      onChange={(e) => setNewPropSuburb(e.target.value)}
-                      className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
-                    >
-                      {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-editorial-black font-heading font-semibold text-xs">Suburb *</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !isCustomAgentSuburb;
+                          setIsCustomAgentSuburb(next);
+                          if (next) setNewPropSuburb("");
+                        }}
+                        className="text-[10px] font-heading font-semibold text-contour-red hover:underline"
+                      >
+                        {isCustomAgentSuburb ? "← List" : "✍️ Type"}
+                      </button>
+                    </div>
+                    {isCustomAgentSuburb ? (
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Avondale, Prospect..."
+                        value={newPropSuburb}
+                        onChange={(e) => setNewPropSuburb(e.target.value)}
+                        className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                      />
+                    ) : (
+                      <select
+                        value={newPropSuburb}
+                        onChange={(e) => {
+                          if (e.target.value === "__CUSTOM__") {
+                            setIsCustomAgentSuburb(true);
+                            setNewPropSuburb("");
+                          } else {
+                            setNewPropSuburb(e.target.value);
+                          }
+                        }}
+                        className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                      >
+                        {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                        <option value="__CUSTOM__">✍️ Type Custom Area...</option>
+                      </select>
+                    )}
                   </div>
                   <div>
                     <label className="block text-editorial-black font-heading font-semibold mb-1">Bedrooms</label>
@@ -2709,7 +2879,7 @@ function AgentKioskContent() {
                     <div className="text-[11px] text-editorial-muted font-mono">{c.budget} • {c.preferredArea}</div>
                   </div>
                   <a
-                    href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(generateWhatsAppFlyer(matchedProperty))}`}
+                    href={`https://wa.me/${formatWhatsAppDigits(c.phone)}?text=${encodeURIComponent(generateWhatsAppFlyer(matchedProperty))}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1 transition-colors"
@@ -2814,6 +2984,162 @@ function AgentKioskContent() {
               <Link href="/dashboard/settings?tab=ACCOUNT" className="text-xs font-bold uppercase tracking-wider text-contour-red">Account settings</Link>
               <button onClick={() => setIsPersonaModalOpen(false)} className="bg-editorial-black px-4 py-2 text-xs font-bold text-white">Done</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT CLIENT PROFILE (Issue 9) ================= */}
+      {editingClient && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-editorial-border w-full max-w-md p-5 space-y-4 text-editorial-black animate-in fade-in duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-contour-red" />
+                <h3 className="text-sm font-heading font-bold uppercase tracking-wider">Edit Client Profile</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingClient(null)}
+                className="p-1.5 text-editorial-muted hover:text-editorial-black"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {editClientError && (
+              <div role="alert" className="border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                {editClientError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveClientEdit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-editorial-black font-heading font-semibold mb-1">
+                  Client Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  placeholder="e.g. Kondwani Phiri"
+                  className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-editorial-black font-heading font-semibold mb-1">
+                  Phone Number (WhatsApp Ready) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editClientPhone}
+                  onChange={(e) => setEditClientPhone(e.target.value)}
+                  placeholder="e.g. 0977 123 456 or +260 977..."
+                  className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                />
+                <p className="mt-1 text-[10px] text-editorial-muted font-mono">
+                  Normalized automatically with Zambia country code (+260) for 1-click WhatsApp.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">
+                    Budget Max
+                  </label>
+                  <input
+                    type="number"
+                    value={editClientBudget}
+                    onChange={(e) => setEditClientBudget(e.target.value)}
+                    placeholder="e.g. 2500000"
+                    className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                  />
+                </div>
+                <div>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">
+                    Currency
+                  </label>
+                  <select
+                    value={editClientCurrency}
+                    onChange={(e) => setEditClientCurrency(e.target.value as "ZMW" | "USD")}
+                    className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                  >
+                    <option value="ZMW">ZMW (Kwacha)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-editorial-black font-heading font-semibold">
+                    Preferred Area / Suburb
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomEditSuburb(!isCustomEditSuburb);
+                      if (isCustomEditSuburb) setEditClientSuburb("Kabulonga");
+                    }}
+                    className="text-[10px] font-mono text-contour-red hover:underline"
+                  >
+                    {isCustomEditSuburb ? "← Choose from list" : "✍️ Type area manually"}
+                  </button>
+                </div>
+                {isCustomEditSuburb ? (
+                  <input
+                    type="text"
+                    value={editClientSuburb}
+                    onChange={(e) => setEditClientSuburb(e.target.value)}
+                    placeholder="Type custom suburb name..."
+                    className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                  />
+                ) : (
+                  <select
+                    value={editClientSuburb}
+                    onChange={(e) => setEditClientSuburb(e.target.value)}
+                    className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                  >
+                    {dynamicSuburbs.map((sub: string) => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-editorial-black font-heading font-semibold mb-1">
+                  Agent Notes / Requirements
+                </label>
+                <textarea
+                  rows={3}
+                  value={editClientNotes}
+                  onChange={(e) => setEditClientNotes(e.target.value)}
+                  placeholder="e.g. Looking for 4-bed standalone with swimming pool in Kabulonga or Woodlands."
+                  className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-editorial-border">
+                <button
+                  type="button"
+                  onClick={() => setEditingClient(null)}
+                  disabled={isSavingClientEdit}
+                  className="px-4 py-2 border border-editorial-border text-editorial-black font-heading text-xs font-semibold uppercase tracking-wider hover:bg-neutral-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingClientEdit}
+                  className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white font-heading text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50"
+                >
+                  {isSavingClientEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

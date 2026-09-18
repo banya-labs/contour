@@ -156,6 +156,7 @@ function PropertiesCatalogContent() {
 
   const [copiedPropertyId, setCopiedPropertyId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isCustomSuburb, setIsCustomSuburb] = useState(false);
 
   const handleSharePropertyLink = (p: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -171,6 +172,25 @@ function PropertiesCatalogContent() {
   const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    const titleTrimmed = formData.title.trim();
+    if (!titleTrimmed) {
+      setFormError("Property Title is required.");
+      return;
+    }
+
+    const isDuplicate = properties.some(
+      (p) => p.title?.trim().toLowerCase() === titleTrimmed.toLowerCase()
+    );
+    if (isDuplicate) {
+      setFormError(`A property named "${titleTrimmed}" already exists in your agency workspace. Property titles must be unique.`);
+      return;
+    }
+
+    if (!formData.suburb || !formData.suburb.trim()) {
+      setFormError("Please specify or select a suburb / area for this listing.");
+      return;
+    }
 
     if (!formData.mandateDeclarationAgreed) {
       setFormError("Statutory Mandate & Title Warranty required: You must confirm that your agency holds an active mandate from the lawful owner before publishing.");
@@ -421,6 +441,9 @@ function PropertiesCatalogContent() {
                       }
                       alt={p.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        e.currentTarget.src = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80";
+                      }}
                     />
                     <div className="absolute top-2 left-2 flex gap-1 z-10">
                       <span
@@ -736,36 +759,80 @@ function PropertiesCatalogContent() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Suburb / Area (Lusaka)
-                  </label>
-                  <select
-                    value={formData.suburb}
-                    onChange={(e) => {
-                      const nextSuburb = e.target.value;
-                      const coords = SUBURB_GPS_COORDINATES[nextSuburb] || [-15.4211, 28.3341];
-                      setFormData({
-                        ...formData,
-                        suburb: nextSuburb,
-                        latitude: coords[0],
-                        longitude: coords[1],
-                      });
-                    }}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist font-semibold"
-                  >
-                    <option value="Kabulonga">Kabulonga</option>
-                    <option value="Leopards Hill">Leopards Hill</option>
-                    <option value="Roma Park">Roma Park</option>
-                    <option value="Woodlands">Woodlands</option>
-                    <option value="Rhodes Park">Rhodes Park</option>
-                    <option value="Mass Media">Mass Media</option>
-                    <option value="Ibex Hill">Ibex Hill</option>
-                    <option value="Chudleigh">Chudleigh</option>
-                    <option value="Longacres">Longacres</option>
-                    <option value="New Kasama">New Kasama</option>
-                    <option value="Silverest">Silverest</option>
-                    <option value="Makeni">Makeni</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black">
+                      Suburb / Area (Lusaka) *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const willBeCustom = !isCustomSuburb;
+                        setIsCustomSuburb(willBeCustom);
+                        if (willBeCustom && (!formData.suburb || formData.suburb === "Kabulonga")) {
+                          setFormData({ ...formData, suburb: "" });
+                        }
+                      }}
+                      className="text-[10px] font-geist font-semibold text-contour-red hover:underline"
+                    >
+                      {isCustomSuburb ? "← Choose from list" : "✍️ Type area manually"}
+                    </button>
+                  </div>
+                  {isCustomSuburb ? (
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Avondale, Prospect, Silverest Extension..."
+                      value={formData.suburb}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const matchedKey = Object.keys(SUBURB_GPS_COORDINATES).find(
+                          (k) => k.toLowerCase() === val.trim().toLowerCase()
+                        );
+                        const coords = matchedKey ? SUBURB_GPS_COORDINATES[matchedKey] : [-15.4211, 28.3341];
+                        setFormData({
+                          ...formData,
+                          suburb: val,
+                          latitude: coords[0],
+                          longitude: coords[1],
+                        });
+                      }}
+                      className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none focus:border-editorial-black text-editorial-black font-geist font-semibold placeholder:font-normal"
+                    />
+                  ) : (
+                    <select
+                      value={formData.suburb}
+                      onChange={(e) => {
+                        const nextSuburb = e.target.value;
+                        if (nextSuburb === "__CUSTOM__") {
+                          setIsCustomSuburb(true);
+                          setFormData({ ...formData, suburb: "" });
+                          return;
+                        }
+                        const coords = SUBURB_GPS_COORDINATES[nextSuburb] || [-15.4211, 28.3341];
+                        setFormData({
+                          ...formData,
+                          suburb: nextSuburb,
+                          latitude: coords[0],
+                          longitude: coords[1],
+                        });
+                      }}
+                      className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist font-semibold"
+                    >
+                      <option value="Kabulonga">Kabulonga</option>
+                      <option value="Leopards Hill">Leopards Hill</option>
+                      <option value="Roma Park">Roma Park</option>
+                      <option value="Woodlands">Woodlands</option>
+                      <option value="Rhodes Park">Rhodes Park</option>
+                      <option value="Mass Media">Mass Media</option>
+                      <option value="Ibex Hill">Ibex Hill</option>
+                      <option value="Chudleigh">Chudleigh</option>
+                      <option value="Longacres">Longacres</option>
+                      <option value="New Kasama">New Kasama</option>
+                      <option value="Silverest">Silverest</option>
+                      <option value="Makeni">Makeni</option>
+                      <option value="__CUSTOM__">✍️ Type Custom Area Manually...</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>

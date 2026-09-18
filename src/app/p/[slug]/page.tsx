@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/utils";
 import PublicPropertyGallery from "@/components/properties/public-property-gallery";
 import { PublicPropertyNavbar } from "@/components/properties/public-property-navbar";
 import { PropertyLocationMap } from "@/components/properties/property-location-map";
+import { formatWhatsAppDigits } from "@/lib/phone-utils";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
 
@@ -363,7 +364,7 @@ export default async function PublicPropertyCardPage({
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <a
-              href={`https://wa.me/${property.assignedAgentPhone?.replace(/\+/g, "") || "260971234567"}?text=${whatsappMessage}`}
+              href={`https://wa.me/${formatWhatsAppDigits(property.assignedAgentPhone || "260971234567")}?text=${whatsappMessage}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 sm:flex-none px-6 py-3 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"

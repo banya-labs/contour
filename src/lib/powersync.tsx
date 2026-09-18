@@ -268,8 +268,8 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (clientsData.success) {
-        // Normalize CRM client fields
-        const normalized = clientsData.clients.map((c: any) => {
+        // Normalize CRM client fields from server
+        const normalized = (clientsData.clients || []).map((c: any) => {
           const lockExpiresAt = c.exclusiveLockExpiresAt ? new Date(c.exclusiveLockExpiresAt) : null;
           const daysLeft = lockExpiresAt 
             ? Math.max(0, Math.ceil((lockExpiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
@@ -286,8 +286,28 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
             assignedAgent: c.assignedAgent,
           };
         });
-        setClients(normalized);
-        setLocalCache("clients", normalized);
+
+        // Preserve any pending outbox clients so they never vanish before server confirmation
+        const currentPending = (getLocalCache("outbox", []) as OfflineOutboxItem[])
+          .filter((item) => item.type === "INQUIRY" && item.payload?.clientPhone)
+          .map((item) => ({
+            id: item.id,
+            name: item.payload.clientName,
+            phone: item.payload.clientPhone,
+            budget: item.payload.budgetMax ? `${item.payload.currency === "USD" ? "$" : "K"} ${Number(item.payload.budgetMax).toLocaleString()}` : "No budget",
+            preferredArea: item.payload.preferredSuburbs?.[0] || "Lusaka",
+            lockExpiry: "30 Days (Syncing to Registry...)",
+            assignedAgentId: item.payload.assignedAgentId,
+          }));
+
+        // Exclude pending items already present in the server list by phone
+        const uniquePending = currentPending.filter(
+          (p) => !normalized.some((n: any) => n.phone?.replace(/\D/g, "") === p.phone?.replace(/\D/g, ""))
+        );
+
+        const mergedClients = [...uniquePending, ...normalized];
+        setClients(mergedClients);
+        setLocalCache("clients", mergedClients);
       }
 
       if (salesData.success) {
@@ -306,8 +326,9 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const processOutbox = async () => {
-    const queue = [...outbox];
+  const processOutbox = async (queueOverride?: OfflineOutboxItem[]) => {
+    const queue = queueOverride ? [...queueOverride] : [...outbox];
+    if (queue.length === 0) return;
     let successCount = 0;
     
     for (const item of queue) {
@@ -320,10 +341,13 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         if (data.success) {
           successCount++;
+        } else {
+          console.error(`Outbox sync failed for item ${item.id}:`, data.error || data);
+          break; // Stop queue processing if server errors occur
         }
       } catch (err) {
         console.error(`Outbox sync failed for item ${item.id}:`, err);
-        break; // Stop queue processing if server errors occur
+        break; // Stop queue processing if network errors occur
       }
     }
 
@@ -351,21 +375,49 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
     setOutbox(updatedOutbox);
     setLocalCache("outbox", updatedOutbox);
 
-    // Optimistically write to local state to represent instant response time
-    if (type === "INQUIRY") {
+    // Optimistically write to local state and persist immediately to offline cache
+    if (type === "PROPERTY") {
+      const optimisticProperty = {
+        id: newItem.id,
+        title: payload.title,
+        suburb: payload.suburb,
+        price: payload.price || payload.askingPrice || payload.rentalPrice || 0,
+        askingPrice: payload.askingPrice,
+        rentalPrice: payload.rentalPrice,
+        currency: payload.currency || "ZMW",
+        listingType: payload.listingType || "FOR_SALE",
+        propertyType: payload.propertyType || "STANDALONE_HOUSE",
+        bedrooms: payload.bedrooms || 4,
+        bathrooms: payload.bathrooms || 3,
+        status: "AVAILABLE",
+        photos: payload.photos || [],
+        assignedAgentId: payload.assignedAgentId,
+        mandateType: payload.mandateType || "SOLE_MANDATE",
+      };
+      setProperties((prev) => {
+        const next = [optimisticProperty, ...prev];
+        setLocalCache("properties", next);
+        return next;
+      });
+    } else if (type === "INQUIRY") {
       const optimisticClient = {
         id: newItem.id,
         name: payload.clientName,
         phone: payload.clientPhone,
-        budget: payload.budgetMax ? `${payload.currency === "USD" ? "$" : "K"} ${payload.budgetMax.toLocaleString()}` : "No budget",
+        budget: payload.budgetMax ? `${payload.currency === "USD" ? "$" : "K"} ${Number(payload.budgetMax).toLocaleString()}` : "No budget",
         preferredArea: payload.preferredSuburbs?.[0] || "Lusaka",
-        lockExpiry: "30 Days (Optimistic Offline Lock)",
+        lockExpiry: "30 Days (Pending Sync to Registry)",
+        assignedAgentId: payload.assignedAgentId,
       };
-      setClients(prev => [optimisticClient, ...prev]);
+      setClients((prev) => {
+        const next = [optimisticClient, ...prev];
+        setLocalCache("clients", next);
+        return next;
+      });
     }
 
     if (isOnline) {
-      processOutbox();
+      processOutbox(updatedOutbox);
     } else {
       playNeutralTone(); // play neutral tone for successful offline queueing
     }

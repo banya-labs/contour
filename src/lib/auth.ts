@@ -62,10 +62,10 @@ export const auth = betterAuth({
     // Fix 5: Server-side password minimum length (not just HTML minLength attribute).
     minPasswordLength: 12,
   },
-  // Fix 6: Explicit session TTL — 8-hour lifetime, sliding refresh every hour.
+  // Session TTL: 30-day persistent lifetime for mobile PWA & field agents, sliding refresh daily.
   session: {
-    expiresIn: 60 * 60 * 8,
-    updateAge: 60 * 60,
+    expiresIn: 60 * 60 * 24 * 30, // 30 days
+    updateAge: 60 * 60 * 24,       // Slide forward every 24 hours
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,

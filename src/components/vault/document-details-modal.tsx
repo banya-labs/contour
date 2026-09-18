@@ -25,6 +25,7 @@ import {
   HardDrive,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Lock,
   RotateCw,
@@ -62,6 +63,8 @@ export function DocumentDetailsModal({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [imageZoom, setImageZoom] = useState<number>(1);
+  const [imageLoadError, setImageLoadError] = useState<boolean>(false);
+  const [imageLoading, setImageLoading] = useState<boolean>(true);
 
   // Load complete document details when opened
   useEffect(() => {
@@ -70,6 +73,8 @@ export function DocumentDetailsModal({
       setActionError(null);
       setActionSuccess(null);
       setImageZoom(1);
+      setImageLoadError(false);
+      setImageLoading(true);
       fetchDocumentDetails(doc.id);
     } else {
       setDetails(null);
@@ -142,24 +147,13 @@ export function DocumentDetailsModal({
     }
   };
 
-  // Download handler: fetches fresh presigned URL and triggers native download
+  // Download handler: triggers direct download
   const handleDownload = async () => {
     setDownloading(true);
     setActionError(null);
     try {
-      let downloadUrl = details?.previewUrl;
-      if (!downloadUrl) {
-        const res = await fetch(`/api/vault/documents/${currentDoc.id}/download`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to generate download link");
-        downloadUrl = data.downloadUrl;
-      }
-
-      if (!downloadUrl) throw new Error("No download URL available");
-
-      // Trigger download
       const link = document.createElement("a");
-      link.href = downloadUrl;
+      link.href = `/api/vault/documents/${currentDoc.id}/download?direct=true`;
       link.download = currentDoc.originalFileName || currentDoc.title || "document";
       link.target = "_blank";
       link.rel = "noopener noreferrer";
@@ -639,12 +633,47 @@ export function DocumentDetailsModal({
                   )
                 ) : isImage ? (
                   /* 2. Image Preview */
-                  details?.previewUrl ? (
-                    <div className="w-full h-[580px] overflow-auto flex items-center justify-center p-4 bg-neutral-950/80">
+                  imageLoadError ? (
+                    <div className="text-center p-8 text-white space-y-3">
+                      <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+                      <p className="text-xs font-mono font-bold">Unable to render direct image preview</p>
+                      <p className="text-[11px] text-neutral-400 font-mono">The image may still be encrypting or storage is updating.</p>
+                      <div className="flex items-center justify-center gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImageLoadError(false);
+                            setImageLoading(true);
+                          }}
+                          className="px-3 py-1.5 text-xs font-mono font-bold uppercase bg-white text-editorial-black hover:bg-neutral-100 transition-colors"
+                        >
+                          Retry Preview
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDownload}
+                          className="px-3 py-1.5 text-xs font-mono font-bold uppercase bg-contour-red text-white hover:bg-contour-red/90 transition-colors"
+                        >
+                          Download File
+                        </button>
+                      </div>
+                    </div>
+                  ) : details?.previewUrl ? (
+                    <div className="w-full h-[580px] overflow-auto flex items-center justify-center p-4 bg-neutral-950/80 relative">
+                      {imageLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-950/70 z-10">
+                          <Loader2 className="w-8 h-8 animate-spin text-contour-red" />
+                        </div>
+                      )}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={details.previewUrl}
                         alt={currentDoc.title}
+                        onLoad={() => setImageLoading(false)}
+                        onError={() => {
+                          setImageLoading(false);
+                          setImageLoadError(true);
+                        }}
                         style={{ transform: `scale(${imageZoom})`, transformOrigin: "center center" }}
                         className="max-h-[520px] max-w-full object-contain transition-transform duration-150 shadow-2xl border border-neutral-800"
                       />
@@ -652,7 +681,7 @@ export function DocumentDetailsModal({
                   ) : (
                     <div className="text-center p-8 text-white space-y-3">
                       <Loader2 className="w-8 h-8 animate-spin text-contour-red mx-auto" />
-                      <p className="text-xs font-mono">Loading image preview...</p>
+                      <p className="text-xs font-mono">Loading image preview stream...</p>
                     </div>
                   )
                 ) : isWord ? (

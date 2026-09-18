@@ -14,6 +14,7 @@ import { useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
+import { formatWhatsAppDigits } from "@/lib/phone-utils";
 
 type Deal = {
   id: string;
@@ -435,7 +436,7 @@ function DealPipelineContent() {
                 </select>
 
                 <a
-                  href={`https://wa.me/${deal.clientPhone.replace(/\+/g, "").replace(/\s/g, "")}?text=Hello%20${encodeURIComponent(deal.clientName)}%2C%20following%20up%20on%20${encodeURIComponent(deal.propertyTitle)}`}
+                  href={`https://wa.me/${formatWhatsAppDigits(deal.clientPhone)}?text=Hello%20${encodeURIComponent(deal.clientName)}%2C%20following%20up%20on%20${encodeURIComponent(deal.propertyTitle)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-fill-wipe bg-[#25D366] text-white py-2 px-2 flex items-center justify-center gap-1 font-heading text-[11px] font-semibold uppercase tracking-wider"
@@ -595,7 +596,7 @@ function DealPipelineContent() {
                           {deal.daysInStage}d in stage
                         </span>
                         <a
-                          href={`https://wa.me/${deal.clientPhone.replace(/\+/g, "").replace(/\s/g, "")}`}
+                          href={`https://wa.me/${formatWhatsAppDigits(deal.clientPhone)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-contour-red hover:underline flex items-center gap-0.5 font-medium"
