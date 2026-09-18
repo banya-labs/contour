@@ -192,6 +192,7 @@ export default function DashboardMapPage() {
             onSearchChange={(q) => setSearchQuery(q)}
             filterType={filterType}
             onFilterChange={(f) => setFilterType(f)}
+            selectedPropertyId={selectedProperty?.id || null}
             onSelectProperty={(property) => setSelectedProperty(property)}
             onSaveStandBoundary={(vertices, areaSqm) => {
               console.log("[STAND BOUNDARY SAVED]", vertices, areaSqm);
@@ -222,11 +223,12 @@ export default function DashboardMapPage() {
         )}
       </div>
 
-      {/* ── Google Maps-Style Property Detail Bottom Sheet (Mobile) ── */}
+      {/* ── Google Maps-Style Property Detail Overlay Card ── */}
       {selectedProperty && (
         <BottomSheet
           isOpen={!!selectedProperty}
           onClose={() => setSelectedProperty(null)}
+          zIndex="z-[2500]"
           title={selectedProperty.title}
           subtitle={`📍 ${selectedProperty.suburb}, ${selectedProperty.city}`}
         >

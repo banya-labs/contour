@@ -12,6 +12,8 @@ interface BottomSheetProps {
   children: React.ReactNode;
   maxHeight?: string;
   className?: string;
+  containerClassName?: string;
+  zIndex?: string;
 }
 
 export function BottomSheet({
@@ -22,6 +24,8 @@ export function BottomSheet({
   children,
   maxHeight = "max-h-[85dvh]",
   className = "",
+  containerClassName = "",
+  zIndex = "z-[2500]",
 }: BottomSheetProps) {
   // Prevent background body scroll when open
   useEffect(() => {
@@ -49,7 +53,7 @@ export function BottomSheet({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end pointer-events-auto">
+        <div className={`fixed inset-0 ${zIndex} flex flex-col justify-end pointer-events-auto ${containerClassName}`}>
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -67,7 +71,7 @@ export function BottomSheet({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className={`relative z-10 w-full bg-white border-t border-editorial-border shadow-2xl flex flex-col ${maxHeight} pb-safe ${className}`}
+            className={`relative z-10 w-full sm:max-w-xl sm:mx-auto bg-white border-t sm:border-x border-editorial-border shadow-2xl flex flex-col sm:rounded-t-2xl ${maxHeight} pb-safe ${className}`}
           >
             {/* Grab Handle */}
             <div className="w-full flex items-center justify-center pt-2.5 pb-1 shrink-0 cursor-grab active:cursor-grabbing">

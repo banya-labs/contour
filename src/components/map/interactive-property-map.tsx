@@ -96,6 +96,7 @@ type InteractivePropertyMapProps = {
   suburbIntelOpen?: boolean;
   onToggleSuburbIntel?: () => void;
   onSaveStandBoundary?: (vertices: [number, number][], computedPlotSizeSqm: number) => void;
+  selectedPropertyId?: string | null;
   // Choropleth View Props
   viewMode?: "STANDARD" | "CHOROPLETH";
   onViewModeChange?: (mode: "STANDARD" | "CHOROPLETH") => void;
@@ -147,6 +148,7 @@ export default function InteractivePropertyMap({
   suburbIntelOpen = false,
   onToggleSuburbIntel,
   onSaveStandBoundary,
+  selectedPropertyId: externalSelectedPropertyId,
   viewMode: externalViewMode,
   onViewModeChange,
   minimal = false,
@@ -190,7 +192,16 @@ export default function InteractivePropertyMap({
   const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const filterType = externalFilterType !== undefined ? externalFilterType : internalFilterType;
 
-  const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
+  const [activePropertyId, setActivePropertyId] = useState<string | null>(
+    externalSelectedPropertyId !== undefined ? externalSelectedPropertyId : null
+  );
+
+  // Synchronize activePropertyId whenever external selection changes
+  useEffect(() => {
+    if (externalSelectedPropertyId !== undefined) {
+      setActivePropertyId(externalSelectedPropertyId);
+    }
+  }, [externalSelectedPropertyId]);
   const [currentPage, setCurrentPage] = useState(0);
   const [mapLoaded, setMapLoaded] = useState(false);
   // Floating Map Keyword Filter State
@@ -1115,7 +1126,7 @@ export default function InteractivePropertyMap({
 
       {/* Bottom Floating Property Cards Carousel */}
       {propertiesWithCoords.length > 0 && !minimal && (
-        <div className="map-property-carousel absolute bottom-4 left-4 right-4 z-[1000] pointer-events-none">
+        <div className="map-property-carousel absolute bottom-4 left-4 right-4 z-[1010] pointer-events-none">
           <div className="max-w-4xl mx-auto flex flex-col gap-2">
             {/* Cards Grid / Mobile Horizontal Swipe Carousel */}
             <div className="flex md:grid md:grid-cols-3 gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pointer-events-auto pb-1">
@@ -1137,8 +1148,8 @@ export default function InteractivePropertyMap({
                     onClick={() => handleCardClick(property)}
                     className={`cursor-pointer group flex bg-white/95 backdrop-blur-md rounded-2xl p-2.5 border transition-all duration-200 shadow-floating w-[82vw] max-w-[340px] md:w-auto shrink-0 snap-center md:shrink ${
                       isActive
-                        ? "border-contour-red ring-2 ring-contour-red/20 scale-[1.02]"
-                        : "border-border hover:border-ink-600/40"
+                        ? "border-contour-red ring-2 ring-contour-red/20 scale-[1.02] relative z-30 shadow-2xl"
+                        : "border-border hover:border-ink-600/40 relative z-10"
                     }`}
                   >
                     <div className="relative w-20 sm:w-24 h-20 sm:h-24 rounded-xl overflow-hidden shrink-0">
