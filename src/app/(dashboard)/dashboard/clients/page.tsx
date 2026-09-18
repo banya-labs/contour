@@ -16,6 +16,11 @@ import {
   X,
   Sparkles,
   Bot,
+  Edit3,
+  Trash2,
+  UserCheck,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { useSession } from "@/lib/auth-client";
@@ -24,11 +29,34 @@ import { formatWhatsAppDigits } from "@/lib/phone-utils";
 function ClientsCRMContent() {
   const { data: session } = useSession();
   const [clients, setClients] = useState<any[]>([]);
-  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string; roleKey?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Edit Client State
+  const [editingClient, setEditingClient] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    lookingFor: "",
+    preferredSuburbs: "",
+    budgetMax: "",
+    currency: "ZMW" as "ZMW" | "USD",
+    purpose: "BUY" as "BUY" | "RENT",
+    leadSource: "WALK_IN",
+    assignedAgentId: "",
+    status: "NEW_INQUIRY",
+  });
+  const [editError, setEditError] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Delete Client State
+  const [deletingClient, setDeletingClient] = useState<any | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -72,9 +100,11 @@ function ClientsCRMContent() {
               lookingFor: cleanNotes,
               preferredSuburbs: c.preferredSuburbs || [],
               budgetMax: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : "No budget limit",
+              rawBudgetMax: c.budgetMax ? Number(c.budgetMax) : null,
+              currency: c.currency || "ZMW",
               purpose: c.lookingFor === "FOR_RENT" ? "RENT" : "BUY",
               leadSource,
-              assignedAgentId: c.assignedAgentId || c.assignedAgent?.id,
+              assignedAgentId: c.assignedAgentId || c.assignedAgent?.id || "",
               assignedAgent: c.assignedAgent?.name || "Unassigned",
               lockExpiresInDays: daysLeft,
               lastContacted: "Active client",
@@ -91,6 +121,137 @@ function ClientsCRMContent() {
     }
     loadData();
   }, []);
+
+  const openEditModal = (client: any) => {
+    setEditingClient(client);
+    setEditError("");
+    setEditFormData({
+      name: client.name || "",
+      phone: client.phone || "",
+      email: client.email && client.email !== "not-provided@client.zm" ? client.email : "",
+      lookingFor: client.lookingFor || "",
+      preferredSuburbs: Array.isArray(client.preferredSuburbs) ? client.preferredSuburbs.join(", ") : "",
+      budgetMax: client.rawBudgetMax ? client.rawBudgetMax.toString() : "",
+      currency: client.currency || "ZMW",
+      purpose: client.purpose || "BUY",
+      leadSource: client.leadSource || "WALK_IN",
+      assignedAgentId: client.assignedAgentId || "",
+      status: client.status || "NEW_INQUIRY",
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+    setEditError("");
+
+    if (!editFormData.name.trim() || editFormData.name.length < 2) {
+      setEditError("Client name is required (at least 2 characters).");
+      return;
+    }
+    if (!editFormData.phone.trim() || editFormData.phone.length < 6) {
+      setEditError("Valid phone number is required.");
+      return;
+    }
+
+    const budgetStr = editFormData.budgetMax.replace(/[^0-9.]/g, "");
+    const budgetNum = parseFloat(budgetStr) || undefined;
+    const lookingForType = editFormData.purpose === "RENT" ? "FOR_RENT" : "FOR_SALE";
+
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/clients/${editingClient.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientName: editFormData.name.trim(),
+          clientPhone: editFormData.phone.trim(),
+          clientEmail: editFormData.email.trim() || null,
+          lookingFor: lookingForType,
+          budgetMax: budgetNum,
+          currency: editFormData.currency,
+          preferredSuburbs: editFormData.preferredSuburbs
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+          notes: `[Source: ${editFormData.leadSource}] ${editFormData.lookingFor.trim()}`,
+          leadSource: editFormData.leadSource,
+          assignedAgentId: editFormData.assignedAgentId || null,
+          status: editFormData.status,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setEditError(data.error || "Failed to update client details.");
+        setIsSavingEdit(false);
+        return;
+      }
+
+      const updatedInquiry = data.inquiry;
+      const assignedAgentObj = agents.find((a) => a.id === editFormData.assignedAgentId);
+      const assignedName = updatedInquiry?.assignedAgent?.name || assignedAgentObj?.name || (editFormData.assignedAgentId ? "Assigned Agent" : "Unassigned");
+
+      setClients((prev) =>
+        prev.map((c) => {
+          if (c.id !== editingClient.id) return c;
+          return {
+            ...c,
+            name: editFormData.name.trim(),
+            phone: editFormData.phone.trim(),
+            email: editFormData.email.trim() || "not-provided@client.zm",
+            lookingFor: editFormData.lookingFor.trim(),
+            preferredSuburbs: editFormData.preferredSuburbs
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+            budgetMax: budgetNum
+              ? `${editFormData.currency === "USD" ? "$" : "K"} ${Number(budgetNum).toLocaleString()}`
+              : "No budget limit",
+            rawBudgetMax: budgetNum || null,
+            currency: editFormData.currency,
+            purpose: editFormData.purpose,
+            leadSource: editFormData.leadSource,
+            assignedAgentId: editFormData.assignedAgentId || "",
+            assignedAgent: assignedName,
+            lockExpiresInDays: editFormData.assignedAgentId ? 30 : c.lockExpiresInDays,
+            status: editFormData.status,
+          };
+        })
+      );
+
+      setEditingClient(null);
+    } catch (err: any) {
+      setEditError(`Failed to update client: ${err?.message || "Network error"}`);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!deletingClient) return;
+    setDeleteError("");
+    setIsDeleting(true);
+
+    try {
+      const res = await fetch(`/api/clients/${deletingClient.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setDeleteError(data.error || "Failed to delete client.");
+        setIsDeleting(false);
+        return;
+      }
+
+      setClients((prev) => prev.filter((c) => c.id !== deletingClient.id));
+      setDeletingClient(null);
+    } catch (err: any) {
+      setDeleteError(`Failed to delete client: ${err?.message || "Network error"}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Form State
   const [formData, setFormData] = useState({
@@ -306,9 +467,29 @@ function ClientsCRMContent() {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-editorial-paper border border-editorial-border text-editorial-black uppercase tracking-wider">
-                    {client.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-editorial-paper border border-editorial-border text-editorial-black uppercase tracking-wider">
+                      {client.status}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(client)}
+                        className="p-1 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-100 text-editorial-black transition-colors"
+                        title="Edit Client & Reassign Manager"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingClient(client)}
+                        className="p-1 border border-editorial-border hover:border-red-600 bg-white hover:bg-red-50 text-editorial-neutral hover:text-red-600 transition-colors"
+                        title="Delete Client"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-3 bg-editorial-paper/40 border border-editorial-border space-y-2 text-xs">
@@ -331,25 +512,46 @@ function ClientsCRMContent() {
                 </div>
               </div>
 
-              {/* Anti-Poaching Lock Tag & Agent */}
+              {/* Anti-Poaching Lock Tag & Custody Manager */}
               <div className="pt-3 border-t border-editorial-border flex items-center justify-between text-xs">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-mono text-editorial-neutral block">
-                    Assigned: <strong className="text-editorial-black">{client.assignedAgent}</strong>
-                  </span>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-editorial-neutral block">
+                      Manager: <strong className="text-editorial-black">{client.assignedAgent}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(client)}
+                      className="text-[9px] font-mono font-bold text-editorial-red hover:underline"
+                      title="Change who this client is assigned to as manager"
+                    >
+                      [Change]
+                    </button>
+                  </div>
                   <span className="text-[10px] font-mono font-bold text-emerald-800 flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 text-emerald-600" /> Locked: {client.lockExpiresInDays}d left
                   </span>
                 </div>
 
-                <a
-                  href={`https://wa.me/${formatWhatsAppDigits(client.phone)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-none bg-editorial-black hover:bg-black text-white font-mono font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center gap-1"
-                >
-                  WhatsApp
-                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(client)}
+                    className="px-2.5 py-1.5 rounded-none border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-mono font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center gap-1"
+                    title="Edit client details"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Edit</span>
+                  </button>
+                  <a
+                    href={`https://wa.me/${formatWhatsAppDigits(client.phone)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 rounded-none bg-editorial-black hover:bg-black text-white font-mono font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center gap-1"
+                  >
+                    WhatsApp
+                  </a>
+                </div>
               </div>
             </MotionCard>
           ))}
@@ -359,7 +561,7 @@ function ClientsCRMContent() {
       {/* Interactive Modal: Add New Client */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-none max-w-lg w-full p-4 sm:p-6 border border-editorial-black space-y-4 max-h-[90dvh] overflow-y-auto">
+          <div className="bg-white rounded-none max-w-lg w-full p-4 sm:p-6 border border-editorial-black space-y-4 max-h-[90dvh] overflow-y-auto font-geist">
             <div className="flex items-center justify-between border-b border-editorial-border pb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-editorial-red" />
@@ -502,6 +704,311 @@ function ClientsCRMContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Modal: Edit Client Details & Reassign Manager */}
+      {editingClient && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-none max-w-lg w-full p-4 sm:p-6 border border-editorial-black space-y-4 max-h-[90dvh] overflow-y-auto font-geist">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-editorial-black" />
+                <h3 className="font-serif font-bold text-lg text-editorial-black">
+                  Edit Client Details & Custody
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingClient(null)}
+                className="text-editorial-neutral hover:text-editorial-black"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="p-3 bg-red-50 text-editorial-red text-xs font-mono font-semibold border border-red-200">
+                [ERROR] {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Client Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.phone}
+                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
+                  placeholder="e.g. client@domain.com"
+                />
+              </div>
+
+              <div>
+                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                  Property Requirements (Looking For) *
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.lookingFor}
+                  onChange={(e) => setEditFormData({ ...editFormData, lookingFor: e.target.value })}
+                  className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Budget Max
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.budgetMax}
+                    onChange={(e) => setEditFormData({ ...editFormData, budgetMax: e.target.value })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono"
+                    placeholder="e.g. 2500000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Currency
+                  </label>
+                  <select
+                    value={editFormData.currency}
+                    onChange={(e) => setEditFormData({ ...editFormData, currency: e.target.value as "ZMW" | "USD" })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                  >
+                    <option value="ZMW">ZMW (K)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Purpose
+                  </label>
+                  <select
+                    value={editFormData.purpose}
+                    onChange={(e) => setEditFormData({ ...editFormData, purpose: e.target.value as "BUY" | "RENT" })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                  >
+                    <option value="BUY">Buy</option>
+                    <option value="RENT">Rent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Pipeline Status
+                  </label>
+                  <select
+                    value={editFormData.status}
+                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                  >
+                    <option value="NEW_INQUIRY">New Inquiry</option>
+                    <option value="CONTACTED">Contacted</option>
+                    <option value="VIEWING_SCHEDULED">Viewing Scheduled</option>
+                    <option value="NEGOTIATING">Negotiating</option>
+                    <option value="OFFER_MADE">Offer Made</option>
+                    <option value="CLOSED">Closed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Preferred Suburbs
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.preferredSuburbs}
+                    onChange={(e) => setEditFormData({ ...editFormData, preferredSuburbs: e.target.value })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
+                    placeholder="e.g. Kabulonga, Woodlands"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
+                    Lead Source
+                  </label>
+                  <select
+                    value={editFormData.leadSource}
+                    onChange={(e) => setEditFormData({ ...editFormData, leadSource: e.target.value })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                  >
+                    <option value="WALK_IN">Walk-in Client</option>
+                    <option value="WHATSAPP">WhatsApp Direct</option>
+                    <option value="CLIENT_REFERRAL">Client Referral</option>
+                    <option value="WEBSITE">Website Ingest</option>
+                    <option value="PHONE">Phone Call</option>
+                    <option value="SOCIAL_MEDIA">Social Media</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Assigned Manager / Custody Agent */}
+              <div className="p-3 bg-editorial-paper border border-editorial-border space-y-1.5">
+                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5 text-editorial-red" />
+                    <span>Assigned Manager / Agent (30d Custody Lock)</span>
+                  </span>
+                </label>
+                <select
+                  value={editFormData.assignedAgentId}
+                  onChange={(e) => setEditFormData({ ...editFormData, assignedAgentId: e.target.value })}
+                  className="w-full bg-white px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                >
+                  <option value="">Unassigned (No Custody Lock)</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] font-mono text-editorial-neutral">
+                  Selecting a manager updates who controls this client inquiry and refreshes the 30-day anti-poaching lock.
+                </p>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
+                <button
+                  type="button"
+                  onClick={() => setEditingClient(null)}
+                  className="px-4 py-2 rounded-none border border-editorial-border text-editorial-black hover:bg-editorial-paper font-mono text-xs uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-5 py-2 rounded-none bg-editorial-black hover:bg-black disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                >
+                  {isSavingEdit ? (
+                    <span>Saving...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Save Client Details</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Modal: Delete Client Confirmation */}
+      {deletingClient && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-none max-w-md w-full p-5 sm:p-6 border border-red-600 space-y-4 font-geist">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
+              <div className="flex items-center gap-2 text-red-600">
+                <Trash2 className="w-5 h-5 text-red-600" />
+                <h3 className="font-serif font-bold text-lg text-editorial-black">
+                  Delete Client Record
+                </h3>
+              </div>
+              <button
+                onClick={() => setDeletingClient(null)}
+                className="text-editorial-neutral hover:text-editorial-black"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs font-mono font-semibold border border-red-200">
+                [ERROR] {deleteError}
+              </div>
+            )}
+
+            <div className="p-3 bg-red-50/50 border border-red-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-editorial-neutral uppercase text-[10px]">Client:</span>
+                <strong className="text-editorial-black font-semibold">{deletingClient.name}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-editorial-neutral uppercase text-[10px]">Phone:</span>
+                <span className="font-mono text-editorial-black">{deletingClient.phone}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-editorial-neutral uppercase text-[10px]">Assigned Manager:</span>
+                <span className="text-editorial-black font-medium">{deletingClient.assignedAgent}</span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                Are you sure you want to permanently delete <strong>{deletingClient.name}</strong>? This will release their 30-day custody lock and remove any scheduled visits. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
+              <button
+                type="button"
+                onClick={() => setDeletingClient(null)}
+                className="px-4 py-2 rounded-none border border-editorial-border text-editorial-black hover:bg-neutral-50 font-mono text-xs uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteClient}
+                className="px-5 py-2 rounded-none bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+              >
+                {isDeleting ? (
+                  <span>Deleting...</span>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5 text-white" />
+                    <span>Confirm Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

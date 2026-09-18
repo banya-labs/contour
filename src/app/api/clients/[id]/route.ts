@@ -57,7 +57,10 @@ export const PATCH = createApiHandler({
         ...(isClosed && body.outcome !== undefined ? { outcome: body.outcome } : {}),
         ...(isClosed && body.outcome === "LOST" && body.lostReason !== undefined ? { lostReason: body.lostReason } : {}),
         ...(isClosed ? { closedAt: new Date(), closedById: userId } : {}),
-        ...(body.assignedAgentId !== undefined ? { assignedAgentId: body.assignedAgentId || null } : {}),
+        ...(body.assignedAgentId !== undefined ? {
+          assignedAgentId: body.assignedAgentId || null,
+          exclusiveLockExpiresAt: body.assignedAgentId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null,
+        } : {}),
         ...(body.leadSource !== undefined ? { leadSource: body.leadSource } : {}),
         ...(body.propertyId !== undefined ? { propertyId: body.propertyId || null } : {}),
         ...(body.dealValue !== undefined ? { dealValue: body.dealValue as any } : {}),
@@ -97,5 +100,51 @@ export const PATCH = createApiHandler({
     }
 
     return NextResponse.json({ success: true, inquiry: updated });
+  },
+});
+
+export const DELETE = createApiHandler({
+  requirePermissions: ["pwa.inquiries.update"],
+  handler: async (_req, { params, organizationId, userId }) => {
+    const inquiryId = typeof params?.id === "string" ? params.id : undefined;
+    if (!inquiryId) {
+      return NextResponse.json({ success: false, error: "Client ID is required." }, { status: 400 });
+    }
+
+    const inquiry = await db.inquiry.findFirst({
+      where: { id: inquiryId, organizationId: organizationId! },
+      select: { id: true, clientName: true, clientPhone: true },
+    });
+    if (!inquiry) {
+      return NextResponse.json({ success: false, error: "Client not found." }, { status: 404 });
+    }
+
+    await db.inquiry.delete({
+      where: { id: inquiry.id },
+    });
+
+    await db.auditLog.create({
+      data: {
+        organizationId: organizationId!,
+        userId,
+        action: "INQUIRY_DELETED",
+        entityType: "Inquiry",
+        entityId: inquiry.id,
+        details: {
+          clientName: inquiry.clientName,
+          clientPhone: inquiry.clientPhone,
+        },
+      },
+    });
+
+    if (organizationId) {
+      smartCache.invalidateTag(organizationId, "clients", "/dashboard/clients");
+      smartCache.invalidateTag(organizationId, "pipeline", "/dashboard/pipeline");
+      smartCache.invalidateTag(organizationId, "dashboard-metrics");
+      smartCache.invalidateTag(organizationId, "dashboard-action-queue");
+      smartCache.invalidateTag(organizationId, "agent-summary", "/agent");
+    }
+
+    return NextResponse.json({ success: true, message: "Client deleted successfully." });
   },
 });
