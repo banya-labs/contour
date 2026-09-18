@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Smartphone, Settings, Download, Building2, LogOut } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
-import { authClient } from "@/lib/auth-client";
+import { authClient, contourSignOut } from "@/lib/auth-client";
 import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
 import { triggerPwaInstallModal } from "@/components/pwa/pwa-install-banner";
 
@@ -194,7 +194,7 @@ export function MobileTopHeader() {
                 type="button"
                 onClick={() => {
                   setDropdownOpen(false);
-                  authClient.signOut({
+                  contourSignOut({
                     fetchOptions: {
                       onSuccess: () => window.location.assign("/sign-in"),
                     },

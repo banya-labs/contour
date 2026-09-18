@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
+import { authClient, contourSignOut } from "@/lib/auth-client";
 import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
 import {
   LayoutDashboard,
@@ -383,7 +383,7 @@ export default function WorkspaceSidebar() {
             <button
               type="button"
               title="Sign Out"
-              onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
+              onClick={() => contourSignOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
               className="text-editorial-muted hover:text-contour-red p-1 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />

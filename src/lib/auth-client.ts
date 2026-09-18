@@ -7,16 +7,23 @@ export const authClient = createAuthClient({
   plugins: [organizationClient(), twoFactorClient()],
 });
 
-const rawSignOut = authClient.signOut.bind(authClient);
-
-authClient.signOut = (async (...args: Parameters<typeof rawSignOut>) => {
+/**
+ * Safe signOut wrapper — clears local caches before calling better-auth's signOut.
+ * IMPORTANT: Do NOT mutate authClient.signOut directly — it corrupts the Proxy
+ * and causes '[object Promise]' is not a valid HTTP method errors.
+ */
+export async function contourSignOut(
+  ...args: Parameters<typeof authClient.signOut>
+) {
   clearLocalOfflineCache();
   if (typeof document !== "undefined") {
-    document.cookie = "contour_last_page=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie =
+      "contour_last_page=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   }
-  return rawSignOut(...args);
-}) as typeof rawSignOut;
+  return authClient.signOut(...args);
+}
 
-export const signOut = authClient.signOut;
+export const signOut = contourSignOut;
 export const { signIn, signUp, useSession } = authClient;
+
 

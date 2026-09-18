@@ -60,7 +60,7 @@ import { formatCurrency } from "@/lib/utils";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
 import type { PropertyMapItem } from "@/types/property-map";
 import { ContourLogo } from "@/components/brand/contour-logo";
-import { authClient } from "@/lib/auth-client";
+import { authClient, signOut } from "@/lib/auth-client";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import { canManagePropertyPhotos } from "@/lib/authorization";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
@@ -287,7 +287,7 @@ function AgentKioskContent() {
   }, [syncData]);
 
   const handleSignOut = async () => {
-    await authClient.signOut();
+    await signOut();
     router.replace(`/sign-in?redirect_url=${encodeURIComponent("/agent")}`);
     router.refresh();
   };

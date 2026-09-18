@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
+import { authClient, signOut } from "@/lib/auth-client";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import {
   Scale,
@@ -201,7 +201,7 @@ function OnboardingContent() {
 
   // Handle Sign Out to switch to another account
   async function handleSignOut() {
-    await authClient.signOut();
+    await signOut();
     router.replace(`/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`);
     router.refresh();
   }

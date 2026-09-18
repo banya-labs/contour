@@ -20,7 +20,7 @@ import {
   Building,
   CreditCard,
 } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { authClient, contourSignOut } from "@/lib/auth-client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
 import { ContourLogo } from "@/components/brand/contour-logo";
@@ -224,7 +224,7 @@ export default function MobileBottomNav() {
           <div className="pt-2 border-t border-editorial-border">
             <button
               type="button"
-              onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
+              onClick={() => contourSignOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
             >
               <LogOut className="w-4 h-4" />

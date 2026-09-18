@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
+import { authClient, signOut } from "@/lib/auth-client";
 import { AlertCircle, Smartphone, ShieldCheck } from "lucide-react";
 
 type AuthMode = "sign-in" | "sign-up";
@@ -207,7 +207,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             <button
               type="button"
               onClick={async () => {
-                await authClient.signOut();
+                await signOut();
                 router.refresh();
               }}
               className="text-[10px] text-stone-500 hover:text-stone-900 underline font-mono"
