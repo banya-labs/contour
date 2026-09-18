@@ -179,7 +179,7 @@ export default function PropertyImageUploader({
     });
   };
 
-  const handleRemove = (indexToRemove: number) => {
+  const handleRemove = async (indexToRemove: number) => {
     if (disabled) return;
     const photoToRemove = photos[indexToRemove];
     const updated = photos.filter((_, idx) => idx !== indexToRemove);
@@ -188,6 +188,17 @@ export default function PropertyImageUploader({
       newFeatured = updated[0];
     }
     onChange(updated, newFeatured);
+
+    // If property exists in DB, also trigger server-side deletion immediately
+    if (propertyId && photoToRemove) {
+      try {
+        await fetch(`/api/properties/${propertyId}/photos?url=${encodeURIComponent(photoToRemove)}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        console.warn("Direct photo delete warning (will persist on form save):", err);
+      }
+    }
   };
 
   const handleSetFeatured = (url: string) => {
@@ -360,14 +371,26 @@ export default function PropertyImageUploader({
                     <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-stone-100 dark:bg-stone-800 text-stone-500">
                       <ImageOff className="w-5 h-5 text-stone-400 mb-1" />
                       <span className="text-[9px] font-mono leading-tight">Image Offline</span>
-                      <button
-                        type="button"
-                        onClick={() => setFailedUrls((prev) => ({ ...prev, [url]: false }))}
-                        className="mt-1 text-[9px] font-bold text-contour-red hover:underline flex items-center gap-1"
-                      >
-                        <RefreshCw className="w-2.5 h-2.5" />
-                        <span>Retry</span>
-                      </button>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setFailedUrls((prev) => ({ ...prev, [url]: false }))}
+                          className="text-[9px] font-bold text-stone-600 dark:text-stone-300 hover:underline flex items-center gap-0.5"
+                        >
+                          <RefreshCw className="w-2.5 h-2.5" />
+                          <span>Retry</span>
+                        </button>
+                        {!disabled && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(idx)}
+                            className="text-[9px] font-bold text-red-600 hover:underline flex items-center gap-0.5"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                            <span>Remove</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -381,14 +404,29 @@ export default function PropertyImageUploader({
 
                   {/* Cover Badge */}
                   {isCover && (
-                    <div className="absolute top-1 left-1 bg-[#E57A1A] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow z-10">
+                    <div className="absolute top-1 left-1 bg-[#E57A1A] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow z-10 pointer-events-none">
                       COVER
                     </div>
                   )}
 
-                  {/* Action Overlay */}
+                  {/* Permanent Top-Right Delete Badge (Accessible on mobile/touch & hover) */}
                   {!disabled && (
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1 z-20">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemove(idx);
+                      }}
+                      title="Remove Photo"
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-red-600 text-white flex items-center justify-center shadow transition-all active:scale-90 z-20"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {/* Desktop Hover Action Overlay */}
+                  {!disabled && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1 z-10 pointer-events-none group-hover:pointer-events-auto">
                       <button
                         type="button"
                         onClick={() => handleSetFeatured(url)}

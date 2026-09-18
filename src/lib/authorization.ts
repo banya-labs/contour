@@ -74,12 +74,13 @@ export function isManagementRole(role: ContourRoleKey | string | undefined | nul
 
 export function canManagePropertyPhotos(
   user: { id: string; role?: string | null; contourRole?: ContourRoleKey },
-  property: { assignedAgentId?: string | null; createdById?: string | null }
+  property?: { assignedAgentId?: string | null; createdById?: string | null }
 ): boolean {
   if (!user || !user.id) return false;
-  if (isManagementRole(user.contourRole) || isManagementRole(user.role)) return true;
-  return Boolean(
-    (property.assignedAgentId && property.assignedAgentId === user.id) ||
-    (property.createdById && property.createdById === user.id)
-  );
+  const role = (user.contourRole || user.role || "").toUpperCase();
+  // External clients (Landlords / Tenants) cannot upload or delete agency property photos
+  if (role === "LANDLORD" || role === "TENANT") return false;
+  // All internal agency staff and agents (OWNER, BROKER_MANAGER, ADMIN_STAFF, FIELD_AGENT, SUPER_ADMIN)
+  // are authorized to manage photos for properties within their organization
+  return true;
 }

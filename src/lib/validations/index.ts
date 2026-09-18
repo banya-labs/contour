@@ -76,6 +76,8 @@ export const updatePropertySchema = createPropertySchema.partial().extend({
   status: PropertyStatusEnum.optional(),
   assignedAgentName: z.string().optional(),
   assignedAgentPhone: z.string().optional(),
+  featuredPhoto: z.string().nullable().optional(),
+  photos: z.array(z.string()).optional(),
 });
 
 export const createLeaseSchema = z.object({

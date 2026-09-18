@@ -40,4 +40,23 @@ describe("organization authorization", () => {
     expect(roleHasPermission("ADMIN_STAFF", "dashboard.read")).toBe(true);
     expect(roleHasPermission("ADMIN_STAFF", "org.members.invite")).toBe(false);
   });
+
+  it("authorizes all agency staff to manage property photos while blocking external roles", async () => {
+    const { canManagePropertyPhotos } = await import("./authorization");
+    const property = { assignedAgentId: "agent_456", createdById: "creator_789" };
+
+    // Agency staff can manage photos regardless of assignment
+    expect(canManagePropertyPhotos({ id: "agent_123", contourRole: "FIELD_AGENT" }, property)).toBe(true);
+    expect(canManagePropertyPhotos({ id: "agent_123", role: "FIELD_AGENT" }, property)).toBe(true);
+    expect(canManagePropertyPhotos({ id: "agent_123", contourRole: "BROKER_MANAGER" }, property)).toBe(true);
+    expect(canManagePropertyPhotos({ id: "agent_123", contourRole: "OWNER" }, property)).toBe(true);
+    expect(canManagePropertyPhotos({ id: "agent_123", role: "SUPER_ADMIN" }, property)).toBe(true);
+
+    // External portal roles are blocked
+    expect(canManagePropertyPhotos({ id: "client_1", contourRole: "LANDLORD" }, property)).toBe(false);
+    expect(canManagePropertyPhotos({ id: "client_2", contourRole: "TENANT" }, property)).toBe(false);
+
+    // Unassigned properties can be managed by agency staff
+    expect(canManagePropertyPhotos({ id: "agent_123", contourRole: "FIELD_AGENT" }, { assignedAgentId: null })).toBe(true);
+  });
 });

@@ -39,6 +39,15 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CORRELATION_HEADER, correlationId);
 
+  const createForwardResponse = () => {
+    const isMultipart = (request.headers.get("content-type") || "").toLowerCase().includes("multipart/form-data");
+    const response = isMultipart
+      ? NextResponse.next()
+      : NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set(CORRELATION_HEADER, correlationId);
+    return response;
+  };
+
   // Fix 2: Rate-limit login attempts BEFORE the public-path bypass.
   // /api/auth/ is public for cookie handling, but brute-force on sign-in must be throttled.
   if (
@@ -125,15 +134,11 @@ export async function middleware(request: NextRequest) {
     }
 
     // Standard desktop browser: show public marketing home page
-    const response = NextResponse.next({ request: { headers: requestHeaders } });
-    response.headers.set(CORRELATION_HEADER, correlationId);
-    return response;
+    return createForwardResponse();
   }
 
   if (isPublicPath(request.nextUrl.pathname)) {
-    const response = NextResponse.next({ request: { headers: requestHeaders } });
-    response.headers.set(CORRELATION_HEADER, correlationId);
-    return response;
+    return createForwardResponse();
   }
 
   const session = await auth.api.getSession({
@@ -143,9 +148,7 @@ export async function middleware(request: NextRequest) {
   if (!session) {
     // Allow unauthenticated demo bypass if dev mode is enabled and no session exists
     if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-      const response = NextResponse.next({ request: { headers: requestHeaders } });
-      response.headers.set(CORRELATION_HEADER, correlationId);
-      return response;
+      return createForwardResponse();
     }
 
     const signInUrl = new URL("/sign-in", request.url);
@@ -196,8 +199,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set(CORRELATION_HEADER, correlationId);
+  const response = createForwardResponse();
 
   // Track last visited application path for seamless session restoration
   if (

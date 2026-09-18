@@ -173,17 +173,10 @@ export async function DELETE(
     }
 
     const currentPhotos = Array.isArray(property.photos) ? property.photos : [];
-    if (currentPhotos.length <= 1) {
-      return NextResponse.json(
-        { success: false, error: "A property listing must have at least one photo." },
-        { status: 400 }
-      );
-    }
-
     const filteredPhotos = currentPhotos.filter((p) => p !== photoUrl);
     let newFeatured = property.featuredPhoto;
     if (property.featuredPhoto === photoUrl || !filteredPhotos.includes(property.featuredPhoto || "")) {
-      newFeatured = filteredPhotos[0];
+      newFeatured = filteredPhotos[0] || null;
     }
 
     const updated = await db.property.update({

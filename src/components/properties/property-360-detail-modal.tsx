@@ -139,13 +139,9 @@ export default function PropertyFullDetailModal({
   // Edit Form State
   const [editFormData, setEditFormData] = useState<any>(null);
 
-  // Check photo upload permissions
-  const canUploadPhotos = property
-    ? canManagePropertyPhotos(
-        { id: session?.user?.id || "", role: (session?.user as any)?.role },
-        property
-      )
-    : false;
+  // Check photo upload permissions (all agency team members can manage listing media)
+  const userRole = (session?.user as any)?.role || "";
+  const canUploadPhotos = property ? !["LANDLORD", "TENANT"].includes(userRole) : false;
 
   // 1. Fetch Real Organization Agents
   useEffect(() => {
@@ -206,9 +202,11 @@ export default function PropertyFullDetailModal({
   useEffect(() => {
     if (property) {
       const initPhotos =
-        property.photos && property.photos.length > 0
+        Array.isArray(property.photos) && property.photos.length > 0
           ? property.photos
-          : [property.featuredPhoto || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200"];
+          : property.featuredPhoto
+          ? [property.featuredPhoto]
+          : [];
 
       setEditFormData({
         title: property.title || "",
@@ -232,7 +230,7 @@ export default function PropertyFullDetailModal({
         assignedAgentPhone: property.assignedAgentPhone || property.assignedAgent?.phone || "",
         status: property.status || "AVAILABLE",
         photos: initPhotos,
-        featuredPhoto: property.featuredPhoto || initPhotos[0],
+        featuredPhoto: property.featuredPhoto || initPhotos[0] || "",
       });
 
       // Load real stakeholders if attached to property object, otherwise empty array
@@ -249,9 +247,11 @@ export default function PropertyFullDetailModal({
   const isSale = (isEditing ? editFormData?.listingType : property.listingType) === "FOR_SALE";
   const price = isSale ? property.askingPrice : property.rentalPrice;
   const photos =
-    property.photos && property.photos.length > 0
+    Array.isArray(property.photos) && property.photos.length > 0
       ? property.photos
-      : [property.featuredPhoto || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200"];
+      : property.featuredPhoto
+      ? [property.featuredPhoto]
+      : [];
 
   // Share Public Link
   const handleSharePropertyLink = () => {
@@ -300,8 +300,8 @@ export default function PropertyFullDetailModal({
       assignedAgentName: editFormData.assignedAgentName?.trim() || "",
       assignedAgentPhone: editFormData.assignedAgentPhone?.trim() || "",
       status: editFormData.status,
-      photos: editFormData.photos && editFormData.photos.length > 0 ? editFormData.photos : property.photos,
-      featuredPhoto: editFormData.featuredPhoto || (editFormData.photos && editFormData.photos[0]) || property.featuredPhoto,
+      photos: Array.isArray(editFormData.photos) ? editFormData.photos : (property.photos || []),
+      featuredPhoto: editFormData.featuredPhoto ?? (editFormData.photos && editFormData.photos[0]) ?? null,
       dealParties: stakeholders,
     };
 
