@@ -65,7 +65,10 @@ export const PATCH = createApiHandler({
         ...(body.unmatchedReason !== undefined ? { unmatchedReason: body.unmatchedReason || null } : {}),
         ...(body.failedAtStage !== undefined && body.status === "CLOSED" && body.outcome === "LOST" ? { failedAtStage: body.failedAtStage } : {}),
       },
-      include: { assignedAgent: { select: { id: true, name: true, phone: true } } },
+      include: {
+        assignedAgent: { select: { id: true, name: true, phone: true } },
+        property: { select: { id: true, title: true, suburb: true } },
+      },
     });
 
     await db.auditLog.create({

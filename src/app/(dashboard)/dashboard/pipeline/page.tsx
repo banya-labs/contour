@@ -9,6 +9,10 @@ import {
   Sparkles,
   MessageSquare,
   CheckCircle2,
+  Lock,
+  Building,
+  User,
+  Edit3,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
@@ -20,17 +24,46 @@ type Deal = {
   id: string;
   clientName: string;
   clientPhone: string;
+  clientEmail?: string | null;
+  propertyId?: string | null;
   propertyTitle: string;
   suburb: string;
   dealValue: number;
   currency: "ZMW" | "USD";
   agencyCommission: number;
   agentName: string;
+  assignedAgentId?: string | null;
   daysInStage: number;
   stage: "NEW_INQUIRY" | "CONTACTED" | "VIEWING_SCHEDULED" | "NEGOTIATING" | "OFFER_MADE" | "CLOSED";
   outcome?: "WON" | "LOST" | null;
   lostReason?: string | null;
-  assignedAgentId?: string | null;
+  leadSource?: string;
+  notes?: string | null;
+};
+
+type AvailableProperty = {
+  id: string;
+  title: string;
+  suburb?: string | null;
+  city?: string | null;
+  askingPrice?: number | null;
+  rentalPrice?: number | null;
+  currency?: string | null;
+  status?: string;
+};
+
+type OrganizationAgent = {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string;
+};
+
+type ExistingClient = {
+  id: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string | null;
 };
 
 const STAGES = [
@@ -46,15 +79,50 @@ function DealPipelineContent() {
   // Deals are intentionally empty until they are loaded from a tenant-scoped
   // deal source. Never seed the pipeline with development/demo records.
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
+  const [agents, setAgents] = useState<OrganizationAgent[]>([]);
+  const [availableProperties, setAvailableProperties] = useState<AvailableProperty[]>([]);
+  const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
+
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+
+  // New Deal Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [clientSelectionMode, setClientSelectionMode] = useState<"existing" | "new">("new");
   const [formError, setFormError] = useState("");
-  const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
+  const [formData, setFormData] = useState({
+    selectedExistingClientId: "",
+    clientName: "",
+    clientPhone: "",
+    clientEmail: "",
+    propertyId: "",
+    assignedAgentId: "",
+    dealValue: "",
+    currency: "ZMW" as "ZMW" | "USD",
+    leadSource: "WALK_IN",
+    stage: "NEW_INQUIRY" as Deal["stage"],
+    notes: "",
+  });
+
+  // Edit Deal (Reassign Property / Agent / Value / Stage) Modal State
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    propertyId: "",
+    assignedAgentId: "",
+    dealValue: "",
+    currency: "ZMW" as "ZMW" | "USD",
+    stage: "NEW_INQUIRY" as Deal["stage"],
+    notes: "",
+  });
+  const [editError, setEditError] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Close Deal Modal State
   const [closeTarget, setCloseTarget] = useState<Deal | null>(null);
   const [closeOutcome, setCloseOutcome] = useState<"WON" | "LOST">("WON");
   const [lostReason, setLostReason] = useState("");
+
+  const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -63,71 +131,84 @@ function DealPipelineContent() {
     }
   }, [searchParams]);
 
-  const openCloseModal = (deal: Deal) => {
-    setCloseTarget(deal);
-    setCloseOutcome(deal.outcome === "LOST" ? "LOST" : "WON");
-    setLostReason(deal.lostReason || "");
+  const loadAllPipelineData = () => {
+    void Promise.all([
+      fetch("/api/clients"),
+      fetch("/api/organization/agents"),
+      fetch("/api/properties"),
+    ])
+      .then(async ([dealsResponse, agentsResponse, propsResponse]) => {
+        const dealsData = await dealsResponse.json();
+        const agentsData = await agentsResponse.json();
+        const propsData = await propsResponse.json();
+
+        if (dealsData.success) {
+          const rawClients = dealsData.clients || [];
+          const mappedDeals: Deal[] = rawClients.map((inquiry: any) => ({
+            id: inquiry.id,
+            clientName: inquiry.clientName,
+            clientPhone: inquiry.clientPhone,
+            clientEmail: inquiry.clientEmail,
+            propertyId: inquiry.property?.id || inquiry.propertyId || null,
+            propertyTitle: inquiry.property?.title || "Unassigned property",
+            suburb: inquiry.property?.suburb || inquiry.preferredSuburbs?.[0] || "—",
+            dealValue: Number(inquiry.dealValue || 0),
+            currency: inquiry.currency || "ZMW",
+            agencyCommission: Number(inquiry.dealValue || 0) * 0.05,
+            agentName: inquiry.assignedAgent?.name || "Unassigned",
+            assignedAgentId: inquiry.assignedAgent?.id || inquiry.assignedAgentId || null,
+            daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),
+            stage: inquiry.status === "NEGOTIATING" ? "NEGOTIATING" : inquiry.status,
+            outcome: inquiry.outcome,
+            lostReason: inquiry.lostReason,
+            leadSource: inquiry.leadSource,
+            notes: inquiry.notes,
+          }));
+          setDeals(mappedDeals);
+
+          // Extract distinct client contacts for quick client selection in new deals
+          const clientsMap = new Map<string, ExistingClient>();
+          rawClients.forEach((c: any) => {
+            if (c.clientName && c.clientPhone) {
+              const key = `${c.clientName.trim().toLowerCase()}_${c.clientPhone.trim()}`;
+              if (!clientsMap.has(key)) {
+                clientsMap.set(key, {
+                  id: c.id,
+                  clientName: c.clientName,
+                  clientPhone: c.clientPhone,
+                  clientEmail: c.clientEmail,
+                });
+              }
+            }
+          });
+          setExistingClients(Array.from(clientsMap.values()));
+        }
+
+        if (agentsData.success) {
+          setAgents(agentsData.agents || []);
+        }
+
+        if (propsData.success && Array.isArray(propsData.properties)) {
+          setAvailableProperties(
+            propsData.properties.map((p: any) => ({
+              id: p.id,
+              title: p.title,
+              suburb: p.suburb,
+              city: p.city,
+              askingPrice: p.askingPrice ? Number(p.askingPrice) : null,
+              rentalPrice: p.rentalPrice ? Number(p.rentalPrice) : null,
+              currency: p.currency || "ZMW",
+              status: p.status,
+            }))
+          );
+        }
+      })
+      .catch(() => setFormError("Unable to load the pipeline. Please refresh and try again."));
   };
 
   useEffect(() => {
-    void Promise.all([fetch("/api/clients"), fetch("/api/organization/agents")]).then(async ([dealsResponse, agentsResponse]) => {
-      const dealsData = await dealsResponse.json();
-      const agentsData = await agentsResponse.json();
-      if (dealsData.success) {
-        setDeals((dealsData.clients || []).map((inquiry: any) => ({
-          id: inquiry.id,
-          clientName: inquiry.clientName,
-          clientPhone: inquiry.clientPhone,
-          propertyTitle: inquiry.property?.title || "Unassigned property",
-          suburb: inquiry.property?.suburb || inquiry.preferredSuburbs?.[0] || "—",
-          dealValue: Number(inquiry.dealValue || 0),
-          currency: inquiry.currency || "ZMW",
-          agencyCommission: Number(inquiry.dealValue || 0) * 0.05,
-          agentName: inquiry.assignedAgent?.name || "Unassigned",
-          assignedAgentId: inquiry.assignedAgent?.id || null,
-          daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),
-          stage: inquiry.status === "NEGOTIATING" ? "NEGOTIATING" : inquiry.status,
-          outcome: inquiry.outcome,
-          lostReason: inquiry.lostReason,
-        })));
-      }
-      if (agentsData.success) setAgents(agentsData.agents || []);
-    }).catch(() => setFormError("Unable to load the pipeline. Please refresh and try again."));
+    loadAllPipelineData();
   }, []);
-
-  const handleMoveStage = async (dealId: string, nextStage: Deal["stage"]) => {
-    const deal = deals.find((item) => item.id === dealId);
-    if (!deal) return;
-    if (nextStage === "CLOSED") {
-      openCloseModal(deal);
-      return;
-    }
-    const response = await fetch(`/api/clients/${dealId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: nextStage }) });
-    if (!response.ok) { setFormError("Unable to update the pipeline stage."); return; }
-    setDeals((prev) =>
-      prev.map((d) => (d.id === dealId ? { ...d, stage: nextStage } : d))
-    );
-  };
-
-  const handleCloseDeal = async () => {
-    if (!closeTarget || (closeOutcome === "LOST" && lostReason.trim().length < 10)) return;
-    const response = await fetch(`/api/clients/${closeTarget.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "CLOSED", outcome: closeOutcome, lostReason: closeOutcome === "LOST" ? lostReason.trim() : undefined }) });
-    if (!response.ok) { setFormError("Unable to close this deal."); return; }
-    setDeals((prev) => prev.map((deal) => deal.id === closeTarget.id ? { ...deal, stage: "CLOSED", outcome: closeOutcome, lostReason: closeOutcome === "LOST" ? lostReason.trim() : null } : deal));
-    setCloseTarget(null);
-  };
-
-  const [formData, setFormData] = useState({
-    clientName: "",
-    clientPhone: "",
-    propertyTitle: "",
-    suburb: "",
-    dealValue: "",
-    currency: "ZMW",
-    agentName: "",
-    leadSource: "WALK_IN",
-    stage: "NEW_INQUIRY" as Deal["stage"],
-  });
 
   const stats = useMemo(() => {
     const totalsByCurrency: Record<string, number> = {};
@@ -146,12 +227,12 @@ function DealPipelineContent() {
 
     const totalValStr =
       Object.entries(totalsByCurrency)
-        .map(([cur, val]) => formatCurrency(val, cur))
+        .map(([cur, val]) => formatCurrency(val, cur as "ZMW" | "USD"))
         .join(" + ") || "K 0";
 
     const commValStr =
       Object.entries(commByCurrency)
-        .map(([cur, val]) => formatCurrency(val, cur))
+        .map(([cur, val]) => formatCurrency(val, cur as "ZMW" | "USD"))
         .join(" + ") || "K 0";
 
     const avgVelocity =
@@ -162,71 +243,249 @@ function DealPipelineContent() {
     return { totalValStr, commValStr, avgVelocity };
   }, [deals]);
 
+  const openCloseModal = (deal: Deal) => {
+    setCloseTarget(deal);
+    setCloseOutcome(deal.outcome === "LOST" ? "LOST" : "WON");
+    setLostReason(deal.lostReason || "");
+  };
+
+  const openEditModal = (deal: Deal) => {
+    setEditingDeal(deal);
+    setEditError("");
+    setEditFormData({
+      propertyId: deal.propertyId || "",
+      assignedAgentId: deal.assignedAgentId || "",
+      dealValue: deal.dealValue ? deal.dealValue.toString() : "",
+      currency: deal.currency,
+      stage: deal.stage,
+      notes: deal.notes || "",
+    });
+  };
+
+  const handleMoveStage = async (dealId: string, nextStage: Deal["stage"]) => {
+    const deal = deals.find((item) => item.id === dealId);
+    if (!deal) return;
+    if (nextStage === "CLOSED") {
+      openCloseModal(deal);
+      return;
+    }
+    const response = await fetch(`/api/clients/${dealId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStage }),
+    });
+    if (!response.ok) {
+      setFormError("Unable to update the pipeline stage.");
+      return;
+    }
+    setDeals((prev) =>
+      prev.map((d) => (d.id === dealId ? { ...d, stage: nextStage } : d))
+    );
+  };
+
+  const handleCloseDeal = async () => {
+    if (!closeTarget || (closeOutcome === "LOST" && lostReason.trim().length < 10)) return;
+    const response = await fetch(`/api/clients/${closeTarget.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "CLOSED",
+        outcome: closeOutcome,
+        lostReason: closeOutcome === "LOST" ? lostReason.trim() : undefined,
+      }),
+    });
+    if (!response.ok) {
+      setFormError("Unable to close this deal.");
+      return;
+    }
+    setDeals((prev) =>
+      prev.map((deal) =>
+        deal.id === closeTarget.id
+          ? {
+              ...deal,
+              stage: "CLOSED",
+              outcome: closeOutcome,
+              lostReason: closeOutcome === "LOST" ? lostReason.trim() : null,
+            }
+          : deal
+      )
+    );
+    setCloseTarget(null);
+  };
+
+  const handleSaveEditDeal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDeal) return;
+    setEditError("");
+
+    const valNum = parseFloat(editFormData.dealValue);
+    if (!valNum || valNum <= 0) {
+      setEditError("Deal value must be greater than 0.");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const response = await fetch(`/api/clients/${editingDeal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: editFormData.propertyId || null,
+          assignedAgentId: editFormData.assignedAgentId || null,
+          dealValue: valNum,
+          currency: editFormData.currency,
+          status: editFormData.stage,
+          notes: editFormData.notes || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        setEditError(errData.error || "Unable to update deal association.");
+        setIsSavingEdit(false);
+        return;
+      }
+
+      const resData = await response.json();
+      const updatedInquiry = resData.inquiry;
+
+      const matchedProp = availableProperties.find((p) => p.id === editFormData.propertyId);
+      const matchedAgent = agents.find((a) => a.id === editFormData.assignedAgentId);
+
+      setDeals((prev) =>
+        prev.map((d) => {
+          if (d.id !== editingDeal.id) return d;
+          return {
+            ...d,
+            propertyId: editFormData.propertyId || null,
+            propertyTitle: matchedProp ? matchedProp.title : (updatedInquiry?.property?.title || "Unassigned property"),
+            suburb: matchedProp?.suburb || updatedInquiry?.property?.suburb || "—",
+            assignedAgentId: editFormData.assignedAgentId || null,
+            agentName: matchedAgent ? matchedAgent.name : (updatedInquiry?.assignedAgent?.name || "Unassigned"),
+            dealValue: valNum,
+            currency: editFormData.currency,
+            agencyCommission: valNum * 0.05,
+            stage: editFormData.stage,
+            notes: editFormData.notes,
+          };
+        })
+      );
+
+      setEditingDeal(null);
+    } catch {
+      setEditError("Network error while updating this deal.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const handleCreateDeal = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
-    if (!formData.clientName.trim() || formData.clientName.length < 3) {
-      setFormError("Client name is required.");
-      return;
+    let clientName = formData.clientName.trim();
+    let clientPhone = formData.clientPhone.trim();
+    let clientEmail = formData.clientEmail.trim();
+
+    if (clientSelectionMode === "existing") {
+      const chosen = existingClients.find((c) => c.id === formData.selectedExistingClientId);
+      if (!chosen) {
+        setFormError("Please select an existing client from the list.");
+        return;
+      }
+      clientName = chosen.clientName;
+      clientPhone = chosen.clientPhone;
+      clientEmail = chosen.clientEmail || "";
+    } else {
+      if (!clientName || clientName.length < 3) {
+        setFormError("Client name is required (minimum 3 characters).");
+        return;
+      }
+      if (!clientPhone || clientPhone.length < 7) {
+        setFormError("Valid client phone is required (minimum 7 digits).");
+        return;
+      }
     }
-    if (!formData.clientPhone.trim() || formData.clientPhone.length < 7) {
-      setFormError("Valid client phone is required.");
-      return;
-    }
+
     const valNum = parseFloat(formData.dealValue);
     if (!valNum || valNum <= 0) {
       setFormError("Deal value must be greater than 0.");
       return;
     }
 
-    const selectedAgent = agents.find((agent) => agent.name === formData.agentName);
+    const matchedProp = availableProperties.find((p) => p.id === formData.propertyId);
+    const matchedAgent = agents.find((a) => a.id === formData.assignedAgentId);
+
     const response = await fetch("/api/clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        clientName: formData.clientName,
-        clientPhone: formData.clientPhone,
+        clientName,
+        clientPhone,
+        clientEmail: clientEmail || undefined,
         lookingFor: "FOR_SALE",
         currency: formData.currency,
-        assignedAgentId: selectedAgent?.id,
+        assignedAgentId: formData.assignedAgentId || undefined,
+        propertyId: formData.propertyId || undefined,
         dealValue: valNum,
         status: formData.stage,
         leadSource: formData.leadSource,
-        notes: formData.propertyTitle ? `Property target: ${formData.propertyTitle}` : undefined,
+        notes: formData.notes || undefined,
       }),
     });
-    if (!response.ok) { setFormError("Unable to create this pipeline opportunity."); return; }
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      setFormError(errJson.error || "Unable to create this pipeline opportunity.");
+      return;
+    }
+
     const result = await response.json();
     const inquiry = result.client;
-    setDeals([
-      {
-        id: inquiry.id,
-        clientName: inquiry.clientName,
-        clientPhone: inquiry.clientPhone,
-        propertyTitle: formData.propertyTitle || "Unassigned property",
-        suburb: "—",
-        dealValue: valNum,
-        currency: formData.currency as "ZMW" | "USD",
-        agencyCommission: valNum * 0.05,
-        agentName: selectedAgent?.name || "Unassigned",
-        assignedAgentId: selectedAgent?.id,
-        daysInStage: 0,
-        stage: inquiry.status || formData.stage,
-      },
-      ...deals,
-    ]);
+
+    const newDeal: Deal = {
+      id: inquiry.id,
+      clientName: inquiry.clientName,
+      clientPhone: inquiry.clientPhone,
+      clientEmail: inquiry.clientEmail,
+      propertyId: formData.propertyId || null,
+      propertyTitle: matchedProp ? matchedProp.title : "Unassigned property",
+      suburb: matchedProp?.suburb || "—",
+      dealValue: valNum,
+      currency: formData.currency,
+      agencyCommission: valNum * 0.05,
+      agentName: matchedAgent ? matchedAgent.name : "Unassigned",
+      assignedAgentId: formData.assignedAgentId || null,
+      daysInStage: 0,
+      stage: inquiry.status || formData.stage,
+      leadSource: formData.leadSource,
+      notes: formData.notes,
+    };
+
+    setDeals([newDeal, ...deals]);
+
+    // Keep existing clients list refreshed
+    setExistingClients((prev) => {
+      const exists = prev.some((c) => c.clientPhone === clientPhone);
+      if (!exists) {
+        return [{ id: inquiry.id, clientName, clientPhone, clientEmail }, ...prev];
+      }
+      return prev;
+    });
+
     setIsModalOpen(false);
     setFormData({
+      selectedExistingClientId: "",
       clientName: "",
       clientPhone: "",
-      propertyTitle: "",
-      suburb: "",
+      clientEmail: "",
+      propertyId: "",
+      assignedAgentId: "",
       dealValue: "",
       currency: "ZMW",
-      agentName: "",
       leadSource: "WALK_IN",
       stage: "NEW_INQUIRY",
+      notes: "",
     });
   };
 
@@ -384,7 +643,7 @@ function DealPipelineContent() {
         {/* Mobile Stage Cards List */}
         <div className="space-y-3">
           {deals.filter((d) => d.stage === activeMobileStage).map((deal) => (
-            <div key={deal.id} className="bg-white p-4 border border-editorial-border space-y-2.5">
+            <div key={deal.id} className="bg-white p-4 border border-editorial-border space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-geist font-semibold uppercase tracking-wider text-editorial-muted">
                   📍 {deal.suburb}
@@ -393,19 +652,47 @@ function DealPipelineContent() {
                   {deal.daysInStage}d in stage
                 </span>
               </div>
-              <h4 className="font-heading font-bold text-sm text-editorial-black uppercase leading-snug">
-                {deal.propertyTitle}
-              </h4>
-              <div className="p-2.5 bg-neutral-50 border border-editorial-border text-xs font-geist space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-editorial-muted">Client:</span>
-                  <strong className="text-editorial-black">{deal.clientName}</strong>
+
+              {/* Client & Associations Box - Client is Locked */}
+              <div className="p-3 bg-neutral-50 border border-editorial-border text-xs font-geist space-y-2">
+                <div className="flex items-center justify-between border-b border-editorial-border/60 pb-1.5">
+                  <span className="text-editorial-muted text-[10px] font-heading font-semibold uppercase tracking-wider flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-editorial-muted" /> Client (Locked):
+                  </span>
+                  <strong className="text-editorial-black font-semibold text-right truncate max-w-[170px]" title={deal.clientName}>
+                    {deal.clientName}
+                  </strong>
                 </div>
+
                 <div className="flex items-center justify-between">
-                  <span className="text-editorial-muted">Agent:</span>
-                  <span className="text-editorial-black">{deal.agentName}</span>
+                  <span className="text-editorial-muted flex items-center gap-1 text-[11px]">
+                    <Building className="w-3 h-3 text-editorial-muted" /> Property:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(deal)}
+                    className="text-editorial-black font-medium hover:text-contour-red hover:underline text-right truncate max-w-[170px] flex items-center gap-1"
+                  >
+                    <span className="truncate">{deal.propertyTitle || "Unassigned"}</span>
+                    <Edit3 className="w-2.5 h-2.5 shrink-0 text-editorial-muted" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-editorial-muted flex items-center gap-1 text-[11px]">
+                    <User className="w-3 h-3 text-editorial-muted" /> Agent:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(deal)}
+                    className="text-editorial-black font-medium hover:text-contour-red hover:underline text-right truncate max-w-[170px] flex items-center gap-1"
+                  >
+                    <span className="truncate">{deal.agentName || "Unassigned"}</span>
+                    <Edit3 className="w-2.5 h-2.5 shrink-0 text-editorial-muted" />
+                  </button>
                 </div>
               </div>
+
               <div className="flex items-center justify-between pt-1 border-t border-editorial-border">
                 <div>
                   <div className="text-[9px] font-geist text-editorial-muted uppercase">Deal Value</div>
@@ -421,8 +708,8 @@ function DealPipelineContent() {
                 </div>
               </div>
 
-              {/* Touch Actions: Move Stage & WhatsApp */}
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-editorial-border">
+              {/* Touch Actions: Move Stage, Edit Deal, & WhatsApp */}
+              <div className="space-y-2 pt-2 border-t border-editorial-border">
                 <select
                   value={deal.stage}
                   onChange={(e) => handleMoveStage(deal.id, e.target.value as Deal["stage"])}
@@ -435,15 +722,25 @@ function DealPipelineContent() {
                   ))}
                 </select>
 
-                <a
-                  href={`https://wa.me/${formatWhatsAppDigits(deal.clientPhone)}?text=Hello%20${encodeURIComponent(deal.clientName)}%2C%20following%20up%20on%20${encodeURIComponent(deal.propertyTitle)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-fill-wipe bg-[#25D366] text-white py-2 px-2 flex items-center justify-center gap-1 font-heading text-[11px] font-semibold uppercase tracking-wider"
-                >
-                  <MessageSquare className="w-3 h-3" />
-                  <span>WhatsApp</span>
-                </a>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(deal)}
+                    className="w-full py-2 px-2 border border-editorial-border bg-white hover:bg-neutral-50 text-editorial-black flex items-center justify-center gap-1 font-heading text-[11px] font-semibold uppercase tracking-wider"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Edit Deal</span>
+                  </button>
+                  <a
+                    href={`https://wa.me/${formatWhatsAppDigits(deal.clientPhone)}?text=Hello%20${encodeURIComponent(deal.clientName)}%2C%20following%20up%20on%20${encodeURIComponent(deal.propertyTitle)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-fill-wipe bg-[#25D366] text-white py-2 px-2 flex items-center justify-center gap-1 font-heading text-[11px] font-semibold uppercase tracking-wider"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>WhatsApp</span>
+                  </a>
+                </div>
               </div>
 
               {deal.stage === "CLOSED" && (
@@ -547,31 +844,73 @@ function DealPipelineContent() {
                       draggable
                       onDragStart={(e) => handleDragStart(e, deal.id)}
                       onDragEnd={handleDragEnd}
-                      className={`bg-white p-3.5 border transition-all space-y-2 select-none ${
+                      className={`bg-white p-3.5 border transition-all space-y-2.5 select-none ${
                         draggedDealId === deal.id
                           ? "opacity-30 border-dashed border-editorial-black cursor-grabbing"
                           : "border-editorial-border hover:border-editorial-black cursor-grab"
                       }`}
                     >
-                      <div>
+                      <div className="flex items-center justify-between">
                         <span className="text-[9px] font-geist font-semibold uppercase tracking-wider text-editorial-muted">
                           📍 {deal.suburb}
                         </span>
-                        <h4 className="font-heading font-bold text-xs text-editorial-black uppercase leading-snug mt-0.5">
-                          {deal.propertyTitle}
-                        </h4>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(deal);
+                          }}
+                          className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black flex items-center gap-1 transition-colors px-1.5 py-0.5 border border-transparent hover:border-editorial-border hover:bg-neutral-50"
+                          title="Edit deal details & associations"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>Edit</span>
+                        </button>
                       </div>
 
-                      <div className="p-2 bg-neutral-50 border border-editorial-border text-xs font-geist space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-editorial-muted">Client:</span>
-                          <strong className="text-editorial-black truncate max-w-[120px]">
+                      {/* Client & Associations Box - Client is Locked */}
+                      <div className="p-2.5 bg-neutral-50 border border-editorial-border text-xs font-geist space-y-1.5">
+                        <div className="flex items-center justify-between border-b border-editorial-border/60 pb-1">
+                          <span className="text-[10px] uppercase tracking-wider text-editorial-muted font-medium flex items-center gap-1">
+                            <Lock className="w-3 h-3 text-editorial-muted" /> Client:
+                          </span>
+                          <strong className="text-editorial-black truncate max-w-[110px]" title={deal.clientName}>
                             {deal.clientName}
                           </strong>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-editorial-muted">Agent:</span>
-                          <span className="text-editorial-black">{deal.agentName}</span>
+
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-editorial-muted flex items-center gap-1">
+                            <Building className="w-3 h-3 text-editorial-muted" /> Property:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(deal);
+                            }}
+                            className="text-editorial-black font-medium hover:text-contour-red hover:underline truncate max-w-[120px] text-right"
+                            title={deal.propertyTitle}
+                          >
+                            {deal.propertyTitle || "+ Assign"}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-editorial-muted flex items-center gap-1">
+                            <User className="w-3 h-3 text-editorial-muted" /> Agent:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(deal);
+                            }}
+                            className="text-editorial-black font-medium hover:text-contour-red hover:underline truncate max-w-[120px] text-right"
+                            title={deal.agentName}
+                          >
+                            {deal.agentName || "+ Assign"}
+                          </button>
                         </div>
                       </div>
 
@@ -596,7 +935,7 @@ function DealPipelineContent() {
                           {deal.daysInStage}d in stage
                         </span>
                         <a
-                          href={`https://wa.me/${formatWhatsAppDigits(deal.clientPhone)}`}
+                          href={`https://wa.me/${formatWhatsAppDigits(deal.clientPhone)}?text=Hello%20${encodeURIComponent(deal.clientName)}%2C%20following%20up%20on%20${encodeURIComponent(deal.propertyTitle)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-contour-red hover:underline flex items-center gap-0.5 font-medium"
@@ -695,49 +1034,127 @@ function DealPipelineContent() {
             )}
 
             <form onSubmit={handleCreateDeal} className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Client Full Name *
+              {/* Client Selection Section - Deal is locked to this client */}
+              <div className="space-y-2 border border-editorial-border p-3 bg-neutral-50">
+                <div className="flex items-center justify-between">
+                  <label className="font-heading font-semibold uppercase tracking-wider text-editorial-black text-[11px] flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-contour-red" /> Client Association (Locked) *
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. John Banda"
-                    value={formData.clientName}
-                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist"
-                    required
-                  />
+                  <div className="flex border border-editorial-border bg-white text-[10px] font-heading font-semibold uppercase">
+                    <button
+                      type="button"
+                      onClick={() => setClientSelectionMode("existing")}
+                      className={`px-2 py-1 transition-colors ${clientSelectionMode === "existing" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"}`}
+                    >
+                      Existing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClientSelectionMode("new")}
+                      className={`px-2 py-1 transition-colors ${clientSelectionMode === "new" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"}`}
+                    >
+                      + New Client
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Client Phone *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. +260 97 788 9900"
-                    value={formData.clientPhone}
-                    onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist"
-                    required
-                  />
-                </div>
+                {clientSelectionMode === "existing" ? (
+                  <div>
+                    <select
+                      value={formData.selectedExistingClientId}
+                      onChange={(e) => {
+                        const cId = e.target.value;
+                        const matched = existingClients.find((c) => c.id === cId);
+                        setFormData({
+                          ...formData,
+                          selectedExistingClientId: cId,
+                          clientName: matched?.clientName || "",
+                          clientPhone: matched?.clientPhone || "",
+                          clientEmail: matched?.clientEmail || "",
+                        });
+                      }}
+                      className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                      required
+                    >
+                      <option value="">Select an existing client...</option>
+                      {existingClients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.clientName} ({c.clientPhone})
+                        </option>
+                      ))}
+                    </select>
+                    {existingClients.length === 0 && (
+                      <p className="text-[10px] text-editorial-muted mt-1">
+                        No existing clients found yet. Switch to "+ New Client" to register.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-heading uppercase text-editorial-muted mb-0.5">
+                          Client Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. John Banda"
+                          value={formData.clientName}
+                          onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                          className="w-full bg-white px-3 py-1.5 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-heading uppercase text-editorial-muted mb-0.5">
+                          Client Phone *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. +260 97 788 9900"
+                          value={formData.clientPhone}
+                          onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                          className="w-full bg-white px-3 py-1.5 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-heading uppercase text-editorial-muted mb-0.5">
+                        Client Email (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="e.g. john@example.com"
+                        value={formData.clientEmail}
+                        onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                        className="w-full bg-white px-3 py-1.5 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                      />
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10px] text-editorial-muted italic">
+                  Note: A deal is permanently locked to this client once created.
+                </p>
               </div>
 
+              {/* Property Target Selection */}
               <div>
-                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                  Property Target
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1 flex items-center justify-between">
+                  <span>Property Target</span>
+                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">can link or change later</span>
                 </label>
                 <select
-                  value={formData.propertyTitle}
-                  onChange={(e) => setFormData({ ...formData, propertyTitle: e.target.value })}
+                  value={formData.propertyId}
+                  onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
                   className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                 >
-                  <option value="Executive 4-Bedroom Residence">Executive 4-Bedroom Residence (Kabulonga)</option>
-                  <option value="Modern 3-Bedroom Townhouse">Modern 3-Bedroom Townhouse (Leopards Hill)</option>
-                  <option value="5-Acre Commercial Development Plot">5-Acre Plot (Roma Park)</option>
-                  <option value="Luxury 3-Bedroom Villa">Luxury 3-Bedroom Villa (Sunningdale)</option>
+                  <option value="">No Property Associated (Unassigned)</option>
+                  {availableProperties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} ({p.suburb || "Lusaka"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -752,6 +1169,7 @@ function DealPipelineContent() {
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                   >
                     <option value="NEW_INQUIRY">New Inquiry</option>
+                    <option value="CONTACTED">Contacted</option>
                     <option value="VIEWING_SCHEDULED">Viewing Booked</option>
                     <option value="NEGOTIATING">In Negotiation</option>
                     <option value="OFFER_MADE">Written Offer</option>
@@ -778,17 +1196,23 @@ function DealPipelineContent() {
                 </div>
               </div>
 
+              {/* Closing Agent Selection */}
               <div>
-                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                  Closing Agent (Org Member)
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1 flex items-center justify-between">
+                  <span>Assigned Agent (Org Member)</span>
+                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">can reassign later</span>
                 </label>
                 <select
-                  value={formData.agentName}
-                  onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
+                  value={formData.assignedAgentId}
+                  onChange={(e) => setFormData({ ...formData, assignedAgentId: e.target.value })}
                   className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                 >
                   <option value="">Unassigned</option>
-                  {agents.map((agent) => <option key={agent.id} value={agent.name}>{agent.name}</option>)}
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name} {agent.role ? `(${agent.role})` : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -812,7 +1236,7 @@ function DealPipelineContent() {
                   </label>
                   <select
                     value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value as "ZMW" | "USD" })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                   >
                     <option value="ZMW">ZMW (K)</option>
@@ -826,8 +1250,21 @@ function DealPipelineContent() {
                   Expected 5% Agency Fee:
                 </span>
                 <span className="font-geist font-bold text-contour-red text-sm">
-                  {formatCurrency((parseFloat(formData.dealValue) || 0) * 0.05, formData.currency as any)}
+                  {formatCurrency((parseFloat(formData.dealValue) || 0) * 0.05, formData.currency)}
                 </span>
+              </div>
+
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Notes / Requirements (Optional)
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={2}
+                  placeholder="Specific requirements, preferred payment structure, etc."
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist text-xs"
+                />
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
@@ -844,6 +1281,196 @@ function DealPipelineContent() {
                 >
                   <Sparkles className="w-3.5 h-3.5 text-contour-red" />
                   <span>Create Opportunity</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Modal: Edit Deal Associations (Client is Locked) */}
+      {editingDeal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-geist">
+          <div className="bg-white max-w-lg w-full p-6 border border-editorial-border space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-editorial-black" />
+                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
+                  Edit Deal Associations & Details
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingDeal(null)}
+                className="text-editorial-muted hover:text-contour-red"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">
+                ⚠️ {editError}
+              </div>
+            )}
+
+            {/* Locked Client Banner */}
+            <div className="p-3 bg-neutral-50 border border-editorial-border space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-heading font-semibold uppercase tracking-wider text-[11px] text-editorial-black flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-contour-red" />
+                  <span>Client (Permanently Locked)</span>
+                </span>
+                <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 bg-neutral-200 text-editorial-black font-semibold">
+                  Locked
+                </span>
+              </div>
+              <div className="text-xs font-geist text-editorial-black">
+                <strong>{editingDeal.clientName}</strong> • {editingDeal.clientPhone}
+                {editingDeal.clientEmail && (
+                  <span className="text-editorial-muted"> ({editingDeal.clientEmail})</span>
+                )}
+              </div>
+              <p className="text-[10px] font-geist text-editorial-muted italic">
+                Deals remain strictly anchored to this client. You can reassign or associate the property, agent, value, and stage below.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveEditDeal} className="space-y-3.5 text-xs">
+              {/* Associated Property (Editable) */}
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Building className="w-3.5 h-3.5 text-editorial-muted" /> Associated Property
+                  </span>
+                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">link or change</span>
+                </label>
+                <select
+                  value={editFormData.propertyId}
+                  onChange={(e) => setEditFormData({ ...editFormData, propertyId: e.target.value })}
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                >
+                  <option value="">No Property Associated (Unassigned)</option>
+                  {availableProperties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} ({p.suburb || "Lusaka"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Associated Agent (Editable) */}
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <User className="w-3.5 h-3.5 text-editorial-muted" /> Associated Agent (Org Member)
+                  </span>
+                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">assign or change</span>
+                </label>
+                <select
+                  value={editFormData.assignedAgentId}
+                  onChange={(e) => setEditFormData({ ...editFormData, assignedAgentId: e.target.value })}
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                >
+                  <option value="">Unassigned</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name} {agent.role ? `(${agent.role})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Stage & Currency */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Pipeline Stage
+                  </label>
+                  <select
+                    value={editFormData.stage}
+                    onChange={(e) => setEditFormData({ ...editFormData, stage: e.target.value as Deal["stage"] })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                  >
+                    {STAGES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Currency
+                  </label>
+                  <select
+                    value={editFormData.currency}
+                    onChange={(e) => setEditFormData({ ...editFormData, currency: e.target.value as "ZMW" | "USD" })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                  >
+                    <option value="ZMW">ZMW (K)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Deal Value */}
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Deal Value *
+                </label>
+                <input
+                  type="number"
+                  value={editFormData.dealValue}
+                  onChange={(e) => setEditFormData({ ...editFormData, dealValue: e.target.value })}
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist"
+                  required
+                />
+              </div>
+
+              <div className="p-3 bg-neutral-50 border border-editorial-border flex items-center justify-between">
+                <span className="text-editorial-muted font-heading text-xs uppercase tracking-wider">
+                  Expected 5% Agency Fee:
+                </span>
+                <span className="font-geist font-bold text-contour-red text-sm">
+                  {formatCurrency((parseFloat(editFormData.dealValue) || 0) * 0.05, editFormData.currency)}
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Notes / Progress Updates
+                </label>
+                <textarea
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Status notes, agreed terms, follow-up deadlines..."
+                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist text-xs"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
+                <button
+                  type="button"
+                  onClick={() => setEditingDeal(null)}
+                  className="px-4 py-2 border border-editorial-border text-editorial-black hover:bg-neutral-50 text-xs font-heading font-semibold uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-4 py-2 bg-editorial-black hover:bg-contour-red disabled:opacity-50 text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                >
+                  {isSavingEdit ? (
+                    <span>Saving...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Save Associations</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
