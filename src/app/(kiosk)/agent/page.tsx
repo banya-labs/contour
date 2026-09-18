@@ -2508,10 +2508,111 @@ function AgentKioskContent() {
             </div>
           </div>
         )}
+
+        {/* Public Client Launch Demo Date Card */}
+        <section className="bg-white border border-editorial-border p-4 sm:p-5 shadow-2xs space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-contour-red font-bold">
+                  Client Launch Event • Save The Date
+                </span>
+              </div>
+              <h3 className="mt-1 text-base sm:text-lg font-heading font-bold uppercase tracking-tight text-editorial-black">
+                Public Client Launch Demo
+              </h3>
+              <p className="text-xs text-editorial-muted mt-0.5 leading-relaxed">
+                Official public unveiling of the Contour Client Portal, spatial map cadastre, and verified property mandates.
+              </p>
+            </div>
+            <div className="w-10 h-10 border border-editorial-border bg-neutral-50 flex items-center justify-center text-contour-red shrink-0">
+              <Calendar className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Date & Time Highlights */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="bg-neutral-50 border border-editorial-border p-2.5">
+              <div className="flex items-center gap-1.5 text-editorial-muted text-[10px] font-mono uppercase">
+                <Calendar className="w-3 h-3 text-contour-red" />
+                <span>Demo Date</span>
+              </div>
+              <p className="text-xs sm:text-sm font-mono font-bold text-editorial-black mt-1">
+                Sat, 26 Sept 2026
+              </p>
+            </div>
+
+            <div className="bg-neutral-50 border border-editorial-border p-2.5">
+              <div className="flex items-center gap-1.5 text-editorial-muted text-[10px] font-mono uppercase">
+                <Clock className="w-3 h-3 text-contour-red" />
+                <span>Time & Zone</span>
+              </div>
+              <p className="text-xs sm:text-sm font-mono font-bold text-editorial-black mt-1">
+                10:00 CAT (Lusaka)
+              </p>
+            </div>
+          </div>
+
+          {/* Location & Audience */}
+          <div className="bg-neutral-50/70 border border-editorial-border p-3 text-xs space-y-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-editorial-muted font-mono uppercase">Channel:</span>
+              <span className="font-semibold text-editorial-black">Public Portal & Spatial Map</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-editorial-muted font-mono uppercase">Target Audience:</span>
+              <span className="font-semibold text-editorial-black">Lusaka Buyers, Tenants & Landlords</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-editorial-muted font-mono uppercase">Status:</span>
+              <span className="font-mono text-[10px] font-bold uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-200">
+                Confirmed & Ready
+              </span>
+            </div>
+          </div>
+
+          {/* Action to preview or share with clients */}
+          <div className="flex items-center gap-2 pt-1">
+            <Link
+              href="/"
+              className="flex-1 py-2 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Preview Public Portal</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                const text = encodeURIComponent(
+                  "Join us for the Contour Public Client Launch on Saturday, 26 September 2026 at 10:00 CAT! Explore verified Lusaka properties and live cadastre maps directly: https://contour.banyalabs.com"
+                );
+                window.open(`https://wa.me/?text=${text}`, "_blank");
+              }}
+              className="py-2 px-3 bg-white hover:bg-neutral-50 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              title="Share Launch with Clients on WhatsApp"
+            >
+              <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Invite Clients</span>
+            </button>
+          </div>
+        </section>
       </main>
 
       {/* 3. Dedicated Bottom Dock Navigation Bar */}
       <footer className="field-footer fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-editorial-border max-w-md md:max-w-2xl mx-auto pb-safe">
+        {/* Sticky Demo Launch Date Ticker */}
+        <div className="bg-editorial-black text-white px-3 py-1 flex items-center justify-between text-[10px] font-mono border-b border-neutral-800">
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="font-bold text-contour-red">CLIENT LAUNCH:</span>
+            <span className="truncate">Sat, 26 Sept 2026 • 10:00 CAT</span>
+          </div>
+          <span className="hidden sm:inline-block text-[9px] uppercase tracking-wider text-neutral-400 shrink-0 ml-2">
+            Lusaka Public Rollout
+          </span>
+        </div>
+
         <div className="grid grid-cols-5 items-center px-2 py-1.5 sm:py-2">
           
           {/* Properties (Catalog & Map) Tab */}
