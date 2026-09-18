@@ -567,8 +567,13 @@ function ClientsCRMContent() {
                 <Users className="w-5 h-5 text-editorial-red" />
                 <h3 className="font-serif font-bold text-lg text-editorial-black">Register Client Inquiry</h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-editorial-neutral hover:text-editorial-black">
-                <X className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -720,10 +725,12 @@ function ClientsCRMContent() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingClient(null)}
-                className="text-editorial-neutral hover:text-editorial-black"
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -950,10 +957,12 @@ function ClientsCRMContent() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setDeletingClient(null)}
-                className="text-editorial-neutral hover:text-editorial-black"
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 

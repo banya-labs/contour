@@ -200,9 +200,9 @@ export function DocumentDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 border border-editorial-border bg-editorial-bg font-geist overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 border border-editorial-border bg-[#F5F2EC] font-geist overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-editorial-border bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-5 sm:p-6 pr-14 sm:pr-16 border-b border-editorial-border bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 border border-editorial-border bg-neutral-50 flex items-center justify-center shrink-0 mt-0.5">
               {getDocTypeIcon()}
@@ -283,7 +283,7 @@ export function DocumentDetailsModal({
         )}
 
         {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-[#F5F2EC]">
           {loading && !details ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-contour-red" />

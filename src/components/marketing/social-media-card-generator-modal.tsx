@@ -180,11 +180,12 @@ export default function SocialMediaCardGeneratorModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-[#282828] hover:bg-[#fff5f3] hover:text-[#fa3600] border border-transparent hover:border-[#fa3600] transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-none border border-[#e0e0e0] bg-white text-[#282828] hover:bg-[#282828] hover:text-white transition-all shadow-xs"
             title="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 

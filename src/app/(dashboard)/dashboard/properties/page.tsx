@@ -603,8 +603,10 @@ function PropertiesCatalogContent() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-editorial-muted hover:text-contour-red"
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>

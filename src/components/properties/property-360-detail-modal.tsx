@@ -602,10 +602,10 @@ export default function PropertyFullDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-[#73716B] hover:text-[#1C1C1A] hover:bg-[#F5F0E8] border border-transparent transition-colors ml-1"
+              className="flex items-center justify-center w-8 h-8 rounded-none border border-[#E6E4DF] bg-white text-[#1C1C1A] hover:bg-[#1C1C1A] hover:text-white transition-all shadow-xs ml-1"
               title="Close modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

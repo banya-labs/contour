@@ -1020,8 +1020,10 @@ function DealPipelineContent() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-editorial-muted hover:text-contour-red"
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1300,8 +1302,10 @@ function DealPipelineContent() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingDeal(null)}
-                className="text-editorial-muted hover:text-contour-red"
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1483,7 +1487,14 @@ function DealPipelineContent() {
           <div className="bg-white max-w-md w-full p-6 border border-editorial-border space-y-4">
             <div className="flex items-center justify-between border-b border-editorial-border pb-3">
               <h3 className="font-heading font-bold text-sm uppercase tracking-wider">Close deal</h3>
-              <button onClick={() => setCloseTarget(null)} className="text-editorial-muted hover:text-contour-red"><X className="w-4 h-4" /></button>
+              <button
+                type="button"
+                onClick={() => setCloseTarget(null)}
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
             <p className="text-xs text-editorial-muted">Record the outcome for {closeTarget.clientName}. A lost outcome requires a reason for future follow-up and reporting.</p>
             <div className="flex gap-2">

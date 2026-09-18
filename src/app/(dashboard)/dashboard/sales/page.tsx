@@ -542,7 +542,12 @@ function PropertySalesContent() {
                   Record Property Sale & Conveyance
                 </h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-editorial-muted hover:text-contour-red">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
+                title="Close"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
