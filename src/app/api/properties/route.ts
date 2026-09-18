@@ -578,9 +578,11 @@ const patchHandler = createApiHandler({
         bathrooms: updateData.bathrooms,
         plotSizeSqm: updateData.plotSizeSqm,
         landmarkDirections: updateData.landmarkDirections,
-        description: updateData.description,
+        description: updateData.description !== undefined ? (updateData.description ?? "") : undefined,
         photos: updateData.photos,
         featuredPhoto: updateData.featuredPhoto,
+        titleDeedNumber: updateData.titleDeedNumber,
+        standBoundary: updateData.standBoundary !== undefined ? (updateData.standBoundary as any) : undefined,
         assignedAgentId: updateData.assignedAgentId,
       }
     });

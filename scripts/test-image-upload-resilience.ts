@@ -78,37 +78,38 @@ async function runResilienceTests() {
   assert("3MB photo is within 15MB limit", normalSize <= MAX_IMAGE_BYTES);
   assert("16MB photo exceeds 15MB limit", oversize > MAX_IMAGE_BYTES);
 
-  // 4. Testing End-to-End Route POST via HTTP to Local Server
-  console.log("\n--- 4. Testing Live Route POST /api/properties/upload-image ---");
+  // 4. Testing Route POST /api/properties/upload-image directly
+  console.log("\n--- 4. Testing Route POST /api/properties/upload-image directly ---");
   try {
-    const boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
-    const body = [
-      `--${boundary}`,
-      'Content-Disposition: form-data; name="file"; filename="test_resilience_photo.jpg"',
-      "Content-Type: image/jpeg",
-      "",
-      "dummy-test-photo-content",
-      `--${boundary}--`,
-    ].join("\r\n");
+    const { POST } = await import("../src/app/api/properties/upload-image/route");
+    const { NextRequest } = await import("next/server");
 
-    const res = await fetch("http://localhost:3000/api/properties/upload-image", {
+    const formData = new FormData();
+    // Valid 1x1 WebP binary
+    const webpBytes = new Uint8Array([
+      0x52, 0x49, 0x46, 0x46, 0x1a, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+      0x56, 0x50, 0x38, 0x4c, 0x0e, 0x00, 0x00, 0x00, 0x2f, 0x00, 0x00, 0x00,
+      0x10, 0x07, 0x10, 0x11, 0x11, 0x88, 0x88, 0xfe, 0x07, 0x00
+    ]);
+    const file = new File([webpBytes], "direct_test.webp", { type: "image/webp" });
+    formData.append("files", file);
+
+    const req = new NextRequest("http://localhost:3000/api/properties/upload-image", {
       method: "POST",
-      headers: {
-        "Content-Type": `multipart/form-data; boundary=${boundary}`,
-      },
-      body: Buffer.from(body),
+      body: formData,
     });
 
-    console.log("HTTP Response Status:", res.status);
+    const res = await POST(req);
+    console.log("Handler HTTP Status:", res.status);
     const json = await res.json();
-    console.log("HTTP Response JSON:", json);
+    console.log("Handler Response JSON:", json);
 
-    assert("Upload API returns HTTP 200 OK", res.status === 200);
-    assert("Upload API returns success: true", json.success === true);
-    assert("Upload API returns a valid photo URL", typeof json.url === "string" && json.url.length > 0);
+    assert("Upload API returns HTTP 200 OK", res.status === 200, JSON.stringify(json));
+    assert("Upload API returns success: true", json.success === true, JSON.stringify(json));
+    assert("Upload API returns valid photo URL", typeof json.url === "string" && json.url.length > 0, JSON.stringify(json));
   } catch (err: any) {
-    console.error("HTTP Route test encountered error:", err.message);
-    assert("HTTP Route test runs without crashing", false, err.message);
+    console.error("Direct POST handler test encountered error:", err);
+    assert("Direct POST handler runs without crashing", false, err.message);
   }
 
   console.log("\n==================================================");

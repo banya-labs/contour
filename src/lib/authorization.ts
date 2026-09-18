@@ -19,8 +19,8 @@ const ALL: readonly Permission[] = PERMISSIONS;
 export const ROLE_PRESETS: Readonly<Record<ContourRoleKey, readonly Permission[]>> = {
   OWNER: ALL,
   BROKER_MANAGER: ["org.read", "org.update", "org.members.read", "org.members.invite", "dashboard.read", "properties.read", "properties.create", "properties.update", "properties.archive", "leads.read", "leads.create", "leads.assign", "pipeline.read", "pipeline.update", "leases.read", "leases.manage", "statements.read", "statements.approve", "vault.read", "vault.upload", "vault.download", "vault.verify", "vault.grant_access", "pwa.access", "pwa.listings.create", "pwa.listings.share", "pwa.inquiries.update"],
-  ADMIN_STAFF: ["org.read", "org.members.read", "dashboard.read", "properties.read", "leads.read", "pipeline.read", "leases.read", "pwa.access"],
-  FIELD_AGENT: ["properties.read", "leads.read", "pwa.access", "pwa.listings.share", "pwa.inquiries.update"],
+  ADMIN_STAFF: ["org.read", "org.members.read", "dashboard.read", "properties.read", "properties.create", "properties.update", "leads.read", "pipeline.read", "leases.read", "pwa.access"],
+  FIELD_AGENT: ["properties.read", "properties.update", "leads.read", "pwa.access", "pwa.listings.create", "pwa.listings.share", "pwa.inquiries.update"],
   FINANCE_OFFICER: ["org.read", "dashboard.read", "finance.read", "finance.manage", "statements.read", "statements.approve"],
   VAULT_MANAGER: ["org.read", "vault.read", "vault.upload", "vault.download", "vault.verify", "vault.grant_access"],
   LANDLORD: [], TENANT: [],

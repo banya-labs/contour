@@ -121,18 +121,53 @@ export default function PropertyImageUploader({
     try {
       const formData = new FormData();
       for (const file of filesToUpload) {
-        formData.append("files", file);
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_") || "photo.jpg";
+        formData.append("files", file, safeName);
       }
       if (propertyId) {
         formData.append("propertyId", propertyId);
       }
 
-      const res = await fetch("/api/properties/upload-image", {
+      let res = await fetch("/api/properties/upload-image", {
         method: "POST",
         body: formData,
       });
 
-      const data = await res.json();
+      let data: any = null;
+
+      // If FormData fails on the server (e.g. multipart proxy or undici boundary error),
+      // transparently fallback to base64 JSON payload
+      if (!res.ok) {
+        try {
+          const jsonFiles = await Promise.all(
+            filesToUpload.map(async (file) => {
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              });
+              return {
+                name: file.name.replace(/[^a-zA-Z0-9._-]/g, "_") || "photo.jpg",
+                type: file.type || "image/jpeg",
+                base64,
+              };
+            })
+          );
+          const fallbackRes = await fetch("/api/properties/upload-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ files: jsonFiles, propertyId }),
+          });
+          if (fallbackRes.ok) {
+            res = fallbackRes;
+          }
+        } catch (fallbackErr) {
+          console.warn("Base64 upload fallback notice:", fallbackErr);
+        }
+      }
+
+      data = await res.json();
       if (!res.ok || !data.success) {
         const errMsg = data.details
           ? `${data.error || "Failed to upload image"}: ${data.details}`
@@ -150,8 +185,8 @@ export default function PropertyImageUploader({
       newPendingItems.forEach((p) => URL.revokeObjectURL(p.blobUrl));
       setPendingUploads((prev) => prev.filter((p) => !newPendingItems.some((n) => n.id === p.id)));
 
-      const updatedPhotos = [...photos, ...newUrls];
-      const updatedFeatured = featuredPhoto || updatedPhotos[0];
+      const updatedPhotos = Array.isArray(data.photos) ? data.photos : [...photos, ...newUrls];
+      const updatedFeatured = data.featuredPhoto || featuredPhoto || updatedPhotos[0];
       onChange(updatedPhotos, updatedFeatured);
     } catch (err: any) {
       console.error("Image upload error:", err);

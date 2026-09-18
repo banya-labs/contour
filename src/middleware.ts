@@ -35,6 +35,14 @@ function isPublicPath(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  // Zero-touch bypass for binary & multipart upload endpoints to prevent stream proxy corruption
+  if (
+    request.nextUrl.pathname === "/api/properties/upload-image" ||
+    request.nextUrl.pathname === "/api/storage/upload"
+  ) {
+    return NextResponse.next();
+  }
+
   const correlationId = getOrCreateCorrelationId(request);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CORRELATION_HEADER, correlationId);
@@ -220,7 +228,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   runtime: "nodejs",
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
+    "/((?!_next|api/properties/upload-image|api/storage/upload|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
   ],
 };

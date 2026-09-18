@@ -71,14 +71,43 @@ export const createPropertySchema = z.object({
   titleDeedDocumentId: z.string().optional(),
 });
 
-export const updatePropertySchema = createPropertySchema.partial().extend({
+export const updatePropertySchema = z.object({
   id: z.string().optional(),
+  title: z.string().min(1).max(120).optional(),
+  ownershipType: OwnershipTypeEnum.optional(),
+  propertyType: PropertyTypeEnum.optional(),
+  listingType: ListingTypeEnum.optional(),
   status: PropertyStatusEnum.optional(),
-  assignedAgentName: z.string().optional(),
-  assignedAgentPhone: z.string().optional(),
-  featuredPhoto: z.string().nullable().optional(),
+  askingPrice: z.number().positive().nullable().optional(),
+  rentalPrice: z.number().positive().nullable().optional(),
+  currency: CurrencyEnum.optional(),
+  agencyCommissionPct: z.number().min(0).max(100).optional(),
+  bedrooms: z.number().int().min(0).max(50).nullable().optional(),
+  bathrooms: z.number().min(0).max(50).nullable().optional(),
+  plotSizeSqm: z.number().nonnegative().nullable().optional(),
+  description: z.string().nullable().optional(),
   photos: z.array(z.string()).optional(),
-});
+  featuredPhoto: z.string().nullable().optional(),
+  suburb: z.string().min(2).max(80).optional(),
+  city: z.string().optional(),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  landmarkDirections: z.string().max(500).nullable().optional(),
+  ownerName: z.string().max(100).nullable().optional(),
+  ownerPhone: z.string().max(30).nullable().optional(),
+  ownerEmail: z.string().email().optional().or(z.literal("")).or(z.null()),
+  ownerBankDetails: z.string().max(500).nullable().optional(),
+  titleDeedNumber: z.string().max(60).nullable().optional(),
+  assignedAgentId: z.string().nullable().optional(),
+  assignedAgentName: z.string().nullable().optional(),
+  assignedAgentPhone: z.string().nullable().optional(),
+  mandateDeclarationAgreed: z.boolean().optional(),
+  mandateType: z.enum(["SOLE_MANDATE", "OPEN_MANDATE", "COMPANY_OWNED"]).optional(),
+  mandateReference: z.string().max(100).nullable().optional(),
+  standBoundary: z.array(z.tuple([z.number(), z.number()])).nullable().optional(),
+  titleDeedDocumentId: z.string().nullable().optional(),
+  dealParties: z.any().optional(),
+}).passthrough();
 
 export const createLeaseSchema = z.object({
   propertyId: z.string(),

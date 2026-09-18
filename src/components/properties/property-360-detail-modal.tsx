@@ -305,14 +305,47 @@ export default function PropertyFullDetailModal({
       dealParties: stakeholders,
     };
 
+    const patchPayload = {
+      id: property.id,
+      title: editFormData.title.trim(),
+      listingType: editFormData.listingType,
+      propertyType: editFormData.propertyType,
+      suburb: editFormData.suburb.trim(),
+      city: editFormData.city.trim() || "Lusaka",
+      askingPrice: editFormData.listingType === "FOR_SALE" ? priceNum : undefined,
+      rentalPrice: editFormData.listingType === "FOR_RENT" ? priceNum : undefined,
+      currency: editFormData.currency,
+      bedrooms: parseInt(editFormData.bedrooms) || 0,
+      bathrooms: parseFloat(editFormData.bathrooms) || 0,
+      plotSizeSqm: parseFloat(editFormData.plotSizeSqm) || 0,
+      latitude: parseFloat(editFormData.latitude) || -15.4211,
+      longitude: parseFloat(editFormData.longitude) || 28.3341,
+      standBoundary: editFormData.standBoundary || [],
+      titleDeedNumber: editFormData.titleDeedNumber?.trim() || null,
+      landmarkDirections: editFormData.landmarkDirections?.trim() || "",
+      description: editFormData.description?.trim() || "",
+      assignedAgentName: editFormData.assignedAgentName?.trim() || "",
+      assignedAgentPhone: editFormData.assignedAgentPhone?.trim() || "",
+      status: editFormData.status,
+      photos: Array.isArray(editFormData.photos) ? editFormData.photos : (property.photos || []),
+      featuredPhoto: editFormData.featuredPhoto ?? (editFormData.photos && editFormData.photos[0]) ?? null,
+    };
+
     try {
-      await fetch("/api/properties", {
+      const res = await fetch("/api/properties", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: property.id, ...updatedProp }),
+        body: JSON.stringify(patchPayload),
       });
-    } catch (_err) {
-      console.warn("API save warning, local state updated");
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to update property details on server.");
+      }
+    } catch (err: any) {
+      console.error("API save error:", err);
+      alert(`Unable to save property: ${err.message || err}`);
+      return;
     } finally {
       setIsSaving(false);
     }
@@ -1157,13 +1190,27 @@ export default function PropertyFullDetailModal({
                           photos={photos}
                           featuredPhoto={property.featuredPhoto}
                           propertyId={property.id}
-                          onChange={(updatedPhotos, updatedCover) => {
+                          onChange={async (updatedPhotos, updatedCover) => {
                             const updatedProp = {
                               ...property,
                               photos: updatedPhotos,
                               featuredPhoto: updatedCover,
                             };
                             if (onUpdateProperty) onUpdateProperty(updatedProp);
+
+                            try {
+                              await fetch("/api/properties", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  id: property.id,
+                                  photos: updatedPhotos,
+                                  featuredPhoto: updatedCover,
+                                }),
+                              });
+                            } catch (err) {
+                              console.warn("Failed to patch photo update:", err);
+                            }
                           }}
                         />
                       </div>
