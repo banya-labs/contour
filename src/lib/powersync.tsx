@@ -229,7 +229,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Fetch dynamic agency datasets in parallel with cache-busting
       const [propsRes, leasesRes, clientsRes, salesRes] = await Promise.all([
-        fetch("/api/properties?status=ALL", { cache: "no-store" }),
+        fetch("/api/properties?status=ALL&limit=500", { cache: "no-store" }),
         fetch("/api/leases", { cache: "no-store" }),
         fetch("/api/clients", { cache: "no-store" }),
         fetch("/api/sales", { cache: "no-store" }),
@@ -246,7 +246,12 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
         // Enforce POPIA compliance by stripping owner details on client
         const safeProperties = propsData.properties.map((p: any) => {
           const { ownerName, ownerPhone, ownerEmail, ownerBankDetails, titleDeedNumber, ...publicFields } = p;
-          return publicFields;
+          return {
+            ...publicFields,
+            price: Number(p.price || p.askingPrice || p.rentalPrice || 0),
+            askingPrice: p.askingPrice || p.price || null,
+            rentalPrice: p.rentalPrice || (p.listingType === "FOR_RENT" ? p.price : null),
+          };
         });
         setProperties(safeProperties);
         setLocalCache("properties", safeProperties);
@@ -268,7 +273,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (clientsData.success) {
-        // Normalize CRM client fields from server
+        // Normalize CRM client fields from server while preserving all fields
         const normalized = (clientsData.clients || []).map((c: any) => {
           const lockExpiresAt = c.exclusiveLockExpiresAt ? new Date(c.exclusiveLockExpiresAt) : null;
           const daysLeft = lockExpiresAt 
@@ -276,14 +281,26 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
             : 30;
 
           return {
+            ...c,
             id: c.id,
-            name: c.clientName,
-            phone: c.clientPhone,
-            budget: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : "No budget",
-            preferredArea: c.preferredSuburbs?.[0] || "Lusaka",
+            name: c.clientName || c.name,
+            clientName: c.clientName || c.name,
+            phone: c.clientPhone || c.phone,
+            clientPhone: c.clientPhone || c.phone,
+            clientEmail: c.clientEmail || c.email || null,
+            budget: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : (c.budget || "No budget"),
+            budgetMax: c.budgetMax,
+            currency: c.currency || "ZMW",
+            preferredArea: c.preferredSuburbs?.[0] || c.preferredArea || "Lusaka",
+            preferredSuburbs: c.preferredSuburbs || (c.preferredArea ? [c.preferredArea] : ["Lusaka"]),
             lockExpiry: `${daysLeft} Days (Anti-Poaching Active)`,
             assignedAgentId: c.assignedAgentId || c.assignedAgent?.id,
             assignedAgent: c.assignedAgent,
+            propertyId: c.propertyId || c.property?.id,
+            property: c.property,
+            notes: c.notes || "",
+            status: c.status || "NEW_INQUIRY",
+            lookingFor: c.lookingFor || "FOR_SALE",
           };
         });
 
@@ -291,13 +308,21 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
         const currentPending = (getLocalCache("outbox", []) as OfflineOutboxItem[])
           .filter((item) => item.type === "INQUIRY" && item.payload?.clientPhone)
           .map((item) => ({
+            ...item.payload,
             id: item.id,
             name: item.payload.clientName,
+            clientName: item.payload.clientName,
             phone: item.payload.clientPhone,
+            clientPhone: item.payload.clientPhone,
             budget: item.payload.budgetMax ? `${item.payload.currency === "USD" ? "$" : "K"} ${Number(item.payload.budgetMax).toLocaleString()}` : "No budget",
+            budgetMax: item.payload.budgetMax,
+            currency: item.payload.currency || "ZMW",
             preferredArea: item.payload.preferredSuburbs?.[0] || "Lusaka",
+            preferredSuburbs: item.payload.preferredSuburbs || ["Lusaka"],
             lockExpiry: "30 Days (Syncing to Registry...)",
             assignedAgentId: item.payload.assignedAgentId,
+            status: item.payload.status || "NEW_INQUIRY",
+            lookingFor: item.payload.lookingFor || "FOR_SALE",
           }));
 
         // Exclude pending items already present in the server list by phone

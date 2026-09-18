@@ -132,6 +132,17 @@ function AgentKioskContent() {
   const [propertyAssignmentFilter, setPropertyAssignmentFilter] = useState<"ALL" | "ASSIGNED">("ALL");
   const [clientAssignmentFilter, setClientAssignmentFilter] = useState<"ALL" | "ASSIGNED">("ALL");
 
+  // Organization Agents & Multi-Facet Filters
+  const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; email?: string; phone?: string; roleKey?: string }>>([]);
+  const [propertyAgentFilter, setPropertyAgentFilter] = useState<string>("ALL");
+  const [mandateCategoryFilter, setMandateCategoryFilter] = useState<"ALL" | "COMPANY_OWNED" | "MANAGED">("ALL");
+
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientAgentFilter, setClientAgentFilter] = useState<string>("ALL");
+  const [clientLookingForFilter, setClientLookingForFilter] = useState<"ALL" | "FOR_SALE" | "FOR_RENT">("ALL");
+
+  const [dealAgentFilter, setDealAgentFilter] = useState<string>("ALL");
+
   const [currentAgent, setCurrentAgent] = useState({
     id: session?.user?.id || "",
     name: session?.user?.name || "Field Agent",
@@ -158,7 +169,7 @@ function AgentKioskContent() {
     }
   }, [isManagerOrAdmin, intakeDrawer]);
 
-  // Client Edit Modal State (Issue 9)
+  // Client Edit Modal State
   const [editingClient, setEditingClient] = useState<any | null>(null);
   const [editClientName, setEditClientName] = useState("");
   const [editClientPhone, setEditClientPhone] = useState("");
@@ -167,6 +178,7 @@ function AgentKioskContent() {
   const [editClientSuburb, setEditClientSuburb] = useState("Kabulonga");
   const [isCustomEditSuburb, setIsCustomEditSuburb] = useState(false);
   const [editClientNotes, setEditClientNotes] = useState("");
+  const [editClientAssignedAgentId, setEditClientAssignedAgentId] = useState("");
   const [isSavingClientEdit, setIsSavingClientEdit] = useState(false);
   const [editClientError, setEditClientError] = useState<string | null>(null);
 
@@ -174,6 +186,7 @@ function AgentKioskContent() {
     setEditingClient(client);
     setEditClientName(client.name || client.clientName || "");
     setEditClientPhone(client.phone || client.clientPhone || "");
+    setEditClientAssignedAgentId(client.assignedAgentId || client.assignedAgent?.id || "");
     const rawBudget = client.budget || client.budgetMax || "";
     const numBudget = typeof rawBudget === "string" ? rawBudget.replace(/[^0-9.]/g, "") : String(rawBudget || "");
     setEditClientBudget(numBudget);
@@ -209,6 +222,7 @@ function AgentKioskContent() {
         currency: editClientCurrency,
         preferredSuburbs: editClientSuburb ? [editClientSuburb] : [],
         notes: editClientNotes || undefined,
+        assignedAgentId: editClientAssignedAgentId ? editClientAssignedAgentId : undefined,
       };
 
       const res = await fetch(`/api/clients/${editingClient.id}`, {
@@ -230,6 +244,27 @@ function AgentKioskContent() {
       setIsSavingClientEdit(false);
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAgents() {
+      try {
+        const res = await fetch("/api/organization/agents");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.agents) && isMounted) {
+            setOrgAgents(data.agents);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load organization agents in PWA:", err);
+      }
+    }
+    loadAgents();
+    return () => {
+      isMounted = false;
+    };
+  }, [session]);
 
   useEffect(() => {
     async function loadSummary() {
@@ -390,6 +425,56 @@ function AgentKioskContent() {
 
   const displayProperties = properties || [];
 
+  // Unified list of all organization agents & managers
+  const allKnownAgents = React.useMemo(() => {
+    const map = new Map<string, { id: string; name: string; email?: string; phone?: string }>();
+
+    if (currentAgent.id) {
+      map.set(currentAgent.id, {
+        id: currentAgent.id,
+        name: currentAgent.name ? `${currentAgent.name} (You)` : "You",
+        email: currentAgent.email,
+        phone: currentAgent.phone,
+      });
+    }
+
+    orgAgents.forEach((a) => {
+      if (a.id) {
+        const isMe = a.id === currentAgent.id || a.id === session?.user?.id;
+        map.set(a.id, {
+          id: a.id,
+          name: isMe ? `${a.name} (You)` : a.name,
+          email: a.email,
+          phone: a.phone,
+        });
+      }
+    });
+
+    (properties || []).forEach((p: any) => {
+      if (p.assignedAgent?.id && !map.has(p.assignedAgent.id)) {
+        map.set(p.assignedAgent.id, {
+          id: p.assignedAgent.id,
+          name: p.assignedAgent.name || "Agent",
+          email: p.assignedAgent.email,
+          phone: p.assignedAgent.phone,
+        });
+      }
+    });
+
+    (clients || []).forEach((c: any) => {
+      if (c.assignedAgent?.id && !map.has(c.assignedAgent.id)) {
+        map.set(c.assignedAgent.id, {
+          id: c.assignedAgent.id,
+          name: c.assignedAgent.name || "Agent",
+          email: c.assignedAgent.email,
+          phone: c.assignedAgent.phone,
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [orgAgents, currentAgent, session, properties, clients]);
+
   const isPropertyAssignedToMe = (p: any) => {
     if (!p) return false;
     const userId = session?.user?.id || currentAgent.id;
@@ -404,41 +489,148 @@ function AgentKioskContent() {
     );
   };
 
+  const isClientAssignedToMe = (c: any) => {
+    if (!c) return false;
+    const userId = session?.user?.id || currentAgent.id;
+    const userName = session?.user?.name || currentAgent.name;
+    const userEmail = session?.user?.email || currentAgent.email;
+    return Boolean(
+      (c.assignedAgentId && c.assignedAgentId === userId) ||
+      (c.assignedAgent?.id && c.assignedAgent.id === userId) ||
+      (c.assignedAgent?.email && userEmail && c.assignedAgent.email.toLowerCase() === userEmail.toLowerCase()) ||
+      (c.assignedAgent?.name && userName && c.assignedAgent.name.toLowerCase() === userName.toLowerCase())
+    );
+  };
+
   // Filtered Properties for List view
   const filteredProperties = displayProperties.filter((p: any) => {
     const isAssigned = isPropertyAssignedToMe(p);
-    const matchesAssigned =
-      propertyAssignmentFilter === "ALL" || (propertyAssignmentFilter === "ASSIGNED" && isAssigned);
+
+    let matchesAgent = true;
+    if (propertyAgentFilter === "ME") {
+      matchesAgent = isAssigned;
+    } else if (propertyAgentFilter === "UNASSIGNED") {
+      matchesAgent = !p.assignedAgentId && !p.assignedAgent?.id;
+    } else if (propertyAgentFilter !== "ALL") {
+      matchesAgent = p.assignedAgentId === propertyAgentFilter || p.assignedAgent?.id === propertyAgentFilter;
+    } else if (propertyAssignmentFilter === "ASSIGNED") {
+      matchesAgent = isAssigned;
+    }
+
+    let matchesCategory = true;
+    if (mandateCategoryFilter === "COMPANY_OWNED") {
+      matchesCategory = p.ownershipType === "COMPANY_OWNED";
+    } else if (mandateCategoryFilter === "MANAGED") {
+      matchesCategory = p.ownershipType !== "COMPANY_OWNED";
+    }
+
     const matchesSub = selectedSub === "ALL" || p.suburb?.toLowerCase() === selectedSub.toLowerCase();
     const matchesSearch =
       !search ||
       p.title?.toLowerCase().includes(search.toLowerCase()) ||
       p.suburb?.toLowerCase().includes(search.toLowerCase()) ||
-      p.propertyType?.toLowerCase().includes(search.toLowerCase());
+      p.propertyType?.toLowerCase().includes(search.toLowerCase()) ||
+      p.assignedAgent?.name?.toLowerCase().includes(search.toLowerCase());
     const matchesType =
       propertyTypeFilter === "ALL" ||
       (propertyTypeFilter === "SALE" && (p.listingType === "FOR_SALE" || !p.listingType)) ||
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
-    return matchesAssigned && matchesSub && matchesSearch && matchesType;
+    return matchesAgent && matchesCategory && matchesSub && matchesSearch && matchesType;
   });
 
-  // Map Pins: Shows properties matching assignment, search, and suburb filters
+  // Map Pins: Shows properties matching exact same multi-facet filter criteria
   const mapFilteredProperties = displayProperties.filter((p: any) => {
     const isAssigned = isPropertyAssignedToMe(p);
-    const matchesAssigned =
-      propertyAssignmentFilter === "ALL" || (propertyAssignmentFilter === "ASSIGNED" && isAssigned);
+
+    let matchesAgent = true;
+    if (propertyAgentFilter === "ME") {
+      matchesAgent = isAssigned;
+    } else if (propertyAgentFilter === "UNASSIGNED") {
+      matchesAgent = !p.assignedAgentId && !p.assignedAgent?.id;
+    } else if (propertyAgentFilter !== "ALL") {
+      matchesAgent = p.assignedAgentId === propertyAgentFilter || p.assignedAgent?.id === propertyAgentFilter;
+    } else if (propertyAssignmentFilter === "ASSIGNED") {
+      matchesAgent = isAssigned;
+    }
+
+    let matchesCategory = true;
+    if (mandateCategoryFilter === "COMPANY_OWNED") {
+      matchesCategory = p.ownershipType === "COMPANY_OWNED";
+    } else if (mandateCategoryFilter === "MANAGED") {
+      matchesCategory = p.ownershipType !== "COMPANY_OWNED";
+    }
+
     const matchesSub = selectedSub === "ALL" || p.suburb?.toLowerCase() === selectedSub.toLowerCase();
     const matchesSearch =
       !search ||
       p.title?.toLowerCase().includes(search.toLowerCase()) ||
       p.suburb?.toLowerCase().includes(search.toLowerCase()) ||
-      p.propertyType?.toLowerCase().includes(search.toLowerCase());
+      p.propertyType?.toLowerCase().includes(search.toLowerCase()) ||
+      p.assignedAgent?.name?.toLowerCase().includes(search.toLowerCase());
     const matchesType =
       propertyTypeFilter === "ALL" ||
       (propertyTypeFilter === "SALE" && (p.listingType === "FOR_SALE" || !p.listingType)) ||
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
-    return matchesAssigned && matchesSub && matchesSearch && matchesType;
+    return matchesAgent && matchesCategory && matchesSub && matchesSearch && matchesType;
   });
+
+  // All Organization Deals compiled from summary + live inquiries/clients
+  const allDeals = React.useMemo(() => {
+    const map = new Map<string, any>();
+
+    agentDeals.forEach((d) => {
+      map.set(d.id, d);
+    });
+
+    const dealStages = ["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"];
+    (clients || []).forEach((inq: any) => {
+      if (dealStages.includes(inq.status) && !map.has(inq.id)) {
+        const val = Number(inq.dealValue || inq.budgetMax || inq.property?.askingPrice || inq.property?.rentalPrice || 0);
+        const commissionAmt = inq.lookingFor === "FOR_RENT" ? val * 0.1 : val * 0.05;
+        const agentSplitEst = commissionAmt * 0.5;
+
+        let stageLabel = "New Inquiry";
+        if (inq.status === "CONTACTED") stageLabel = "Contacted Lead";
+        if (inq.status === "VIEWING_SCHEDULED") stageLabel = "Viewing Booked";
+        if (inq.status === "NEGOTIATING") stageLabel = "In Negotiation";
+        if (inq.status === "OFFER_MADE") stageLabel = "Offer Submitted";
+        if (inq.status === "CLOSED") stageLabel = "Deal Closed Won";
+
+        map.set(inq.id, {
+          id: inq.id,
+          propertyTitle: inq.property?.title || (inq.lookingFor === "FOR_RENT" ? "Rental Mandate" : "Purchase Mandate"),
+          suburb: inq.property?.suburb || (inq.preferredSuburbs && inq.preferredSuburbs[0]) || inq.preferredArea || "Lusaka",
+          clientName: inq.clientName || inq.name || "Client",
+          value: val ? formatCurrency(val, inq.currency || "ZMW") : "Price Open",
+          stage: inq.status,
+          stageLabel,
+          agentSplitEst: `${formatCurrency(agentSplitEst, inq.currency || "ZMW")} (50% Split)`,
+          assignedAgentId: inq.assignedAgentId || inq.assignedAgent?.id,
+          assignedAgentName: inq.assignedAgent?.name,
+          updatedAt: inq.updatedAt ? new Date(inq.updatedAt).toLocaleDateString() : "Active",
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [agentDeals, clients]);
+
+  const filteredDeals = React.useMemo(() => {
+    return allDeals.filter((d: any) => {
+      if (dealAgentFilter === "ME") {
+        const userId = session?.user?.id || currentAgent.id;
+        const userName = session?.user?.name || currentAgent.name;
+        return d.assignedAgentId === userId || d.assignedAgentName === userName;
+      }
+      if (dealAgentFilter === "UNASSIGNED") {
+        return !d.assignedAgentId && !d.assignedAgentName;
+      }
+      if (dealAgentFilter !== "ALL") {
+        return d.assignedAgentId === dealAgentFilter;
+      }
+      return true;
+    });
+  }, [allDeals, dealAgentFilter, session, currentAgent]);
 
   // Map Format for InteractivePropertyMap
   const mapItems: PropertyMapItem[] = mapFilteredProperties.map((p: any) => ({
@@ -1146,36 +1338,112 @@ function AgentKioskContent() {
             {/* Search, Suburb Chips & Layout Switcher */}
             <div className={activeTab === "MAP" ? "hidden" : "space-y-2.5"}>
               
-              {/* Assignment Switcher: All Mandates vs Assigned to Me */}
-              <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPropertyAssignmentFilter("ALL");
-                    playNeutralTone();
-                  }}
-                  className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
-                    propertyAssignmentFilter === "ALL"
-                      ? "bg-editorial-black text-white shadow-xs"
-                      : "text-editorial-muted hover:text-editorial-black"
-                  }`}
-                >
-                  All Mandates ({displayProperties.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPropertyAssignmentFilter("ASSIGNED");
-                    playNeutralTone();
-                  }}
-                  className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
-                    propertyAssignmentFilter === "ASSIGNED"
-                      ? "bg-editorial-black text-white shadow-xs"
-                      : "text-editorial-muted hover:text-editorial-black"
-                  }`}
-                >
-                  Assigned to Me ({displayProperties.filter((p: any) => isPropertyAssignedToMe(p)).length})
-                </button>
+              {/* Assignment & Agent Filter Hub */}
+              <div className="space-y-2">
+                <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPropertyAgentFilter("ALL");
+                      setPropertyAssignmentFilter("ALL");
+                      playNeutralTone();
+                    }}
+                    className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
+                      propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL"
+                        ? "bg-editorial-black text-white shadow-xs"
+                        : "text-editorial-muted hover:text-editorial-black"
+                    }`}
+                  >
+                    View All Mandates ({displayProperties.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPropertyAgentFilter("ME");
+                      setPropertyAssignmentFilter("ASSIGNED");
+                      playNeutralTone();
+                    }}
+                    className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
+                      propertyAgentFilter === "ME" || propertyAssignmentFilter === "ASSIGNED"
+                        ? "bg-editorial-black text-white shadow-xs"
+                        : "text-editorial-muted hover:text-editorial-black"
+                    }`}
+                  >
+                    Assigned to Me ({displayProperties.filter((p: any) => isPropertyAssignedToMe(p)).length})
+                  </button>
+                </div>
+
+                {/* Specific Agent & Mandate Category Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5">
+                    <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
+                    <select
+                      value={propertyAgentFilter}
+                      onChange={(e) => {
+                        setPropertyAgentFilter(e.target.value);
+                        setPropertyAssignmentFilter(e.target.value === "ME" ? "ASSIGNED" : "ALL");
+                        playNeutralTone();
+                      }}
+                      className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">All Agents (Organization-Wide)</option>
+                      <option value="ME">My Mandates Only</option>
+                      <option value="UNASSIGNED">Unassigned Mandates Only</option>
+                      {allKnownAgents
+                        .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
+                        .map((a) => (
+                          <option key={a.id} value={a.id}>
+                            Agent: {a.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMandateCategoryFilter("ALL");
+                        playNeutralTone();
+                      }}
+                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
+                        mandateCategoryFilter === "ALL"
+                          ? "bg-editorial-black text-white"
+                          : "text-editorial-muted hover:text-editorial-black"
+                      }`}
+                    >
+                      All Types
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMandateCategoryFilter("COMPANY_OWNED");
+                        playNeutralTone();
+                      }}
+                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
+                        mandateCategoryFilter === "COMPANY_OWNED"
+                          ? "bg-editorial-black text-white"
+                          : "text-editorial-muted hover:text-editorial-black"
+                      }`}
+                    >
+                      Company
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMandateCategoryFilter("MANAGED");
+                        playNeutralTone();
+                      }}
+                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
+                        mandateCategoryFilter === "MANAGED"
+                          ? "bg-editorial-black text-white"
+                          : "text-editorial-muted hover:text-editorial-black"
+                      }`}
+                    >
+                      Managed
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1489,13 +1757,29 @@ function AgentKioskContent() {
                             <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-editorial-black bg-neutral-100 px-2 py-0.5 border border-editorial-border">
                               {p.suburb || "Lusaka"}
                             </span>
+                            {/* Mandate Type Badge */}
+                            {p.ownershipType === "COMPANY_OWNED" ? (
+                              <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-900 bg-amber-50 px-2 py-0.5 border border-amber-200 flex items-center gap-1">
+                                <Sparkles className="w-2.5 h-2.5 text-amber-600" />
+                                <span>Company Mandate</span>
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-mono font-medium uppercase tracking-wider text-neutral-700 bg-neutral-100 px-2 py-0.5 border border-editorial-border">
+                                Managed Mandate
+                              </span>
+                            )}
+                            {/* Assignment Badge */}
                             {isPropertyAssignedToMe(p) ? (
                               <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-contour-red bg-red-50 px-2 py-0.5 border border-red-200">
                                 Your Mandate
                               </span>
+                            ) : (p.assignedAgent?.name || p.assignedAgentName) ? (
+                              <span className="text-[9px] font-mono font-medium uppercase tracking-wider text-editorial-black bg-neutral-100 px-2 py-0.5 border border-editorial-border">
+                                Agent: {p.assignedAgent?.name || p.assignedAgentName}
+                              </span>
                             ) : (
-                              <span className="text-[9px] font-mono font-medium uppercase tracking-wider text-editorial-muted bg-neutral-100 px-2 py-0.5 border border-editorial-border">
-                                Estate Mandate
+                              <span className="text-[9px] font-mono font-medium uppercase tracking-wider text-editorial-muted bg-neutral-50 px-2 py-0.5 border border-dashed border-editorial-border">
+                                Unassigned
                               </span>
                             )}
                           </div>
@@ -1646,47 +1930,162 @@ function AgentKioskContent() {
               </button>
             </div>
 
-            {/* Assignment Switcher: All Clients vs Assigned to Me */}
-            <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setClientAssignmentFilter("ALL");
-                  playNeutralTone();
-                }}
-                className={`flex-1 py-1.5 font-heading text-xs font-semibold uppercase tracking-wider text-center transition-all ${
-                  clientAssignmentFilter === "ALL"
-                    ? "bg-white text-editorial-black shadow-sm border border-editorial-border"
-                    : "text-editorial-muted hover:text-editorial-black"
-                }`}
-              >
-                All Inquiries ({clients.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setClientAssignmentFilter("ASSIGNED");
-                  playNeutralTone();
-                }}
-                className={`flex-1 py-1.5 font-heading text-xs font-semibold uppercase tracking-wider text-center transition-all ${
-                  clientAssignmentFilter === "ASSIGNED"
-                    ? "bg-editorial-black text-white shadow-sm"
-                    : "text-editorial-muted hover:text-editorial-black"
-                }`}
-              >
-                Assigned to Me ({clients.filter((c: any) => c.assignedAgentId === currentAgent.id || c.assignedAgent?.id === currentAgent.id || c.assignedAgent?.name === currentAgent.name).length})
-              </button>
+            {/* Search, Assignment & Requirement Filters Hub */}
+            <div className="space-y-2.5">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-editorial-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search clients by name, phone, area, notes, or assigned agent..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="w-full bg-white border border-editorial-border pl-9 pr-3 py-2 text-xs text-editorial-black placeholder-neutral-400 focus:outline-none focus:border-editorial-black transition-colors font-sans"
+                />
+              </div>
+
+              {/* Assignment Switcher: All Inquiries vs Assigned to Me */}
+              <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientAgentFilter("ALL");
+                    setClientAssignmentFilter("ALL");
+                    playNeutralTone();
+                  }}
+                  className={`flex-1 py-1.5 font-heading text-xs font-semibold uppercase tracking-wider text-center transition-all ${
+                    clientAgentFilter === "ALL" && clientAssignmentFilter === "ALL"
+                      ? "bg-white text-editorial-black shadow-sm border border-editorial-border font-bold"
+                      : "text-editorial-muted hover:text-editorial-black"
+                  }`}
+                >
+                  All Inquiries ({clients.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientAgentFilter("ME");
+                    setClientAssignmentFilter("ASSIGNED");
+                    playNeutralTone();
+                  }}
+                  className={`flex-1 py-1.5 font-heading text-xs font-semibold uppercase tracking-wider text-center transition-all ${
+                    clientAgentFilter === "ME" || clientAssignmentFilter === "ASSIGNED"
+                      ? "bg-editorial-black text-white shadow-sm"
+                      : "text-editorial-muted hover:text-editorial-black"
+                  }`}
+                >
+                  Assigned to Me ({clients.filter((c: any) => isClientAssignedToMe(c)).length})
+                </button>
+              </div>
+
+              {/* Specific Agent Selector & Requirement Filter Pills */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5">
+                  <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
+                  <select
+                    value={clientAgentFilter}
+                    onChange={(e) => {
+                      setClientAgentFilter(e.target.value);
+                      setClientAssignmentFilter(e.target.value === "ME" ? "ASSIGNED" : "ALL");
+                      playNeutralTone();
+                    }}
+                    className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
+                  >
+                    <option value="ALL">All Agents (Organization Inquiries)</option>
+                    <option value="ME">My Clients Only</option>
+                    <option value="UNASSIGNED">Unassigned Inquiries Only</option>
+                    {allKnownAgents
+                      .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          Agent: {a.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClientLookingForFilter("ALL");
+                      playNeutralTone();
+                    }}
+                    className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
+                      clientLookingForFilter === "ALL"
+                        ? "bg-editorial-black text-white"
+                        : "text-editorial-muted hover:text-editorial-black"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClientLookingForFilter("FOR_SALE");
+                      playNeutralTone();
+                    }}
+                    className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
+                      clientLookingForFilter === "FOR_SALE"
+                        ? "bg-editorial-black text-white"
+                        : "text-editorial-muted hover:text-editorial-black"
+                    }`}
+                  >
+                    Buyers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClientLookingForFilter("FOR_RENT");
+                      playNeutralTone();
+                    }}
+                    className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
+                      clientLookingForFilter === "FOR_RENT"
+                        ? "bg-editorial-black text-white"
+                        : "text-editorial-muted hover:text-editorial-black"
+                    }`}
+                  >
+                    Tenants
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Clients List */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
               {(() => {
                 const filteredClients = clients.filter((c: any) => {
-                  const isAssigned =
-                    c.assignedAgentId === currentAgent.id ||
-                    c.assignedAgent?.id === currentAgent.id ||
-                    c.assignedAgent?.name === currentAgent.name;
-                  return clientAssignmentFilter === "ALL" || (clientAssignmentFilter === "ASSIGNED" && isAssigned);
+                  let matchesAgent = true;
+                  if (clientAgentFilter === "ME") {
+                    matchesAgent = isClientAssignedToMe(c);
+                  } else if (clientAgentFilter === "UNASSIGNED") {
+                    matchesAgent = !c.assignedAgentId && !c.assignedAgent?.id;
+                  } else if (clientAgentFilter !== "ALL") {
+                    matchesAgent = c.assignedAgentId === clientAgentFilter || c.assignedAgent?.id === clientAgentFilter;
+                  } else if (clientAssignmentFilter === "ASSIGNED") {
+                    matchesAgent = isClientAssignedToMe(c);
+                  }
+
+                  let matchesLookingFor = true;
+                  if (clientLookingForFilter === "FOR_SALE") {
+                    matchesLookingFor = !c.lookingFor || c.lookingFor === "FOR_SALE" || c.lookingFor === "BUY";
+                  } else if (clientLookingForFilter === "FOR_RENT") {
+                    matchesLookingFor = c.lookingFor === "FOR_RENT" || c.lookingFor === "RENT";
+                  }
+
+                  const q = clientSearch.trim().toLowerCase();
+                  const matchesSearch =
+                    !q ||
+                    (c.name && c.name.toLowerCase().includes(q)) ||
+                    (c.clientName && c.clientName.toLowerCase().includes(q)) ||
+                    (c.phone && c.phone.toLowerCase().includes(q)) ||
+                    (c.clientPhone && c.clientPhone.toLowerCase().includes(q)) ||
+                    (c.preferredArea && c.preferredArea.toLowerCase().includes(q)) ||
+                    (c.notes && c.notes.toLowerCase().includes(q)) ||
+                    (c.property?.title && c.property.title.toLowerCase().includes(q)) ||
+                    (c.assignedAgent?.name && c.assignedAgent.name.toLowerCase().includes(q));
+
+                  return matchesAgent && matchesLookingFor && matchesSearch;
                 });
 
                 if (filteredClients.length === 0) {
@@ -1696,9 +2095,9 @@ function AgentKioskContent() {
                       <div>
                         <h4 className="text-sm font-heading font-semibold text-editorial-black">No client inquiries found</h4>
                         <p className="text-xs text-editorial-muted mt-1 max-w-sm mx-auto">
-                          {clientAssignmentFilter === "ASSIGNED"
-                            ? "You currently have no clients assigned to your profile in this organization."
-                            : "No registered clients in the organization registry yet."}
+                          {clientAgentFilter === "ME" || clientAssignmentFilter === "ASSIGNED"
+                            ? "You currently have no clients assigned to your profile matching this search."
+                            : "No registered client inquiries match your selected filters."}
                         </p>
                       </div>
                       <button
@@ -1713,80 +2112,116 @@ function AgentKioskContent() {
                   );
                 }
 
-                return filteredClients.map((c: any) => (
-                  <div
-                    key={c.id}
-                    className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-heading font-semibold text-editorial-black">{c.name}</h3>
-                          <span className="text-[10px] bg-neutral-100 text-editorial-black px-2 py-0.5 border border-editorial-border font-mono font-bold">
-                            {c.preferredArea}
+                return filteredClients.map((c: any) => {
+                  const isAssigned = isClientAssignedToMe(c);
+                  const agentName = c.assignedAgent?.name || (isAssigned ? currentAgent.name : null);
+                  const isRental = c.lookingFor === "FOR_RENT" || c.lookingFor === "RENT";
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h3 className="text-sm font-heading font-semibold text-editorial-black">{c.name}</h3>
+                            <span className="text-[10px] bg-neutral-100 text-editorial-black px-2 py-0.5 border border-editorial-border font-mono font-bold">
+                              {c.preferredArea}
+                            </span>
+                            <span className={`text-[9px] px-1.5 py-0.5 border font-mono font-bold uppercase ${
+                              isRental ? "bg-blue-50 text-blue-800 border-blue-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            }`}>
+                              {isRental ? "Tenant" : "Buyer"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <p className="text-xs text-editorial-muted font-mono">{c.phone}</p>
+                            {isAssigned ? (
+                              <span className="text-[10px] text-contour-red font-mono font-bold bg-red-50 px-1.5 py-0.5 border border-red-200">
+                                • Locked to You
+                              </span>
+                            ) : agentName ? (
+                              <span className="text-[10px] text-editorial-black font-mono bg-neutral-100 px-1.5 py-0.5 border border-editorial-border">
+                                • Manager: {agentName}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-editorial-muted font-mono border border-dashed border-editorial-border px-1.5 py-0.5">
+                                • Unassigned Lead
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-xs font-mono font-bold text-contour-red">
+                            {c.budget}
+                          </div>
+                          <span className="text-[9px] text-editorial-muted uppercase font-mono">
+                            Budget Max
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-xs text-editorial-muted font-mono">{c.phone}</p>
-                          {c.assignedAgent?.name && (
-                            <span className="text-[10px] text-editorial-muted font-mono">
-                              • Agent: {c.assignedAgent.name}
-                            </span>
-                          )}
-                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs font-mono font-bold text-contour-red">
-                          {c.budget}
+
+                      {/* Linked Property Mandate if present */}
+                      {c.property?.title && (
+                        <div className="bg-neutral-50 px-2.5 py-1.5 border border-editorial-border text-[10px] font-mono text-editorial-black flex items-center justify-between">
+                          <span className="text-editorial-muted">Inquiry Mandate:</span>
+                          <span className="font-semibold truncate max-w-[200px]" title={c.property.title}>
+                            {c.property.title}
+                          </span>
                         </div>
-                        <span className="text-[9px] text-editorial-muted uppercase font-mono">
-                          Budget Max
+                      )}
+
+                      {/* Client Requirements Notes Excerpt */}
+                      {c.notes && (
+                        <p className="text-xs text-editorial-muted italic bg-neutral-50/70 p-2 border border-editorial-border line-clamp-2">
+                          &ldquo;{c.notes}&rdquo;
+                        </p>
+                      )}
+
+                      {/* Anti-Poaching Countdown Badge */}
+                      <div className="bg-neutral-50 p-2.5 border border-editorial-border flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 text-editorial-black font-mono text-[11px]">
+                          <Clock className="w-3.5 h-3.5 text-contour-red" />
+                          <span>{c.lockExpiry}</span>
+                        </div>
+                        <span className="text-[10px] text-contour-red font-mono font-bold uppercase tracking-wider">
+                          Protected
                         </span>
                       </div>
-                    </div>
 
-                    {/* Anti-Poaching Countdown Badge */}
-                    <div className="bg-neutral-50 p-2.5 border border-editorial-border flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5 text-editorial-black font-mono text-[11px]">
-                        <Clock className="w-3.5 h-3.5 text-contour-red" />
-                        <span>{c.lockExpiry}</span>
-                      </div>
-                      <span className="text-[10px] text-contour-red font-mono font-bold uppercase tracking-wider">
-                        Protected
-                      </span>
-                    </div>
-
-                    {/* Direct Communication & Edit Buttons */}
-                    <div className="space-y-1.5 pt-0.5">
-                      <div className="grid grid-cols-2 gap-2">
-                        <a
-                          href={`tel:${c.phone}`}
-                          className="py-2.5 px-3 bg-white hover:bg-neutral-50 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
+                      {/* Direct Communication & Edit Buttons */}
+                      <div className="space-y-1.5 pt-0.5">
+                        <div className="grid grid-cols-2 gap-2">
+                          <a
+                            href={`tel:${c.phone}`}
+                            className="py-2.5 px-3 bg-white hover:bg-neutral-50 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-contour-red" />
+                            <span>Call</span>
+                          </a>
+                          <a
+                            href={`https://wa.me/${formatWhatsAppDigits(c.phone)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>WhatsApp</span>
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditClient(c)}
+                          className="w-full py-2 px-3 bg-neutral-50 hover:bg-neutral-100 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
                         >
-                          <Phone className="w-3.5 h-3.5 text-contour-red" />
-                          <span>Call</span>
-                        </a>
-                        <a
-                          href={`https://wa.me/${formatWhatsAppDigits(c.phone)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
+                          <Pencil className="w-3.5 h-3.5 text-editorial-muted" />
+                          <span>Edit Client Details</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditClient(c)}
-                        className="w-full py-2 px-3 bg-neutral-50 hover:bg-neutral-100 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5 text-editorial-muted" />
-                        <span>Edit Client Details</span>
-                      </button>
                     </div>
-                  </div>
-                ));
+                  );
+                });
               })()}
             </div>
           </div>
@@ -1815,66 +2250,155 @@ function AgentKioskContent() {
               </button>
             </div>
 
+            {/* Deals Assignment Switcher & Agent Selector */}
+            <div className="space-y-2">
+              <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDealAgentFilter("ALL");
+                    playNeutralTone();
+                  }}
+                  className={`flex-1 py-1.5 font-heading text-xs font-semibold uppercase tracking-wider text-center transition-all ${
+                    dealAgentFilter === "ALL"
+                      ? "bg-white text-editorial-black shadow-sm border border-editorial-border font-bold"
+                      : "text-editorial-muted hover:text-editorial-black"
+                  }`}
+                >
+                  All Deals ({allDeals.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDealAgentFilter("ME");
+                    playNeutralTone();
+                  }}
+                  className={`flex-1 py-1.5 font-heading text-xs font-semibold uppercase tracking-wider text-center transition-all ${
+                    dealAgentFilter === "ME"
+                      ? "bg-editorial-black text-white shadow-sm font-bold"
+                      : "text-editorial-muted hover:text-editorial-black"
+                  }`}
+                >
+                  My Deals ({allDeals.filter((d: any) => d.assignedAgentId === currentAgent.id || d.assignedAgentName === currentAgent.name).length})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5 text-xs">
+                <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
+                <select
+                  value={dealAgentFilter}
+                  onChange={(e) => {
+                    setDealAgentFilter(e.target.value);
+                    playNeutralTone();
+                  }}
+                  className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Agents (Organization Pipeline)</option>
+                  <option value="ME">My Active Deals Only</option>
+                  <option value="UNASSIGNED">Unassigned Deals Only</option>
+                  {allKnownAgents
+                    .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        Agent: {a.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
             {/* Deals Stream */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
-              {agentDeals.map((deal) => (
-                <div
-                  key={deal.id}
-                  className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-mono uppercase bg-neutral-100 text-editorial-black px-2 py-0.5 border border-editorial-border font-bold">
-                        {deal.suburb}
-                      </span>
-                      <h3 className="text-sm font-heading font-semibold text-editorial-black mt-1.5 leading-tight">
-                        {deal.propertyTitle}
-                      </h3>
-                      <p className="text-xs text-editorial-muted mt-0.5">
-                        Client: <span className="text-editorial-black font-semibold">{deal.clientName}</span>
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-editorial-black font-mono">
-                        {deal.value}
-                      </div>
-                      <div className="text-[10px] text-contour-red font-mono font-bold mt-0.5">
-                        Split: {deal.agentSplitEst}
-                      </div>
-                    </div>
+              {filteredDeals.length === 0 ? (
+                <div className="col-span-full bg-white border border-editorial-border p-8 text-center space-y-3">
+                  <Briefcase className="w-8 h-8 text-editorial-muted mx-auto" />
+                  <div>
+                    <h4 className="text-sm font-heading font-semibold text-editorial-black">No pipeline deals found</h4>
+                    <p className="text-xs text-editorial-muted mt-1 max-w-sm mx-auto">
+                      {dealAgentFilter === "ME"
+                        ? "You currently have no active deals assigned to your agent profile."
+                        : "No deals in this stage matching your selected filter."}
+                    </p>
                   </div>
-
-                  {/* Stage Badge & Status */}
-                  <div className="bg-neutral-50 p-2.5 border border-editorial-border flex items-center justify-between text-xs">
-                    <div>
-                      <div className="text-[10px] font-mono uppercase text-editorial-muted font-bold">
-                        Current Status
-                      </div>
-                      <div className="text-xs font-heading font-semibold text-editorial-black mt-0.5">
-                        {deal.stageLabel}
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-editorial-muted font-mono">
-                      {deal.updatedAt}
-                    </span>
-                  </div>
-
-                  {/* Stage Advancement Action */}
                   <button
-                    onClick={() => advanceDealStage(deal.id)}
-                    className="w-full py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+                    type="button"
+                    onClick={() => setIntakeDrawer("OFFER")}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
                   >
-                    <ArrowUpRight className="w-3.5 h-3.5 text-contour-red" />
-                    <span>
-                      {deal.stage === "VIEWING_SCHEDULED" && "Advance: Lodge Buyer Offer"}
-                      {deal.stage === "OFFER_MADE" && "Advance: Mark Offer Accepted"}
-                      {deal.stage === "OFFER_ACCEPTED" && "Advance: Lodge Deeds at Ministry"}
-                      {deal.stage === "DEEDS_LODGED" && "Advance: Confirm Payout Settled"}
-                      {deal.stage === "COMMISSION_PAID" && "Deal Completed & Settled ✅"}
-                    </span>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Lodge New Offer</span>
                   </button>
                 </div>
-              ))}
+              ) : (
+                filteredDeals.map((deal: any) => (
+                  <div
+                    key={deal.id}
+                    className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-mono uppercase bg-neutral-100 text-editorial-black px-2 py-0.5 border border-editorial-border font-bold">
+                            {deal.suburb}
+                          </span>
+                          {deal.assignedAgentName && (
+                            <span className="text-[9px] font-mono text-editorial-muted bg-neutral-50 px-1.5 py-0.5 border border-editorial-border">
+                              Agent: {deal.assignedAgentName}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-sm font-heading font-semibold text-editorial-black mt-1.5 leading-tight">
+                          {deal.propertyTitle}
+                        </h3>
+                        <p className="text-xs text-editorial-muted mt-0.5">
+                          Client: <span className="text-editorial-black font-semibold">{deal.clientName}</span>
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-bold text-editorial-black font-mono">
+                          {deal.value}
+                        </div>
+                        <div className="text-[10px] text-contour-red font-mono font-bold mt-0.5">
+                          Split: {deal.agentSplitEst}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stage Badge & Status */}
+                    <div className="bg-neutral-50 p-2.5 border border-editorial-border flex items-center justify-between text-xs">
+                      <div>
+                        <div className="text-[10px] font-mono uppercase text-editorial-muted font-bold">
+                          Current Status
+                        </div>
+                        <div className="text-xs font-heading font-semibold text-editorial-black mt-0.5">
+                          {deal.stageLabel}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-editorial-muted font-mono">
+                        {deal.updatedAt}
+                      </span>
+                    </div>
+
+                    {/* Stage Advancement Action */}
+                    <button
+                      onClick={() => advanceDealStage(deal.id)}
+                      className="w-full py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <ArrowUpRight className="w-3.5 h-3.5 text-contour-red" />
+                      <span>
+                        {deal.stage === "NEW_INQUIRY" && "Advance: Contact & Qualify"}
+                        {deal.stage === "CONTACTED" && "Advance: Schedule Viewing"}
+                        {deal.stage === "VIEWING_SCHEDULED" && "Advance: Lodge Buyer Offer"}
+                        {deal.stage === "NEGOTIATING" && "Advance: Submit Written Offer"}
+                        {deal.stage === "OFFER_MADE" && "Advance: Mark Offer Accepted"}
+                        {deal.stage === "OFFER_ACCEPTED" && "Advance: Lodge Deeds at Ministry"}
+                        {deal.stage === "DEEDS_LODGED" && "Advance: Confirm Payout Settled"}
+                        {(deal.stage === "CLOSED" || deal.stage === "COMMISSION_PAID") && "Deal Completed & Settled ✅"}
+                      </span>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -2718,6 +3242,18 @@ function AgentKioskContent() {
 
             <div className="space-y-2 border-y border-editorial-border py-3 text-xs">
               <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-editorial-muted"><Building2 className="h-4 w-4 text-contour-red" /> Mandate Type</span>
+                <span className="font-mono font-bold text-editorial-black">
+                  {selectedPropertyDetail.ownershipType === "COMPANY_OWNED" ? "Company-Owned Mandate" : "Managed on Behalf Mandate"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-editorial-muted"><User className="h-4 w-4 text-contour-red" /> Assigned Agent</span>
+                <span className="font-mono font-bold text-editorial-black">
+                  {selectedPropertyDetail.assignedAgent?.name || selectedPropertyDetail.assignedAgentName || (isPropertyAssignedToMe(selectedPropertyDetail) ? `${currentAgent.name} (You)` : "Unassigned")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2 text-editorial-muted"><ShieldCheck className="h-4 w-4 text-contour-red" /> Title status</span>
                 <span className="font-mono font-bold text-editorial-black">Verified reference</span>
               </div>
@@ -3107,6 +3643,24 @@ function AgentKioskContent() {
                     ))}
                   </select>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-editorial-black font-heading font-semibold mb-1">
+                  Assigned Manager / Agent
+                </label>
+                <select
+                  value={editClientAssignedAgentId}
+                  onChange={(e) => setEditClientAssignedAgentId(e.target.value)}
+                  className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                >
+                  <option value="">Leave Unassigned</option>
+                  {allKnownAgents.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} {a.phone ? `(${a.phone})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

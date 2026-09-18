@@ -253,7 +253,7 @@ const getHandler = createApiHandler({
 
     // 4. Pagination
     const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
-    const take = limit ? Math.min(100, Math.max(1, parseInt(limit, 10))) : 20;
+    const take = limit ? Math.min(500, Math.max(1, parseInt(limit, 10))) : (status?.toUpperCase() === "ALL" ? 500 : 50);
     const skip = (pageNum - 1) * take;
 
     const cacheKey = `props:${targetOrgId}:${listingType || "all"}:${status || "all"}:${search || "none"}:${suburb || "none"}:${sortBy}:${validSortOrder}:${pageNum}:${take}`;
