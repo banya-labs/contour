@@ -13,7 +13,6 @@ import {
   Home,
   Smartphone,
   ShieldCheck,
-  Calendar,
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 
@@ -120,21 +119,6 @@ export function PublicPropertyNavbar({
                 </p>
                 <p className="text-[11px] text-editorial-muted">
                   Lusaka Cadastre Registry • Verified Public Property Mandate
-                </p>
-              </div>
-
-              {/* Public Client Launch Demo Date Announcement */}
-              <div className="p-3 bg-editorial-black text-white space-y-1.5 border border-editorial-black">
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-contour-red font-bold uppercase">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Public Client Launch</span>
-                </div>
-                <p className="text-xs font-heading font-bold uppercase flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-contour-red shrink-0" />
-                  <span>Saturday, 26 Sept 2026 • 10:00 CAT</span>
-                </p>
-                <p className="text-[11px] text-neutral-300 leading-relaxed">
-                  Official public rollout of client property dossiers, cadastre boundaries, and WhatsApp search.
                 </p>
               </div>
 
