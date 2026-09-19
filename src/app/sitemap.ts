@@ -8,7 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // 1. Static Core Public Pages
   const staticPages: MetadataRoute.Sitemap = [
     {
-      url: `${baseUrl}/`,
+      url: `${baseUrl}/home`,
       lastModified: now,
       changeFrequency: "daily",
       priority: 1.0,

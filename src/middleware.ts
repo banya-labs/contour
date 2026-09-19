@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/sign-in",
   "/sign-up",
+  "/home",
   "/accept-invitation",
   "/request-access/",
   "/privacy",
@@ -86,22 +87,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(canonicalUrl);
   }
 
-  // Intercept root "/" to handle mobile app / PWA routing and authenticated session restoration
+  // Intercept root "/" to handle authenticated session restoration
   if (request.nextUrl.pathname === "/") {
-    const isPwa =
-      request.nextUrl.searchParams.get("source") === "pwa" ||
-      request.nextUrl.searchParams.get("source") === "mobile" ||
-      request.nextUrl.searchParams.get("source") === "app" ||
-      request.headers.get("sec-ch-ua-mobile") === "?1" ||
-      /Android|iPhone|iPad|iPod|Mobile/i.test(request.headers.get("user-agent") || "") ||
-      request.cookies.get("contour_is_pwa")?.value === "true";
-
     const session = await auth.api.getSession({
       headers: request.headers,
     });
 
     if (session?.user) {
-      // User is already logged in with a valid token: restore last visited page
+      // User is already logged in: restore last visited page
       const lastPage = request.cookies.get("contour_last_page")?.value;
       const isValidLastPage =
         lastPage &&
@@ -113,9 +106,6 @@ export async function middleware(request: NextRequest) {
         const redirectUrl = new URL(lastPage, request.url);
         const response = NextResponse.redirect(redirectUrl);
         response.headers.set(CORRELATION_HEADER, correlationId);
-        if (isPwa) {
-          response.cookies.set("contour_is_pwa", "true", { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
-        }
         return response;
       }
 
@@ -126,25 +116,16 @@ export async function middleware(request: NextRequest) {
       const redirectUrl = new URL(destination, request.url);
       const response = NextResponse.redirect(redirectUrl);
       response.headers.set(CORRELATION_HEADER, correlationId);
-      if (isPwa) {
-        response.cookies.set("contour_is_pwa", "true", { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
-      }
       return response;
     }
 
-    // Unauthenticated user:
-    // If opening from mobile app / PWA, go straight to login screen, never marketing home page
-    if (isPwa) {
-      const signInUrl = new URL("/sign-in", request.url);
-      const response = NextResponse.redirect(signInUrl);
-      response.headers.set(CORRELATION_HEADER, correlationId);
-      response.cookies.set("contour_is_pwa", "true", { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
-      return response;
-    }
-
-    // Standard desktop browser: show public marketing home page
-    return createForwardResponse();
+    // Unauthenticated: redirect to sign-in. Marketing page is at /home.
+    const signInUrl = new URL("/sign-in", request.url);
+    const response = NextResponse.redirect(signInUrl);
+    response.headers.set(CORRELATION_HEADER, correlationId);
+    return response;
   }
+
 
   if (isPublicPath(request.nextUrl.pathname)) {
     return createForwardResponse();

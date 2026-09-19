@@ -52,6 +52,7 @@ import {
   Upload,
   Tag,
   Pencil,
+  Clock,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";

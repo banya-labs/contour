@@ -28,7 +28,7 @@ export default async function SignInPage(props: {
       {/* Top Header Bar */}
       <header className="w-full border-b border-editorial-border py-4 px-6 sm:px-12 flex items-center justify-between">
         <Link
-          href="/"
+          href="/home"
           className="group"
         >
           <ContourLogo size="md" />
@@ -38,7 +38,7 @@ export default async function SignInPage(props: {
             {isAgent ? "FIELD AGENT GATEWAY // ENCRYPTED" : "AUTHENTICATION GATEWAY // ENCRYPTED"}
           </span>
           <Link
-            href="/"
+            href="/home"
             className="font-geist text-xs text-editorial-black hover:text-editorial-red hover-un font-semibold"
           >
             ← Back to Home
