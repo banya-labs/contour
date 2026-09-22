@@ -57,10 +57,12 @@ const getHandler = createApiHandler({
     let targetOrgId: string | null = null;
     let targetOrgData: { id: string; name: string; slug: string } | null = null;
 
+    const isPublicRequest = !userId;
+
     if (org) {
       const found = await db.organization.findFirst({
         where: {
-          OR: [{ id: org }, { slug: org }],
+          ...(isPublicRequest ? { slug: org } : { OR: [{ id: org }, { slug: org }] }),
         },
         select: { id: true, name: true, slug: true },
       });
@@ -94,16 +96,14 @@ const getHandler = createApiHandler({
         }
       }
 
-      // Public visitor fallback only when truly unauthenticated
-      if (!targetOrgId) {
-        const defaultOrg = await db.organization.findFirst({
-          orderBy: { createdAt: "asc" },
-          select: { id: true, name: true, slug: true },
-        });
-        if (defaultOrg) {
-          targetOrgId = defaultOrg.id;
-          targetOrgData = defaultOrg;
-        }
+      // Public callers must name the organization by its public slug. Never
+      // select a default tenant: that leaks whichever organization's listings
+      // happens to be oldest in the database.
+      if (!targetOrgId && isPublicRequest) {
+        return NextResponse.json(
+          { success: false, error: "Organization slug required for public listings." },
+          { status: 400, headers: CORS_HEADERS },
+        );
       }
     }
 
@@ -118,7 +118,7 @@ const getHandler = createApiHandler({
     const allowedStatuses = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
     let statusFilter: any = { in: ["AVAILABLE"] }; // Default to public AVAILABLE listings
     
-    if (status) {
+    if (status && !isPublicRequest) {
       if (status.toUpperCase() === "ALL") {
         statusFilter = { in: allowedStatuses };
       } else {
@@ -135,9 +135,15 @@ const getHandler = createApiHandler({
       status: statusFilter,
     };
 
-    if (assigned === "me" && userId) {
+    // Public catalogue responses are always limited to available inventory;
+    // internal status views and assignment filters require a signed-in tenant.
+    if (isPublicRequest) {
+      whereClause.status = { in: ["AVAILABLE"] };
+    }
+
+    if (!isPublicRequest && assigned === "me" && userId) {
       whereClause.assignedAgentId = userId;
-    } else if (assignedAgentId) {
+    } else if (!isPublicRequest && assignedAgentId) {
       whereClause.assignedAgentId = assignedAgentId;
     }
 
@@ -253,7 +259,9 @@ const getHandler = createApiHandler({
 
     // 4. Pagination
     const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
-    const take = limit ? Math.min(500, Math.max(1, parseInt(limit, 10))) : (status?.toUpperCase() === "ALL" ? 500 : 50);
+    const take = limit
+      ? Math.min(isPublicRequest ? 50 : 500, Math.max(1, parseInt(limit, 10)))
+      : 50;
     const skip = (pageNum - 1) * take;
 
     const cacheKey = `props:${targetOrgId}:${listingType || "all"}:${status || "all"}:${search || "none"}:${suburb || "none"}:${sortBy}:${validSortOrder}:${pageNum}:${take}`;
