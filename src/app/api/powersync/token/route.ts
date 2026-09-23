@@ -1,41 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
+import { signPowerSyncToken } from "@/lib/local-first/sync-token";
 
 const tokenHandler = createApiHandler({
   requireAuth: true,
   handler: async (req, ctx) => {
-    const { organizationId, userId } = ctx;
+    const { organizationId, userId, userRole, contourRole } = ctx;
 
     const orgId = organizationId!;
     const sub = userId!;
     const exp = Math.floor(Date.now() / 1000) + 3600; // 1 hour expiration
 
-    // Construct a structurally valid HS256 JWT
-    const headerStr = JSON.stringify({ alg: "HS256", typ: "JWT" });
-    const payloadStr = JSON.stringify({
-      sub,
-      iss: "contour-auth",
-      aud: "powersync",
-      org_id: orgId,
-      exp,
+    const token = signPowerSyncToken({
+      userId: sub,
+      organizationId: orgId,
+      role: contourRole || userRole || "FIELD_AGENT",
+      expiresAt: exp,
     });
-
-    const headerBase64 = Buffer.from(headerStr).toString("base64")
-      .replace(/=/g, "")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_");
-      
-    const payloadBase64 = Buffer.from(payloadStr).toString("base64")
-      .replace(/=/g, "")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_");
-
-    const signatureBase64 = Buffer.from("simulated_signature_secret_key").toString("base64")
-      .replace(/=/g, "")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_");
-
-    const token = `${headerBase64}.${payloadBase64}.${signatureBase64}`;
 
     return NextResponse.json({
       success: true,
