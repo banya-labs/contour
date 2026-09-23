@@ -15,7 +15,7 @@ export const PATCH = createApiHandler({
 
     const inquiry = await db.inquiry.findFirst({
       where: { id: inquiryId, organizationId: organizationId! },
-      select: { id: true, status: true, clientName: true },
+      select: { id: true, status: true, outcome: true, clientName: true, propertyId: true },
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
 
@@ -31,8 +31,24 @@ export const PATCH = createApiHandler({
     }
 
     if (body.propertyId) {
-      const property = await db.property.findFirst({ where: { id: body.propertyId, organizationId: organizationId! }, select: { id: true } });
+      const property = await db.property.findFirst({ where: { id: body.propertyId, organizationId: organizationId! }, select: { id: true, status: true } });
       if (!property) return NextResponse.json({ success: false, error: "Selected property was not found in this organization." }, { status: 400 });
+      if (property.status === "SOLD" && inquiry.propertyId !== property.id) {
+        return NextResponse.json({ success: false, error: "This property has already been sold and cannot enter another pipeline." }, { status: 409 });
+      }
+    }
+
+    const targetPropertyId = body.propertyId !== undefined ? body.propertyId : inquiry.propertyId;
+    if (body.status !== "CLOSED" && body.propertyId !== undefined && targetPropertyId) {
+      const property = await db.property.findFirst({ where: { id: targetPropertyId, organizationId: organizationId! }, select: { status: true } });
+      if (property?.status === "SOLD") return NextResponse.json({ success: false, error: "This property has already been sold and cannot be reopened in the pipeline." }, { status: 409 });
+    }
+    if (inquiry.status === "CLOSED" && body.status !== undefined && body.status !== "CLOSED") {
+      return NextResponse.json({ success: false, error: "Closed deals cannot be reopened or edited." }, { status: 409 });
+    }
+    if (body.status === "CLOSED" && body.outcome === "WON" && targetPropertyId) {
+      const soldProperty = await db.property.findFirst({ where: { id: targetPropertyId, organizationId: organizationId! }, select: { status: true } });
+      if (soldProperty?.status === "SOLD" && inquiry.outcome !== "WON") return NextResponse.json({ success: false, error: "This property already has a winning deal." }, { status: 409 });
     }
 
     const isClosed = body.status === "CLOSED";
@@ -41,7 +57,8 @@ export const PATCH = createApiHandler({
     const clientName = (body.clientName || body.name)?.trim();
     const clientEmail = body.clientEmail !== undefined ? (body.clientEmail || null) : body.email !== undefined ? (body.email || null) : undefined;
 
-    const updated = await db.inquiry.update({
+    const updated = await db.$transaction(async (tx) => {
+      const result = await tx.inquiry.update({
       where: { id: inquiry.id },
       data: {
         ...(clientName ? { clientName } : {}),
@@ -73,6 +90,12 @@ export const PATCH = createApiHandler({
         assignedAgent: { select: { id: true, name: true, phone: true } },
         property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } },
       },
+    });
+      if (isClosed && body.outcome === "WON" && targetPropertyId) {
+        await tx.property.updateMany({ where: { id: targetPropertyId, organizationId: organizationId! }, data: { status: "SOLD" } });
+        await tx.inquiry.updateMany({ where: { organizationId: organizationId!, propertyId: targetPropertyId, id: { not: inquiry.id }, status: { not: "CLOSED" } }, data: { status: "CLOSED", outcome: "LOST", lostReason: "Property sold to another client.", closedAt: new Date(), closedById: userId } });
+      }
+      return result;
     });
 
     await db.auditLog.create({

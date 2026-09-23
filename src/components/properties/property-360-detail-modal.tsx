@@ -132,6 +132,7 @@ export default function PropertyFullDetailModal({
 
   // Stakeholders / Deal Parties State (Real, not hardcoded dummy data)
   const [stakeholders, setStakeholders] = useState<DealParty[]>([]);
+  const [propertyInquiries, setPropertyInquiries] = useState<any[]>([]);
   const [isAddingStakeholder, setIsAddingStakeholder] = useState(false);
   const [newStakeholder, setNewStakeholder] = useState<Omit<DealParty, "id">>({
     name: "",
@@ -201,6 +202,9 @@ export default function PropertyFullDetailModal({
   useEffect(() => {
     if (isOpen && property?.id) {
       loadVaultDocuments();
+      fetch("/api/clients").then((res) => res.ok ? res.json() : null).then((data) => {
+        if (data?.success) setPropertyInquiries((data.clients || []).filter((client: any) => client.propertyId === property.id));
+      }).catch(() => setPropertyInquiries([]));
     }
   }, [isOpen, property?.id]);
 
@@ -259,6 +263,7 @@ export default function PropertyFullDetailModal({
   if (!isOpen || !property) return null;
 
   const isSale = (isEditing ? editFormData?.listingType : property.listingType) === "FOR_SALE";
+  const isSold = property.status === "SOLD";
   const price = isSale ? property.askingPrice : property.rentalPrice;
   const photos =
     Array.isArray(property.photos) && property.photos.length > 0
@@ -1719,7 +1724,7 @@ export default function PropertyFullDetailModal({
                 )}
 
                 {/* Stakeholders List */}
-                {stakeholders.length === 0 ? (
+                  {stakeholders.length === 0 && propertyInquiries.length === 0 ? (
                   <div className="p-8 text-center bg-white border border-[#E6E4DF] space-y-2">
                     <Users className="w-8 h-8 text-[#A8A6A1] mx-auto" />
                     <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-[#1C1C1A]">
@@ -1775,6 +1780,16 @@ export default function PropertyFullDetailModal({
                             </a>
                           )}
                         </div>
+                      </div>
+                    ))}
+                    {propertyInquiries.map((inquiry) => (
+                      <div key={inquiry.id} className={`p-4 border space-y-2 ${inquiry.outcome === "WON" ? "bg-emerald-50 border-emerald-300" : inquiry.status === "CLOSED" ? "bg-[#F3F2EF] border-[#D5D2CB] text-[#8A8882]" : "bg-white border-[#E6E4DF]"}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div><span className="text-[9px] font-mono font-bold bg-[#FA3600] text-white px-2 py-0.5 uppercase">BUYER PIPELINE</span><h4 className="font-heading font-bold text-sm mt-1">{inquiry.clientName}</h4></div>
+                          <span className="text-[10px] font-mono font-bold uppercase">{inquiry.outcome === "WON" ? "WON" : inquiry.status === "CLOSED" ? "CLOSED / LOST" : inquiry.status.replaceAll("_", " ")}</span>
+                        </div>
+                        <p className="text-xs">Pipeline stage: <strong>{inquiry.status.replaceAll("_", " ")}</strong></p>
+                        {inquiry.lostReason && <p className="text-[11px]">{inquiry.lostReason}</p>}
                       </div>
                     ))}
                   </div>

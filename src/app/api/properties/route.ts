@@ -639,13 +639,17 @@ const patchHandler = createApiHandler({
 
     const existingProperty = await db.property.findFirst({
       where: { id, organizationId: ctx.organizationId },
-      select: { id: true, assignedAgentId: true, assignedAgentLockExpiresAt: true },
+      select: { id: true, status: true, assignedAgentId: true, assignedAgentLockExpiresAt: true },
     });
     if (!existingProperty) {
       return NextResponse.json(
         { success: false, error: "Property not found." },
         { status: 404 },
       );
+    }
+
+    if (existingProperty.status === "SOLD" && updateData.status && updateData.status !== "SOLD") {
+      return NextResponse.json({ success: false, error: "Sold properties cannot be reopened. Create a new listing if this sale was entered in error." }, { status: 409 });
     }
 
     const isAgentChange = updateData.assignedAgentId !== undefined && updateData.assignedAgentId !== existingProperty.assignedAgentId;

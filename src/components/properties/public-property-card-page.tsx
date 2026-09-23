@@ -79,6 +79,7 @@ async function getPropertyBySlug(slug: string) {
         suburb: dbProperty.suburb,
         city: dbProperty.city || "Lusaka",
         latitude: dbProperty.latitude,
+        status: dbProperty.status,
         longitude: dbProperty.longitude,
         standBoundary: (dbProperty.standBoundary as [number, number][] | null) || null,
         landmarkDirections: dbProperty.landmarkDirections,
@@ -118,7 +119,7 @@ async function getOrganizationOtherProperties(organizationId?: string, currentPr
       where: {
         organizationId,
         id: currentPropertyId ? { not: currentPropertyId } : undefined,
-        status: { in: ["AVAILABLE", "UNDER_OFFER"] },
+        status: { in: ["AVAILABLE", "UNDER_OFFER", "SOLD"] },
       },
       orderBy: { createdAt: "desc" },
       take: 6,
@@ -300,7 +301,7 @@ export default async function PublicPropertyCardPage({
             <span className="text-editorial-black font-semibold truncate max-w-[200px] sm:max-w-none">{property.suburb}</span>
           </nav>
           <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-none bg-editorial-paper border border-editorial-border text-editorial-black uppercase tracking-widest">
-            {property.listingType === "FOR_RENT" ? "FOR RENT // LEASE" : "FOR SALE // TITLE"}
+            {property.status === "SOLD" ? "SOLD // TITLE TRANSFERRED" : property.listingType === "FOR_RENT" ? "FOR RENT // LEASE" : "FOR SALE // TITLE"}
           </span>
         </div>
       </div>
@@ -333,6 +334,7 @@ export default async function PublicPropertyCardPage({
             </div>
             <h1 className="font-serif text-2xl sm:text-4xl font-bold text-editorial-black tracking-tight mt-1">
               {property.title}
+              {property.status === "SOLD" && <span className="ml-3 inline-block bg-[#1C1C1A] text-white px-2 py-1 text-xs align-middle uppercase tracking-wider">SOLD</span>}
             </h1>
             <div className="flex items-center gap-1.5 text-xs font-mono text-editorial-neutral mt-2">
               <MapPin className="w-4 h-4 text-contour-red shrink-0" />
