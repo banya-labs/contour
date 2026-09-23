@@ -79,6 +79,40 @@ const FLYER_CANVAS = {
   "9:16": { width: 1080, height: 1920 },
 } as const;
 
+function formatFlyerPrice(value: number | null | undefined): string {
+  return value == null ? "—" : new Intl.NumberFormat("en-US").format(value).replace(/,/g, " ");
+}
+
+function FlyerFooter({
+  qrCodeUrl,
+  contactName,
+  contactPhone,
+  isSale,
+}: {
+  qrCodeUrl: string;
+  contactName: string;
+  contactPhone: string;
+  isSale: boolean;
+}) {
+  return (
+    <div className="flex min-h-12 shrink-0 border-t border-[#282828] bg-black text-white">
+      <div className="flex w-14 shrink-0 items-center justify-center bg-white p-1.5">
+        {qrCodeUrl ? <img src={qrCodeUrl} alt="Scan to view this property" className="h-full w-full object-contain" /> : <span className="text-[7px] font-mono text-[#282828]">SCAN</span>}
+      </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5">
+        <img src="/images/whatsapp-icon.svg" alt="WhatsApp" className="h-4 w-4 shrink-0 object-contain" />
+        <div className="min-w-0">
+          <div className="font-heading text-[9px] font-bold uppercase tracking-wider">Contact {contactName}</div>
+          <div className="truncate text-[8px] font-mono text-neutral-300">WhatsApp {formatPhoneDisplay(contactPhone) || "number unavailable"}</div>
+        </div>
+      </div>
+      <div className="flex items-center bg-[#fa3600] px-3 font-heading text-[8.5px] font-bold uppercase tracking-wider text-white">
+        {isSale ? "BOOK NOW" : "SCHEDULE TOUR"}
+      </div>
+    </div>
+  );
+}
+
 type SocialMediaCardGeneratorModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -711,7 +745,7 @@ export default function SocialMediaCardGeneratorModal({
                     navigator.clipboard.writeText(publicUrl);
                     window.open(
                       `https://wa.me/?text=${encodeURIComponent(
-                        `🏛️ *${property.title.toUpperCase()}*\n📍 ${property.suburb}, Lusaka\n💰 ${currency} ${price?.toLocaleString()}\n\nVerified Public Listing & Title Deeds: ${publicUrl}`
+                        `🏛️ *${property.title.toUpperCase()}*\n📍 ${property.suburb}, Lusaka\n💰 ${currency} ${formatFlyerPrice(price)}\n\nVerified Public Listing & Title Deeds: ${publicUrl}`
                       )}`,
                       "_blank"
                     );
@@ -725,7 +759,7 @@ export default function SocialMediaCardGeneratorModal({
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${property.suburb}, Lusaka\n💰 Price: ${currency} ${price?.toLocaleString()}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Contact ${activeContact.name} • ${activeContact.phone}_`;
+                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${property.suburb}, Lusaka\n💰 Price: ${currency} ${formatFlyerPrice(price)}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Contact ${activeContact.name} • ${activeContact.phone}_`;
                     navigator.clipboard.writeText(text);
                     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
                   }}
@@ -822,14 +856,13 @@ export default function SocialMediaCardGeneratorModal({
                     </div>
 
                     {/* Architectural "HOME FEATURES" Bar */}
-                    <div className="bg-[#282828] text-white px-2 py-1 flex items-center justify-between border-l-2 border-[#fa3600]">
+                    <div className="bg-black text-white px-2 py-1 flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <Home className="w-3 h-3 text-[#fa3600] shrink-0" />
                         <span className="font-heading font-bold text-[9px] uppercase tracking-wider">
                           {isSale ? "HOME FEATURES" : "RENTAL HIGHLIGHTS"}
                         </span>
                       </div>
-                      <span className="font-mono text-[8px] text-neutral-400">8 SPECS</span>
                     </div>
 
                     {/* 2-Column Features Bullet List with '+' marks */}
@@ -848,12 +881,12 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Right Column: Price Box & Stacked Interior Photos (5 Cols) */}
                   <div className="col-span-5 space-y-1.5 flex flex-col justify-between">
                     {/* Top Price Card */}
-                      <div className="bg-[#282828] text-white p-2.5 border border-[#404040] text-center space-y-1 min-w-0">
+                      <div className="bg-black text-white p-2.5 border border-black text-center space-y-1 min-w-0">
                       <div className="text-[9px] font-mono tracking-wider uppercase text-[#bdbdbd]">
                         {isSale ? "OFFERED AT" : "AVAILABLE LEASE"}
                       </div>
                       <div className="font-mono font-bold text-[18px] leading-none text-white break-words">
-                        {currency} {price?.toLocaleString()}
+                        {currency} {formatFlyerPrice(price)}
                         {!isSale && <span className="text-[10px] text-[#fa3600]">/mo</span>}
                       </div>
                     </div>
@@ -879,22 +912,7 @@ export default function SocialMediaCardGeneratorModal({
                   </div>
                 </div>
 
-                {/* 3. QR + WhatsApp action footer */}
-                <div className="flex min-h-12 shrink-0 border-t border-[#282828] bg-black text-white">
-                  <div className="flex w-14 shrink-0 items-center justify-center bg-white p-1.5">
-                    {qrCodeUrl ? <img src={qrCodeUrl} alt="Scan to view this property" className="h-full w-full object-contain" /> : <span className="text-[7px] font-mono text-[#282828]">SCAN</span>}
-                  </div>
-                  <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5">
-                    <img src="/images/whatsapp-icon.svg" alt="WhatsApp" className="h-4 w-4 shrink-0 object-contain" />
-                    <div className="min-w-0">
-                      <div className="font-heading text-[9px] font-bold uppercase tracking-wider">Contact {activeContact.name}</div>
-                      <div className="truncate text-[8px] font-mono text-neutral-300">WhatsApp {formatPhoneDisplay(activeContact.phone) || "number unavailable"}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center bg-[#fa3600] px-3 font-heading text-[8.5px] font-bold uppercase tracking-wider text-white">
-                    {isSale ? "BOOK NOW" : "SCHEDULE TOUR"}
-                  </div>
-                </div>
+                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} isSale={isSale} />
               </div>
             )}
 
@@ -909,7 +927,7 @@ export default function SocialMediaCardGeneratorModal({
                 }`}
               >
                 {/* Top Half: Hero Image with Floating Overlays */}
-                <div className="relative h-[45%] min-h-[280px] shrink-0 border-b border-[#282828] overflow-hidden bg-neutral-200">
+                <div className="relative h-[62%] min-h-0 shrink-0 border-b border-[#282828] overflow-hidden bg-neutral-200">
                   <img
                     src={heroPhoto}
                     alt={property.title}
@@ -939,13 +957,13 @@ export default function SocialMediaCardGeneratorModal({
 
                   {/* Price Tag Pill */}
                   <div className="absolute bottom-2.5 right-2.5 bg-[#fa3600] text-white px-2.5 py-1 font-mono font-bold text-xs uppercase tracking-wider">
-                    {currency} {price?.toLocaleString()}
+                    {currency} {formatFlyerPrice(price)}
                     {!isSale && <span className="text-[9px]">/mo</span>}
                   </div>
                 </div>
 
                 {/* Bottom Half: Title, Specs & Contact Bar */}
-                <div className="p-3 flex-1 flex flex-col justify-between">
+                <div className="min-h-0 flex-1 overflow-hidden p-3 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="text-[8px] font-mono uppercase text-[#fa3600] font-bold">
@@ -978,16 +996,8 @@ export default function SocialMediaCardGeneratorModal({
                     </div>
                   </div>
 
-                  {/* Bottom Footer */}
-                  <div className="flex items-center justify-between text-[8px] font-mono pt-1">
-                    <span className="text-[#6b6b6b]">
-                      TEL: {activeContact.phone}
-                    </span>
-                    <span className="font-heading font-bold uppercase text-[#fa3600]">
-                      {isSale ? "BOOK VIEWING &rarr;" : "SCHEDULE TOUR &rarr;"}
-                    </span>
-                  </div>
                 </div>
+                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} isSale={isSale} />
               </div>
             )}
 
@@ -1002,7 +1012,7 @@ export default function SocialMediaCardGeneratorModal({
                 }`}
               >
                 {/* Top Exterior Hero (55% Height) */}
-                <div className="relative h-[52%] min-h-[290px] shrink-0 border-b border-[#282828] overflow-hidden bg-neutral-200">
+                <div className="relative h-[68%] min-h-0 shrink-0 border-b border-[#282828] overflow-hidden bg-neutral-200">
                   <img
                     src={heroPhoto}
                     alt={property.title}
@@ -1044,7 +1054,7 @@ export default function SocialMediaCardGeneratorModal({
                 </div>
 
                 {/* Bottom Story Content */}
-                <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
+                <div className="min-h-0 flex-1 overflow-hidden p-3 flex flex-col justify-between space-y-2">
                   <div>
                     <div className="text-[8px] font-mono text-[#fa3600] font-bold uppercase">
                       EXCLUSIVE AGENCY MANDATE
@@ -1055,7 +1065,7 @@ export default function SocialMediaCardGeneratorModal({
                       <span className="line-clamp-2">{property.title}</span>
                     </h4>
                     <div className="font-mono font-bold text-sm text-[#fa3600] mt-1">
-                      {currency} {price?.toLocaleString()}
+                      {currency} {formatFlyerPrice(price)}
                       {!isSale && <span className="text-[9px] text-[#9b9b9b]">/mo</span>}
                     </div>
                   </div>
@@ -1070,16 +1080,8 @@ export default function SocialMediaCardGeneratorModal({
                     ))}
                   </div>
 
-                  {/* Story CTA Swipe / Tap */}
-                  <div className="bg-[#282828] text-white p-2 text-center border border-[#404040]">
-                    <div className="font-heading font-bold text-[9px] uppercase tracking-wider text-[#fa3600]">
-                      DIRECT WHATSAPP INQUIRY
-                    </div>
-                    <div className="text-[8px] font-mono text-neutral-300 mt-0.5">
-                      📞 {activeContact.phone}
-                    </div>
-                  </div>
                 </div>
+                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} isSale={isSale} />
               </div>
             )}
           </div>
