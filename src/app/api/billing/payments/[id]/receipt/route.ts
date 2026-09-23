@@ -5,7 +5,7 @@ import { CONTOUR_PLANS } from "@/lib/lenco";
 
 export const GET = createApiHandler({
   requireAuth: true,
-  requirePermissions: ["org.read"],
+  requirePermissions: ["org.billing.read"],
   handler: async (req, { params, organizationId }) => {
     const { id } = (params || {}) as { id?: string };
     if (!id) return NextResponse.json({ success: false, error: "Payment ID is required" }, { status: 400 });

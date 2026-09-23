@@ -12,7 +12,7 @@ function addMonths(date: Date, months: number): Date {
 
 export const GET = createApiHandler({
   requireAuth: true,
-  requirePermissions: ["org.read"],
+  requirePermissions: ["org.billing.read"],
   handler: async (_req, { organizationId }) => {
     const organization = await db.organization.findUnique({
       where: { id: organizationId! },

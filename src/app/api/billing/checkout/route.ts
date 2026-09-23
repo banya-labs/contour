@@ -52,6 +52,7 @@ function paymentResponse(payment: {
 }
 
 const postHandler = createApiHandler({
+  requirePermissions: ["org.billing.manage"],
   bodySchema: checkoutSchema,
   handler: async (req, ctx) => {
     const { organizationId, userId, body, session } = ctx;
