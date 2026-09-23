@@ -1,4 +1,4 @@
-import { HeadBucketCommand, HeadObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, HeadBucketCommand, HeadObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Agent as HttpsAgent } from "node:https";
 
@@ -152,6 +152,11 @@ export class S3StorageService {
       Body: body instanceof ArrayBuffer ? new Uint8Array(body) : body,
       ContentType: contentType || "application/octet-stream",
     }));
+  }
+
+  async deleteObject(objectKey: string): Promise<void> {
+    if (!this.isConfigured() || objectKey.startsWith("local:")) return;
+    await this.getClient().send(new DeleteObjectCommand({ Bucket: this.bucketName, Key: objectKey }));
   }
 
   async getPresignedDownloadUrl(objectKey: string, expiresInSeconds = MAX_PRESIGN_SECONDS): Promise<string> {

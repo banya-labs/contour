@@ -117,6 +117,9 @@ function SettingsContent() {
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [showMfaSetup, setShowMfaSetup] = useState(false);
   const [mfaDisabling, setMfaDisabling] = useState(false);
+  const [destructiveAction, setDestructiveAction] = useState<"RESET" | "DELETE" | null>(null);
+  const [destructiveConfirmation, setDestructiveConfirmation] = useState("");
+  const [destructivePending, setDestructivePending] = useState(false);
   const [pendingSettingsActions, setPendingSettingsActions] = useState<ReadonlySet<string>>(new Set());
   const setSettingsActionPending = (key: string, pending: boolean) =>
     setPendingSettingsActions((current) => setKeyPending(current, key, pending));
@@ -431,6 +434,37 @@ function SettingsContent() {
       setSettingsMessage("Failed to revoke invitation.");
     } finally {
       setSettingsActionPending(`${invitationId}:revoke`, false);
+    }
+  };
+
+  const handleDestructiveAction = async () => {
+    if (!destructiveAction) return;
+    setDestructivePending(true);
+    setSettingsMessage(null);
+    try {
+      const response = await fetch("/api/organization/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: destructiveAction, confirmation: destructiveConfirmation }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setSettingsMessage(data.error || "Unable to complete this action.");
+        return;
+      }
+      if (destructiveAction === "DELETE") {
+        await authClient.organization.setActive({ organizationId: null });
+        router.replace("/onboarding");
+        return;
+      }
+      setDestructiveAction(null);
+      setDestructiveConfirmation("");
+      setSettingsMessage("Workspace data reset. Your workspace is ready to start afresh.");
+      window.location.reload();
+    } catch {
+      setSettingsMessage("Network error completing this action.");
+    } finally {
+      setDestructivePending(false);
     }
   };
 
@@ -1262,6 +1296,48 @@ function SettingsContent() {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === "ORGANIZATION" && (
+        <div className="p-6 bg-red-50 border border-red-200 space-y-5">
+          <div className="flex items-start gap-3 pb-3 border-b border-red-200">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-heading font-bold text-sm text-red-900 uppercase tracking-wider">Danger zone</h3>
+              <p className="text-xs text-red-800 mt-1">
+                These actions are permanent. Reset keeps this workspace and your owner login; delete removes the workspace and all of its data.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="border border-red-200 bg-white p-4 space-y-3">
+              <div>
+                <h4 className="text-sm font-bold text-editorial-black">Reset workspace data</h4>
+                <p className="text-[11px] text-editorial-muted mt-1">Deletes properties, deals, clients, leases, sales, documents, tasks, invitations, and team members other than you. Billing and workspace identity remain.</p>
+              </div>
+              <button type="button" onClick={() => { setDestructiveAction("RESET"); setDestructiveConfirmation(""); }} className="px-3 py-2 border border-red-300 text-red-700 text-[10px] font-bold uppercase tracking-wider hover:bg-red-100">Reset account data</button>
+            </div>
+            <div className="border border-red-300 bg-white p-4 space-y-3">
+              <div>
+                <h4 className="text-sm font-bold text-editorial-black">Delete workspace permanently</h4>
+                <p className="text-[11px] text-editorial-muted mt-1">Permanently deletes this organisation, its records, uploaded vault objects, members, and settings. User login accounts are not deleted.</p>
+              </div>
+              <button type="button" onClick={() => { setDestructiveAction("DELETE"); setDestructiveConfirmation(""); }} className="px-3 py-2 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-red-700">Delete organisation</button>
+            </div>
+          </div>
+
+          {destructiveAction && (
+            <div className="border-2 border-red-400 bg-white p-4 space-y-3">
+              <p className="text-xs font-semibold text-red-900">This cannot be undone. Type <span className="font-mono">{destructiveAction} {workspace?.slug || "your-workspace-slug"}</span> to continue.</p>
+              <input value={destructiveConfirmation} onChange={(event) => setDestructiveConfirmation(event.target.value)} placeholder={`${destructiveAction} ${workspace?.slug || "workspace-slug"}`} className="w-full max-w-lg border border-red-300 px-3 py-2 text-xs font-mono focus:outline-none focus:border-red-600" autoComplete="off" />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => void handleDestructiveAction()} disabled={destructivePending} className="px-4 py-2 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"><PendingButtonContent pending={destructivePending} pendingLabel="Working…">Confirm {destructiveAction === "DELETE" ? "deletion" : "reset"}</PendingButtonContent></button>
+                <button type="button" onClick={() => { setDestructiveAction(null); setDestructiveConfirmation(""); }} disabled={destructivePending} className="px-4 py-2 border border-editorial-border text-editorial-black text-[10px] font-bold uppercase tracking-wider">Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

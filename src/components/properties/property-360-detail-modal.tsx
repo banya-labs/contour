@@ -243,9 +243,18 @@ export default function PropertyFullDetailModal({
     if (isOpen && property?.id) {
       setVaultDocumentCount(readCachedVaultCount(property));
       loadVaultDocuments();
-      fetch(`/api/clients?propertyId=${encodeURIComponent(property.id)}`).then((res) => res.ok ? res.json() : null).then((data) => {
-        if (data?.success) setPropertyInquiries(data.clients || []);
-      }).catch(() => setPropertyInquiries([]));
+      setPropertyInquiries([]);
+      const controller = new AbortController();
+      fetch(`/api/clients?propertyId=${encodeURIComponent(property.id)}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      }).then((res) => res.ok ? res.json() : null).then((data) => {
+        if (data?.success) setPropertyInquiries(Array.isArray(data.clients) ? data.clients : []);
+      }).catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setPropertyInquiries([]);
+      });
+      return () => controller.abort();
     }
   }, [isOpen, property?.id]);
 
@@ -305,6 +314,13 @@ export default function PropertyFullDetailModal({
 
   const isSale = (isEditing ? editFormData?.listingType : property.listingType) === "FOR_SALE";
   const isSold = property.status === "SOLD";
+  const stakeholderCount = new Set([
+    ...stakeholders.map((party) => `person:${party.id}`),
+    ...propertyInquiries.flatMap((inquiry) => [
+      `client:${inquiry.id}`,
+      inquiry.assignedAgent?.id ? `person:${inquiry.assignedAgent.id}` : null,
+    ].filter((value): value is string => Boolean(value))),
+  ]).size;
   const price = isSale ? property.askingPrice : property.rentalPrice;
   const photos =
     Array.isArray(property.photos) && property.photos.length > 0
@@ -751,7 +767,7 @@ export default function PropertyFullDetailModal({
                   <span>Stakeholders</span>
                 </div>
                 <span className="text-[10px] font-mono bg-[#E6E4DF] text-[#1C1C1A] px-1.5 py-0.2">
-                  {stakeholders.length}
+                  {stakeholderCount}
                 </span>
               </button>
             </div>
