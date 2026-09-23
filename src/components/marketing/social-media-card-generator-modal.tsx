@@ -237,13 +237,20 @@ export default function SocialMediaCardGeneratorModal({
       }
 
       console.log("[FlyerModal] html2canvas finished successfully, canvas width:", canvas.width);
-      const dataUrl = canvas.toDataURL("image/png");
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((value) => {
+          if (value) resolve(value);
+          else reject(new Error("The flyer image could not be encoded."));
+        }, "image/png");
+      });
       const link = document.createElement("a");
       link.download = `${(agencySettings?.agencyName || "agency").toLowerCase().replace(/[^a-z0-9]+/g, "-")}_${property.slug || "listing"}_${aspectRatio.replace(":", "x")}_flyer.png`;
-      link.href = dataUrl;
+      const objectUrl = URL.createObjectURL(blob);
+      link.href = objectUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 
       setDownloadSuccess(true);
       console.log("[FlyerModal] setDownloadSuccess true");
@@ -598,7 +605,7 @@ export default function SocialMediaCardGeneratorModal({
                 </span>
 
                 {/* 1. Top Section - Hero Exterior Photo */}
-                <div className="relative h-56 bg-neutral-200 overflow-hidden border-b border-[#282828]">
+                <div className="relative h-[34%] min-h-56 shrink-0 bg-neutral-200 overflow-hidden border-b border-[#282828]">
                   <img
                     src={heroPhoto}
                     alt={property.title}
@@ -637,7 +644,7 @@ export default function SocialMediaCardGeneratorModal({
                 </div>
 
                 {/* 2. Middle Body Section */}
-                <div className={`p-3.5 grid grid-cols-12 gap-3 ${isDark ? "bg-[#282828]" : "bg-white"}`}>
+                <div className={`min-h-0 flex-1 p-3.5 grid grid-cols-12 gap-3 ${isDark ? "bg-[#282828]" : "bg-white"}`}>
                   {/* Left Column (7 Cols) */}
                   <div className="col-span-7 space-y-2 flex flex-col justify-between">
                     <div>
@@ -762,7 +769,7 @@ export default function SocialMediaCardGeneratorModal({
                 }`}
               >
                 {/* Top Half: Hero Image with Floating Overlays */}
-                <div className="relative h-[280px] border-b border-[#282828] overflow-hidden bg-neutral-200">
+                <div className="relative h-[45%] min-h-[280px] shrink-0 border-b border-[#282828] overflow-hidden bg-neutral-200">
                   <img
                     src={heroPhoto}
                     alt={property.title}
@@ -855,7 +862,7 @@ export default function SocialMediaCardGeneratorModal({
                 }`}
               >
                 {/* Top Exterior Hero (55% Height) */}
-                <div className="relative h-[290px] border-b border-[#282828] overflow-hidden bg-neutral-200">
+                <div className="relative h-[52%] min-h-[290px] shrink-0 border-b border-[#282828] overflow-hidden bg-neutral-200">
                   <img
                     src={heroPhoto}
                     alt={property.title}
