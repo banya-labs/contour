@@ -65,6 +65,41 @@ type PropertyFullDetailModalProps = {
 
 type ActiveSection = "DETAILS" | "VAULT" | "STAKEHOLDERS";
 
+type VaultCountProperty = {
+  id?: string;
+  organizationId?: string;
+  organization?: { id?: string };
+  organizationSlug?: string;
+};
+
+const getVaultCountCacheKey = (property: VaultCountProperty | null | undefined) =>
+  property?.id
+    ? `contour:vault-document-count:${property.organizationId || property.organization?.id || property.organizationSlug || "unknown"}:${property.id}`
+    : null;
+
+const readCachedVaultCount = (property: VaultCountProperty | null | undefined): number => {
+  const key = getVaultCountCacheKey(property);
+  if (!key || typeof window === "undefined") return 0;
+
+  try {
+    const cached = Number.parseInt(window.localStorage.getItem(key) || "", 10);
+    return Number.isFinite(cached) && cached >= 0 ? cached : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const writeCachedVaultCount = (property: VaultCountProperty | null | undefined, count: number) => {
+  const key = getVaultCountCacheKey(property);
+  if (!key || typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(key, String(count));
+  } catch {
+    // Storage can be unavailable in private browsing; the live count still works.
+  }
+};
+
 const LUSAKA_SUBURBS = [
   "Kabulonga",
   "Leopards Hill",
@@ -109,6 +144,7 @@ export default function PropertyFullDetailModal({
 
   // Real Documents State
   const [vaultDocuments, setVaultDocuments] = useState<any[]>([]);
+  const [vaultDocumentCount, setVaultDocumentCount] = useState(() => readCachedVaultCount(property));
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
@@ -190,6 +226,8 @@ export default function PropertyFullDetailModal({
             (d: any) => d.propertyId === property.id
           );
           setVaultDocuments(propertyDocs);
+          setVaultDocumentCount(propertyDocs.length);
+          writeCachedVaultCount(property, propertyDocs.length);
         }
       }
     } catch (err) {
@@ -201,6 +239,7 @@ export default function PropertyFullDetailModal({
 
   useEffect(() => {
     if (isOpen && property?.id) {
+      setVaultDocumentCount(readCachedVaultCount(property));
       loadVaultDocuments();
       fetch(`/api/clients?propertyId=${encodeURIComponent(property.id)}`).then((res) => res.ok ? res.json() : null).then((data) => {
         if (data?.success) setPropertyInquiries(data.clients || []);
@@ -678,7 +717,7 @@ export default function PropertyFullDetailModal({
                   <span>Legal Vault</span>
                 </div>
                 <span className="text-[10px] font-mono bg-[#E6E4DF] text-[#1C1C1A] px-1.5 py-0.2">
-                  {vaultDocuments.length}
+                  {vaultDocumentCount}
                 </span>
               </button>
 

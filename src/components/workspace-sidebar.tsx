@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { triggerPwaInstallModal } from "@/components/pwa/pwa-install-banner";
+import { isManagementRole } from "@/lib/authorization";
 
 type NavItem = {
   name: string;
@@ -45,6 +46,8 @@ export default function WorkspaceSidebar() {
   // Determine user role in current active agency organization
   const role = (user as (typeof user & { role?: string }) | undefined)?.role;
   const isPrincipalBroker = role === "SUPER_ADMIN" || role === "BROKER_MANAGER" || role === "OWNER";
+  const isManagement = isManagementRole(role);
+  const [managementActionCount, setManagementActionCount] = useState(0);
   const roleLabel =
     role === "SUPER_ADMIN" || role === "OWNER"
       ? "Principal Broker"
@@ -102,6 +105,33 @@ export default function WorkspaceSidebar() {
       window.removeEventListener("storage", updateTitleFromSettings);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isManagementRole(role)) {
+      setManagementActionCount(0);
+      return;
+    }
+
+    let isMounted = true;
+    const loadManagementActionCount = async () => {
+      try {
+        const response = await fetch("/api/dashboard/action-queue");
+        const data = await response.json();
+        if (isMounted && data.success) {
+          setManagementActionCount(Number(data.managementActionCount || 0));
+        }
+      } catch {
+        // The overview remains the source of truth if the sidebar request fails.
+      }
+    };
+
+    void loadManagementActionCount();
+    const interval = window.setInterval(loadManagementActionCount, 60_000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [role]);
 
   const toggleGroup = (groupName: string) => {
     setOpenGroups((prev) => ({
@@ -200,6 +230,11 @@ export default function WorkspaceSidebar() {
             </div>
             {isOverviewActive && (
               <span className="hidden lg:inline-block w-1.5 h-1.5 bg-contour-red" />
+            )}
+            {isManagement && managementActionCount > 0 && (
+              <span className="text-[10px] font-mono font-bold bg-contour-red text-white px-1.5 py-0.5 min-w-5 text-center">
+                {managementActionCount > 99 ? "99+" : managementActionCount}
+              </span>
             )}
           </Link>
 

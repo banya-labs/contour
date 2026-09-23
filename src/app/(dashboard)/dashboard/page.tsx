@@ -21,8 +21,13 @@ import { NumberTicker } from "@/components/ui/animate/number-ticker";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { DashboardMetricSkeleton, ActionQueueSkeleton } from "@/components/ui/skeleton";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { authClient } from "@/lib/auth-client";
+import { isManagementRole } from "@/lib/authorization";
 
 export default function DashboardOverviewPage() {
+  const { data: session } = authClient.useSession();
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const isManagement = isManagementRole(userRole);
   const [metrics, setMetrics] = useState<any>({
     totalProperties: 0,
     forSaleCount: 0,
@@ -42,6 +47,7 @@ export default function DashboardOverviewPage() {
   const [arrearsLeases, setArrearsLeases] = useState<any[]>([]);
   const [draftStatements, setDraftStatements] = useState<any[]>([]);
   const [newInquiries, setNewInquiries] = useState<any[]>([]);
+  const [managementHandoverInquiries, setManagementHandoverInquiries] = useState<any[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
   const [expiringSoonLeases, setExpiringSoonLeases] = useState<any[]>([]);
   const [inquiryStatusBreakdown, setInquiryStatusBreakdown] = useState<any[]>([]);
@@ -74,6 +80,7 @@ export default function DashboardOverviewPage() {
           setArrearsLeases(aqData.arrearsLeases || []);
           setDraftStatements(aqData.draftStatements || []);
           setNewInquiries(aqData.newInquiries || []);
+          setManagementHandoverInquiries(aqData.managementHandoverInquiries || []);
           setPendingTransactions(aqData.pendingTransactions || []);
           setExpiringSoonLeases(aqData.expiringSoonLeases || []);
           setInquiryStatusBreakdown(aqData.inquiryStatusBreakdown || []);
@@ -124,6 +131,17 @@ export default function DashboardOverviewPage() {
       detail: `${inq.property?.title || "General Inquiry"} • Phone: ${inq.clientPhone}`,
       actionLabel: "Assign Agent",
       actionMsg: `Lead ${inq.clientName} assigned to active on-duty broker with auto-reply flyer dispatched.`,
+    });
+  });
+
+  if (isManagement) managementHandoverInquiries.forEach((inq) => {
+    dailyActionQueue.push({
+      id: `handover_${inq.id}`,
+      tag: "MANAGEMENT",
+      title: `Management Handover — ${inq.property?.title || "Property"}`,
+      detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
+      actionLabel: "Review Handover",
+      actionMsg: `Management handover for ${inq.property?.title || "the property"} opened for review.`,
     });
   });
 
@@ -383,6 +401,28 @@ export default function DashboardOverviewPage() {
       )}
 
       {/* 2. Daily Action Queue */}
+      {isManagement && managementHandoverInquiries.length > 0 && (
+        <div className="border-2 border-contour-red bg-[#fff5f3] p-4 sm:p-5 shadow-none">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-contour-red text-white flex items-center justify-center shrink-0">
+                <Bell className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-geist font-bold uppercase tracking-widest text-contour-red">Management attention required</p>
+                <h2 className="font-heading text-base sm:text-lg font-bold text-editorial-black mt-1">
+                  {managementHandoverInquiries.length} {managementHandoverInquiries.length === 1 ? "property is" : "properties are"} awaiting handover review
+                </h2>
+                <p className="text-xs text-editorial-muted mt-1">A TO has moved pipeline work to management. Review the handover before closing or progressing the deal.</p>
+              </div>
+            </div>
+            <Link href="/dashboard/pipeline" className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider shrink-0">
+              Review Pipeline <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white border border-editorial-border p-6 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-editorial-border">
           <div className="flex items-center gap-2">

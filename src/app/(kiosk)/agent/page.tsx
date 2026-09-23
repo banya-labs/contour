@@ -169,9 +169,31 @@ function AgentKioskContent() {
 
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [canAccessDashboard, setCanAccessDashboard] = useState(false);
 
   const userRole = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined;
   const isManagerOrAdmin = Boolean(userRole && (userRole === "SUPER_ADMIN" || userRole === "BROKER_MANAGER"));
+
+  useEffect(() => {
+    if (isSessionPending || !session?.user) {
+      setCanAccessDashboard(false);
+      return;
+    }
+
+    let isMounted = true;
+    void fetch("/api/dashboard/access")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (isMounted) setCanAccessDashboard(data?.success === true && data?.canAccessDashboard === true);
+      })
+      .catch(() => {
+        if (isMounted) setCanAccessDashboard(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isSessionPending, session?.user]);
 
   // Ensure field agents never remain in management-only PROPERTY drawer
   useEffect(() => {
@@ -1127,6 +1149,17 @@ function AgentKioskContent() {
 
           {/* Right Controls: Online/Offline Dot & Hamburger Menu */}
           <div className="flex items-center gap-2">
+            {canAccessDashboard && (
+              <Link
+                href="/dashboard"
+                className="hidden sm:inline-flex min-h-9 items-center gap-1.5 border border-editorial-border bg-white px-3 text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black hover:border-contour-red hover:text-contour-red transition-colors"
+                title="Open Operations Dashboard"
+              >
+                <Home className="h-3.5 w-3.5" />
+                <span>Dashboard</span>
+              </Link>
+            )}
+
             {/* Minimal Online/Offline Status Dot (no square container) */}
             <button
               onClick={toggleNetwork}
@@ -1191,7 +1224,7 @@ function AgentKioskContent() {
               <span>View Agent Profile</span>
             </button>
 
-            {isManagerOrAdmin && (
+            {canAccessDashboard && (
               <Link
                 href="/dashboard"
                 onClick={() => setIsMobileMenuOpen(false)}

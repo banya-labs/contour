@@ -23,6 +23,7 @@ const getHandler = createApiHandler({
           arrearsLeases,
           draftStatements,
           newInquiries,
+          managementHandoverInquiries,
           pendingTransactions,
           inquiryStatusBreakdown,
           expiringSoonLeases,
@@ -51,7 +52,17 @@ const getHandler = createApiHandler({
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
-          // 4. EXPECTED Transactions
+          // 4. Pipeline handovers awaiting management action
+          db.inquiry.findMany({
+            where: { organizationId, status: "MANAGEMENT_HANDOVER" },
+            include: {
+              property: { select: { id: true, title: true, suburb: true } },
+              assignedAgent: { select: { id: true, name: true } },
+            },
+            orderBy: { managementCloseRequestedAt: "asc" },
+            take: 20,
+          }),
+          // 5. EXPECTED Transactions
           db.transaction.findMany({
             where: { organizationId, status: "EXPECTED" },
             include: {
@@ -61,13 +72,13 @@ const getHandler = createApiHandler({
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
-          // 5. Inquiry status breakdown
+          // 6. Inquiry status breakdown
           db.inquiry.groupBy({
             by: ["status"],
             where: { organizationId },
             _count: { status: true },
           }),
-          // 6. EXPIRING_SOON leases
+          // 7. EXPIRING_SOON leases
           db.lease.findMany({
             where: {
               organizationId,
@@ -91,6 +102,8 @@ const getHandler = createApiHandler({
           arrearsLeases,
           draftStatements,
           newInquiries,
+          managementHandoverInquiries,
+          managementActionCount: managementHandoverInquiries.length,
           pendingTransactions,
           expiringSoonLeases,
           inquiryStatusBreakdown,
