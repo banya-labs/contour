@@ -3,12 +3,14 @@ import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { CONTOUR_ROLE_KEYS, ROLE_DESCRIPTIONS, ROLE_PRESETS } from "@/lib/authorization";
+import { normalizeWhatsAppPhone } from "@/lib/phone-input";
 
 const memberUpdateSchema = z.object({
   memberId: z.string().min(1),
   roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).optional(),
   status: z.enum(["active", "suspended"]).optional(),
   permissions: z.array(z.string()).optional(),
+  phone: z.string().nullable().optional(),
 });
 
 const memberDeleteSchema = z.object({
@@ -22,7 +24,7 @@ export const GET = createApiHandler({
     const members = await db.member.findMany({
       where: { organizationId: organizationId! },
       include: {
-        user: { select: { id: true, name: true, email: true, image: true, createdAt: true } },
+        user: { select: { id: true, name: true, email: true, phone: true, image: true, createdAt: true } },
         roleAssignments: { include: { role: { include: { permissions: true } } } },
         permissionOverrides: true,
       },
@@ -43,6 +45,16 @@ export const PATCH = createApiHandler({
   handler: async (_req, { body, organizationId, userId }) => {
     const member = await db.member.findFirst({ where: { id: body.memberId, organizationId: organizationId! } });
     if (!member) return NextResponse.json({ success: false, error: "Workspace member not found" }, { status: 404 });
+
+    if (body.phone !== undefined) {
+      let phone: string | null;
+      try {
+        phone = normalizeWhatsAppPhone(body.phone);
+      } catch (error) {
+        return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Enter a valid WhatsApp number." }, { status: 400 });
+      }
+      await db.user.update({ where: { id: member.userId }, data: { phone } });
+    }
 
     // Self-action guards
     if (member.userId === userId) {
@@ -80,7 +92,7 @@ export const PATCH = createApiHandler({
       const roleInfo = ROLE_DESCRIPTIONS[roleKey as keyof typeof ROLE_DESCRIPTIONS];
       const role = await db.organizationRole.upsert({
         where: { organizationId_key: { organizationId: organizationId!, key: roleKey } },
-        create: { organizationId: organizationId!, key: roleKey, displayName: roleInfo.displayName, description: roleInfo.description, isSystem: true, permissions: { create: ROLE_PRESETS[roleKey as keyof typeof ROLE_PRESETS].map((permission) => ({ permission })) } },
+        create: { organizationId: organizationId!, key: roleKey, displayName: roleInfo.displayName, description: roleInfo.description, isSystem: true },
         update: {},
       });
       await db.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });

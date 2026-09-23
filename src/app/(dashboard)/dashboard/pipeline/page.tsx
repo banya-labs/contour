@@ -39,7 +39,7 @@ type Deal = {
   agentName: string;
   assignedAgentId?: string | null;
   daysInStage: number;
-  stage: "NEW_INQUIRY" | "CONTACTED" | "VIEWING_SCHEDULED" | "NEGOTIATING" | "OFFER_MADE" | "CLOSED";
+  stage: "NEW_INQUIRY" | "CONTACTED" | "VIEWING_SCHEDULED" | "NEGOTIATING" | "OFFER_MADE" | "MANAGEMENT_HANDOVER" | "CLOSED";
   outcome?: "WON" | "LOST" | null;
   lostReason?: string | null;
   leadSource?: string;
@@ -78,6 +78,7 @@ const STAGES = [
   { id: "VIEWING_SCHEDULED", label: "Viewing Booked", tag: "VIEW" },
   { id: "NEGOTIATING", label: "In Negotiation", tag: "TERMS" },
   { id: "OFFER_MADE", label: "Written Offer", tag: "OFFER" },
+  { id: "MANAGEMENT_HANDOVER", label: "Management Handover", tag: "REVIEW" },
   { id: "CLOSED", label: "Closed", tag: "OUTCOME" },
 ];
 
@@ -163,10 +164,10 @@ function DealPipelineContent() {
             propertyId: inquiry.property?.id || inquiry.propertyId || null,
             propertyTitle: inquiry.property?.title || "Unassigned property",
             suburb: inquiry.property?.suburb || inquiry.preferredSuburbs?.[0] || "—",
-            dealValue: Number(inquiry.dealValue || 0),
+            dealValue: Number(inquiry.dealValue || inquiry.property?.askingPrice || inquiry.property?.rentalPrice || 0),
             currency: inquiry.currency || "ZMW",
             agencyCommissionPct: Number(inquiry.property?.agencyCommissionPct ?? 5),
-            agencyCommission: Number(inquiry.dealValue || 0) * (Number(inquiry.property?.agencyCommissionPct ?? 5) / 100),
+            agencyCommission: Number(inquiry.dealValue || inquiry.property?.askingPrice || inquiry.property?.rentalPrice || 0) * (Number(inquiry.property?.agencyCommissionPct ?? 5) / 100),
             agentName: inquiry.assignedAgent?.name || "Unassigned",
             assignedAgentId: inquiry.assignedAgent?.id || inquiry.assignedAgentId || null,
             daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),

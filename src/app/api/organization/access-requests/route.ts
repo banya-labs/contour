@@ -30,7 +30,7 @@ export const PATCH = createApiHandler({
     const roleInfo = ROLE_DESCRIPTIONS[roleKey as keyof typeof ROLE_DESCRIPTIONS];
     await db.$transaction(async (tx) => {
       const member = await tx.member.upsert({ where: { organizationId_userId: { organizationId: organizationId!, userId: request.userId } }, create: { organizationId: organizationId!, userId: request.userId, role: "member", status: "active" }, update: { status: "active", deactivatedAt: null, deactivatedById: null } });
-      const role = await tx.organizationRole.upsert({ where: { organizationId_key: { organizationId: organizationId!, key: roleKey } }, create: { organizationId: organizationId!, key: roleKey, displayName: roleInfo.displayName, description: roleInfo.description, isSystem: true, permissions: { create: ROLE_PRESETS[roleKey as keyof typeof ROLE_PRESETS].map((permission) => ({ permission })) } }, update: {} });
+      const role = await tx.organizationRole.upsert({ where: { organizationId_key: { organizationId: organizationId!, key: roleKey } }, create: { organizationId: organizationId!, key: roleKey, displayName: roleInfo.displayName, description: roleInfo.description, isSystem: true }, update: {} });
       await tx.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });
       await tx.memberRoleAssignment.create({ data: { memberId: member.id, roleId: role.id, assignedById: userId } });
       await tx.accessRequest.update({ where: { id: request.id }, data: { status: "APPROVED", roleKey, reviewedById: userId, reviewedAt: new Date() } });

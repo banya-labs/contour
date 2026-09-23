@@ -965,9 +965,15 @@ function AgentKioskContent() {
     const currentDeal = agentDeals.find((d) => d.id === dealId);
     if (!currentDeal) return;
 
-    if (currentDeal.stage === "VIEWING_SCHEDULED" || currentDeal.stage === "CONTACTED" || currentDeal.stage === "NEW_INQUIRY") {
-      nextStage = "OFFER_MADE";
-      nextStageLabel = "Written Offer Submitted";
+    if (currentDeal.stage === "NEW_INQUIRY") {
+      nextStage = "CONTACTED";
+      nextStageLabel = "Contacted Lead";
+    } else if (currentDeal.stage === "CONTACTED") {
+      nextStage = "VIEWING_SCHEDULED";
+      nextStageLabel = "Viewing Booked";
+    } else if (currentDeal.stage === "VIEWING_SCHEDULED") {
+      nextStage = "NEGOTIATING";
+      nextStageLabel = "In Negotiation";
     } else if (currentDeal.stage === "NEGOTIATING") {
       nextStage = "OFFER_MADE";
       nextStageLabel = "Written Offer Submitted";

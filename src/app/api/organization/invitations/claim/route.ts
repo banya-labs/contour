@@ -387,9 +387,9 @@ export async function POST(req: NextRequest) {
         displayName: roleInfo.displayName,
         description: roleInfo.description,
         isSystem: true,
-        permissions: {
-          create: (ROLE_PRESETS[roleKey] || []).map((permission) => ({ permission })),
-        },
+        permissions: roleKey === "OWNER" || roleKey === "BROKER_MANAGER"
+          ? { create: (ROLE_PRESETS[roleKey] || []).map((permission) => ({ permission })) }
+          : undefined,
       },
       update: {},
     });
