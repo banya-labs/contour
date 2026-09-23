@@ -1,11 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const outputIndex = args.indexOf("--output");
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : null;
 const intermediatePath = resolve(".artifacts/eslint-raw.json");
+mkdirSync(resolve(".artifacts"), { recursive: true });
 const eslintArgs = ["exec", "eslint", ".", "-f", "json", "-o", intermediatePath, ...args.filter((arg, index) => index !== outputIndex && index !== outputIndex + 1)];
 
 try {
