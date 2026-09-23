@@ -36,6 +36,31 @@ import html2canvas from "html2canvas";
 import { formatCurrency } from "@/lib/utils";
 import { getAgencySettings, AgencySettings } from "@/lib/settings/agency-settings";
 import { publicPropertyPath } from "@/lib/public-property";
+import { resolveFlyerContact, FlyerContactSource } from "./flyer-contact";
+
+async function waitForFlyerAssets(root: HTMLElement): Promise<void> {
+  const images = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    images.map(async (image) => {
+      if (!image.complete) {
+        await new Promise<void>((resolve) => {
+          image.addEventListener("load", () => resolve(), { once: true });
+          image.addEventListener("error", () => resolve(), { once: true });
+        });
+      }
+      if (image.complete && image.naturalWidth > 0 && typeof image.decode === "function") {
+        try {
+          await image.decode();
+        } catch {
+          // The browser may decode an image between the load event and decode().
+        }
+      }
+    }),
+  );
+  if (typeof document !== "undefined" && "fonts" in document) {
+    await document.fonts.ready;
+  }
+}
 
 export type FlyerTemplate = "SWISS_LIGHT" | "SWISS_DARK" | "NAVY_EDITORIAL" | "GOLD_CLASSIC";
 export type FlyerAspectRatio = "4:5" | "1:1" | "9:16";
@@ -54,7 +79,10 @@ export default function SocialMediaCardGeneratorModal({
   const [template, setTemplate] = useState<FlyerTemplate>("SWISS_LIGHT");
   const [aspectRatio, setAspectRatio] = useState<FlyerAspectRatio>("4:5");
   const [agencySettings, setAgencySettings] = useState<AgencySettings | null>(null);
-  const [imageSlots, setImageSlots] = useState({ hero: 0, secondaryOne: 1, secondaryTwo: 2 });
+  const [contactSource, setContactSource] = useState<FlyerContactSource>("agent");
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [imageSlots, setImageSlots] = useState({ hero: 0, secondaryOne: 1, secondaryTwo: 2, secondaryThree: 3, secondaryFour: 4 });
+  const [subImageCount, setSubImageCount] = useState(2);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
@@ -66,7 +94,10 @@ export default function SocialMediaCardGeneratorModal({
   useEffect(() => {
     if (isOpen && property) {
       setAgencySettings(getAgencySettings());
-      setImageSlots({ hero: 0, secondaryOne: 1, secondaryTwo: 2 });
+      setContactSource("agent");
+      setLogoFailed(false);
+      setImageSlots({ hero: 0, secondaryOne: 1, secondaryTwo: 2, secondaryThree: 3, secondaryFour: 4 });
+      setSubImageCount(2);
       void fetch("/api/organization/profile")
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
@@ -103,6 +134,32 @@ export default function SocialMediaCardGeneratorModal({
     ? property.askingPrice || 3500000
     : property.rentalPrice || (property.askingPrice ? Math.round(property.askingPrice / 150) : 2500);
   const currency = property.currency || "ZMW";
+  const assignedAgent = property.assignedAgent || {
+    name: property.assignedAgentName,
+    phone: property.assignedAgentPhone,
+    email: property.assignedAgentEmail,
+    instagram: property.assignedAgentInstagram,
+    website: property.assignedAgentWebsite,
+  };
+  const flyerContact = resolveFlyerContact("agent", assignedAgent, {
+    name: agencySettings?.agencyName,
+    phone: agencySettings?.whatsApp || agencySettings?.phone,
+    email: agencySettings?.email,
+    instagram: agencySettings?.instagramHandle,
+    website: agencySettings?.website,
+  });
+  const activeContact = resolveFlyerContact(
+    contactSource,
+    assignedAgent,
+    {
+      name: agencySettings?.agencyName,
+      phone: agencySettings?.whatsApp || agencySettings?.phone,
+      email: agencySettings?.email,
+      instagram: agencySettings?.instagramHandle,
+      website: agencySettings?.website,
+    },
+  );
+  const logoUrl = agencySettings?.logoUrl?.trim() || "";
 
   const photos = property.photos && property.photos.length > 0
     ? property.photos
@@ -113,8 +170,17 @@ export default function SocialMediaCardGeneratorModal({
       ];
 
   const heroPhoto = photos[imageSlots.hero] || photos[0];
-  const interiorPhoto1 = photos[imageSlots.secondaryOne] || photos[1] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800";
-  const interiorPhoto2 = photos[imageSlots.secondaryTwo] || photos[2] || "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800";
+  const fallbackInteriorPhotos = [
+    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+    "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800",
+    "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=800",
+    "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800",
+  ];
+  const subImageSlots = ["secondaryOne", "secondaryTwo", "secondaryThree", "secondaryFour"] as const;
+  const subImages = subImageSlots.slice(0, subImageCount).map((slot, index) => ({
+    src: photos[imageSlots[slot]] || photos[index + 1] || fallbackInteriorPhotos[index],
+    slot,
+  }));
 
   // Dynamic feature bullet points derived strictly from property data
   const homeFeatures: string[] = property.features && property.features.length > 0
@@ -136,16 +202,22 @@ export default function SocialMediaCardGeneratorModal({
     setIsDownloading(true);
 
     try {
-      // Brief pause to ensure all preview images and webfonts are loaded
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      // Wait for every image/font used by the flyer. A fixed delay is not enough
+      // for signed storage URLs or large property photos.
+      await waitForFlyerAssets(cardRef.current);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       const canvas = await html2canvas(cardRef.current, {
         scale: 2, // High-DPI 2x social media export
         useCORS: true,
         allowTaint: false,
         backgroundColor: isDark ? "#282828" : "#ffffff",
-        logging: true,
+        logging: false,
         imageTimeout: 5000,
+        width: cardRef.current.scrollWidth,
+        height: cardRef.current.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
       });
 
       console.log("[FlyerModal] html2canvas finished successfully, canvas width:", canvas.width);
@@ -169,7 +241,7 @@ export default function SocialMediaCardGeneratorModal({
 
   return (
     <div className="fixed inset-0 z-[2300] bg-[#282828]/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 font-sans animate-in fade-in duration-200">
-      <div className="bg-white border border-[#e0e0e0] flex flex-col overflow-hidden w-full max-w-6xl max-h-[96vh] rounded-none shadow-none">
+      <div className="bg-white border border-[#e0e0e0] flex flex-col overflow-hidden w-full max-w-[1500px] max-h-[96vh] rounded-none shadow-none">
         {/* Modal Header: Swiss Editorial Rule Grid */}
         <div className="px-5 py-3.5 bg-white border-b border-[#e0e0e0] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -317,6 +389,8 @@ export default function SocialMediaCardGeneratorModal({
                   ["hero", "Main image"],
                   ["secondaryOne", "Sub-image 1"],
                   ["secondaryTwo", "Sub-image 2"],
+                  ["secondaryThree", "Sub-image 3"],
+                  ["secondaryFour", "Sub-image 4"],
                 ] as const).map(([slot, label]) => (
                   <div key={slot} className="flex items-center gap-2">
                     <span className="w-20 shrink-0 text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">{label}</span>
@@ -330,6 +404,19 @@ export default function SocialMediaCardGeneratorModal({
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-[#e0e0e0] pt-2">
+                <span className="text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">Sub-images on flyer</span>
+                <select
+                  value={subImageCount}
+                  onChange={(event) => setSubImageCount(Number(event.target.value))}
+                  className="border border-[#e0e0e0] bg-white px-2 py-1 text-[10px] font-mono text-[#282828] focus:border-[#fa3600] focus:outline-hidden"
+                  aria-label="Number of sub-images on flyer"
+                >
+                  {[0, 1, 2, 3, 4].map((count) => (
+                    <option key={count} value={count}>{count}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -361,24 +448,47 @@ export default function SocialMediaCardGeneratorModal({
             </div>
 
             {/* Agency Details Summary */}
-            <div className="p-3 border border-[#e0e0e0] bg-[#fafafa] flex items-center justify-between">
+            <div className="p-3 border border-[#e0e0e0] bg-[#fafafa] space-y-3">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828] block mb-1.5">
+                  Flyer contact details
+                </span>
+                <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Flyer contact details">
+                  {(["agent", "agency"] as const).map((source) => (
+                    <button
+                      key={source}
+                      type="button"
+                      onClick={() => setContactSource(source)}
+                      className={`border px-2.5 py-2 text-left text-[10px] font-mono uppercase transition-colors ${
+                        contactSource === source
+                          ? "border-[#fa3600] bg-[#fff5f3] text-[#282828]"
+                          : "border-[#e0e0e0] bg-white text-[#6b6b6b] hover:border-[#9b9b9b]"
+                      }`}
+                    >
+                      <span className="block font-bold">{source === "agent" ? "Assigned agent" : "Agency"}</span>
+                      <span className="block mt-0.5 normal-case truncate">
+                        {source === "agent" ? flyerContact.name : agencySettings?.agencyName || "Agency"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828] block">
-                  Applied Agency Details:
+                  Applied {contactSource === "agent" ? "Agent" : "Agency"} Details:
                 </span>
                 <p className="text-xs font-heading font-semibold text-[#282828] mt-0.5">
-                  {agencySettings?.agencyName || "Contour Real Estate Zambia"}
+                  {activeContact.name}
                 </p>
                 <p className="text-[10px] font-mono text-[#6b6b6b]">
-                  WhatsApp: {agencySettings?.whatsApp || "+260 97 123 4567"}
+                  Phone: {activeContact.phone}
                 </p>
               </div>
-              <Link
-                href="/dashboard/settings"
-                className="text-[11px] font-mono text-[#fa3600] hover:underline font-semibold"
-              >
-                Settings &rarr;
-              </Link>
+              {contactSource === "agency" && (
+                <Link href="/dashboard/settings" className="text-[11px] font-mono text-[#fa3600] hover:underline font-semibold">
+                  Agency settings &rarr;
+                </Link>
+              )}
             </div>
 
             {/* Download Button */}
@@ -438,7 +548,7 @@ export default function SocialMediaCardGeneratorModal({
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${property.suburb}, Lusaka\n💰 Price: ${currency} ${price?.toLocaleString()}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Brokered by ${agencySettings?.agencyName || "Your agency"} • WhatsApp: ${agencySettings?.whatsApp || "Contact agency"}_`;
+                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${property.suburb}, Lusaka\n💰 Price: ${currency} ${price?.toLocaleString()}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Contact ${activeContact.name} • ${activeContact.phone}_`;
                     navigator.clipboard.writeText(text);
                     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
                   }}
@@ -452,14 +562,14 @@ export default function SocialMediaCardGeneratorModal({
           </div>
 
           {/* Right Column: Live Dynamic Flyer Render Preview (7 Cols) */}
-          <div className="lg:col-span-7 p-3 sm:p-5 flex flex-col items-center justify-center overflow-y-auto bg-[#fafafa] min-h-[520px]">
+          <div className="lg:col-span-7 min-h-0 p-3 sm:p-5 flex flex-col items-center justify-start overflow-y-auto bg-[#fafafa]">
             {/* ------------------------------------------------------------- */}
             {/* FORMAT 1: 4:5 BROCHURE (Portrait)                             */}
             {/* ------------------------------------------------------------- */}
             {aspectRatio === "4:5" && (
               <div
                 ref={cardRef}
-                className={`w-[min(100%,520px)] sm:w-[520px] border border-[#282828] flex flex-col font-sans transition-all relative select-none ${
+                className={`w-full max-w-[680px] border border-[#282828] flex flex-col font-sans transition-all relative select-none ${
                   isDark ? "bg-[#282828] text-white" : "bg-white text-[#282828]"
                 }`}
               >
@@ -482,13 +592,14 @@ export default function SocialMediaCardGeneratorModal({
 
                   {/* Top Left Floating Agency Monogram / Brand Badge */}
                   <div className="absolute top-2.5 left-2.5 bg-[#282828] text-white p-1.5 sm:p-2 flex items-center gap-2 border border-white/20">
-                    {agencySettings?.logoUrl ? (
+                    {logoUrl && !logoFailed ? (
                       <div className="h-6 max-w-[70px] bg-white px-1 py-0.5 flex items-center justify-center">
                         <img
-                          src={agencySettings.logoUrl}
-                          alt={agencySettings.agencyName || "Agency Logo"}
+                          src={logoUrl}
+                          alt={agencySettings?.agencyName || "Agency Logo"}
                           crossOrigin="anonymous"
                           className="h-full w-auto max-w-full object-contain"
+                          onError={() => setLogoFailed(true)}
                         />
                       </div>
                     ) : (
@@ -498,7 +609,7 @@ export default function SocialMediaCardGeneratorModal({
                       />
                     )}
                     <div className="font-heading font-bold text-[9px] uppercase tracking-wider text-white truncate max-w-[110px]">
-                      {agencySettings?.agencyName || "CONTOUR"}
+                      {agencySettings?.agencyName || "Contour"}
                     </div>
                   </div>
 
@@ -557,11 +668,11 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Right Column: Price Box & Stacked Interior Photos (5 Cols) */}
                   <div className="col-span-5 space-y-1.5 flex flex-col justify-between">
                     {/* Top Price Card */}
-                    <div className="bg-[#282828] text-white p-2 border border-[#404040] text-center space-y-0.5">
+                      <div className="bg-[#282828] text-white p-2 border border-[#404040] text-center space-y-0.5 min-w-0">
                       <div className="text-[7.5px] font-mono tracking-wider uppercase text-[#9b9b9b]">
                         {isSale ? "OFFERED AT" : "AVAILABLE LEASE"}
                       </div>
-                      <div className="font-mono font-bold text-[10px] text-white truncate">
+                      <div className="font-mono font-bold text-[10px] leading-tight text-white break-words">
                         {currency} {price?.toLocaleString()}
                         {!isSale && <span className="text-[8px] text-[#fa3600]">/mo</span>}
                       </div>
@@ -570,25 +681,26 @@ export default function SocialMediaCardGeneratorModal({
                       </div>
                     </div>
 
-                    {/* Stacked Interior Photos with 0px sharp borders */}
-                    <div className="space-y-1">
-                      <div className="h-12 border border-[#e0e0e0] overflow-hidden bg-neutral-100">
-                        <img
-                          src={interiorPhoto1}
-                          alt="Living Area"
-                          crossOrigin="anonymous"
-                          className="w-full h-full object-cover"
-                        />
+                    {/* Responsive sub-image grid: images crop centrally, never stretch. */}
+                    {subImages.length > 0 && (
+                      <div className={`grid gap-1 ${subImages.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                        {subImages.map(({ src, slot }, index) => (
+                          <div
+                            key={`${slot}-${index}`}
+                            className={`border border-[#e0e0e0] overflow-hidden bg-neutral-100 ${
+                              subImages.length === 1 ? "h-24" : "aspect-square"
+                            }`}
+                          >
+                            <img
+                              src={src}
+                              alt={`Property sub-image ${index + 1}`}
+                              crossOrigin="anonymous"
+                              className="block h-full w-full object-cover object-center"
+                            />
+                          </div>
+                        ))}
                       </div>
-                      <div className="h-12 border border-[#e0e0e0] overflow-hidden bg-neutral-100">
-                        <img
-                          src={interiorPhoto2}
-                          alt="Bedroom"
-                          crossOrigin="anonymous"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -597,21 +709,21 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Contact Info Tier */}
                   <div className="bg-[#282828] text-white px-3 py-1.5 flex items-center justify-between border-b border-[#404040]">
                     <span className="flex items-center gap-1">
-                      <span className="text-[#fa3600]">TEL:</span> {agencySettings?.whatsApp || "+260 97 123 4567"}
+                      <span className="text-[#fa3600]">TEL:</span> {activeContact.phone}
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="text-[#fa3600]">IG:</span> {agencySettings?.instagramHandle || "@contour.zambia"}
+                      <span className="text-[#fa3600]">IG:</span> {activeContact.instagram || "—"}
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="text-[#fa3600]">WEB:</span> {agencySettings?.website || "www.contour.co.zm"}
+                      <span className="text-[#fa3600]">WEB:</span> {activeContact.website || "—"}
                     </span>
                   </div>
 
                   {/* Address & Booking Tier */}
-                  <div className="flex h-8 bg-black text-white">
-                    <div className="flex-1 flex items-center px-3 gap-1.5 truncate text-[8px] text-neutral-300">
+                  <div className="flex min-h-8 bg-black text-white">
+                    <div className="flex-1 flex items-center px-3 gap-1.5 text-[8px] text-neutral-300 min-w-0 py-1">
                       <MapPin className="w-3 h-3 text-[#fa3600] shrink-0" />
-                      <span className="truncate">
+                      <span className="break-words">
                         {property.suburb}, Lusaka ({property.landmarkDirections || "Prime Area"})
                       </span>
                     </div>
@@ -629,7 +741,7 @@ export default function SocialMediaCardGeneratorModal({
             {aspectRatio === "1:1" && (
               <div
                 ref={cardRef}
-                className={`w-[min(100%,480px)] sm:w-[480px] aspect-square border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
+                className={`w-full max-w-[680px] aspect-square border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
                   isDark ? "bg-[#282828] text-white" : "bg-white text-[#282828]"
                 }`}
               >
@@ -644,20 +756,21 @@ export default function SocialMediaCardGeneratorModal({
 
                   {/* Top Floating Badge */}
                   <div className="absolute top-2.5 left-2.5 bg-[#282828] text-white px-2 py-1 flex items-center gap-1.5 border border-white/20">
-                    {agencySettings?.logoUrl ? (
+                    {logoUrl && !logoFailed ? (
                       <div className="h-4 max-w-[50px] bg-white px-1 py-0.5 flex items-center justify-center">
                         <img
-                          src={agencySettings.logoUrl}
-                          alt={agencySettings.agencyName || "Agency Logo"}
+                          src={logoUrl}
+                          alt={agencySettings?.agencyName || "Agency Logo"}
                           crossOrigin="anonymous"
                           className="h-full w-auto max-w-full object-contain"
+                          onError={() => setLogoFailed(true)}
                         />
                       </div>
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-[#fa3600] shrink-0" />
                     )}
                     <span className="font-heading font-bold text-[8.5px] uppercase tracking-wider truncate max-w-[120px]">
-                      {agencySettings?.agencyName || "CONTOUR"}
+                      {agencySettings?.agencyName || "Contour"}
                     </span>
                   </div>
 
@@ -705,7 +818,7 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Bottom Footer */}
                   <div className="flex items-center justify-between text-[8px] font-mono pt-1">
                     <span className="text-[#6b6b6b]">
-                      TEL: {agencySettings?.whatsApp || "+260 97 123 4567"}
+                      TEL: {activeContact.phone}
                     </span>
                     <span className="font-heading font-bold uppercase text-[#fa3600]">
                       {isSale ? "BOOK VIEWING &rarr;" : "SCHEDULE TOUR &rarr;"}
@@ -736,13 +849,14 @@ export default function SocialMediaCardGeneratorModal({
 
                   {/* Monogram / Brand Crest */}
                   <div className="absolute top-3 left-3 bg-[#282828] text-white px-2 py-1 border border-white/20 flex items-center gap-1.5">
-                    {agencySettings?.logoUrl ? (
+                    {logoUrl && !logoFailed ? (
                       <div className="h-5 max-w-[60px] bg-white px-1 py-0.5 flex items-center justify-center">
                         <img
-                          src={agencySettings.logoUrl}
-                          alt={agencySettings.agencyName || "Agency Logo"}
+                          src={logoUrl}
+                          alt={agencySettings?.agencyName || "Agency Logo"}
                           crossOrigin="anonymous"
                           className="h-full w-auto max-w-full object-contain"
+                          onError={() => setLogoFailed(true)}
                         />
                       </div>
                     ) : (
@@ -752,7 +866,7 @@ export default function SocialMediaCardGeneratorModal({
                       />
                     )}
                     <span className="font-heading font-bold text-[8px] uppercase tracking-wider truncate max-w-[100px]">
-                      {agencySettings?.agencyName || "CONTOUR"}
+                      {agencySettings?.agencyName || "Contour"}
                     </span>
                   </div>
 
@@ -799,7 +913,7 @@ export default function SocialMediaCardGeneratorModal({
                       DIRECT WHATSAPP INQUIRY
                     </div>
                     <div className="text-[8px] font-mono text-neutral-300 mt-0.5">
-                      📞 {agencySettings?.whatsApp || "+260 97 123 4567"}
+                      📞 {activeContact.phone}
                     </div>
                   </div>
                 </div>
