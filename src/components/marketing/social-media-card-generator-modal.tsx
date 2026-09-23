@@ -39,6 +39,7 @@ import { formatPhoneDisplay } from "@/lib/phone-utils";
 import { getAgencySettings, AgencySettings } from "@/lib/settings/agency-settings";
 import { publicPropertyPath } from "@/lib/public-property";
 import { resolveFlyerContact, FlyerContactSource } from "./flyer-contact";
+import { FLYER_CANVAS } from "@/lib/flyer-render-model";
 
 async function waitForFlyerAssets(root: HTMLElement): Promise<number> {
   const images = Array.from(root.querySelectorAll("img"));
@@ -71,13 +72,7 @@ async function waitForFlyerAssets(root: HTMLElement): Promise<number> {
 }
 
 export type FlyerTemplate = "SWISS_LIGHT" | "SWISS_DARK" | "NAVY_EDITORIAL" | "GOLD_CLASSIC";
-export type FlyerAspectRatio = "4:5" | "1:1" | "9:16";
-
-const FLYER_CANVAS = {
-  "4:5": { width: 1080, height: 1350 },
-  "1:1": { width: 1080, height: 1080 },
-  "9:16": { width: 1080, height: 1920 },
-} as const;
+export type FlyerAspectRatio = keyof typeof FLYER_CANVAS;
 
 function formatFlyerPrice(value: number | null | undefined): string {
   return value == null ? "—" : new Intl.NumberFormat("en-US").format(value).replace(/,/g, " ");
