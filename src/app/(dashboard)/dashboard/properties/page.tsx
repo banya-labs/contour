@@ -180,7 +180,7 @@ function PropertiesCatalogContent() {
 
   const handleDeleteProperty = async (property: any, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!window.confirm(`Delete “${property.title}”? This removes the listing and its associated records.`)) return;
+    if (!property.__confirmedDelete && !window.confirm(`Delete “${property.title}”? This removes the listing and its associated records.`)) return;
     setDeletingPropertyId(property.id);
     try {
       const response = await fetch(`/api/properties?id=${encodeURIComponent(property.id)}`, { method: "DELETE" });

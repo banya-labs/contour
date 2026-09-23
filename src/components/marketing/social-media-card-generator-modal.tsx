@@ -82,23 +82,26 @@ function FlyerFooter({
   qrCodeUrl,
   contactName,
   contactPhone,
+  zieaNumber,
   isSale,
 }: {
   qrCodeUrl: string;
   contactName: string;
   contactPhone: string;
+  zieaNumber: string;
   isSale: boolean;
 }) {
   return (
-    <div className="flex min-h-12 shrink-0 border-t border-[#282828] bg-black text-white">
+    <div className="flex min-h-14 shrink-0 border-t border-[#282828] bg-black text-white">
       <div className="flex w-14 shrink-0 items-center justify-center bg-white p-1.5">
         {qrCodeUrl ? <img src={qrCodeUrl} alt="Scan to view this property" className="h-full w-full object-contain" /> : <span className="text-[7px] font-mono text-[#282828]">SCAN</span>}
       </div>
       <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5">
         <img src="/images/whatsapp-icon.svg" alt="WhatsApp" className="h-4 w-4 shrink-0 object-contain" />
         <div className="min-w-0">
-          <div className="font-heading text-[9px] font-bold uppercase tracking-wider">Contact {contactName}</div>
-          <div className="truncate text-[8px] font-mono text-neutral-300">WhatsApp {formatPhoneDisplay(contactPhone) || "number unavailable"}</div>
+          <div className="truncate font-heading text-[7.5px] font-bold uppercase tracking-wide">For more information and viewings, contact {contactName}</div>
+          <div className="truncate font-mono text-[11px] font-extrabold leading-tight text-white">{formatPhoneDisplay(contactPhone) || "number unavailable"}</div>
+          <div className="truncate text-[7px] font-mono text-neutral-300">ZIEA No. {zieaNumber || "—"}</div>
         </div>
       </div>
       <div className="flex items-center bg-[#fa3600] px-3 font-heading text-[8.5px] font-bold uppercase tracking-wider text-white">
@@ -394,20 +397,11 @@ export default function SocialMediaCardGeneratorModal({
               className="w-7 h-7 rounded-full bg-[#fa3600] shrink-0"
             />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] text-[#fa3600] font-bold uppercase tracking-widest">
-                  [MKTG-01]
-                </span>
+              <div>
                 <h3 className="font-heading font-bold text-base text-[#282828] uppercase tracking-tight">
                   Social Media Marketing Flyer Generator
                 </h3>
-                <span className="text-[9px] font-mono font-bold px-2 py-0.5 bg-[#fff5f3] text-[#fa3600] border border-[#fa3600]/30 uppercase">
-                  Swiss Editorial
-                </span>
               </div>
-              <p className="text-[11px] font-mono text-[#6b6b6b] mt-0.5">
-                Authentic listing specs compiled with 1px architectural grid rules &amp; Contour Red accents.
-              </p>
             </div>
           </div>
 
@@ -836,7 +830,7 @@ export default function SocialMediaCardGeneratorModal({
                     <div>
                       {/* Telemetry Stand Line */}
                       <div className="text-[8px] font-mono uppercase tracking-widest text-[#fa3600] font-bold">
-                        STAND # 8942-A • EXCLUSIVE MANDATE
+                        {(property.suburb || "Lusaka").toUpperCase()} • EXCLUSIVE MANDATE
                       </div>
                       <h4 className={`font-heading font-extrabold text-xs sm:text-sm uppercase tracking-tight leading-tight mt-0.5 ${
                         isDark ? "text-white" : "text-[#282828]"
@@ -874,7 +868,7 @@ export default function SocialMediaCardGeneratorModal({
                   </div>
 
                   {/* Right Column: Price Box & Stacked Interior Photos (5 Cols) */}
-                  <div className="col-span-5 space-y-1.5 flex flex-col justify-between">
+                  <div className="col-span-5 flex min-h-0 flex-col justify-start gap-1.5">
                     {/* Top Price Card */}
                       <div className="bg-black text-white p-2.5 border border-black text-center space-y-1 min-w-0">
                       <div className="text-[9px] font-mono tracking-wider uppercase text-[#bdbdbd]">
@@ -907,7 +901,7 @@ export default function SocialMediaCardGeneratorModal({
                   </div>
                 </div>
 
-                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} isSale={isSale} />
+                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} zieaNumber={agencySettings?.licenseNumber || ""} isSale={isSale} />
               </div>
             )}
 
@@ -973,10 +967,16 @@ export default function SocialMediaCardGeneratorModal({
                     }`}>
                       <span className="line-clamp-2">{property.title}</span>
                     </h4>
+
+                    <p className={`mt-2 text-[9px] font-mono leading-snug break-words ${
+                      isDark ? "text-neutral-300" : "text-[#6b6b6b]"
+                    }`}>
+                      <span className="line-clamp-5">{flyerCopy}</span>
+                    </p>
                   </div>
 
                   {/* 4 Feature Badges */}
-                  <div className="grid grid-cols-4 gap-1 py-1.5 border-y border-[#e0e0e0] font-mono text-[8px] text-center">
+                  <div className="mt-2 grid grid-cols-4 gap-1 py-1.5 border-y border-[#e0e0e0] font-mono text-[8px] text-center">
                     <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] break-words">
                       🛏 {property.bedrooms || 4} Beds
                     </div>
@@ -992,7 +992,7 @@ export default function SocialMediaCardGeneratorModal({
                   </div>
 
                 </div>
-                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} isSale={isSale} />
+                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} zieaNumber={agencySettings?.licenseNumber || ""} isSale={isSale} />
               </div>
             )}
 
@@ -1039,8 +1039,9 @@ export default function SocialMediaCardGeneratorModal({
                   </div>
 
                   {/* Stand badge */}
-                  <div className="absolute bottom-2.5 left-2.5 bg-black text-white px-2 py-0.5 text-[8px] font-mono border border-white/20">
-                    📍 {property.suburb}, Lusaka
+                  <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-black text-white px-2 py-0.5 text-[8px] font-mono border border-white/20">
+                    <MapPin className="h-2.5 w-2.5 shrink-0 text-[#fa3600]" aria-hidden="true" />
+                    <span>{property.suburb}, Lusaka</span>
                   </div>
 
                   <div className="absolute bottom-2.5 right-2.5 bg-[#fa3600] text-white px-2 py-0.5 text-[8px] font-mono font-bold">
@@ -1059,9 +1060,9 @@ export default function SocialMediaCardGeneratorModal({
                     }`}>
                       <span className="line-clamp-2">{property.title}</span>
                     </h4>
-                    <div className="font-mono font-bold text-sm text-[#fa3600] mt-1">
+                    <div className="mt-1 font-mono text-lg font-extrabold leading-none tracking-tight text-[#fa3600]">
                       {currency} {formatFlyerPrice(price)}
-                      {!isSale && <span className="text-[9px] text-[#9b9b9b]">/mo</span>}
+                      {!isSale && <span className="ml-0.5 text-[9px] font-bold text-[#9b9b9b]">/mo</span>}
                     </div>
                   </div>
 
@@ -1076,7 +1077,7 @@ export default function SocialMediaCardGeneratorModal({
                   </div>
 
                 </div>
-                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} isSale={isSale} />
+                <FlyerFooter qrCodeUrl={qrCodeUrl} contactName={activeContact.name} contactPhone={activeContact.phone} zieaNumber={agencySettings?.licenseNumber || ""} isSale={isSale} />
               </div>
             )}
           </div>

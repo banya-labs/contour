@@ -615,29 +615,16 @@ function SettingsContent() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <div>
                     <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                      Zambian REA / Valuation License #
+                      ZIEA No.
                     </label>
                     <input
                       type="text"
                       value={settings.licenseNumber}
                       onChange={(e) =>
                         setSettings({ ...settings, licenseNumber: e.target.value })
-                      }
-                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                      PACRA Company Reg #
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.pacraNumber || "120240091823"}
-                      onChange={(e) =>
-                        setSettings({ ...settings, pacraNumber: e.target.value })
                       }
                       className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
                     />
@@ -792,7 +779,7 @@ function SettingsContent() {
                       {settings.agencyName || "Lusaka Prime Properties"}
                     </h4>
                     <p className="text-[11px] font-geist text-editorial-muted">
-                      License #{settings.licenseNumber || "REA-ZM-8841"}
+                      ZIEA No. {settings.licenseNumber || "ZIEA-ZM-8841"}
                     </p>
                   </div>
                 </div>

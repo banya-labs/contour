@@ -139,6 +139,7 @@ export default function PropertyFullDetailModal({
   const [copiedLink, setCopiedLink] = useState(false);
   const [isAddingPhotosViewMode, setIsAddingPhotosViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   // Real Organization Agents State
   const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; phone?: string; email?: string; roleKey?: string }>>([]);
@@ -682,17 +683,6 @@ export default function PropertyFullDetailModal({
                   <Edit3 className="w-3.5 h-3.5 text-[#FA3600]" />
                   <span className="hidden sm:inline">Edit Details</span><span className="sm:hidden">Edit</span>
                 </button>
-                {onDeleteProperty && (
-                  <button
-                    type="button"
-                    onClick={() => onDeleteProperty(property)}
-                    className="flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 border border-red-200 bg-white text-red-700 hover:bg-red-50 text-[10px] sm:text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
-                    title="Delete property"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline ml-1.5">Delete</span>
-                  </button>
-                )}
               </div>
             )}
 
@@ -816,6 +806,18 @@ export default function PropertyFullDetailModal({
                   </>
                 )}
               </button>
+
+              {onDeleteProperty && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirmation(true)}
+                  className="w-auto md:w-full text-left px-3 py-2.5 md:py-2 text-[10px] md:text-xs font-heading font-semibold uppercase tracking-wider text-red-700 hover:bg-red-50 flex items-center gap-2.5 transition-colors whitespace-nowrap"
+                  title="Delete property"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Property</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -959,8 +961,30 @@ export default function PropertyFullDetailModal({
                               <option key={s} value={s} />
                             ))}
                           </datalist>
-                        </div>
-                      </div>
+        </div>
+
+        {showDeleteConfirmation && onDeleteProperty && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-property-title">
+            <div className="w-full max-w-md border border-[#E6E4DF] bg-white p-5 shadow-xl">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-red-50 text-red-700">
+                  <Trash2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 id="delete-property-title" className="font-heading text-sm font-bold uppercase tracking-wider text-[#1C1C1A]">Delete property?</h2>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#54524D]">
+                    Are you sure you want to delete <strong>{property.title}</strong>? This removes the listing and its associated records. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button type="button" onClick={() => setShowDeleteConfirmation(false)} className="border border-[#E6E4DF] px-3 py-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] hover:bg-[#F5F0E8]">Cancel</button>
+                <button type="button" onClick={() => { setShowDeleteConfirmation(false); onDeleteProperty({ ...property, __confirmedDelete: true }); }} className="bg-red-700 px-3 py-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-white hover:bg-red-800">Confirm Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
                       <div>
                         <label className="block font-heading font-bold text-xs text-[#1C1C1A] uppercase tracking-wider mb-1.5">
