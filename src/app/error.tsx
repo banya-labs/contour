@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import Link from "next/link";
 import { ContourLogo } from "@/components/brand/contour-logo";
 
 export default function GlobalError({
@@ -32,12 +33,12 @@ export default function GlobalError({
           >
             Try Again
           </button>
-          <a
+          <Link
             href="/"
             className="px-5 py-2.5 border border-editorial-border hover:border-black font-heading font-bold text-xs uppercase tracking-wider transition-colors"
           >
             Home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

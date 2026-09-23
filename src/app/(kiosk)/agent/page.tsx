@@ -1075,13 +1075,13 @@ function AgentKioskContent() {
           </div>
 
           <div className="space-y-2.5 pt-2">
-            <a
+            <Link
               href="/sign-in?redirect_url=%2Fagent"
               className="flex w-full items-center justify-center gap-2 bg-editorial-black hover:bg-contour-red text-white py-3 px-4 text-xs font-heading font-bold uppercase tracking-wider transition-colors shadow-xs"
             >
               <span>Continue to Sign In</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
 
             {isDev && (
               <button

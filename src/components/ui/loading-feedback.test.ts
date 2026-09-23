@@ -27,14 +27,9 @@ describe("Contour loading feedback", () => {
 
   it("keeps pending button copy explicit", () => {
     const html = renderToStaticMarkup(
-      createElement(
-        PendingButtonContent,
-        {
-          pending: true,
-          pendingLabel: "Saving client changes",
-          children: "Save Changes",
-        },
-      ),
+      <PendingButtonContent pending pendingLabel="Saving client changes">
+        Save Changes
+      </PendingButtonContent>,
     );
 
     expect(html).toContain("Saving client changes");
