@@ -86,7 +86,7 @@ export const auth = betterAuth({
   },
   // Fix 7: Auth audit trail — write sign-in / sign-out events to AuditLog.
   hooks: {
-    after: createAuthMiddleware(async (ctx: any) => {
+    after: createAuthMiddleware(async (ctx) => {
       if (ctx.path === "/sign-in/email") {
         try {
           const ip = ctx.request?.headers?.get("x-forwarded-for") ?? "unknown";
