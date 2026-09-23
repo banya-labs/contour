@@ -36,8 +36,9 @@ if (redisUrl) {
     redisClient.on("connect", () => {
       console.log("[Redis] Connected successfully.");
     });
-  } catch (err: any) {
-    console.warn("[Redis] Failed to initialize Redis client:", err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[Redis] Failed to initialize Redis client:", message);
     redisClient = null;
   }
 } else {

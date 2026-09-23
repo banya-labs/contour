@@ -36,7 +36,7 @@ if (typeof setInterval !== "undefined") {
   }, 300000);
   // Ensure unref if available in Node environment
   if (cleanup && typeof cleanup === "object" && "unref" in cleanup) {
-    (cleanup as any).unref();
+    (cleanup as NodeJS.Timeout).unref();
   }
 }
 
@@ -103,8 +103,9 @@ export async function checkRateLimit(
       const resetSeconds = result[2];
 
       return { allowed, limit, remaining, resetSeconds };
-    } catch (err: any) {
-      console.warn(`[RateLimiter] Redis error for key ${key}, falling back to in-memory:`, err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[RateLimiter] Redis error for key ${key}, falling back to in-memory:`, message);
     }
   }
 
