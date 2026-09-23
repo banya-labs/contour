@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContourDatabase } from "./local-first/database";
+import { clearLocalFirstDatabase, getLocalFirstDatabase, readLocalFirstCache, setLocalFirstDatabase, writeLocalFirstCache } from "./local-first/cache";
+import type { LocalFirstIdentity } from "./local-first/types";
 
 // Types
 export interface OfflineOutboxItem {
@@ -124,11 +127,12 @@ export function clearLocalOfflineCache() {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && (key.startsWith("powersync_cache_") || key === "powersync_online_state")) {
+      if (key && (key.startsWith("powersync_cache_") || key.startsWith("contour_local_db_key_") || key === "powersync_online_state")) {
         keysToRemove.push(key);
       }
     }
     keysToRemove.forEach((k) => localStorage.removeItem(k));
+    void clearLocalFirstDatabase().catch((error) => console.warn("Failed to clear local-first database", error));
   } catch (err) {
     console.error("Failed to clear local offline cache:", err);
   }
@@ -165,6 +169,7 @@ function setLocalCache(key: string, data: any) {
       data,
     };
     localStorage.setItem(`powersync_cache_${key}`, JSON.stringify(payload));
+    void writeLocalFirstCache(key, data);
   } catch (err) {
     console.warn("Failed to update local cache:", err);
   }
@@ -220,7 +225,35 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
         if (tokenRes.ok) {
           const tokenData = await tokenRes.json().catch(() => null);
           if (tokenData?.success) {
-            // PowerSync stream token active
+            const [, encodedPayload] = String(tokenData.token).split(".");
+            const claims = encodedPayload ? JSON.parse(atob(encodedPayload)) as { sub?: string; org_id?: string; role?: string; exp?: number } : null;
+            if (claims?.sub && claims.org_id && claims.exp) {
+              const databaseKey = getOrCreateDatabaseKey(claims.org_id, claims.sub);
+              const identity: LocalFirstIdentity = {
+                userId: claims.sub,
+                organizationId: claims.org_id,
+                role: claims.role || "FIELD_AGENT",
+                databaseKey,
+                expiresAt: new Date(claims.exp * 1000).toISOString(),
+              };
+              const database = getLocalFirstDatabase() || createContourDatabase(identity);
+              if (!getLocalFirstDatabase()) {
+                await database.init();
+                setLocalFirstDatabase(database);
+              }
+              const [cachedProperties, cachedLeases, cachedClients, cachedSales, cachedOutbox] = await Promise.all([
+                readLocalFirstCache("properties", [] as any[]),
+                readLocalFirstCache("leases", [] as any[]),
+                readLocalFirstCache("clients", [] as any[]),
+                readLocalFirstCache("sales", [] as any[]),
+                readLocalFirstCache("outbox", [] as OfflineOutboxItem[]),
+              ]);
+              setProperties(cachedProperties);
+              setLeases(cachedLeases);
+              setClients(cachedClients);
+              setSales(cachedSales);
+              setOutbox(cachedOutbox);
+            }
           }
         }
       } catch (tokenErr) {
@@ -477,4 +510,13 @@ export function usePowerSync() {
     throw new Error("usePowerSync must be used within a PowerSyncProvider");
   }
   return context;
+}
+
+function getOrCreateDatabaseKey(organizationId: string, userId: string): string {
+  const keyName = `contour_local_db_key_${organizationId}_${userId}`;
+  const existing = localStorage.getItem(keyName);
+  if (existing) return existing;
+  const key = crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", "");
+  localStorage.setItem(keyName, key);
+  return key;
 }

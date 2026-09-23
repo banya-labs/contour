@@ -15,4 +15,5 @@ export const contourSchema = new Schema({
   follow_ups: new Table({ ...identityColumns, entity_type: column.text, entity_id: column.text, assigned_agent_id: column.text, due_at: column.text, status: column.text, notes: column.text }),
   sync_mutations: Table.createLocalOnly({ organization_id: column.text, user_id: column.text, entity_type: column.text, entity_id: column.text, operation: column.text, payload_json: column.text, status: column.text, created_at: column.text, retry_count: column.integer, last_error: column.text }),
   sync_conflicts: Table.createLocalOnly({ organization_id: column.text, entity_type: column.text, entity_id: column.text, local_json: column.text, server_json: column.text, status: column.text, created_at: column.text }),
+  offline_cache: Table.createLocalOnly({ cache_key: column.text, data_json: column.text, updated_at: column.text }),
 });
