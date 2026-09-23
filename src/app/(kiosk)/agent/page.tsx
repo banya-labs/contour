@@ -63,6 +63,9 @@ import PropertyImageUploader from "@/components/properties/property-image-upload
 import { canManagePropertyPhotos } from "@/lib/authorization";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
 import { normalizePhoneNumber, formatWhatsAppDigits } from "@/lib/phone-utils";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -121,8 +124,16 @@ function AgentKioskContent() {
   const [selectedPropertyDetail, setSelectedPropertyDetail] = useState<any | null>(null);
   const [intakeDrawer, setIntakeDrawer] = useState<IntakeType>("NONE");
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [pendingCapture, setPendingCapture] = useState<Exclude<IntakeType, "NONE"> | null>(null);
+  const [fieldSyncStatus, setFieldSyncStatus] = useState<FieldSyncStatus | null>(null);
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
   const [flyerModalProperty, setFlyerModalProperty] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (fieldSyncStatus === "SYNCING" && !loading && outboxCount === 0) {
+      setFieldSyncStatus("SYNCED");
+    }
+  }, [fieldSyncStatus, loading, outboxCount]);
 
 
   // Real Agent Persona & Summary State
@@ -731,13 +742,22 @@ function AgentKioskContent() {
       createdAt: new Date().toISOString(),
     };
 
-    await addToOutbox("PROPERTY", "/api/properties", payload);
-    playSuccessTone();
-    setIntakeDrawer("NONE");
-    setNewPropTitle("");
-    setNewPropPrice("");
-    setNewPropPhotos([]);
-    setNewPropFeaturedPhoto(undefined);
+    setPendingCapture("PROPERTY");
+    setFieldSyncStatus("SAVING_LOCAL");
+    try {
+      await addToOutbox("PROPERTY", "/api/properties", payload);
+      setFieldSyncStatus(isOnline ? "SYNCING" : "QUEUED");
+      playSuccessTone();
+      setIntakeDrawer("NONE");
+      setNewPropTitle("");
+      setNewPropPrice("");
+      setNewPropPhotos([]);
+      setNewPropFeaturedPhoto(undefined);
+    } catch {
+      setFieldSyncStatus("FAILED");
+    } finally {
+      setPendingCapture(null);
+    }
   };
 
   // Submit Intake: New Client (Search Request & Optional Immediate Offer)
@@ -817,7 +837,11 @@ function AgentKioskContent() {
       setAgentDeals((prev) => [newDeal, ...prev]);
     }
 
+    setPendingCapture("CLIENT");
+    setFieldSyncStatus("SAVING_LOCAL");
+    try {
     await addToOutbox("INQUIRY", "/api/clients", payload);
+    setFieldSyncStatus(isOnline ? "SYNCING" : "QUEUED");
     playSuccessTone();
     setIntakeDrawer("NONE");
     setNewClientName("");
@@ -829,6 +853,11 @@ function AgentKioskContent() {
     setNewClientAttachOffer(false);
     setNewClientOfferPropertyId("");
     setNewClientOfferAmount("");
+    } catch {
+      setFieldSyncStatus("FAILED");
+    } finally {
+      setPendingCapture(null);
+    }
   };
 
   // Submit Intake: Formal Offer (Select Existing or New Client)
@@ -905,7 +934,11 @@ function AgentKioskContent() {
       exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
 
+    setPendingCapture("OFFER");
+    setFieldSyncStatus("SAVING_LOCAL");
+    try {
     await addToOutbox("INQUIRY", "/api/clients", payload);
+    setFieldSyncStatus(isOnline ? "SYNCING" : "QUEUED");
     playSuccessTone();
     setIntakeDrawer("NONE");
     setOfferPropertyId("");
@@ -913,6 +946,11 @@ function AgentKioskContent() {
     setOfferClientName("");
     setOfferClientPhone("");
     setOfferAmount("");
+    } catch {
+      setFieldSyncStatus("FAILED");
+    } finally {
+      setPendingCapture(null);
+    }
   };
 
   // Deal Stage Advancement with real-time server synchronization
@@ -1049,8 +1087,7 @@ function AgentKioskContent() {
                 onClick={() => void handleDevQuickLogin()}
                 className="flex w-full items-center justify-center gap-2 border border-stone-300 bg-stone-50 hover:bg-stone-100 text-editorial-black py-2.5 px-4 text-[11px] font-heading font-bold uppercase tracking-wider transition-colors"
               >
-                <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                <span>{isLoggingInDev ? "Logging in..." : "Fast Dev Login (Tembo - Agent)"}</span>
+                <PendingButtonContent pending={isLoggingInDev} pendingLabel="Signing in…">Fast Dev Login (Tembo - Agent)</PendingButtonContent>
               </button>
             )}
           </div>
@@ -1209,6 +1246,12 @@ function AgentKioskContent() {
               </button>
             )}
           </section>
+        )}
+        {fieldSyncStatus && (
+          <div role="status" aria-live="polite" className="flex items-center gap-2 border border-editorial-border bg-white px-3 py-2 text-xs font-semibold text-editorial-black">
+            {fieldSyncStatus === "SYNCING" ? <ContourSunLoader size="sm" label={fieldSyncCopy(fieldSyncStatus).label} decorative /> : <span className={`h-2 w-2 rounded-full ${fieldSyncStatus === "FAILED" ? "bg-red-500" : fieldSyncStatus === "QUEUED" ? "bg-amber-500" : "bg-emerald-600"}`} />}
+            {fieldSyncCopy(fieldSyncStatus).label}
+          </div>
         )}
         
         {/* ================= TAB 0: WORK QUEUE ================= */}
@@ -2803,10 +2846,10 @@ function AgentKioskContent() {
 
                 <button
                   type="submit"
+                  disabled={pendingCapture === "PROPERTY"}
                   className="w-full py-3 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider transition-all mt-2 flex items-center justify-center gap-1.5"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>Save Mandate to Field Outbox</span>
+                  <PendingButtonContent pending={pendingCapture === "PROPERTY"} pendingLabel="Saving property…">Save Mandate to Field Outbox</PendingButtonContent>
                 </button>
               </form>
             )}
@@ -3034,10 +3077,10 @@ function AgentKioskContent() {
 
                 <button
                   type="submit"
+                  disabled={pendingCapture === "CLIENT"}
                   className="w-full py-3 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider transition-all mt-2 flex items-center justify-center gap-1.5"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>{newClientAttachOffer ? "Lock Client & Submit Offer to Pipeline" : "Lock & Register Client"}</span>
+                  <PendingButtonContent pending={pendingCapture === "CLIENT"} pendingLabel="Saving client…">{newClientAttachOffer ? "Lock Client & Submit Offer to Pipeline" : "Lock & Register Client"}</PendingButtonContent>
                 </button>
               </form>
             )}
@@ -3187,10 +3230,10 @@ function AgentKioskContent() {
 
                 <button
                   type="submit"
+                  disabled={pendingCapture === "OFFER"}
                   className="w-full py-3 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider transition-all mt-2 flex items-center justify-center gap-1.5"
                 >
-                  <Send className="w-4 h-4" />
-                  <span>Submit Offer to Deal Pipeline</span>
+                  <PendingButtonContent pending={pendingCapture === "OFFER"} pendingLabel="Submitting offer…">Submit Offer to Deal Pipeline</PendingButtonContent>
                 </button>
               </form>
             )}

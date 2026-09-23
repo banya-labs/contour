@@ -11,12 +11,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   KeyRound,
-  Loader2,
   Building,
   Scale,
   Calendar,
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 interface RequestDetails {
   id: string;
@@ -214,10 +215,7 @@ export default function ClientUploadPortalPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center p-4 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-600 mb-3" />
-        <p className="text-sm font-medium text-stone-600 dark:text-stone-300">
-          Loading secure document upload portal...
-        </p>
+        <SectionPendingState label="Checking secure upload link…" description="Confirming this request and its security controls." />
       </div>
     );
   }
@@ -314,8 +312,7 @@ export default function ClientUploadPortalPage() {
                 disabled={verifyingPin || !pin}
                 className="w-full py-2.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
-                {verifyingPin ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                <span>Unlock Portal</span>
+                <PendingButtonContent pending={verifyingPin} pendingLabel="Verifying access code…">Unlock Portal</PendingButtonContent>
               </button>
             </form>
           </div>
@@ -472,17 +469,7 @@ export default function ClientUploadPortalPage() {
               disabled={uploading || selectedFiles.length === 0 || !consentAgreed}
               className="w-full py-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {uploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{uploadProgress || "Encrypting & Uploading..."}</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Upload Documents Safely</span>
-                </>
-              )}
+              <PendingButtonContent pending={uploading} pendingLabel={uploadProgress || `Uploading ${selectedFiles[0]?.name || "document"}…`}>Upload Documents Safely</PendingButtonContent>
             </button>
           </form>
         )}

@@ -22,6 +22,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -248,15 +249,10 @@ function PublicMapInner() {
       </header>
 
       {/* ── Main Map Canvas ── */}
-      <main className="flex-1 w-full relative overflow-hidden">
+      <main className="flex-1 w-full relative overflow-hidden" aria-busy={loading}>
         {loading ? (
           <div className="w-full h-full min-h-[400px] bg-neutral-50 flex items-center justify-center text-xs text-editorial-muted">
-            <div className="flex flex-col items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-contour-red animate-ping" />
-              <span className="font-mono text-xs uppercase tracking-wider text-editorial-black font-semibold">
-                Loading Organization Spatial Coordinates...
-              </span>
-            </div>
+            <SectionPendingState label="Loading public property map…" description="Resolving available mandates and map coordinates." />
           </div>
         ) : (
           <InteractivePropertyMap
