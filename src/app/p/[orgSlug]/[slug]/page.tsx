@@ -1,4 +1,4 @@
-import PublicPropertyCardPage, { generateMetadata as baseGenerateMetadata } from "../../[slug]/page";
+import PublicPropertyCardPage, { generateMetadata as baseGenerateMetadata } from "@/components/properties/public-property-card-page";
 import type { Metadata } from "next";
 
 export async function generateMetadata({

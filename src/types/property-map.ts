@@ -2,6 +2,7 @@ export type PropertyMapItem = {
   id: string;
   title: string;
   slug: string;
+  organizationSlug?: string | null;
   listingType: "FOR_SALE" | "FOR_RENT" | "BOTH";
   status: "AVAILABLE" | "UNDER_OFFER" | "SOLD" | "RENTED" | "MAINTENANCE_HOLD" | "DRAFT";
   ownershipType: "COMPANY_OWNED" | "MANAGED_ON_BEHALF";
