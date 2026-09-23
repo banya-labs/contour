@@ -44,7 +44,7 @@ const getHandler = createApiHandler({
             email: true,
           }
         },
-        property: { select: { id: true, title: true, suburb: true } },
+        property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } },
       },
       orderBy: { createdAt: "desc" }
     });
@@ -130,6 +130,7 @@ const postHandler = createApiHandler({
             id: true,
             title: true,
             suburb: true,
+            agencyCommissionPct: true,
           },
         },
       },

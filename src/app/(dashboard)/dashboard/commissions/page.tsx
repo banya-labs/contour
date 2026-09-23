@@ -74,14 +74,14 @@ export default function CommissionsPage() {
             Financial Ledger
           </span>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
-            5% Statutory Brokerage Model
+            Per-Property Contracted Rates
           </span>
         </div>
         <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
           Commission & Deal Splits Ledger
         </h1>
         <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
-          Distinguish gross asset conveyance volume from contracted 5% agency commission and 50% field agent payouts.
+          Distinguish gross asset conveyance volume from each property&apos;s contracted agency commission and field agent payouts.
         </p>
       </div>
 
@@ -89,7 +89,7 @@ export default function CommissionsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
         <MotionCard withCorners className="p-3.5 sm:p-5">
           <span className="text-[9px] sm:text-[10px] font-heading font-bold text-contour-red uppercase tracking-wider">
-            Total 5% Agency Commission
+            Total Agency Commission
           </span>
           <div className="font-geist text-xl sm:text-2xl font-bold text-contour-red mt-1 tracking-tight truncate">
             {loading ? "…" : stats.earnedStr}
@@ -170,7 +170,7 @@ export default function CommissionsPage() {
                       <strong className="text-editorial-black">{formatCurrency(Number(tx.grossValue), tx.currency)}</strong>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-editorial-muted">5% Agency Fee:</span>
+                      <span className="text-editorial-muted">{Number(tx.agencyCommissionPct)}% Agency Fee:</span>
                       <strong className="text-contour-red">{formatCurrency(Number(tx.agencyCommissionAmount), tx.currency)}</strong>
                     </div>
                     <div className="flex items-center justify-between">
@@ -193,7 +193,7 @@ export default function CommissionsPage() {
                   <tr>
                     <th className="py-3 px-4">Property Deal</th>
                     <th className="py-3 px-4">Gross Asset Value</th>
-                    <th className="py-3 px-4">5% Agency Fee</th>
+                    <th className="py-3 px-4">Agency Fee</th>
                     <th className="py-3 px-4">Agent Share (50%)</th>
                     <th className="py-3 px-4">Closing Agent</th>
                     <th className="py-3 px-4">Status</th>

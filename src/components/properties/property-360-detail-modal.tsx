@@ -41,6 +41,7 @@ import TitleDeedOcrUploader, { TitleDeedOcrResult } from "@/components/propertie
 import { useSession } from "@/lib/auth-client";
 import { canManagePropertyPhotos } from "@/lib/authorization";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
+import { publicPropertyPath } from "@/lib/public-property";
 
 export type DealParty = {
   id: string;
@@ -56,6 +57,7 @@ type PropertyFullDetailModalProps = {
   isOpen: boolean;
   onClose: () => void;
   property: any;
+  canOverrideCommission?: boolean;
   onUpdateProperty?: (updatedProperty: any) => void;
   onOpenSocialGenerator: (property: any) => void;
   onOpenMatchingBuyers: (property: any) => void;
@@ -86,6 +88,7 @@ export default function PropertyFullDetailModal({
   isOpen,
   onClose,
   property,
+  canOverrideCommission = false,
   onUpdateProperty,
   onOpenSocialGenerator,
   onOpenMatchingBuyers,
@@ -220,6 +223,7 @@ export default function PropertyFullDetailModal({
         askingPrice: property.askingPrice !== undefined ? String(property.askingPrice) : "",
         rentalPrice: property.rentalPrice !== undefined ? String(property.rentalPrice) : "",
         currency: property.currency || "ZMW",
+        agencyCommissionPct: property.agencyCommissionPct !== undefined ? String(property.agencyCommissionPct) : (property.listingType === "FOR_RENT" ? "10" : "5"),
         bedrooms: property.bedrooms !== undefined ? property.bedrooms : 3,
         bathrooms: property.bathrooms !== undefined ? property.bathrooms : 2,
         plotSizeSqm: property.plotSizeSqm || 500,
@@ -259,7 +263,7 @@ export default function PropertyFullDetailModal({
   // Share Public Link
   const handleSharePropertyLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
-    const publicUrl = `${origin}/p/${property.slug || property.id}`;
+    const publicUrl = `${origin}${publicPropertyPath(property.organization?.slug || property.organizationSlug || "organization", property.slug || property.id)}`;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(publicUrl).catch(() => {});
     }
@@ -272,6 +276,11 @@ export default function PropertyFullDetailModal({
     if (e) e.preventDefault();
     if (!editFormData.title.trim()) {
       alert("Property title cannot be empty.");
+      return;
+    }
+    const commissionPct = parseFloat(editFormData.agencyCommissionPct);
+    if (canOverrideCommission && (!Number.isFinite(commissionPct) || commissionPct < 0 || commissionPct > 100)) {
+      alert("Commission percentage must be between 0 and 100.");
       return;
     }
 
@@ -291,6 +300,7 @@ export default function PropertyFullDetailModal({
       askingPrice: editFormData.listingType === "FOR_SALE" ? priceNum : undefined,
       rentalPrice: editFormData.listingType === "FOR_RENT" ? priceNum : undefined,
       currency: editFormData.currency,
+      agencyCommissionPct: canOverrideCommission ? commissionPct : property.agencyCommissionPct,
       bedrooms: parseInt(editFormData.bedrooms) || 0,
       bathrooms: parseFloat(editFormData.bathrooms) || 0,
       plotSizeSqm: parseFloat(editFormData.plotSizeSqm) || 0,
@@ -318,6 +328,7 @@ export default function PropertyFullDetailModal({
       askingPrice: editFormData.listingType === "FOR_SALE" ? priceNum : undefined,
       rentalPrice: editFormData.listingType === "FOR_RENT" ? priceNum : undefined,
       currency: editFormData.currency,
+      ...(canOverrideCommission ? { agencyCommissionPct: commissionPct } : {}),
       bedrooms: parseInt(editFormData.bedrooms) || 0,
       bathrooms: parseFloat(editFormData.bathrooms) || 0,
       plotSizeSqm: parseFloat(editFormData.plotSizeSqm) || 0,
@@ -777,7 +788,7 @@ export default function PropertyFullDetailModal({
                     </div>
 
                     {/* Listing Type, Price & Currency */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div className={`grid grid-cols-1 ${canOverrideCommission ? "sm:grid-cols-4" : "sm:grid-cols-3"} gap-3.5`}>
                       <div>
                         <label className="block font-heading font-bold text-xs text-[#1C1C1A] uppercase tracking-wider mb-1.5">
                           Listing Type
@@ -823,6 +834,24 @@ export default function PropertyFullDetailModal({
                           <option value="USD">USD (United States Dollar)</option>
                         </select>
                       </div>
+
+                      {canOverrideCommission && (
+                        <div>
+                          <label className="block font-heading font-bold text-xs text-[#1C1C1A] uppercase tracking-wider mb-1.5">
+                            Commission (%)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={editFormData.agencyCommissionPct}
+                            onChange={(e) => setEditFormData({ ...editFormData, agencyCommissionPct: e.target.value })}
+                            className="w-full bg-white px-3 py-2 border border-[#E6E4DF] text-[#1C1C1A] font-mono font-bold text-xs focus:outline-none focus:border-[#FA3600]"
+                            required
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Suburb (Manual or Preset), Property Type & City */}

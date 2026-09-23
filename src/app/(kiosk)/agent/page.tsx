@@ -67,6 +67,7 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { publicPropertyPath } from "@/lib/public-property";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -390,7 +391,7 @@ function AgentKioskContent() {
   const handleShareClientLink = (p: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
-    const link = `${origin}/p/${p.slug || p.id}`;
+    const link = `${origin}${publicPropertyPath(p.organization?.slug || p.organizationSlug || "organization", p.slug || p.id)}`;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(link).catch(() => {});
     }
@@ -596,7 +597,8 @@ function AgentKioskContent() {
     (clients || []).forEach((inq: any) => {
       if (dealStages.includes(inq.status) && !map.has(inq.id)) {
         const val = Number(inq.dealValue || inq.budgetMax || inq.property?.askingPrice || inq.property?.rentalPrice || 0);
-        const commissionAmt = inq.lookingFor === "FOR_RENT" ? val * 0.1 : val * 0.05;
+        const commissionPct = Number(inq.property?.agencyCommissionPct ?? (inq.lookingFor === "FOR_RENT" ? 10 : 5));
+        const commissionAmt = val * (commissionPct / 100);
         const agentSplitEst = commissionAmt * 0.5;
 
         let stageLabel = "New Inquiry";
@@ -669,7 +671,7 @@ function AgentKioskContent() {
     const rawPrice = p.price || p.askingPrice || p.rentalPrice || 0;
     const priceStr = formatCurrency(Number(rawPrice), p.currency || "ZMW");
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
-    const clientLink = `${origin}/p/${p.slug || p.id}`;
+    const clientLink = `${origin}${publicPropertyPath(p.organization?.slug || p.organizationSlug || "organization", p.slug || p.id)}`;
     const text = `*🏡 CONTOUR EXCLUSIVE MANDATE — ${p.title.toUpperCase()}*\n\n` +
       `📍 *Location:* ${p.suburb}, Lusaka\n` +
       `💰 *Price:* ${priceStr}${p.listingType === "FOR_RENT" ? " / month" : ""}\n` +
@@ -705,7 +707,7 @@ function AgentKioskContent() {
       (p: any) => p.title?.trim().toLowerCase() === titleTrimmed.toLowerCase()
     );
     if (isDuplicate) {
-      setCaptureError(`A property named "${titleTrimmed}" already exists. Property titles must be unique.`);
+      setCaptureError(`The property name "${titleTrimmed}" is already taken in your agency workspace.`);
       return;
     }
     if (!newPropSuburb || !newPropSuburb.trim()) {
@@ -3501,7 +3503,7 @@ function AgentKioskContent() {
                 <span className="font-mono text-editorial-black">{selectedCommissionSlip.date}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-editorial-muted">Total Agency Commission (5%):</span>
+                <span className="text-editorial-muted">Total Agency Commission ({selectedCommissionSlip.commissionPct || "Contracted Rate"}):</span>
                 <span className="font-mono text-editorial-black">{selectedCommissionSlip.grossCommission}</span>
               </div>
               <div className="flex justify-between border-t border-editorial-border pt-2 text-sm font-bold">

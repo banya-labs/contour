@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { MOCK_PROPERTIES } from "@/lib/mock-data";
+import { publicPropertyPath } from "@/lib/public-property";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
@@ -35,7 +36,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // 2. Dynamic Public Property Listings (/p/[slug])
   const propertyPages: MetadataRoute.Sitemap = MOCK_PROPERTIES.map((property) => ({
-    url: `${baseUrl}/p/${property.slug}`,
+    url: `${baseUrl}${publicPropertyPath("demo-banya-org", property.slug)}`,
     lastModified: now,
     changeFrequency: "weekly",
     priority: 0.8,

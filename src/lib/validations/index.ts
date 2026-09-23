@@ -44,7 +44,7 @@ export const createPropertySchema = z.object({
   askingPrice: z.number().positive().optional(),
   rentalPrice: z.number().positive().optional(),
   currency: CurrencyEnum.default("ZMW"),
-  agencyCommissionPct: z.number().min(0).max(100).default(5.0),
+  agencyCommissionPct: z.number().min(0).max(100).optional(),
   bedrooms: z.number().int().min(0).max(50).optional(),
   bathrooms: z.number().min(0).max(50).optional(),
   plotSizeSqm: z.number().nonnegative().optional(),

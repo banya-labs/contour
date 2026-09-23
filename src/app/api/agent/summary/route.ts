@@ -48,7 +48,7 @@ const getHandler = createApiHandler({
       where: { organizationId, assignedAgentId: userId },
       include: {
         property: {
-          select: { id: true, title: true, suburb: true, askingPrice: true, rentalPrice: true, currency: true },
+          select: { id: true, title: true, suburb: true, askingPrice: true, rentalPrice: true, currency: true, agencyCommissionPct: true },
         },
         visits: {
           where: { status: "SCHEDULED" },
@@ -131,8 +131,8 @@ const getHandler = createApiHandler({
         if (inq.status === "OFFER_MADE") stageLabel = "Offer Submitted";
         if (inq.status === "CLOSED_WON") stageLabel = "Deeds Lodged / Closed";
 
-        // Est 50% split on standard 5% sales or 10% rental fee
-        const commissionAmt = inq.lookingFor === "FOR_RENT" ? val * 0.1 : val * 0.05;
+        const commissionPct = Number(inq.property?.agencyCommissionPct ?? (inq.lookingFor === "FOR_RENT" ? 10 : 5));
+        const commissionAmt = val * (commissionPct / 100);
         const agentSplitEst = commissionAmt * 0.5;
 
         return {
@@ -180,6 +180,7 @@ const getHandler = createApiHandler({
         property: tx.property.title,
         suburb: tx.property.suburb,
         grossCommission: formatCurrency(grossCommission, tx.currency),
+        commissionPct: `${Number(tx.agencyCommissionPct)}%`,
         agentSplit: formatCurrency(agentSplit, tx.currency),
         splitPct: `${Number(tx.agentSplitPct)}%`,
         status: tx.status,

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       tenant: tenantOrgId,
-      agencyCommissionRate: "5% (Sales) / 10% (Property Management)",
+      agencyCommissionRate: "Per-property contracted rate",
       closingAgentSplitRate: "50% of Agency Fee",
       metrics,
     });

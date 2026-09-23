@@ -438,7 +438,7 @@ export async function POST(req: NextRequest) {
           earnedAgencyCommission: `$ ${earnedAgencyCommissionUsd.toLocaleString()} + K ${earnedAgencyCommissionZmw.toLocaleString()}`,
           agentSplitsPaid: `$ ${agentSplitsPaidUsd.toLocaleString()} + K ${agentSplitsPaidZmw.toLocaleString()}`,
           pipelineExpectedCommission: `K ${pipelineExpectedZmw.toLocaleString()}`,
-          agencyCommissionRate: "5% (Sales) / 10% (Property Management)",
+          agencyCommissionRate: "Per-property contracted rate",
           closingAgentSplitRate: "50% of Agency Fee",
           closedDealsCount: transactions.filter((transaction) => transaction.status !== "EXPECTED").length,
           pipelineDealsCount: transactions.filter((transaction) => transaction.status === "EXPECTED").length,

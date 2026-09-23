@@ -22,18 +22,19 @@ import PublicPropertyGallery from "@/components/properties/public-property-galle
 import { PublicPropertyNavbar } from "@/components/properties/public-property-navbar";
 import { PropertyLocationMap } from "@/components/properties/property-location-map";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
+import { publicPropertyPath } from "@/lib/public-property";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
 
 async function getPropertyBySlug(slug: string) {
+  const pathSegments = slug.split("/").filter(Boolean).map((segment) => decodeURIComponent(segment));
+  const organizationSlug = pathSegments.length === 2 ? pathSegments[0] : undefined;
+  const propertySlug = pathSegments.length === 2 ? pathSegments[1] : slug;
   try {
     const dbProperty = await db.property.findFirst({
-      where: {
-        OR: [
-          { slug },
-          { id: slug },
-        ],
-      },
+      where: organizationSlug
+        ? { slug: propertySlug, organization: { slug: organizationSlug } }
+        : { OR: [{ slug: propertySlug }, { id: propertySlug }] },
       include: {
         assignedAgent: {
           select: {
@@ -100,7 +101,7 @@ async function getPropertyBySlug(slug: string) {
   }
 
   // Fallback to MOCK_PROPERTIES
-  const mock = MOCK_PROPERTIES.find((p) => p.slug === slug || p.id === slug);
+  const mock = MOCK_PROPERTIES.find((p) => p.slug === propertySlug || p.id === propertySlug);
   if (!mock) return null;
   return {
     ...mock,
@@ -182,7 +183,7 @@ export async function generateMetadata({
   const description = property.description
     ? `${property.description.slice(0, 155)}...`
     : `Exclusive real estate listing in ${property.suburb}, ${property.city}. Certified title deed and mandate verification on Contour.`;
-  const canonicalUrl = `${siteUrl}/p/${property.slug}`;
+  const canonicalUrl = `${siteUrl}${publicPropertyPath(property.organizationSlug, property.slug)}`;
   const photoUrl = property.featuredPhoto || property.photos[0];
 
   return {
@@ -232,7 +233,7 @@ export default async function PublicPropertyCardPage({
       : formatCurrency(Number(property.askingPrice || 0), property.currency);
 
   const whatsappMessage = encodeURIComponent(
-    `Hello ${property.assignedAgentName || "Contour Agent"}, I am inquiring about the property: "${property.title}" (${property.suburb}) priced at ${priceText}. Link: ${siteUrl}/p/${property.slug}`
+    `Hello ${property.assignedAgentName || "Contour Agent"}, I am inquiring about the property: "${property.title}" (${property.suburb}) priced at ${priceText}. Link: ${siteUrl}${publicPropertyPath(property.organizationSlug, property.slug)}`
   );
 
   const otherProperties = await getOrganizationOtherProperties(property.organizationId, property.id);
@@ -242,7 +243,7 @@ export default async function PublicPropertyCardPage({
     "@type": "RealEstateListing",
     "name": property.title,
     "description": property.description || property.title,
-    "url": `${siteUrl}/p/${property.slug}`,
+    "url": `${siteUrl}${publicPropertyPath(property.organizationSlug, property.slug)}`,
     "image": property.photos,
     "offers": {
       "@type": "Offer",
@@ -484,7 +485,7 @@ export default async function PublicPropertyCardPage({
               {otherProperties.map((other) => (
                 <Link
                   key={other.id}
-                  href={`/p/${other.slug}`}
+                  href={publicPropertyPath(property.organizationSlug, other.slug)}
                   className="group border border-editorial-border bg-white hover:border-editorial-black transition-colors flex flex-col"
                 >
                   <div className="relative w-full h-32 overflow-hidden bg-neutral-100">

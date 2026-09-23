@@ -70,7 +70,7 @@ export const PATCH = createApiHandler({
       },
       include: {
         assignedAgent: { select: { id: true, name: true, phone: true } },
-        property: { select: { id: true, title: true, suburb: true } },
+        property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } },
       },
     });
 

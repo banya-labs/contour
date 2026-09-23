@@ -35,6 +35,7 @@ type Deal = {
   dealValue: number;
   currency: "ZMW" | "USD";
   agencyCommission: number;
+  agencyCommissionPct: number;
   agentName: string;
   assignedAgentId?: string | null;
   daysInStage: number;
@@ -51,6 +52,7 @@ type AvailableProperty = {
   suburb?: string | null;
   city?: string | null;
   askingPrice?: number | null;
+  agencyCommissionPct: number;
   rentalPrice?: number | null;
   currency?: string | null;
   status?: string;
@@ -163,7 +165,8 @@ function DealPipelineContent() {
             suburb: inquiry.property?.suburb || inquiry.preferredSuburbs?.[0] || "—",
             dealValue: Number(inquiry.dealValue || 0),
             currency: inquiry.currency || "ZMW",
-            agencyCommission: Number(inquiry.dealValue || 0) * 0.05,
+            agencyCommissionPct: Number(inquiry.property?.agencyCommissionPct ?? 5),
+            agencyCommission: Number(inquiry.dealValue || 0) * (Number(inquiry.property?.agencyCommissionPct ?? 5) / 100),
             agentName: inquiry.assignedAgent?.name || "Unassigned",
             assignedAgentId: inquiry.assignedAgent?.id || inquiry.assignedAgentId || null,
             daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),
@@ -205,6 +208,7 @@ function DealPipelineContent() {
               suburb: p.suburb,
               city: p.city,
               askingPrice: p.askingPrice ? Number(p.askingPrice) : null,
+              agencyCommissionPct: Number(p.agencyCommissionPct ?? 5),
               rentalPrice: p.rentalPrice ? Number(p.rentalPrice) : null,
               currency: p.currency || "ZMW",
               status: p.status,
@@ -384,7 +388,8 @@ function DealPipelineContent() {
             agentName: matchedAgent ? matchedAgent.name : (updatedInquiry?.assignedAgent?.name || "Unassigned"),
             dealValue: valNum,
             currency: editFormData.currency,
-            agencyCommission: valNum * 0.05,
+            agencyCommissionPct: Number(matchedProp?.agencyCommissionPct ?? 5),
+            agencyCommission: valNum * (Number(matchedProp?.agencyCommissionPct ?? 5) / 100),
             stage: editFormData.stage,
             notes: editFormData.notes,
           };
@@ -475,7 +480,8 @@ function DealPipelineContent() {
       suburb: matchedProp?.suburb || "—",
       dealValue: valNum,
       currency: formData.currency,
-      agencyCommission: valNum * 0.05,
+      agencyCommissionPct: Number(matchedProp?.agencyCommissionPct ?? 5),
+      agencyCommission: valNum * (Number(matchedProp?.agencyCommissionPct ?? 5) / 100),
       agentName: matchedAgent ? matchedAgent.name : "Unassigned",
       assignedAgentId: formData.assignedAgentId || null,
       daysInStage: 0,
@@ -592,7 +598,7 @@ function DealPipelineContent() {
 
         <MotionCard withCorners className="p-3 sm:p-4">
           <span className="text-[9px] sm:text-[10px] font-heading font-bold text-contour-red uppercase tracking-wider">
-            Expected 5% Fee
+            Expected Commission
           </span>
           <div className="font-geist text-base sm:text-xl font-bold text-contour-red mt-1 tracking-tight truncate">
             {stats.commValStr}
@@ -728,7 +734,7 @@ function DealPipelineContent() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[9px] font-geist text-contour-red uppercase">5% Commission</div>
+                  <div className="text-[9px] font-geist text-contour-red uppercase">{deal.agencyCommissionPct}% Commission</div>
                   <div className="font-geist font-bold text-sm text-contour-red">
                     {formatCurrency(deal.agencyCommission, deal.currency)}
                   </div>
@@ -956,7 +962,7 @@ function DealPipelineContent() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-[9px] font-geist text-contour-red uppercase">5% Commission</div>
+                          <div className="text-[9px] font-geist text-contour-red uppercase">{deal.agencyCommissionPct}% Commission</div>
                           <div className="font-geist font-bold text-xs text-contour-red">
                             {formatCurrency(deal.agencyCommission, deal.currency)}
                           </div>
@@ -1281,10 +1287,13 @@ function DealPipelineContent() {
 
               <div className="p-3 bg-neutral-50 border border-editorial-border flex items-center justify-between">
                 <span className="text-editorial-muted font-heading text-xs uppercase tracking-wider">
-                  Expected 5% Agency Fee:
+                  Expected {availableProperties.find((p) => p.id === formData.propertyId)?.agencyCommissionPct ?? 5}% Agency Fee:
                 </span>
                 <span className="font-geist font-bold text-contour-red text-sm">
-                  {formatCurrency((parseFloat(formData.dealValue) || 0) * 0.05, formData.currency)}
+                  {formatCurrency(
+                    (parseFloat(formData.dealValue) || 0) * ((availableProperties.find((p) => p.id === formData.propertyId)?.agencyCommissionPct ?? 5) / 100),
+                    formData.currency,
+                  )}
                 </span>
               </div>
 
@@ -1474,10 +1483,13 @@ function DealPipelineContent() {
 
               <div className="p-3 bg-neutral-50 border border-editorial-border flex items-center justify-between">
                 <span className="text-editorial-muted font-heading text-xs uppercase tracking-wider">
-                  Expected 5% Agency Fee:
+                  Expected {availableProperties.find((p) => p.id === editFormData.propertyId)?.agencyCommissionPct ?? editingDeal?.agencyCommissionPct ?? 5}% Agency Fee:
                 </span>
                 <span className="font-geist font-bold text-contour-red text-sm">
-                  {formatCurrency((parseFloat(editFormData.dealValue) || 0) * 0.05, editFormData.currency)}
+                  {formatCurrency(
+                    (parseFloat(editFormData.dealValue) || 0) * ((availableProperties.find((p) => p.id === editFormData.propertyId)?.agencyCommissionPct ?? editingDeal?.agencyCommissionPct ?? 5) / 100),
+                    editFormData.currency,
+                  )}
                 </span>
               </div>
 

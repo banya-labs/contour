@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { createPropertySchema, updatePropertySchema } from "@/lib/validations";
+import { resolveCommissionPct } from "@/lib/commission-policy";
+import { isManagementRole } from "@/lib/authorization";
 import { z } from "zod";
 
 import { smartCache } from "@/lib/cache";
+import { propertySlugFromTitle, publicPropertyPath } from "@/lib/public-property";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -266,8 +269,6 @@ const getHandler = createApiHandler({
 
     const cacheKey = `props:${targetOrgId}:${listingType || "all"}:${status || "all"}:${search || "none"}:${suburb || "none"}:${sortBy}:${validSortOrder}:${pageNum}:${take}`;
 
-    const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
-
     const { rawProperties, total } = await smartCache.getOrSet(
       targetOrgId,
       "properties",
@@ -314,6 +315,7 @@ const getHandler = createApiHandler({
                   email: true,
                 },
               },
+              organization: { select: { slug: true } },
             },
           }),
           db.property.count({ where: whereClause }),
@@ -326,7 +328,7 @@ const getHandler = createApiHandler({
 
     const properties = rawProperties.map((p) => ({
       ...p,
-      publicUrl: `${siteUrl}/p/${p.slug || p.id}`,
+      publicUrl: publicPropertyPath(targetOrgData?.slug || targetOrgData?.id || "organization", p.slug || p.id),
     }));
 
     const totalPages = Math.ceil(total / take);
@@ -357,6 +359,9 @@ const getHandler = createApiHandler({
           hasNextPage: pageNum < totalPages,
           hasPrevPage: pageNum > 1,
         },
+        capabilities: {
+          canOverrideCommission: isManagementRole(ctx.contourRole),
+        },
       },
       {
         headers: {
@@ -373,6 +378,19 @@ const postHandler = createApiHandler({
   bodySchema: createPropertySchema,
   handler: async (req, ctx) => {
     const { organizationId, userId, body } = ctx;
+
+    if (body.agencyCommissionPct !== undefined && !isManagementRole(ctx.contourRole)) {
+      return NextResponse.json(
+        { success: false, error: "Only owners and broker managers can set commission percentages." },
+        { status: 403 },
+      );
+    }
+
+    const agencyCommissionPct = resolveCommissionPct({
+      listingType: body.listingType ?? "FOR_SALE",
+      requestedPct: body.agencyCommissionPct,
+      canOverride: isManagementRole(ctx.contourRole),
+    });
 
     // Enforce unique property titles within the same organization context
     const duplicateProperty = await db.property.findFirst({
@@ -392,10 +410,7 @@ const postHandler = createApiHandler({
       );
     }
 
-    const baseSlug = body.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+    const baseSlug = propertySlugFromTitle(body.title);
 
     let slug = baseSlug;
     const existingWithSlug = await db.property.findFirst({
@@ -434,8 +449,10 @@ const postHandler = createApiHandler({
     const effectiveLat = typeof body.latitude === "number" && !isNaN(body.latitude) ? body.latitude : undefined;
     const effectiveLng = typeof body.longitude === "number" && !isNaN(body.longitude) ? body.longitude : undefined;
 
-    const property = await db.property.create({
-      data: {
+    let property;
+    try {
+      property = await db.property.create({
+        data: {
         organizationId: organizationId!,
         title: body.title,
         slug,
@@ -445,7 +462,7 @@ const postHandler = createApiHandler({
         askingPrice: body.askingPrice,
         rentalPrice: body.rentalPrice,
         currency: body.currency,
-        agencyCommissionPct: body.agencyCommissionPct,
+        agencyCommissionPct,
         bedrooms: body.bedrooms,
         bathrooms: body.bathrooms,
         plotSizeSqm: body.plotSizeSqm,
@@ -465,8 +482,18 @@ const postHandler = createApiHandler({
         standBoundary: body.standBoundary || undefined,
         createdById: effectiveUserId!,
         assignedAgentId: effectiveAssignedAgentId,
+        }
+      });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === "P2002") {
+        return NextResponse.json(
+          { success: false, error: `The property name "${body.title.trim()}" is already taken in your agency workspace.` },
+          { status: 409, headers: CORS_HEADERS },
+        );
       }
-    });
+      throw error;
+    }
 
     // If stand boundaries were extracted from an uploaded title deed, establish PropertyBoundary & link VaultDocument
     if (body.standBoundary && Array.isArray(body.standBoundary) && body.standBoundary.length >= 3) {
@@ -562,6 +589,13 @@ const patchHandler = createApiHandler({
     const { body } = ctx;
     const { id, ...updateData } = body;
 
+    if (updateData.agencyCommissionPct !== undefined && !isManagementRole(ctx.contourRole)) {
+      return NextResponse.json(
+        { success: false, error: "Only owners and broker managers can change commission percentages." },
+        { status: 403 },
+      );
+    }
+
     if (!id) {
       return NextResponse.json(
         { success: false, error: "Property ID is required for updating." },
@@ -574,6 +608,26 @@ const patchHandler = createApiHandler({
         { success: false, error: "Organization context required." },
         { status: 403 },
       );
+    }
+
+    if (updateData.title !== undefined) {
+      const duplicateProperty = await db.property.findFirst({
+        where: {
+          organizationId: ctx.organizationId,
+          id: { not: id },
+          title: { equals: updateData.title.trim(), mode: "insensitive" },
+        },
+        select: { title: true },
+      });
+      if (duplicateProperty) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `The property name "${duplicateProperty.title}" is already taken in your agency workspace.`,
+          },
+          { status: 409, headers: CORS_HEADERS },
+        );
+      }
     }
 
     const existingProperty = await db.property.findFirst({
@@ -600,6 +654,7 @@ const patchHandler = createApiHandler({
         askingPrice: updateData.askingPrice,
         rentalPrice: updateData.rentalPrice,
         currency: updateData.currency,
+        agencyCommissionPct: updateData.agencyCommissionPct,
         bedrooms: updateData.bedrooms,
         bathrooms: updateData.bathrooms,
         plotSizeSqm: updateData.plotSizeSqm,

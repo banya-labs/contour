@@ -26,6 +26,7 @@ function PropertySalesContent() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [canOverrideCommission, setCanOverrideCommission] = useState(false);
   const [isRecordingSale, setIsRecordingSale] = useState(false);
 
   const searchParams = useSearchParams();
@@ -96,6 +97,7 @@ function PropertySalesContent() {
               salePrice: Number(t.grossValue || 0),
               currency: t.currency || "ZMW",
               agencyCommissionEarned: Number(t.agencyCommissionAmount || 0),
+              agencyCommissionPct: Number(t.agencyCommissionPct || 0),
               agentSplitPaid: Number(t.agentSplitAmount || 0),
               closingAgent: t.closingAgent?.name || "Grace Banda",
               transferStatus,
@@ -109,6 +111,7 @@ function PropertySalesContent() {
         }
 
         if (propsData.success) {
+          setCanOverrideCommission(Boolean(propsData.capabilities?.canOverrideCommission));
           const saleProps = propsData.properties.filter(
             (p: any) => p.listingType === "FOR_SALE"
           );
@@ -119,6 +122,7 @@ function PropertySalesContent() {
               propertyId: saleProps[0].id,
               salePrice: String(saleProps[0].askingPrice || 3500000),
               currency: saleProps[0].currency || "ZMW",
+              agencyCommissionPct: String(saleProps[0].agencyCommissionPct ?? 5),
             }));
           }
         }
@@ -158,7 +162,15 @@ function PropertySalesContent() {
       return;
     }
 
-    const commPct = parseFloat(formData.agencyCommissionPct) || 5.0;
+    const selectedProperty = properties.find((property) => property.id === formData.propertyId);
+    const parsedCommissionPct = parseFloat(formData.agencyCommissionPct);
+    if (canOverrideCommission && (!Number.isFinite(parsedCommissionPct) || parsedCommissionPct < 0 || parsedCommissionPct > 100)) {
+      setFormError("Final commission percentage must be between 0 and 100.");
+      return;
+    }
+    const commPct = canOverrideCommission
+      ? parsedCommissionPct
+      : Number(selectedProperty?.agencyCommissionPct ?? 5);
     const splitPct = parseFloat(formData.agentSplitPct) || 50.0;
     const commAmount = (price * commPct) / 100;
     const splitAmount = (commAmount * splitPct) / 100;
@@ -167,7 +179,7 @@ function PropertySalesContent() {
       propertyId: formData.propertyId,
       grossValue: price,
       currency: formData.currency,
-      agencyCommissionPct: commPct,
+      ...(canOverrideCommission ? { agencyCommissionPct: commPct } : {}),
       agencyCommissionAmount: commAmount,
       agentSplitPct: splitPct,
       agentSplitAmount: splitAmount,
@@ -197,6 +209,7 @@ function PropertySalesContent() {
             salePrice: Number(t.grossValue || 0),
             currency: t.currency || "ZMW",
             agencyCommissionEarned: Number(t.agencyCommissionAmount || 0),
+            agencyCommissionPct: Number(t.agencyCommissionPct || commPct),
             agentSplitPaid: Number(t.agentSplitAmount || 0),
             closingAgent: t.closingAgent?.name || "Grace Banda",
             transferStatus: "TRANSFER_COMPLETE",
@@ -215,7 +228,7 @@ function PropertySalesContent() {
             buyerNrcPassport: "",
             salePrice: properties[0] ? String(properties[0].askingPrice || 3500000) : "3500000",
             currency: properties[0]?.currency || "ZMW",
-            agencyCommissionPct: "5.0",
+            agencyCommissionPct: String(properties[0]?.agencyCommissionPct ?? 5),
             agentSplitPct: "50.0",
             closingAgent: "Grace Banda (Principal Broker)",
             transferStatus: "PENDING_STATE_CONSENT",
@@ -453,7 +466,7 @@ function PropertySalesContent() {
                         <span className="text-editorial-muted text-[11px]">{sale.closedAt}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[9px] text-contour-red uppercase block">5% Commission</span>
+                        <span className="text-[9px] text-contour-red uppercase block">{sale.agencyCommissionPct}% Commission</span>
                         <strong className="text-contour-red font-bold">
                           {formatCurrency(sale.agencyCommissionEarned, sale.currency)}
                         </strong>
@@ -472,7 +485,7 @@ function PropertySalesContent() {
                     <th className="py-3 px-4">Sold Property</th>
                     <th className="py-3 px-4">Buyer Information</th>
                     <th className="py-3 px-4">Purchase Price</th>
-                    <th className="py-3 px-4">5% Agency Fee</th>
+                    <th className="py-3 px-4">Agency Fee</th>
                     <th className="py-3 px-4">Closing Agent</th>
                     <th className="py-3 px-4">Deeds Transfer Status</th>
                     <th className="py-3 px-4 text-right">Sale Date</th>
@@ -580,6 +593,7 @@ function PropertySalesContent() {
                       propertyId: selId,
                       salePrice: p ? String(p.askingPrice || 3500000) : formData.salePrice,
                       currency: p?.currency || formData.currency,
+                      agencyCommissionPct: String(p?.agencyCommissionPct ?? 5),
                     });
                   }}
                   className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
@@ -594,6 +608,27 @@ function PropertySalesContent() {
                   )}
                 </select>
               </div>
+
+              {canOverrideCommission && (
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Final Agency Commission (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={formData.agencyCommissionPct}
+                    onChange={(e) => setFormData({ ...formData, agencyCommissionPct: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    required
+                  />
+                  <p className="mt-1 text-[10px] text-editorial-muted">
+                    Inherited from the property. You may override it for this final sale.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

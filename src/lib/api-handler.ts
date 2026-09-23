@@ -144,6 +144,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         organizationId,
         userId,
         userRole,
+        contourRole: tenant?.contourRole,
         body,
         query,
       });

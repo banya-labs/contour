@@ -39,6 +39,7 @@ import { useSession } from "@/lib/auth-client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { PropertyCardSkeleton } from "@/components/ui/skeleton";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { publicPropertyPath } from "@/lib/public-property";
 
 const SUBURB_GPS_COORDINATES: Record<string, [number, number]> = {
   "Kabulonga": [-15.4215, 28.3345],
@@ -65,8 +66,10 @@ function PropertiesCatalogContent() {
   const [filterType, setFilterType] = useState("ALL");
   const [filterOwnership, setFilterOwnership] = useState("ALL");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
-  const [isPublishing, setIsPublishing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [canOverrideCommission, setCanOverrideCommission] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [organizationSlug, setOrganizationSlug] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -89,6 +92,8 @@ function PropertiesCatalogContent() {
         }
         if (data.success && data.properties) {
           setProperties(data.properties);
+          setOrganizationSlug(data.organization?.slug || data.agency?.slug || null);
+          setCanOverrideCommission(Boolean(data.capabilities?.canOverrideCommission));
         }
       } catch (err) {
         console.error("Failed to load properties:", err);
@@ -136,6 +141,7 @@ function PropertiesCatalogContent() {
     askingPrice: "",
     rentalPrice: "",
     currency: "ZMW",
+    agencyCommissionPct: "5",
     bedrooms: "3",
     bathrooms: "2",
     plotSizeSqm: "500",
@@ -163,7 +169,7 @@ function PropertiesCatalogContent() {
   const handleSharePropertyLink = (p: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
-    const publicUrl = `${origin}/p/${p.slug || p.id}`;
+    const publicUrl = `${origin}${publicPropertyPath(p.organization?.slug || organizationSlug || "organization", p.slug || p.id)}`;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(publicUrl).catch(() => {});
     }
@@ -185,7 +191,7 @@ function PropertiesCatalogContent() {
       (p) => p.title?.trim().toLowerCase() === titleTrimmed.toLowerCase()
     );
     if (isDuplicate) {
-      setFormError(`A property named "${titleTrimmed}" already exists in your agency workspace. Property titles must be unique.`);
+      setFormError(`The property name "${titleTrimmed}" is already taken in your agency workspace.`);
       return;
     }
 
@@ -221,6 +227,11 @@ function PropertiesCatalogContent() {
         formData.bathrooms && !isNaN(parseFloat(formData.bathrooms))
           ? parseFloat(formData.bathrooms)
           : undefined;
+      const commissionPct = parseFloat(formData.agencyCommissionPct);
+      if (canOverrideCommission && (!Number.isFinite(commissionPct) || commissionPct < 0 || commissionPct > 100)) {
+        setFormError("Commission percentage must be between 0 and 100.");
+        return;
+      }
 
       const payload = {
         title: formData.title.trim(),
@@ -229,6 +240,7 @@ function PropertiesCatalogContent() {
         askingPrice: askingPriceNum,
         rentalPrice: rentalPriceNum,
         currency: formData.currency,
+        ...(canOverrideCommission ? { agencyCommissionPct: commissionPct } : {}),
         bedrooms: bedroomsNum,
         bathrooms: bathroomsNum,
         plotSizeSqm: plotSizeNum,
@@ -581,7 +593,7 @@ function PropertiesCatalogContent() {
                       )}
                     </button>
                     <Link
-                      href={`/p/${p.slug || p.id}`}
+                      href={publicPropertyPath(p.organization?.slug || organizationSlug || "organization", p.slug || p.id)}
                       onClick={(e) => e.stopPropagation()}
                       className="text-[10px] font-heading font-semibold uppercase tracking-wider text-contour-red hover:underline flex items-center gap-1"
                     >
@@ -646,7 +658,14 @@ function PropertiesCatalogContent() {
                   </label>
                   <select
                     value={formData.listingType}
-                    onChange={(e) => setFormData({ ...formData, listingType: e.target.value })}
+                    onChange={(e) => {
+                      const listingType = e.target.value;
+                      setFormData({
+                        ...formData,
+                        listingType,
+                        agencyCommissionPct: listingType === "FOR_RENT" ? "10" : "5",
+                      });
+                    }}
                     className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist"
                   >
                     <option value="FOR_SALE">For Sale</option>
@@ -703,6 +722,27 @@ function PropertiesCatalogContent() {
                   </select>
                 </div>
               </div>
+
+              {canOverrideCommission && (
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Agency Commission (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={formData.agencyCommissionPct}
+                    onChange={(e) => setFormData({ ...formData, agencyCommissionPct: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none focus:border-editorial-black text-editorial-black font-mono"
+                    required
+                  />
+                  <p className="mt-1 text-[10px] text-editorial-muted font-geist">
+                    Contracted rate for this property. Sales default to 5%; rentals default to 10%.
+                  </p>
+                </div>
+              )}
 
               {/* Photos Section */}
               <div className="p-3 bg-neutral-50 border border-editorial-border space-y-2">
@@ -1030,6 +1070,7 @@ function PropertiesCatalogContent() {
         isOpen={detailModalState.isOpen}
         onClose={() => setDetailModalState({ isOpen: false, property: null })}
         property={detailModalState.property}
+        canOverrideCommission={canOverrideCommission}
         onUpdateProperty={(updatedProp) => {
           setProperties((prev) =>
             prev.map((p) => (p.id === updatedProp.id ? updatedProp : p))
