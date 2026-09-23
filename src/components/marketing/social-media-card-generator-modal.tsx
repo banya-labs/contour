@@ -122,13 +122,15 @@ export default function SocialMediaCardGeneratorModal({
         })
         .catch(() => undefined);
 
-      void fetch("/api/organization/logo")
+      void fetch("/api/organization/logo", { cache: "no-store" })
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
-          if (!data?.logoUrl) return;
+          // The organization logo is authoritative. Do not fall back to a
+          // browser-stored user/avatar image when the agency has no logo.
+          setLogoFailed(false);
           setAgencySettings((current) => ({
             ...(current || getAgencySettings()),
-            logoUrl: data.logoUrl,
+            logoUrl: typeof data?.logoUrl === "string" ? data.logoUrl : "",
           }));
         })
         .catch(() => undefined);
