@@ -559,18 +559,18 @@ export default function PropertyFullDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[2200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 lg:p-6 font-sans">
-      <div className="bg-[#FCFBF9] border border-[#E6E4DF] shadow-2xl flex flex-col overflow-hidden w-full max-w-5xl h-[92vh] max-h-[92vh]">
+    <div className="fixed inset-0 z-[2200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 lg:p-6 font-sans">
+      <div className="bg-[#FCFBF9] border-0 sm:border border-[#E6E4DF] shadow-2xl flex flex-col overflow-hidden w-full max-w-5xl h-screen sm:h-[92vh] max-h-screen sm:max-h-[92vh]">
         
         {/* TOP COMPACT HEADER */}
-        <div className="px-4 sm:px-6 py-3 bg-white border-b border-[#E6E4DF] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 bg-[#1C1C1A] text-white flex items-center justify-center font-bold text-xs shrink-0">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 bg-white border-b border-[#E6E4DF] flex items-center justify-between gap-2 shrink-0 sticky top-0 z-20">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#1C1C1A] text-white flex items-center justify-center font-bold text-xs shrink-0">
               <Building2 className="w-4 h-4 text-[#FA3600]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-heading font-bold text-sm sm:text-base text-[#1C1C1A] truncate max-w-[280px] sm:max-w-md">
+                <h3 className="font-heading font-bold text-xs sm:text-base text-[#1C1C1A] truncate max-w-[145px] xs:max-w-[210px] sm:max-w-md">
                   {property.title}
                 </h3>
                 <span className="text-[9px] font-mono font-bold px-2 py-0.5 bg-[#1C1C1A] text-white uppercase shrink-0">
@@ -585,7 +585,7 @@ export default function PropertyFullDetailModal({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] font-mono text-[#73716B] truncate">
+              <p className="text-[9px] sm:text-[11px] font-mono text-[#73716B] truncate max-w-[210px] sm:max-w-none">
                 📍 {property.suburb || "Lusaka"}, Zambia • {formatCurrency(price, property.currency)}
                 {!isSale && " / month"}
               </p>
@@ -599,7 +599,7 @@ export default function PropertyFullDetailModal({
                   type="button"
                   onClick={() => handleSaveListingDetails()}
                   disabled={isSaving}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#FA3600] hover:bg-[#D92F00] text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-1.5 bg-[#FA3600] hover:bg-[#D92F00] text-white text-[10px] sm:text-xs font-heading font-semibold uppercase tracking-wider transition-colors disabled:opacity-50"
                 >
                   <PendingButtonContent pending={isSaving} pendingLabel="Saving property…" icon={<Save className="h-3.5 w-3.5" />}>Save</PendingButtonContent>
                 </button>
@@ -607,7 +607,7 @@ export default function PropertyFullDetailModal({
                   type="button"
                   onClick={() => setIsEditing(false)}
                   disabled={isSaving}
-                  className="px-3 py-1.5 bg-white border border-[#E6E4DF] text-[#1C1C1A] hover:bg-[#F5F0E8] text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
+                  className="px-3 py-2 sm:py-1.5 bg-white border border-[#E6E4DF] text-[#1C1C1A] hover:bg-[#F5F0E8] text-[10px] sm:text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
                 >
                   Cancel
                 </button>
@@ -619,17 +619,17 @@ export default function PropertyFullDetailModal({
                   setIsEditing(true);
                   setActiveSection("DETAILS");
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-2 sm:px-3.5 sm:py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-[10px] sm:text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
               >
                 <Edit3 className="w-3.5 h-3.5 text-[#FA3600]" />
-                <span>Edit Details</span>
+                <span className="hidden sm:inline">Edit Details</span><span className="sm:hidden">Edit</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center justify-center w-8 h-8 rounded-none border border-[#E6E4DF] bg-white text-[#1C1C1A] hover:bg-[#1C1C1A] hover:text-white transition-all shadow-xs ml-1"
+              className="flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 rounded-none border border-[#E6E4DF] bg-white text-[#1C1C1A] hover:bg-[#1C1C1A] hover:text-white transition-all shadow-xs ml-0 sm:ml-1"
               title="Close modal"
             >
               <X className="w-4 h-4" />
@@ -638,12 +638,12 @@ export default function PropertyFullDetailModal({
         </div>
 
         {/* 2-COLUMN LAYOUT: MINIMAL SIDE MENU + CONTENT CANVAS */}
-        <div className="flex-1 flex overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           
           {/* CLEAN MINIMAL SIDE MENU */}
-          <div className="w-52 sm:w-60 bg-white border-r border-[#E6E4DF] shrink-0 p-3 flex flex-col justify-between overflow-y-auto font-sans">
-            <div className="space-y-1">
-              <div className="px-2.5 py-1 text-[10px] font-mono font-bold text-[#A8A6A1] uppercase tracking-widest">
+          <div className="w-full md:w-52 lg:w-60 bg-white border-r-0 md:border-r border-b md:border-b-0 border-[#E6E4DF] shrink-0 p-2 md:p-3 flex md:flex-col justify-start md:justify-between overflow-x-auto md:overflow-y-auto font-sans">
+            <div className="flex md:block gap-1.5 md:space-y-1 min-w-max md:min-w-0">
+              <div className="hidden md:block px-2.5 py-1 text-[10px] font-mono font-bold text-[#A8A6A1] uppercase tracking-widest">
                 Sections
               </div>
 
@@ -651,7 +651,7 @@ export default function PropertyFullDetailModal({
               <button
                 type="button"
                 onClick={() => setActiveSection("DETAILS")}
-                className={`w-full text-left px-3 py-2 text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-between transition-colors ${
+                className={`w-auto md:w-full text-left px-3 py-2.5 md:py-2 text-[10px] md:text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-between transition-colors whitespace-nowrap rounded-sm ${
                   activeSection === "DETAILS"
                     ? "bg-[#FA3600]/10 text-[#1C1C1A] border-l-2 border-[#FA3600]"
                     : "text-[#54524D] hover:bg-[#F5F0E8] border-l-2 border-transparent"
@@ -659,7 +659,7 @@ export default function PropertyFullDetailModal({
               >
                 <div className="flex items-center gap-2.5">
                   <Building2 className={`w-3.5 h-3.5 ${activeSection === "DETAILS" ? "text-[#FA3600]" : "text-[#73716B]"}`} />
-                  <span>Property Details</span>
+                  <span className="hidden sm:inline">Property Details</span><span className="sm:hidden">Details</span>
                 </div>
               </button>
 
@@ -667,7 +667,7 @@ export default function PropertyFullDetailModal({
               <button
                 type="button"
                 onClick={() => setActiveSection("VAULT")}
-                className={`w-full text-left px-3 py-2 text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-between transition-colors ${
+                className={`w-auto md:w-full text-left px-3 py-2.5 md:py-2 text-[10px] md:text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-between transition-colors whitespace-nowrap rounded-sm ${
                   activeSection === "VAULT"
                     ? "bg-[#FA3600]/10 text-[#1C1C1A] border-l-2 border-[#FA3600]"
                     : "text-[#54524D] hover:bg-[#F5F0E8] border-l-2 border-transparent"
@@ -686,7 +686,7 @@ export default function PropertyFullDetailModal({
               <button
                 type="button"
                 onClick={() => setActiveSection("STAKEHOLDERS")}
-                className={`w-full text-left px-3 py-2 text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-between transition-colors ${
+                className={`w-auto md:w-full text-left px-3 py-2.5 md:py-2 text-[10px] md:text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-between transition-colors whitespace-nowrap rounded-sm ${
                   activeSection === "STAKEHOLDERS"
                     ? "bg-[#FA3600]/10 text-[#1C1C1A] border-l-2 border-[#FA3600]"
                     : "text-[#54524D] hover:bg-[#F5F0E8] border-l-2 border-transparent"
@@ -703,8 +703,8 @@ export default function PropertyFullDetailModal({
             </div>
 
             {/* SIDE MENU ACTIONS */}
-            <div className="pt-3 border-t border-[#E6E4DF] space-y-1 mt-4">
-              <div className="px-2.5 py-1 text-[10px] font-mono font-bold text-[#A8A6A1] uppercase tracking-widest">
+            <div className="flex md:block gap-1.5 md:space-y-1 pt-0 md:pt-3 border-t-0 md:border-t border-[#E6E4DF] mt-0 md:mt-4 min-w-max md:min-w-0">
+              <div className="hidden md:block px-2.5 py-1 text-[10px] font-mono font-bold text-[#A8A6A1] uppercase tracking-widest">
                 Actions
               </div>
 
@@ -712,7 +712,7 @@ export default function PropertyFullDetailModal({
               <button
                 type="button"
                 onClick={() => onOpenSocialGenerator(property)}
-                className="w-full text-left px-3 py-2 text-xs font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] hover:bg-[#FA3600]/10 flex items-center gap-2.5 transition-colors border border-[#E6E4DF] bg-white group"
+                className="w-auto md:w-full text-left px-3 py-2.5 md:py-2 text-[10px] md:text-xs font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] hover:bg-[#FA3600]/10 flex items-center gap-2.5 transition-colors border border-[#E6E4DF] bg-white group whitespace-nowrap"
               >
                 <Palette className="w-3.5 h-3.5 text-[#FA3600] group-hover:scale-110 transition-transform" />
                 <span>Social Flyer Card</span>
@@ -722,7 +722,7 @@ export default function PropertyFullDetailModal({
               <button
                 type="button"
                 onClick={() => onOpenMatchingBuyers(property)}
-                className="w-full text-left px-3 py-2 text-xs font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] hover:bg-[#F5F0E8] flex items-center gap-2.5 transition-colors"
+                className="w-auto md:w-full text-left px-3 py-2.5 md:py-2 text-[10px] md:text-xs font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] hover:bg-[#F5F0E8] flex items-center gap-2.5 transition-colors whitespace-nowrap"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#FA3600]" />
                 <span>Matching Buyers</span>
@@ -732,7 +732,7 @@ export default function PropertyFullDetailModal({
               <button
                 type="button"
                 onClick={handleSharePropertyLink}
-                className="w-full text-left px-3 py-2 text-xs font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] hover:bg-[#F5F0E8] flex items-center gap-2.5 transition-colors"
+                className="w-auto md:w-full text-left px-3 py-2.5 md:py-2 text-[10px] md:text-xs font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] hover:bg-[#F5F0E8] flex items-center gap-2.5 transition-colors whitespace-nowrap"
               >
                 {copiedLink ? (
                   <>
@@ -750,7 +750,7 @@ export default function PropertyFullDetailModal({
           </div>
 
           {/* MAIN CONTENT CANVAS */}
-          <div className="flex-1 bg-[#FCFBF9] p-4 sm:p-6 overflow-y-auto min-w-0">
+          <div className="flex-1 bg-[#FCFBF9] p-3 sm:p-6 overflow-y-auto min-w-0 overscroll-contain">
             
             {/* SECTION 1: PROPERTY DETAILS */}
             {activeSection === "DETAILS" && (
