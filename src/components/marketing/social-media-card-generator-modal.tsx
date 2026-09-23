@@ -201,7 +201,7 @@ export default function SocialMediaCardGeneratorModal({
     src: photos[imageSlots[slot]] || photos[index + 1] || fallbackInteriorPhotos[index],
     slot,
   }));
-  const brochureContentHeight = subImageCount >= 3 ? 250 : subImageCount === 2 ? 210 : subImageCount === 1 ? 185 : 155;
+  const brochureContentHeight = subImageCount === 3 ? 250 : subImageCount === 2 ? 210 : 185;
 
   // Dynamic feature bullet points derived strictly from property data
   const homeFeatures: string[] = property.features && property.features.length > 0
@@ -441,15 +441,15 @@ export default function SocialMediaCardGeneratorModal({
               </div>
               <div className="mt-3 border-t border-[#e0e0e0] pt-2">
                 <span className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">
-                  Sub-images on flyer
+                  Number of sub-images
                 </span>
-                <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="Number of sub-images on flyer">
-                  {[0, 1, 2, 3, 4].map((count) => (
+                <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Number of sub-images on flyer">
+                  {[1, 2, 3].map((count) => (
                     <button
                       key={count}
                       type="button"
                       aria-pressed={subImageCount === count}
-                      aria-label={count === 0 ? "No sub-images" : `${count} sub-image${count === 1 ? "" : "s"}`}
+                      aria-label={`${count} sub-image${count === 1 ? "" : "s"}`}
                       onClick={() => setSubImageCount(count)}
                       className={`flex h-10 items-center justify-center gap-0.5 border px-1 transition-colors ${
                         subImageCount === count
@@ -457,14 +457,7 @@ export default function SocialMediaCardGeneratorModal({
                           : "border-[#e0e0e0] bg-white text-[#282828] hover:border-[#fa3600]"
                       }`}
                     >
-                      {count === 0 ? (
-                        <span className="text-sm leading-none">—</span>
-                      ) : (
-                        Array.from({ length: count }).map((_, index) => (
-                          <span key={index} className="h-4 w-1.5 border border-current" aria-hidden="true" />
-                        ))
-                      )}
-                      <span className="sr-only">{count}</span>
+                      <span className="text-sm font-bold leading-none">{count}</span>
                     </button>
                   ))}
                 </div>
@@ -759,11 +752,11 @@ export default function SocialMediaCardGeneratorModal({
 
                     {/* Secondary images stay in one equal-width row and crop safely. */}
                     {subImages.length > 0 && (
-                      <div className="flex h-24 min-w-0 gap-1">
+                      <div className="flex min-w-0 items-start gap-1">
                         {subImages.map(({ src, slot }, index) => (
                           <div
                             key={`${slot}-${index}`}
-                            className="min-w-0 flex-1 overflow-hidden border border-[#e0e0e0] bg-neutral-100"
+                            className="aspect-square min-w-0 flex-1 overflow-hidden border border-[#e0e0e0] bg-neutral-100"
                           >
                             <img
                               src={src}
