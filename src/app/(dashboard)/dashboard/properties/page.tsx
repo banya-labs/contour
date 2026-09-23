@@ -38,6 +38,7 @@ import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { PropertyCardSkeleton } from "@/components/ui/skeleton";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
 
 const SUBURB_GPS_COORDINATES: Record<string, [number, number]> = {
   "Kabulonga": [-15.4215, 28.3345],
@@ -64,6 +65,7 @@ function PropertiesCatalogContent() {
   const [filterType, setFilterType] = useState("ALL");
   const [filterOwnership, setFilterOwnership] = useState("ALL");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
+  const [isPublishing, setIsPublishing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const searchParams = useSearchParams();
@@ -197,6 +199,7 @@ function PropertiesCatalogContent() {
       return;
     }
 
+    setIsPublishing(true);
     try {
       const askingPriceNum =
         formData.listingType === "FOR_SALE" && formData.askingPrice && !isNaN(parseFloat(formData.askingPrice))
@@ -272,8 +275,10 @@ function PropertiesCatalogContent() {
         }
         setFormError(errorMsg);
       }
-    } catch (err: any) {
-      setFormError(err.message || "Network error occurred");
+    } catch (caught) {
+      setFormError(caught instanceof Error ? caught.message : "Network error occurred");
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -605,6 +610,7 @@ function PropertiesCatalogContent() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isPublishing}
                 className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
                 title="Close"
               >
@@ -994,17 +1000,24 @@ function PropertiesCatalogContent() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isPublishing}
                   className="px-4 py-2 border border-editorial-border text-editorial-black hover:bg-neutral-50 text-xs font-heading font-semibold uppercase tracking-wider"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!formData.mandateDeclarationAgreed}
+                  disabled={isPublishing || !formData.mandateDeclarationAgreed}
+                  aria-busy={isPublishing}
                   className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>Publish Listing</span>
+                  <PendingButtonContent
+                    pending={isPublishing}
+                    pendingLabel="Publishing property…"
+                    icon={<Sparkles className="h-3.5 w-3.5 text-contour-red" />}
+                  >
+                    Publish Listing
+                  </PendingButtonContent>
                 </button>
               </div>
             </form>

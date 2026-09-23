@@ -9,12 +9,14 @@ import {
   Download,
   Plus,
   Lock,
-  Bot,
   X,
   Sparkles,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
+import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 
 function LandlordStatementsContent() {
   const [statements, setStatements] = useState<any[]>([]);
@@ -22,6 +24,9 @@ function LandlordStatementsContent() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formError, setFormError] = useState("");
+  const [isCreatingStatement, setIsCreatingStatement] = useState(false);
+  const [pendingAuthorizations, setPendingAuthorizations] =
+    useState<ReadonlySet<string>>(new Set());
 
   const [formData, setFormData] = useState({
     propertyId: "",
@@ -85,6 +90,7 @@ function LandlordStatementsContent() {
       return;
     }
 
+    setIsCreatingStatement(true);
     try {
       const res = await fetch("/api/statements", {
         method: "POST",
@@ -108,12 +114,16 @@ function LandlordStatementsContent() {
       } else {
         setFormError(data.error || "Failed to generate statement.");
       }
-    } catch (err: any) {
-      setFormError(err.message || "Network error generating statement.");
+    } catch (caught) {
+      setFormError(caught instanceof Error ? caught.message : "Network error generating statement.");
+    } finally {
+      setIsCreatingStatement(false);
     }
   };
 
   const handleAuthorizeSeam = async (id: string) => {
+    const actionKey = `${id}:authorize`;
+    setPendingAuthorizations((state) => setKeyPending(state, actionKey, true));
     try {
       const res = await fetch("/api/statements", {
         method: "POST",
@@ -127,8 +137,10 @@ function LandlordStatementsContent() {
       } else {
         alert("Failed to authorize statement: " + (data.error || "Unknown error"));
       }
-    } catch (err: any) {
-      alert("Error authorizing statement: " + err.message);
+    } catch (caught) {
+      alert("Error authorizing statement: " + (caught instanceof Error ? caught.message : "Unknown error"));
+    } finally {
+      setPendingAuthorizations((state) => setKeyPending(state, actionKey, false));
     }
   };
 
@@ -181,10 +193,7 @@ function LandlordStatementsContent() {
       {/* Statements List */}
       <div className="space-y-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-none border border-editorial-border">
-            <Bot className="animate-spin w-8 h-8 mb-2 text-editorial-red" />
-            <span className="text-xs font-mono text-editorial-neutral">Loading landlord statements from database...</span>
-          </div>
+          <SectionPendingState label="Loading landlord statements…" />
         ) : statements.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white rounded-none border border-editorial-border text-center space-y-3">
             <FileSpreadsheet className="w-12 h-12 text-editorial-neutral/50" />
@@ -264,10 +273,17 @@ function LandlordStatementsContent() {
                   {!isAuthorized ? (
                     <button
                       onClick={() => handleAuthorizeSeam(stmt.id)}
+                      disabled={isKeyPending(pendingAuthorizations, `${stmt.id}:authorize`)}
+                      aria-busy={isKeyPending(pendingAuthorizations, `${stmt.id}:authorize`)}
                       className="w-full sm:w-auto px-5 py-2.5 rounded-none bg-editorial-red hover:bg-editorial-red/90 text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
                     >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Authorize &amp; Disburse Remittance</span>
+                      <PendingButtonContent
+                        pending={isKeyPending(pendingAuthorizations, `${stmt.id}:authorize`)}
+                        pendingLabel="Authorising statement…"
+                        icon={<Lock className="h-3.5 w-3.5" />}
+                      >
+                        Authorize &amp; Disburse Remittance
+                      </PendingButtonContent>
                     </button>
                   ) : (
                     <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-mono font-semibold">
@@ -445,10 +461,17 @@ function LandlordStatementsContent() {
                 </button>
                 <button
                   type="submit"
+                  disabled={isCreatingStatement}
+                  aria-busy={isCreatingStatement}
                   className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>Generate Statement</span>
+                  <PendingButtonContent
+                    pending={isCreatingStatement}
+                    pendingLabel="Generating statement…"
+                    icon={<Sparkles className="h-3.5 w-3.5 text-contour-red" />}
+                  >
+                    Generate Statement
+                  </PendingButtonContent>
                 </button>
               </div>
             </form>

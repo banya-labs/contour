@@ -7,12 +7,13 @@ import {
   Search,
   Crosshair,
   Navigation,
-  Loader2,
   ExternalLink,
   Compass,
   CheckCircle2,
   RotateCcw,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 // Known Lusaka landmarks and major intersections for instant local search
 const LUSAKA_LANDMARKS: Array<{ name: string; suburb: string; lat: number; lng: number }> = [
@@ -60,12 +61,7 @@ const DynamicLeafletCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-52 bg-neutral-100 border border-editorial-border flex flex-col items-center justify-center text-editorial-muted gap-2 animate-pulse">
-        <Navigation className="w-5 h-5 text-contour-red animate-spin" />
-        <span className="text-[11px] font-mono tracking-wider text-editorial-black">
-          LOADING INTERACTIVE MAP...
-        </span>
-      </div>
+      <SectionPendingState label="Loading interactive map…" compact />
     ),
   }
 );
@@ -251,7 +247,7 @@ export default function LocationCoordinatePicker({
             className="px-2 py-1 bg-white hover:bg-neutral-100 border border-editorial-border text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-black flex items-center gap-1 transition-colors"
           >
             {gpsLoading ? (
-              <Loader2 className="w-3 h-3 animate-spin text-contour-red" />
+              <ContourSunLoader size="sm" label="Finding your location…" decorative />
             ) : (
               <Crosshair className="w-3 h-3 text-contour-red" />
             )}
@@ -284,7 +280,7 @@ export default function LocationCoordinatePicker({
             className="w-full bg-white pl-8 pr-8 py-1.5 border border-editorial-border text-xs text-editorial-black placeholder:text-editorial-muted focus:outline-none focus:border-editorial-black"
           />
           {isSearching && (
-            <Loader2 className="w-3 h-3 animate-spin text-editorial-muted absolute right-2.5" />
+            <ContourSunLoader size="sm" label="Searching addresses…" decorative className="absolute right-2.5" />
           )}
         </div>
 

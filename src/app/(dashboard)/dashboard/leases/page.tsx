@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
 
 function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
@@ -20,6 +21,7 @@ function LeasesManagementContent() {
   const [loading, setLoading] = useState(true);
   const [remindedLeaseId, setRemindedLeaseId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreatingLease, setIsCreatingLease] = useState(false);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -114,6 +116,7 @@ function LeasesManagementContent() {
       paymentDayOfMonth: 1,
     };
 
+    setIsCreatingLease(true);
     fetch("/api/leases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -140,6 +143,9 @@ function LeasesManagementContent() {
       })
       .catch((err) => {
         setFormError(`Failed to create lease: ${err.message}`);
+      })
+      .finally(() => {
+        setIsCreatingLease(false);
       });
   };
 
@@ -551,10 +557,17 @@ function LeasesManagementContent() {
                 </button>
                 <button
                   type="submit"
+                  disabled={isCreatingLease}
+                  aria-busy={isCreatingLease}
                   className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>Activate Lease</span>
+                  <PendingButtonContent
+                    pending={isCreatingLease}
+                    pendingLabel="Creating lease…"
+                    icon={<Sparkles className="h-3.5 w-3.5 text-contour-red" />}
+                  >
+                    Activate Lease
+                  </PendingButtonContent>
                 </button>
               </div>
             </form>

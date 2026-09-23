@@ -25,13 +25,15 @@ import {
   Upload,
   X,
   Sparkles,
-  Loader2,
   FileUp,
   Send,
   Copy,
   ScanLine,
   Image as ImageIcon,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { formatCurrency } from "@/lib/utils";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import TitleDeedOcrUploader, { TitleDeedOcrResult } from "@/components/properties/title-deed-ocr-uploader";
@@ -573,8 +575,7 @@ export default function PropertyFullDetailModal({
                   disabled={isSaving}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#FA3600] hover:bg-[#D92F00] text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors disabled:opacity-50"
                 >
-                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  <span>{isSaving ? "Saving..." : "Save"}</span>
+                  <PendingButtonContent pending={isSaving} pendingLabel="Saving property…" icon={<Save className="h-3.5 w-3.5" />}>Save</PendingButtonContent>
                 </button>
                 <button
                   type="button"
@@ -1377,7 +1378,7 @@ export default function PropertyFullDetailModal({
                         className="px-4 py-2 bg-[#FA3600] hover:bg-[#D92F00] text-white text-xs font-heading font-semibold uppercase tracking-wider cursor-pointer flex items-center gap-1.5 transition-colors"
                       >
                         {uploadingFileLoading ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <ContourSunLoader size="sm" label="Uploading document…" decorative />
                         ) : (
                           <Upload className="w-3.5 h-3.5" />
                         )}
@@ -1461,7 +1462,7 @@ export default function PropertyFullDetailModal({
                             disabled={requestDocLoading}
                             className="px-4 py-1.5 bg-[#FA3600] text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5"
                           >
-                            {requestDocLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                            {requestDocLoading && <ContourSunLoader size="sm" label="Creating request…" decorative />}
                             <span>Generate Request Link</span>
                           </button>
                         </div>
@@ -1515,10 +1516,7 @@ export default function PropertyFullDetailModal({
 
                 {/* Real Documents List */}
                 {loadingDocs ? (
-                  <div className="p-8 text-center text-xs font-mono text-[#73716B] flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-[#FA3600]" />
-                    <span>Loading vault documents...</span>
-                  </div>
+                  <SectionPendingState label="Loading property documents…" compact />
                 ) : vaultDocuments.length === 0 ? (
                   <div className="p-8 text-center bg-white border border-[#E6E4DF] space-y-2">
                     <FileText className="w-8 h-8 text-[#A8A6A1] mx-auto" />
@@ -1555,7 +1553,7 @@ export default function PropertyFullDetailModal({
                           className="px-3 py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
                         >
                           {downloadingDocId === doc.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <ContourSunLoader size="sm" label="Downloading document…" decorative />
                           ) : (
                             <Download className="w-3.5 h-3.5" />
                           )}

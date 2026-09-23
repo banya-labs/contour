@@ -19,6 +19,9 @@ import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 
 type Deal = {
   id: string;
@@ -116,6 +119,11 @@ function DealPipelineContent() {
   });
   const [editError, setEditError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
+  const [isClosingDeal, setIsClosingDeal] = useState(false);
+  const [pendingDealActions, setPendingDealActions] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
 
   // Close Deal Modal State
   const [closeTarget, setCloseTarget] = useState<Deal | null>(null);
@@ -269,48 +277,59 @@ function DealPipelineContent() {
       openCloseModal(deal);
       return;
     }
-    const response = await fetch(`/api/clients/${dealId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: nextStage }),
-    });
-    if (!response.ok) {
-      setFormError("Unable to update the pipeline stage.");
-      return;
+    const actionKey = `${dealId}:move`;
+    setPendingDealActions((state) => setKeyPending(state, actionKey, true));
+    try {
+      const response = await fetch(`/api/clients/${dealId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStage }),
+      });
+      if (!response.ok) {
+        setFormError("Unable to update the pipeline stage.");
+        return;
+      }
+      setDeals((prev) =>
+        prev.map((d) => (d.id === dealId ? { ...d, stage: nextStage } : d)),
+      );
+    } finally {
+      setPendingDealActions((state) => setKeyPending(state, actionKey, false));
     }
-    setDeals((prev) =>
-      prev.map((d) => (d.id === dealId ? { ...d, stage: nextStage } : d))
-    );
   };
 
   const handleCloseDeal = async () => {
     if (!closeTarget || (closeOutcome === "LOST" && lostReason.trim().length < 10)) return;
-    const response = await fetch(`/api/clients/${closeTarget.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: "CLOSED",
-        outcome: closeOutcome,
-        lostReason: closeOutcome === "LOST" ? lostReason.trim() : undefined,
-      }),
-    });
-    if (!response.ok) {
-      setFormError("Unable to close this deal.");
-      return;
+    setIsClosingDeal(true);
+    try {
+      const response = await fetch(`/api/clients/${closeTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CLOSED",
+          outcome: closeOutcome,
+          lostReason: closeOutcome === "LOST" ? lostReason.trim() : undefined,
+        }),
+      });
+      if (!response.ok) {
+        setFormError("Unable to close this deal.");
+        return;
+      }
+      setDeals((prev) =>
+        prev.map((deal) =>
+          deal.id === closeTarget.id
+            ? {
+                ...deal,
+                stage: "CLOSED",
+                outcome: closeOutcome,
+                lostReason: closeOutcome === "LOST" ? lostReason.trim() : null,
+              }
+            : deal,
+        ),
+      );
+      setCloseTarget(null);
+    } finally {
+      setIsClosingDeal(false);
     }
-    setDeals((prev) =>
-      prev.map((deal) =>
-        deal.id === closeTarget.id
-          ? {
-              ...deal,
-              stage: "CLOSED",
-              outcome: closeOutcome,
-              lostReason: closeOutcome === "LOST" ? lostReason.trim() : null,
-            }
-          : deal
-      )
-    );
-    setCloseTarget(null);
   };
 
   const handleSaveEditDeal = async (e: React.FormEvent) => {
@@ -416,6 +435,8 @@ function DealPipelineContent() {
     const matchedProp = availableProperties.find((p) => p.id === formData.propertyId);
     const matchedAgent = agents.find((a) => a.id === formData.assignedAgentId);
 
+    setIsCreatingDeal(true);
+    try {
     const response = await fetch("/api/clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -487,6 +508,11 @@ function DealPipelineContent() {
       stage: "NEW_INQUIRY",
       notes: "",
     });
+    } catch {
+      setFormError("Network error while creating this pipeline opportunity.");
+    } finally {
+      setIsCreatingDeal(false);
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, dealId: string) => {
@@ -713,6 +739,7 @@ function DealPipelineContent() {
                 <select
                   value={deal.stage}
                   onChange={(e) => handleMoveStage(deal.id, e.target.value as Deal["stage"])}
+                  disabled={isKeyPending(pendingDealActions, `${deal.id}:move`)}
                   className="w-full bg-white px-2 py-2 border border-editorial-border text-[11px] font-heading font-semibold uppercase tracking-wider text-editorial-black focus:outline-none"
                 >
                   {STAGES.map((s) => (
@@ -721,6 +748,12 @@ function DealPipelineContent() {
                     </option>
                   ))}
                 </select>
+                {isKeyPending(pendingDealActions, `${deal.id}:move`) && (
+                  <span role="status" className="flex items-center gap-2 text-[11px] text-contour-red">
+                    <ContourSunLoader size="sm" label="Moving deal…" decorative />
+                    Moving deal…
+                  </span>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -1273,16 +1306,24 @@ function DealPipelineContent() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isCreatingDeal}
                   className="px-4 py-2 border border-editorial-border text-editorial-black hover:bg-neutral-50 text-xs font-heading font-semibold uppercase tracking-wider"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={isCreatingDeal}
+                  aria-busy={isCreatingDeal}
                   className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>Create Opportunity</span>
+                  <PendingButtonContent
+                    pending={isCreatingDeal}
+                    pendingLabel="Creating deal…"
+                    icon={<Sparkles className="h-3.5 w-3.5 text-contour-red" />}
+                  >
+                    Create Opportunity
+                  </PendingButtonContent>
                 </button>
               </div>
             </form>
@@ -1467,14 +1508,13 @@ function DealPipelineContent() {
                   disabled={isSavingEdit}
                   className="px-4 py-2 bg-editorial-black hover:bg-contour-red disabled:opacity-50 text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
                 >
-                  {isSavingEdit ? (
-                    <span>Saving...</span>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Save Associations</span>
-                    </>
-                  )}
+                  <PendingButtonContent
+                    pending={isSavingEdit}
+                    pendingLabel="Saving deal…"
+                    icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}
+                  >
+                    Save Associations
+                  </PendingButtonContent>
                 </button>
               </div>
             </form>
@@ -1510,7 +1550,9 @@ function DealPipelineContent() {
             )}
             <div className="pt-3 flex justify-end gap-2 border-t border-editorial-border">
               <button type="button" onClick={() => setCloseTarget(null)} className="px-4 py-2 border border-editorial-border text-xs font-heading uppercase tracking-wider">Cancel</button>
-              <button type="button" disabled={closeOutcome === "LOST" && lostReason.trim().length < 10} onClick={() => void handleCloseDeal()} className="px-4 py-2 bg-editorial-black disabled:opacity-40 text-white text-xs font-heading uppercase tracking-wider">Save outcome</button>
+              <button type="button" disabled={isClosingDeal || (closeOutcome === "LOST" && lostReason.trim().length < 10)} aria-busy={isClosingDeal} onClick={() => void handleCloseDeal()} className="px-4 py-2 bg-editorial-black disabled:opacity-40 text-white text-xs font-heading uppercase tracking-wider">
+                <PendingButtonContent pending={isClosingDeal} pendingLabel="Closing deal…">Save outcome</PendingButtonContent>
+              </button>
             </div>
           </div>
         </div>

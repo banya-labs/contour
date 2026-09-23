@@ -7,13 +7,13 @@ import {
   Camera,
   X,
   Star,
-  Loader2,
   AlertCircle,
   CheckCircle2,
   Plus,
   ImageOff,
   RefreshCw,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 export type PropertyImageUploaderProps = {
   photos: string[];
@@ -302,7 +302,7 @@ export default function PropertyImageUploader({
             }`}
           >
             {uploading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-[#E57A1A]" />
+              <ContourSunLoader size="md" label="Uploading listing photos…" decorative />
             ) : (
               <Upload className="w-5 h-5" />
             )}
@@ -506,9 +506,9 @@ export default function PropertyImageUploader({
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-black/40">
                   {pending.isUploading ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin text-[#E57A1A] mb-1" />
+                      <ContourSunLoader size="md" label={`Uploading ${pending.name}…`} decorative />
                       <span className="text-[10px] font-bold text-white uppercase tracking-wider">
-                        Uploading...
+                        Uploading…
                       </span>
                       <span className="text-[9px] text-slate-300 truncate max-w-full px-1">
                         {pending.name}

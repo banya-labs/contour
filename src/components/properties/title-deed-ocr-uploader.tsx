@@ -7,7 +7,6 @@ import {
   Upload,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   RefreshCw,
   Scale,
   Compass,
@@ -17,6 +16,8 @@ import {
   Info,
   X,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 // Dynamically import Leaflet with SSR disabled
 const ReadonlyBoundaryPreview = dynamic(
@@ -24,10 +25,7 @@ const ReadonlyBoundaryPreview = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-48 bg-[#FAF8F5] border border-editorial-border flex items-center justify-center text-xs font-mono text-editorial-muted animate-pulse">
-        <Loader2 className="w-4 h-4 mr-2 animate-spin text-contour-red" />
-        LOADING CADASTRAL PREVIEW...
-      </div>
+      <SectionPendingState label="Loading cadastral preview…" compact />
     ),
   }
 );
@@ -329,7 +327,7 @@ export default function TitleDeedOcrUploader({
 
             {loading ? (
               <div className="py-4 flex flex-col items-center justify-center space-y-2">
-                <Loader2 className="w-6 h-6 text-contour-red animate-spin" />
+                <ContourSunLoader size="md" label={loadingStep || "Extracting title deed…"} decorative />
                 <span className="text-xs font-mono font-bold text-editorial-black uppercase">
                   Processing Title Deed
                 </span>

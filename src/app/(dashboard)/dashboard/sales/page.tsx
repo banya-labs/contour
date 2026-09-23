@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
 
 function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
@@ -24,6 +25,7 @@ function PropertySalesContent() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRecordingSale, setIsRecordingSale] = useState(false);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -172,6 +174,7 @@ function PropertySalesContent() {
       closedAt: new Date().toISOString(),
     };
 
+    setIsRecordingSale(true);
     fetch("/api/sales", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -223,6 +226,9 @@ function PropertySalesContent() {
       })
       .catch((err) => {
         setFormError(`Failed to save sale: ${err.message}`);
+      })
+      .finally(() => {
+        setIsRecordingSale(false);
       });
   };
 
@@ -720,10 +726,17 @@ function PropertySalesContent() {
                 </button>
                 <button
                   type="submit"
+                  disabled={isRecordingSale}
+                  aria-busy={isRecordingSale}
                   className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-contour-red" />
-                  <span>Record Conveyance</span>
+                  <PendingButtonContent
+                    pending={isRecordingSale}
+                    pendingLabel="Recording conveyance…"
+                    icon={<Sparkles className="h-3.5 w-3.5 text-contour-red" />}
+                  >
+                    Record Conveyance
+                  </PendingButtonContent>
                 </button>
               </div>
             </form>

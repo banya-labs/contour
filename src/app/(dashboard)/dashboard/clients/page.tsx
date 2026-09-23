@@ -15,7 +15,6 @@ import {
   Lock,
   X,
   Sparkles,
-  Bot,
   Edit3,
   Trash2,
   UserCheck,
@@ -25,6 +24,8 @@ import {
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { useSession } from "@/lib/auth-client";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -437,10 +438,7 @@ function ClientsCRMContent() {
 
       {/* Clients Cards Grid */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-none border border-editorial-border">
-          <Bot className="animate-spin w-8 h-8 mb-2 text-editorial-red" />
-          <span className="text-xs font-mono text-editorial-neutral">Loading CRM inquiries...</span>
-        </div>
+        <SectionPendingState label="Loading CRM inquiries…" />
       ) : filteredClients.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-none border border-editorial-border text-center space-y-3">
           <Users className="w-12 h-12 text-editorial-neutral/50" />
@@ -930,14 +928,13 @@ function ClientsCRMContent() {
                   disabled={isSavingEdit}
                   className="px-5 py-2 rounded-none bg-editorial-black hover:bg-black disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors"
                 >
-                  {isSavingEdit ? (
-                    <span>Saving...</span>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Save Client Details</span>
-                    </>
-                  )}
+                  <PendingButtonContent
+                    pending={isSavingEdit}
+                    pendingLabel="Saving client changes…"
+                    icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}
+                  >
+                    Save Client Details
+                  </PendingButtonContent>
                 </button>
               </div>
             </form>
@@ -1008,14 +1005,13 @@ function ClientsCRMContent() {
                 onClick={handleDeleteClient}
                 className="px-5 py-2 rounded-none bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors"
               >
-                {isDeleting ? (
-                  <span>Deleting...</span>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5 text-white" />
-                    <span>Confirm Delete</span>
-                  </>
-                )}
+                <PendingButtonContent
+                  pending={isDeleting}
+                  pendingLabel="Deleting client…"
+                  icon={<Trash2 className="h-3.5 w-3.5 text-white" />}
+                >
+                  Confirm Delete
+                </PendingButtonContent>
               </button>
             </div>
           </div>
