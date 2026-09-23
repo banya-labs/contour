@@ -1,0 +1,26 @@
+bucket_definitions:
+  user_data:
+    parameters:
+      - user_id
+      - organization_id
+      - role
+    data:
+      - SELECT id, name, created_at, updated_at
+        FROM organization
+        WHERE id = bucket.organization_id
+      - SELECT id, organization_id, title, suburb, status, listing_type, price, latitude, longitude, photos
+        FROM property
+        WHERE organization_id = bucket.organization_id
+          AND (bucket.role IN ('OWNER', 'BROKER_MANAGER') OR assigned_agent_id = bucket.user_id)
+      - SELECT id, organization_id, client_name, client_phone, client_email, status, assigned_agent_id, notes, updated_at
+        FROM inquiry
+        WHERE organization_id = bucket.organization_id
+          AND (bucket.role IN ('OWNER', 'BROKER_MANAGER') OR assigned_agent_id = bucket.user_id)
+      - SELECT id, organization_id, property_id, client_id, agent_id, scheduled_at, status, notes, updated_at
+        FROM visit
+        WHERE organization_id = bucket.organization_id
+          AND (bucket.role IN ('OWNER', 'BROKER_MANAGER') OR agent_id = bucket.user_id)
+
+# Deliberately excluded: vault documents, identity documents, title deeds,
+# bank details, payment transactions, leases with financial identifiers, and
+# unrestricted audit records. These remain server-authoritative and online-only.
