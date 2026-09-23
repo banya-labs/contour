@@ -1,24 +1,19 @@
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const outputIndex = args.indexOf("--output");
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : null;
-const intermediatePath = resolve(".artifacts/eslint-raw.json");
-mkdirSync(resolve(".artifacts"), { recursive: true });
-const eslintArgs = ["exec", "eslint", ".", "-f", "json", "-o", intermediatePath, ...args.filter((arg, index) => index !== outputIndex && index !== outputIndex + 1)];
+const eslintArgs = ["exec", "eslint", ".", "-f", "json", ...args.filter((arg, index) => index !== outputIndex && index !== outputIndex + 1)];
 
-try {
-  execFileSync(process.platform === "win32" ? "pnpm.cmd" : "pnpm", eslintArgs, {
-    encoding: "utf8",
-    stdio: ["ignore", "ignore", "ignore"],
-    maxBuffer: 1024 * 1024,
-  });
-} catch {
-  // ESLint exits 1 when findings exist; its JSON report is still valid.
-}
-const raw = readFileSync(intermediatePath, "utf8");
+const result = spawnSync(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["exec", "eslint", ".", "-f", "json"], {
+  encoding: "utf8",
+  stdio: ["ignore", "pipe", "ignore"],
+  maxBuffer: 50 * 1024 * 1024,
+});
+if (result.error) throw result.error;
+const raw = result.stdout;
 
 const report = JSON.parse(raw);
 const rules = {};
