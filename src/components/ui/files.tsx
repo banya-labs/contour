@@ -9,10 +9,10 @@ import {
   FileText, 
   ShieldCheck, 
   AlertCircle, 
-  Lock, 
-  Loader2 
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 // -----------------------------------------------------------------------------
 // Status Types
@@ -73,7 +73,7 @@ function StatusIndicator({
             aria-label="Uploading"
             className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-contour-red bg-[#fff5f3] px-1.5 py-0.5 rounded-none border border-contour-red/30"
           >
-            <Loader2 className="w-3 h-3 animate-spin text-contour-red" />
+            <ContourSunLoader size="sm" label="Syncing document…" decorative />
             <span>Syncing</span>
           </span>
         );

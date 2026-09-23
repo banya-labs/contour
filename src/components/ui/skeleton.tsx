@@ -75,3 +75,13 @@ export function PropertyCardSkeleton() {
     </div>
   );
 }
+
+export function DashboardSkeleton() {
+  return (
+    <main data-dashboard-skeleton className="min-h-screen space-y-6 bg-[#FBF9F5] p-4 sm:p-6 lg:p-8">
+      <div className="space-y-2"><Skeleton className="h-4 w-28" /><Skeleton className="h-9 w-72 max-w-full" /></div>
+      <DashboardMetricSkeleton />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3"><Skeleton className="h-80 xl:col-span-2" /><ActionQueueSkeleton /></div>
+    </main>
+  );
+}

@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
-  Sparkles,
   X,
   Download,
   Share2,
@@ -32,6 +31,7 @@ import {
   Square,
   RectangleVertical,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import html2canvas from "html2canvas";
 import { formatCurrency } from "@/lib/utils";
 import { getAgencySettings, AgencySettings } from "@/lib/settings/agency-settings";
@@ -421,8 +421,8 @@ export default function SocialMediaCardGeneratorModal({
                   </>
                 ) : isDownloading ? (
                   <>
-                    <Sparkles className="w-4 h-4 animate-spin" />
-                    <span>Compiling High-Res Flyer (PNG)...</span>
+                    <ContourSunLoader size="sm" label="Compiling high-resolution flyer…" decorative />
+                    <span>Compiling High-Res Flyer (PNG)…</span>
                   </>
                 ) : (
                   <>

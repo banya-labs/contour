@@ -8,10 +8,10 @@ import {
   Compass,
   ExternalLink,
   ShieldCheck,
-  Navigation,
   Layers,
   ArrowRight,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 // Suburb GPS coordinates fallback dictionary for Lusaka
 const SUBURB_COORDINATES: Record<string, [number, number]> = {
@@ -43,7 +43,7 @@ const PropertyLeafletCanvas = dynamic(
     ssr: false,
     loading: () => (
       <div className="w-full h-[340px] sm:h-[400px] bg-[#FAF8F5] border border-editorial-border flex flex-col items-center justify-center text-editorial-muted gap-3 animate-pulse">
-        <Navigation className="w-6 h-6 text-contour-red animate-spin" />
+        <ContourSunLoader size="md" label="Loading property map…" decorative />
         <span className="text-xs font-mono font-bold tracking-wider text-editorial-black">
           LOADING LUSAKA SPATIAL CADASTRE MAP...
         </span>
