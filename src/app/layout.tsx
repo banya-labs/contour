@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { CookieConsentBanner } from "@/components/ui/cookie-consent-banner";
 import { PwaInstallBanner } from "@/components/pwa/pwa-install-banner";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import "./globals.css";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
@@ -177,6 +178,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-white text-editorial-black min-h-screen flex flex-col antialiased selection:bg-contour-red selection:text-white">
+        <ServiceWorkerRegistration />
         <main className="flex-1 flex flex-col">{children}</main>
         <PwaInstallBanner />
         <CookieConsentBanner />
