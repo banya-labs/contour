@@ -8,6 +8,8 @@ import { z } from "zod";
 
 import { smartCache } from "@/lib/cache";
 import { propertySlugFromTitle, publicPropertyPath } from "@/lib/public-property";
+import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
+import type { ApiRouteContext } from "@/lib/api-handler";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -118,22 +120,22 @@ const getHandler = createApiHandler({
     }
 
     // 2. Status filtering
-    const allowedStatuses = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
-    let statusFilter: any = { in: ["AVAILABLE"] }; // Default to public AVAILABLE listings
+    const allowedStatuses: PropertyStatus[] = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
+    let statusFilter: Prisma.PropertyWhereInput["status"] = { in: ["AVAILABLE"] }; // Default to public AVAILABLE listings
     
     if (status && !isPublicRequest) {
       if (status.toUpperCase() === "ALL") {
         statusFilter = { in: allowedStatuses };
       } else {
         const statuses = status.split(",").map((s) => s.trim().toUpperCase());
-        const validStatuses = statuses.filter((s) => allowedStatuses.includes(s));
+        const validStatuses = statuses.filter((s): s is PropertyStatus => allowedStatuses.includes(s as PropertyStatus));
         if (validStatuses.length > 0) {
           statusFilter = { in: validStatuses };
         }
       }
     }
 
-    const whereClause: any = {
+    const whereClause: Prisma.PropertyWhereInput = {
       organizationId: targetOrgId,
       status: statusFilter,
     };
@@ -162,7 +164,7 @@ const getHandler = createApiHandler({
     }
     if (propertyType && propertyType !== "ALL") {
       const upper = propertyType.trim().toUpperCase();
-      const typeMap: Record<string, string> = {
+      const typeMap: Record<string, PropertyType> = {
         HOUSE: "STANDALONE_HOUSE",
         STANDALONE: "STANDALONE_HOUSE",
         STANDALONE_HOUSE: "STANDALONE_HOUSE",
@@ -197,7 +199,7 @@ const getHandler = createApiHandler({
       if (!isNaN(b)) whereClause.bathrooms = { gte: b };
     }
 
-    const andConditions: any[] = [];
+    const andConditions: Prisma.PropertyWhereInput[] = [];
 
     if (search) {
       andConditions.push({
@@ -239,7 +241,7 @@ const getHandler = createApiHandler({
 
     // 3. Sorting & Ordering
     const validSortOrder: "asc" | "desc" = sortOrder === "asc" ? "asc" : "desc";
-    let orderBy: any = { createdAt: validSortOrder };
+    let orderBy: Prisma.PropertyOrderByWithRelationInput | Prisma.PropertyOrderByWithRelationInput[] = { createdAt: validSortOrder };
 
     if (sortBy === "price") {
       if (listingType === "RENT") {
@@ -663,7 +665,7 @@ const patchHandler = createApiHandler({
         photos: updateData.photos,
         featuredPhoto: updateData.featuredPhoto,
         titleDeedNumber: updateData.titleDeedNumber,
-        standBoundary: updateData.standBoundary !== undefined ? (updateData.standBoundary as any) : undefined,
+        standBoundary: updateData.standBoundary !== undefined ? (updateData.standBoundary as Prisma.InputJsonValue) : undefined,
         assignedAgentId: updateData.assignedAgentId,
       }
     });
@@ -685,15 +687,15 @@ const patchHandler = createApiHandler({
   }
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }
 
-export async function POST(req: NextRequest, context?: any) {
+export async function POST(req: NextRequest, context: ApiRouteContext) {
   return postHandler(req, context);
 }
 
-export async function PATCH(req: NextRequest, context?: any) {
+export async function PATCH(req: NextRequest, context: ApiRouteContext) {
   return patchHandler(req, context);
 }
 
