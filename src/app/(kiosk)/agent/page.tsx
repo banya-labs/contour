@@ -2537,7 +2537,7 @@ function AgentKioskContent() {
                   </div>
                 </div>
                 <span className="text-[10px] bg-neutral-100 text-editorial-black px-2 py-0.5 border border-editorial-border font-mono font-bold">
-                  3 Deals
+                  {(agentSummary?.earnings?.slips || []).filter((slip: any) => !["EARNED", "RECEIVED", "AGENT_PAID_OUT"].includes(slip.status)).length} Deals
                 </span>
               </div>
             </div>

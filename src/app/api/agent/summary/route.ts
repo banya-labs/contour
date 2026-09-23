@@ -168,7 +168,10 @@ const getHandler = createApiHandler({
       const agentSplit = Number(tx.agentSplitAmount);
       const grossCommission = Number(tx.agencyCommissionAmount);
 
-      if (tx.status === "RECEIVED" || tx.status === "AGENT_PAID_OUT") {
+      // A management-confirmed winning deal is recorded as EARNED. It has
+      // left the pipeline and must appear in the agent's closed/paid totals;
+      // only expected or partially received commissions remain pending.
+      if (tx.status === "EARNED" || tx.status === "RECEIVED" || tx.status === "AGENT_PAID_OUT") {
         if (tx.currency === "USD") earnedSplitUsd += agentSplit;
         else earnedSplitZmw += agentSplit;
       } else {
