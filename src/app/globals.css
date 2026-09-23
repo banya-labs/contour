@@ -746,3 +746,71 @@ button, a, input, select, textarea {
     padding: 0.625rem 0.75rem !important;
   }
 }
+
+@keyframes contour-sun-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes contour-sun-breathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.82;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.contour-sun-loader {
+  --sun-size: 1.5rem;
+  position: relative;
+  display: inline-grid;
+  width: var(--sun-size);
+  height: var(--sun-size);
+  place-items: center;
+  flex: none;
+}
+
+.contour-sun-loader--sm {
+  --sun-size: 1rem;
+}
+
+.contour-sun-loader--md {
+  --sun-size: 2rem;
+}
+
+.contour-sun-loader--lg {
+  --sun-size: 4.5rem;
+}
+
+.contour-sun-loader__disc {
+  width: 54%;
+  height: 54%;
+  border-radius: 9999px;
+  background: #fa3600;
+  animation: contour-sun-breathe 1.35s ease-in-out infinite;
+}
+
+.contour-sun-loader__orbit {
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, #fa3600 42%, transparent);
+  border-right-color: #fa3600;
+  border-radius: 44% 56% 52% 48%;
+  animation: contour-sun-orbit 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contour-sun-loader__disc,
+  .contour-sun-loader__orbit {
+    animation: none;
+  }
+
+  .contour-sun-loader__orbit {
+    opacity: 0.55;
+  }
+}
