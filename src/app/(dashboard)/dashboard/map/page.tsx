@@ -17,6 +17,7 @@ import {
 import type { PropertyMapItem } from "@/types/property-map";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
+import { publicPropertyPath } from "@/lib/public-property";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
@@ -57,6 +58,7 @@ export default function DashboardMapPage() {
               id: p.id,
               title: p.title,
               slug: p.slug,
+              organizationSlug: p.organization?.slug || data.organization?.slug || null,
               listingType: p.listingType,
               status: p.status,
               ownershipType: p.ownershipType,
@@ -291,7 +293,7 @@ export default function DashboardMapPage() {
               </a>
 
               <Link
-                href={`/p/${selectedProperty.slug}`}
+                href={publicPropertyPath(selectedProperty.organizationSlug || "organization", selectedProperty.slug)}
                 className="btn-fill-wipe bg-editorial-black text-white py-3 px-3 flex items-center justify-center gap-1.5 font-heading text-xs font-semibold uppercase tracking-wider rounded-none"
               >
                 <span>View Listing</span>

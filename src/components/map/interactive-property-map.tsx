@@ -29,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { publicPropertyPath } from "@/lib/public-property";
 import {
   ChoroplethLevel,
   CHOROPLETH_REGIONS,
@@ -637,7 +638,7 @@ export default function InteractivePropertyMap({
               <span style="font-weight: 800; font-size: 13px; color: #FA3600;">
                 ${priceText}
               </span>
-              <a href="/p/${property.slug}" style="display: inline-flex; align-items: center; gap: 4px; background: #27251e; color: #ffffff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 9999px;">
+              <a href="${publicPropertyPath(property.organizationSlug || "organization", property.slug)}" style="display: inline-flex; align-items: center; gap: 4px; background: #27251e; color: #ffffff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 9999px;">
                 View Card
               </a>
             </div>
@@ -1202,7 +1203,7 @@ export default function InteractivePropertyMap({
                           )}
                         </div>
                         <Link
-                          href={`/p/${property.slug}`}
+                          href={publicPropertyPath(property.organizationSlug || "organization", property.slug)}
                           onClick={(e) => e.stopPropagation()}
                           className="text-[10px] font-semibold text-ink-900 hover:text-contour-red flex items-center gap-0.5"
                         >

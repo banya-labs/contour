@@ -23,6 +23,7 @@ import { formatCurrency } from "@/lib/utils";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
+import { publicPropertyPath } from "@/lib/public-property";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -93,6 +94,7 @@ function PublicMapInner() {
                 id: p.id,
                 title: p.title,
                 slug: p.slug,
+                organizationSlug: p.organization?.slug || resolvedOrg || data.organization?.slug || null,
                 listingType: p.listingType,
                 status: p.status,
                 ownershipType: p.ownershipType,
@@ -158,7 +160,7 @@ function PublicMapInner() {
     ? `https://wa.me/${formatWhatsAppDigits(
         selectedProperty.assignedAgentPhone || "260971234567"
       )}?text=${encodeURIComponent(
-        `Hello, I am inquiring about the property "${selectedProperty.title}" (${selectedProperty.suburb}) on your public spatial map. Link: ${typeof window !== "undefined" ? window.location.origin : ""}/p/${selectedProperty.slug}`
+        `Hello, I am inquiring about the property "${selectedProperty.title}" (${selectedProperty.suburb}) on your public spatial map. Link: ${typeof window !== "undefined" ? window.location.origin : ""}${publicPropertyPath(selectedProperty.organizationSlug || resolvedOrg || "organization", selectedProperty.slug)}`
       )}`
     : "#";
 
@@ -382,7 +384,7 @@ function PublicMapInner() {
             {/* Action Buttons: Direct Public Listing Dossier + WhatsApp Inquiry */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
               <Link
-                href={`/p/${selectedProperty.slug}`}
+                href={publicPropertyPath(selectedProperty.organizationSlug || resolvedOrg || "organization", selectedProperty.slug)}
                 className="w-full py-2.5 px-4 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-2xs"
               >
                 <span>View Full Listing Dossier</span>
