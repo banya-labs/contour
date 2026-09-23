@@ -17,7 +17,9 @@ import { z } from "zod";
 const checkoutSchema = z.object({
   planId: z.enum(["starter", "growth", "enterprise"]),
   billingCycle: z.enum(["MONTHLY", "ANNUAL"]).default("MONTHLY"),
-  currency: z.enum(["ZMW", "USD", "ZAR"]).default("ZMW"),
+  // Lenco settlement is currently implemented for ZMW and USD only. Do not
+  // silently convert a ZAR request into a ZMW charge.
+  currency: z.enum(["ZMW", "USD"]).default("ZMW"),
   channel: z.enum(["mobile_money", "card", "bank_transfer"]).default("mobile_money"),
   mobileMoneyOperator: z.enum(["mtn", "airtel", "zamtel"]).optional(),
   phone: z.string().trim().min(7).max(30).optional(),
@@ -112,7 +114,7 @@ const postHandler = createApiHandler({
 
     const collectionResult = await initiateLencoCollection({
       amount: priceInfo.amount,
-      currency: currency === "USD" ? "USD" : "ZMW",
+      currency,
       reference,
       narration: `Contour ${plan.name} (${billingCycle}) - ${targetOrgId}`,
       customer: {
