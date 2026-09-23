@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       plotSizeSqm: p.plotSizeSqm ? `${p.plotSizeSqm} m²` : null,
       landmarks: p.landmarkDirections,
       summary: p.description?.substring(0, 200) + "...",
-      publicUrl: `https://contour.app/p/${p.slug}`,
+      publicUrl: `https://contour.app/p/${encodeURIComponent(tenantOrgId)}/${encodeURIComponent(p.slug)}`,
       photosCount: p.photos?.length || 0,
     }));
 

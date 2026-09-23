@@ -126,7 +126,7 @@ const getHandler = createApiHandler({
     
     if (status && !isPublicRequest) {
       if (status.toUpperCase() === "ALL") {
-        statusFilter = { in: allowedStatuses };
+        statusFilter = { in: allowedStatuses.filter((value) => value !== "SOLD") };
       } else {
         const statuses = status.split(",").map((s) => s.trim().toUpperCase());
         const validStatuses = statuses.filter((s): s is PropertyStatus => allowedStatuses.includes(s as PropertyStatus));
@@ -719,6 +719,38 @@ export async function POST(req: NextRequest, context: ApiRouteContext) {
 export async function PATCH(req: NextRequest, context: ApiRouteContext) {
   return patchHandler(req, context);
 }
+
+export const DELETE = createApiHandler({
+  requirePermissions: ["properties.archive"],
+  handler: async (req, ctx) => {
+    const id = req.nextUrl.searchParams.get("id") || undefined;
+    if (!id) return NextResponse.json({ success: false, error: "Property id is required." }, { status: 400 });
+
+    const property = await db.property.findFirst({
+      where: { id, organizationId: ctx.organizationId },
+      select: { id: true, title: true, status: true },
+    });
+    if (!property) return NextResponse.json({ success: false, error: "Property not found." }, { status: 404 });
+
+    await db.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          organizationId: ctx.organizationId!,
+          userId: ctx.userId,
+          action: "PROPERTY_DELETED",
+          entityType: "Property",
+          entityId: property.id,
+          details: { title: property.title, status: property.status },
+        },
+      });
+      await tx.property.delete({ where: { id: property.id } });
+    });
+
+    smartCache.invalidateTag(ctx.organizationId!, "properties");
+    smartCache.invalidateTag(ctx.organizationId!, "dashboard-metrics");
+    return NextResponse.json({ success: true });
+  },
+});
 
 export async function OPTIONS() {
   return new NextResponse(null, {

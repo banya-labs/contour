@@ -316,6 +316,7 @@ export default async function PublicPropertyCardPage({
           photos={property.photos}
           featuredPhoto={property.featuredPhoto || undefined}
           slug={property.slug}
+          organizationSlug={property.organizationSlug}
           agentName={property.assignedAgentName || undefined}
           agentPhone={property.assignedAgentPhone || undefined}
         />

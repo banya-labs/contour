@@ -69,6 +69,7 @@ function PropertiesCatalogContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [canOverrideCommission, setCanOverrideCommission] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
   const [organizationSlug, setOrganizationSlug] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
@@ -175,6 +176,22 @@ function PropertiesCatalogContent() {
     }
     setCopiedPropertyId(p.id);
     setTimeout(() => setCopiedPropertyId(null), 2500);
+  };
+
+  const handleDeleteProperty = async (property: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete “${property.title}”? This removes the listing and its associated records.`)) return;
+    setDeletingPropertyId(property.id);
+    try {
+      const response = await fetch(`/api/properties?id=${encodeURIComponent(property.id)}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to delete listing.");
+      setProperties((current) => current.filter((item) => item.id !== property.id));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to delete listing.");
+    } finally {
+      setDeletingPropertyId(null);
+    }
   };
 
   const handleCreateProperty = async (e: React.FormEvent) => {
@@ -600,6 +617,16 @@ function PropertiesCatalogContent() {
                       <span>Public Card</span>
                       <ExternalLink className="w-2.5 h-2.5" />
                     </Link>
+                    <button
+                      type="button"
+                      onClick={(e) => void handleDeleteProperty(p, e)}
+                      disabled={deletingPropertyId === p.id}
+                      title="Delete listing"
+                      className="text-[10px] font-heading font-semibold uppercase tracking-wider text-red-700 hover:text-red-900 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                      <span>{deletingPropertyId === p.id ? "Deleting" : "Delete"}</span>
+                    </button>
                   </div>
                 </div>
               </div>

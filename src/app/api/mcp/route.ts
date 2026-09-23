@@ -352,7 +352,7 @@ export async function POST(req: NextRequest) {
           plotSizeSqm: p.plotSizeSqm,
           landmarkDirections: p.landmarkDirections,
           description: p.description?.substring(0, 180) + "...",
-          url: `https://contour.app/p/${p.slug}`,
+          url: `https://contour.app/p/${encodeURIComponent(tenantOrgId)}/${encodeURIComponent(p.slug)}`,
         }));
 
         return NextResponse.json({

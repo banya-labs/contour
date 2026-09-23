@@ -35,6 +35,7 @@ export type AlertMatchResult = {
 };
 
 export type MatchedProperty = {
+  organizationId?: string | null;
   title: string;
   slug: string;
   suburb: string;
@@ -167,7 +168,7 @@ export function evaluatePropertyAgainstAlerts(newProperty: MatchedProperty): Ale
 
       const priceFormatted = formatCurrency(propertyPrice, newProperty.currency || "ZMW");
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://contour.app";
-      const publicLink = `${appUrl}/p/${newProperty.slug}`;
+      const publicLink = `${appUrl}/p/${encodeURIComponent(newProperty.organizationId || "organization")}/${encodeURIComponent(newProperty.slug)}`;
 
       const now = new Date();
       const timeFormatted = `Today, ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;

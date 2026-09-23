@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
+import { publicPropertyPath } from "@/lib/public-property";
 
 export type PublicPropertyGalleryProps = {
   title: string;
@@ -23,6 +24,7 @@ export type PublicPropertyGalleryProps = {
   photos: string[];
   featuredPhoto?: string | null;
   slug: string;
+  organizationSlug?: string | null;
   agentName?: string | null;
   agentPhone?: string | null;
 };
@@ -35,6 +37,7 @@ export default function PublicPropertyGallery({
   photos = [],
   featuredPhoto,
   slug,
+  organizationSlug,
   agentName = "Contour Agent",
   agentPhone = "+260971234567",
 }: PublicPropertyGalleryProps) {
@@ -50,7 +53,7 @@ export default function PublicPropertyGallery({
 
   const handleCopyLink = async () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
-    const publicUrl = `${origin}/p/${slug}`;
+    const publicUrl = `${origin}${publicPropertyPath(organizationSlug || "organization", slug)}`;
 
     if (navigator.share) {
       try {
@@ -73,7 +76,7 @@ export default function PublicPropertyGallery({
   };
 
   const whatsappMessage = encodeURIComponent(
-    `Hello ${agentName}, I am inquiring about the property: "${title}" (${suburb}, ${city}) listed at ${priceText}. Link: ${typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com"}/p/${slug}`
+    `Hello ${agentName}, I am inquiring about the property: "${title}" (${suburb}, ${city}) listed at ${priceText}. Link: ${typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com"}${publicPropertyPath(organizationSlug || "organization", slug)}`
   );
 
   return (

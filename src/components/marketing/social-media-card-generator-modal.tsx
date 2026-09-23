@@ -35,6 +35,7 @@ import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import html2canvas from "html2canvas";
 import { formatCurrency } from "@/lib/utils";
 import { getAgencySettings, AgencySettings } from "@/lib/settings/agency-settings";
+import { publicPropertyPath } from "@/lib/public-property";
 
 export type FlyerTemplate = "SWISS_LIGHT" | "SWISS_DARK" | "NAVY_EDITORIAL" | "GOLD_CLASSIC";
 export type FlyerAspectRatio = "4:5" | "1:1" | "9:16";
@@ -52,9 +53,8 @@ export default function SocialMediaCardGeneratorModal({
 }: SocialMediaCardGeneratorModalProps) {
   const [template, setTemplate] = useState<FlyerTemplate>("SWISS_LIGHT");
   const [aspectRatio, setAspectRatio] = useState<FlyerAspectRatio>("4:5");
-  const [listingMode, setListingMode] = useState<"FOR_SALE" | "FOR_RENT">("FOR_SALE");
   const [agencySettings, setAgencySettings] = useState<AgencySettings | null>(null);
-  const [selectedHeroIndex, setSelectedHeroIndex] = useState(0);
+  const [imageSlots, setImageSlots] = useState({ hero: 0, secondaryOne: 1, secondaryTwo: 2 });
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
@@ -66,7 +66,23 @@ export default function SocialMediaCardGeneratorModal({
   useEffect(() => {
     if (isOpen && property) {
       setAgencySettings(getAgencySettings());
-      setListingMode(property.listingType === "FOR_RENT" ? "FOR_RENT" : "FOR_SALE");
+      setImageSlots({ hero: 0, secondaryOne: 1, secondaryTwo: 2 });
+      void fetch("/api/organization/profile")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          const organization = data?.organization;
+          if (!organization) return;
+          setAgencySettings((current) => ({
+            ...(current || getAgencySettings()),
+            agencyName: organization.name || current?.agencyName || "",
+            logoUrl: organization.logo || current?.logoUrl || "",
+            phone: organization.profile?.primaryPhone || current?.phone || "",
+            whatsApp: organization.profile?.primaryPhone || current?.whatsApp || "",
+            email: organization.profile?.primaryEmail || current?.email || "",
+            officeAddress: organization.profile?.primaryOfficeAddress || current?.officeAddress || "",
+          }));
+        })
+        .catch(() => undefined);
 
       // Use exact property description without making things up
       const initialDescription = property.description
@@ -82,7 +98,7 @@ export default function SocialMediaCardGeneratorModal({
 
   if (!isOpen || !property) return null;
 
-  const isSale = listingMode === "FOR_SALE";
+  const isSale = property.listingType !== "FOR_RENT";
   const price = isSale
     ? property.askingPrice || 3500000
     : property.rentalPrice || (property.askingPrice ? Math.round(property.askingPrice / 150) : 2500);
@@ -96,9 +112,9 @@ export default function SocialMediaCardGeneratorModal({
         "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800",
       ];
 
-  const heroPhoto = photos[selectedHeroIndex] || photos[0];
-  const interiorPhoto1 = photos[1] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800";
-  const interiorPhoto2 = photos[2] || "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800";
+  const heroPhoto = photos[imageSlots.hero] || photos[0];
+  const interiorPhoto1 = photos[imageSlots.secondaryOne] || photos[1] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800";
+  const interiorPhoto2 = photos[imageSlots.secondaryTwo] || photos[2] || "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800";
 
   // Dynamic feature bullet points derived strictly from property data
   const homeFeatures: string[] = property.features && property.features.length > 0
@@ -135,7 +151,7 @@ export default function SocialMediaCardGeneratorModal({
       console.log("[FlyerModal] html2canvas finished successfully, canvas width:", canvas.width);
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.download = `contour_${property.slug || "listing"}_${listingMode.toLowerCase()}_${aspectRatio.replace(":", "x")}_flyer.png`;
+      link.download = `${(agencySettings?.agencyName || "agency").toLowerCase().replace(/[^a-z0-9]+/g, "-")}_${property.slug || "listing"}_${aspectRatio.replace(":", "x")}_flyer.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -193,41 +209,7 @@ export default function SocialMediaCardGeneratorModal({
         <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden">
           {/* Left Column: Controls (5 Cols) */}
           <div className="lg:col-span-5 p-4 sm:p-5 border-r border-[#e0e0e0] overflow-y-auto space-y-4 bg-white">
-            {/* 1. Presentation Mode */}
-            <div>
-              <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828] block mb-1.5">
-                1. Listing Presentation Mode
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setListingMode("FOR_SALE")}
-                  className={`py-2 px-3 text-xs font-heading font-semibold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${
-                    isSale
-                      ? "bg-[#282828] text-white border-[#282828]"
-                      : "bg-white text-[#282828] border-[#e0e0e0] hover:bg-[#fff5f3]"
-                  }`}
-                >
-                  <DollarSign className="w-3.5 h-3.5 text-[#fa3600]" />
-                  <span>For Sale ($ / ZMW)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setListingMode("FOR_RENT")}
-                  className={`py-2 px-3 text-xs font-heading font-semibold uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${
-                    !isSale
-                      ? "bg-[#282828] text-white border-[#282828]"
-                      : "bg-white text-[#282828] border-[#e0e0e0] hover:bg-[#fff5f3]"
-                  }`}
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-[#fa3600]" />
-                  <span>For Rent (Monthly)</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 2. Format / Aspect Ratio Switcher */}
+            {/* 1. Format / Aspect Ratio Switcher */}
             <div>
               <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828] block mb-1.5">
                 2. Social Media Format &amp; Aspect Ratio
@@ -277,7 +259,7 @@ export default function SocialMediaCardGeneratorModal({
               </div>
             </div>
 
-            {/* 3. Design Style Switcher */}
+            {/* 2. Design Style Switcher */}
             <div>
               <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828] block mb-1.5">
                 3. Choose Flyer Design Style
@@ -325,35 +307,28 @@ export default function SocialMediaCardGeneratorModal({
               </div>
             </div>
 
-            {/* 4. Featured Hero Photo */}
+            {/* 3. Image slots */}
             <div>
               <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828] block mb-1.5">
-                4. Select Featured Photo ({photos.length} Available)
+                3. Choose Flyer Images ({photos.length} available)
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {photos.slice(0, 3).map((photo: string, idx: number) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedHeroIndex(idx)}
-                    className={`relative h-16 border overflow-hidden transition-all ${
-                      selectedHeroIndex === idx
-                        ? "border-[#fa3600] ring-2 ring-[#fa3600]"
-                        : "border-[#e0e0e0] opacity-80 hover:opacity-100"
-                    }`}
-                  >
-                    <img
-                      src={photo}
-                      alt={`Thumbnail ${idx + 1}`}
-                      crossOrigin="anonymous"
-                      className="w-full h-full object-cover"
-                    />
-                    {selectedHeroIndex === idx && (
-                      <div className="absolute top-1 right-1 w-4 h-4 bg-[#fa3600] text-white rounded-none flex items-center justify-center">
-                        <Check className="w-3 h-3" />
-                      </div>
-                    )}
-                  </button>
+              <div className="space-y-2">
+                {([
+                  ["hero", "Main image"],
+                  ["secondaryOne", "Sub-image 1"],
+                  ["secondaryTwo", "Sub-image 2"],
+                ] as const).map(([slot, label]) => (
+                  <div key={slot} className="flex items-center gap-2">
+                    <span className="w-20 shrink-0 text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">{label}</span>
+                    <div className="grid grid-cols-5 gap-1.5 flex-1">
+                      {photos.map((photo: string, idx: number) => (
+                        <button key={idx} type="button" aria-label={`${label}: image ${idx + 1}`} onClick={() => setImageSlots((current) => ({ ...current, [slot]: idx }))} className={`relative h-12 border overflow-hidden ${imageSlots[slot] === idx ? "border-[#fa3600] ring-2 ring-[#fa3600]" : "border-[#e0e0e0] opacity-75 hover:opacity-100"}`}>
+                          <img src={photo} alt="" crossOrigin="anonymous" className="w-full h-full object-cover" />
+                          {imageSlots[slot] === idx && <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-[#fa3600] text-white flex items-center justify-center"><Check className="w-2.5 h-2.5" /></span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -362,7 +337,7 @@ export default function SocialMediaCardGeneratorModal({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828]">
-                  5. Flyer Narrative Copy
+                  4. Flyer Narrative Copy
                 </label>
                 <button
                   type="button"
@@ -428,7 +403,7 @@ export default function SocialMediaCardGeneratorModal({
                   <>
                     <Download className="w-4 h-4" />
                     <span>
-                      Download {isSale ? "Sale" : "Rental"} Flyer (PNG)
+                      Download {isSale ? "For-Sale" : "For-Rent"} Flyer (PNG)
                     </span>
                   </>
                 )}
@@ -445,7 +420,7 @@ export default function SocialMediaCardGeneratorModal({
                   type="button"
                   onClick={() => {
                     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
-                    const publicUrl = `${origin}/p/${property.slug || property.id}`;
+                    const publicUrl = `${origin}${publicPropertyPath(property.organization?.slug || property.organizationSlug || "organization", property.slug || property.id)}`;
                     navigator.clipboard.writeText(publicUrl);
                     window.open(
                       `https://wa.me/?text=${encodeURIComponent(
@@ -463,7 +438,7 @@ export default function SocialMediaCardGeneratorModal({
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${property.suburb}, Lusaka\n💰 Price: ${currency} ${price?.toLocaleString()}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Brokered by ${agencySettings?.agencyName || "Contour Real Estate"} • WhatsApp: ${agencySettings?.whatsApp || "+260 97 123 4567"}_`;
+                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${property.suburb}, Lusaka\n💰 Price: ${currency} ${price?.toLocaleString()}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Brokered by ${agencySettings?.agencyName || "Your agency"} • WhatsApp: ${agencySettings?.whatsApp || "Contact agency"}_`;
                     navigator.clipboard.writeText(text);
                     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
                   }}
@@ -477,14 +452,14 @@ export default function SocialMediaCardGeneratorModal({
           </div>
 
           {/* Right Column: Live Dynamic Flyer Render Preview (7 Cols) */}
-          <div className="lg:col-span-7 p-4 sm:p-6 flex flex-col items-center justify-center overflow-y-auto bg-[#fafafa]">
+          <div className="lg:col-span-7 p-3 sm:p-5 flex flex-col items-center justify-center overflow-y-auto bg-[#fafafa] min-h-[520px]">
             {/* ------------------------------------------------------------- */}
             {/* FORMAT 1: 4:5 BROCHURE (Portrait)                             */}
             {/* ------------------------------------------------------------- */}
             {aspectRatio === "4:5" && (
               <div
                 ref={cardRef}
-                className={`w-[360px] sm:w-[410px] border border-[#282828] flex flex-col font-sans transition-all relative select-none ${
+                className={`w-[min(100%,520px)] sm:w-[520px] border border-[#282828] flex flex-col font-sans transition-all relative select-none ${
                   isDark ? "bg-[#282828] text-white" : "bg-white text-[#282828]"
                 }`}
               >
@@ -497,7 +472,7 @@ export default function SocialMediaCardGeneratorModal({
                 </span>
 
                 {/* 1. Top Section - Hero Exterior Photo */}
-                <div className="relative h-44 bg-neutral-200 overflow-hidden border-b border-[#282828]">
+                <div className="relative h-56 bg-neutral-200 overflow-hidden border-b border-[#282828]">
                   <img
                     src={heroPhoto}
                     alt={property.title}
@@ -548,7 +523,7 @@ export default function SocialMediaCardGeneratorModal({
                       }`}>
                         {isSale ? "MODERN HOME FOR SALE" : "LUXURY RESIDENCE FOR RENT"}
                       </h4>
-                      <p className={`text-[8.5px] font-mono leading-snug mt-1 line-clamp-3 ${
+                      <p className={`text-[8.5px] font-mono leading-snug mt-1 break-words ${
                         isDark ? "text-neutral-300" : "text-[#6b6b6b]"
                       }`}>
                         {flyerCopy}
@@ -571,9 +546,9 @@ export default function SocialMediaCardGeneratorModal({
                       isDark ? "text-neutral-200" : "text-[#282828]"
                     }`}>
                       {homeFeatures.slice(0, 8).map((feat, idx) => (
-                        <div key={idx} className="truncate flex items-center gap-1">
+                        <div key={idx} className="min-w-0 flex items-start gap-1">
                           <span className="text-[#fa3600] font-bold">+</span>
-                          <span className="truncate">{feat}</span>
+                          <span className="break-words">{feat}</span>
                         </div>
                       ))}
                     </div>
@@ -654,12 +629,12 @@ export default function SocialMediaCardGeneratorModal({
             {aspectRatio === "1:1" && (
               <div
                 ref={cardRef}
-                className={`w-[360px] h-[360px] border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
+                className={`w-[min(100%,480px)] sm:w-[480px] aspect-square border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
                   isDark ? "bg-[#282828] text-white" : "bg-white text-[#282828]"
                 }`}
               >
                 {/* Top Half: Hero Image with Floating Overlays */}
-                <div className="relative h-[210px] border-b border-[#282828] overflow-hidden bg-neutral-200">
+                <div className="relative h-[280px] border-b border-[#282828] overflow-hidden bg-neutral-200">
                   <img
                     src={heroPhoto}
                     alt={property.title}
@@ -704,7 +679,7 @@ export default function SocialMediaCardGeneratorModal({
                         {isSale ? "FOR SALE" : "MONTHLY LEASE"}
                       </span>
                     </div>
-                    <h4 className={`font-heading font-bold text-sm uppercase tracking-tight truncate mt-0.5 ${
+                    <h4 className={`font-heading font-bold text-sm uppercase tracking-tight break-words mt-0.5 ${
                       isDark ? "text-white" : "text-[#282828]"
                     }`}>
                       {property.title}
@@ -713,16 +688,16 @@ export default function SocialMediaCardGeneratorModal({
 
                   {/* 4 Feature Badges */}
                   <div className="grid grid-cols-4 gap-1 py-1.5 border-y border-[#e0e0e0] font-mono text-[8px] text-center">
-                    <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] truncate">
+                    <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] break-words">
                       🛏 {property.bedrooms || 4} Beds
                     </div>
-                    <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] truncate">
+                    <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] break-words">
                       🛁 {property.bathrooms || 3} Baths
                     </div>
-                    <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] truncate">
+                    <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] break-words">
                       📐 {property.plotSizeSqm || "2400"} m²
                     </div>
-                    <div className="bg-[#fff5f3] p-1 border border-[#fa3600]/30 text-[#fa3600] font-bold truncate">
+                    <div className="bg-[#fff5f3] p-1 border border-[#fa3600]/30 text-[#fa3600] font-bold break-words">
                       ✓ Title
                     </div>
                   </div>
@@ -797,7 +772,7 @@ export default function SocialMediaCardGeneratorModal({
                     <div className="text-[8px] font-mono text-[#fa3600] font-bold uppercase">
                       EXCLUSIVE AGENCY MANDATE
                     </div>
-                    <h4 className={`font-heading font-bold text-xs uppercase leading-tight truncate mt-0.5 ${
+                    <h4 className={`font-heading font-bold text-xs uppercase leading-tight break-words mt-0.5 ${
                       isDark ? "text-white" : "text-[#282828]"
                     }`}>
                       {property.title}
@@ -811,9 +786,9 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Bullet Spec Grid */}
                   <div className="grid grid-cols-2 gap-1 text-[8px] font-mono">
                     {homeFeatures.slice(0, 4).map((f, i) => (
-                      <div key={i} className="truncate flex items-center gap-1">
+                      <div key={i} className="break-words flex items-start gap-1">
                         <span className="text-[#fa3600]">+</span>
-                        <span className="truncate">{f}</span>
+                        <span className="break-words">{f}</span>
                       </div>
                     ))}
                   </div>
