@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 
 function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
@@ -23,6 +24,7 @@ function LeasesManagementContent() {
   const [remindedLeaseId, setRemindedLeaseId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreatingLease, setIsCreatingLease] = useState(false);
+  const [selectedLease, setSelectedLease] = useState<any | null>(null);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -365,7 +367,7 @@ function LeasesManagementContent() {
                       : "";
 
                     return (
-                      <tr key={lease.id} className="hover:bg-[#fff5f3]/40 transition-colors">
+                      <tr key={lease.id} onClick={() => setSelectedLease(lease)} className="cursor-pointer hover:bg-[#fff5f3]/40 transition-colors" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedLease(lease); }}>
                         <td className="py-3.5 px-4 font-semibold text-editorial-black max-w-xs">
                           {propertyTitle}
                         </td>
@@ -396,7 +398,7 @@ function LeasesManagementContent() {
                         <td className="py-3.5 px-4 text-right">
                           {isArrears && (
                             <button
-                              onClick={() => handleSendReminder(lease.id)}
+                              onClick={(event) => { event.stopPropagation(); void handleSendReminder(lease.id); }}
                               disabled={isReminded}
                               className={`px-3 py-1.5 text-xs font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 ${
                                 isReminded
@@ -418,6 +420,24 @@ function LeasesManagementContent() {
           </>
         )}
       </div>
+
+      <SelectedRowDetailsDialog
+        open={Boolean(selectedLease)}
+        onClose={() => setSelectedLease(null)}
+        eyebrow="Rental lease"
+        title={selectedLease?.property?.title || selectedLease?.propertyTitle || "Lease agreement"}
+        subtitle={selectedLease ? `${selectedLease.tenantName || "Tenant"} · ${selectedLease.status || "—"}` : undefined}
+        details={selectedLease ? [
+          { label: "Tenant", value: selectedLease.tenantName },
+          { label: "Tenant phone", value: selectedLease.tenantPhone },
+          { label: "Tenant email", value: selectedLease.tenantEmail },
+          { label: "Monthly rent", value: formatCurrency(Number(selectedLease.monthlyRent || 0), selectedLease.currency) },
+          { label: "Deposit", value: formatCurrency(Number(selectedLease.depositAmount || 0), selectedLease.currency) },
+          { label: "Management fee", value: `${selectedLease.managementFeePercent || 0}%` },
+          { label: "Lease term", value: `${selectedLease.leaseStartDate ? new Date(selectedLease.leaseStartDate).toLocaleDateString() : "—"} → ${selectedLease.leaseEndDate ? new Date(selectedLease.leaseEndDate).toLocaleDateString() : "—"}` },
+          { label: "Status", value: selectedLease.status?.replace(/_/g, " ") },
+        ] : []}
+      />
 
       {/* Interactive Modal: New Lease Agreement */}
       {isModalOpen && (

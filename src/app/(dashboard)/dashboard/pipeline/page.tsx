@@ -24,6 +24,7 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 
 type Deal = {
   id: string;
@@ -134,6 +135,7 @@ function DealPipelineContent() {
   // Close Deal Modal State
   const [closeTarget, setCloseTarget] = useState<Deal | null>(null);
   const [closeOutcome, setCloseOutcome] = useState<"WON" | "LOST">("WON");
+  const [selectedClosedDeal, setSelectedClosedDeal] = useState<Deal | null>(null);
   const [lostReason, setLostReason] = useState("");
 
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
@@ -1138,7 +1140,7 @@ function DealPipelineContent() {
               </thead>
               <tbody className="divide-y divide-editorial-border">
                 {closedDeals.map((deal) => (
-                  <tr key={deal.id} className="align-top hover:bg-neutral-50/70">
+                  <tr key={deal.id} onClick={() => setSelectedClosedDeal(deal)} className="align-top cursor-pointer hover:bg-neutral-50/70" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedClosedDeal(deal); }}>
                     <td className="px-4 py-3">
                       <div className="font-heading font-bold text-xs text-editorial-black">{deal.clientName}</div>
                       <div className="text-[11px] text-editorial-muted mt-0.5">{deal.propertyTitle} · {deal.suburb}</div>
@@ -1161,8 +1163,8 @@ function DealPipelineContent() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-3">
-                        <button type="button" onClick={() => openCloseModal(deal)} className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover:underline">Edit outcome</button>
-                        <button type="button" onClick={() => { setDeleteError(""); setDeleteTarget(deal); }} className="text-red-700 hover:underline" title="Delete closed deal"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button type="button" onClick={(event) => { event.stopPropagation(); openCloseModal(deal); }} className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover:underline">Edit outcome</button>
+                        <button type="button" onClick={(event) => { event.stopPropagation(); setDeleteError(""); setDeleteTarget(deal); }} className="text-red-700 hover:underline" title="Delete closed deal"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -1172,6 +1174,27 @@ function DealPipelineContent() {
           </div>
         )}
       </section>
+
+      <SelectedRowDetailsDialog
+        open={Boolean(selectedClosedDeal)}
+        onClose={() => setSelectedClosedDeal(null)}
+        eyebrow="Closed deal register"
+        title={selectedClosedDeal?.clientName || "Closed deal"}
+        subtitle={selectedClosedDeal ? `${selectedClosedDeal.propertyTitle || "No property"} · ${selectedClosedDeal.outcome === "WON" ? "Won" : "Lost"}` : undefined}
+        details={selectedClosedDeal ? [
+          { label: "Client", value: selectedClosedDeal.clientName },
+          { label: "Phone", value: selectedClosedDeal.clientPhone },
+          { label: "Email", value: selectedClosedDeal.clientEmail },
+          { label: "Property", value: `${selectedClosedDeal.propertyTitle || "—"} · ${selectedClosedDeal.suburb || "—"}` },
+          { label: "Deal value", value: formatCurrency(selectedClosedDeal.dealValue, selectedClosedDeal.currency) },
+          { label: "Agency commission", value: formatCurrency(selectedClosedDeal.agencyCommission, selectedClosedDeal.currency) },
+          { label: "TO / Agent", value: selectedClosedDeal.agentName || "Unassigned" },
+          { label: "Lead source", value: selectedClosedDeal.leadSource?.replace(/_/g, " ") },
+          { label: "Outcome", value: selectedClosedDeal.outcome },
+          { label: "Closed", value: selectedClosedDeal.closedAt ? new Date(selectedClosedDeal.closedAt).toLocaleDateString("en-ZM") : "—" },
+          { label: "Lost reason", value: selectedClosedDeal.lostReason },
+        ] : []}
+      />
 
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">

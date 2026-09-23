@@ -27,6 +27,7 @@ import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -36,6 +37,7 @@ function ClientsCRMContent() {
   const [search, setSearch] = useState("");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<any | null>(null);
 
   // Edit Client State
   const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -437,7 +439,7 @@ function ClientsCRMContent() {
         </div>
       </div>
 
-      {/* Clients Cards Grid */}
+      {/* Client CRM Table */}
       {loading ? (
         <SectionPendingState label="Loading CRM inquiries…" />
       ) : filteredClients.length === 0 ? (
@@ -447,115 +449,47 @@ function ClientsCRMContent() {
           <p className="text-xs text-editorial-neutral max-w-sm">No prospective buyers or tenants match your query or have been registered yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {filteredClients.map((client) => (
-            <MotionCard
-              key={client.id}
-              withCorners
-              className="bg-white rounded-none p-6 border border-editorial-border flex flex-col justify-between space-y-4 hover:border-editorial-black transition-colors"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-serif font-bold text-lg text-editorial-black">{client.name}</h3>
-                    <div className="text-xs text-editorial-neutral mt-0.5 flex items-center gap-2">
-                      <span className="font-mono text-editorial-black">{client.phone}</span>
-                      <span>•</span>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-editorial-paper border border-editorial-border text-editorial-black">
-                        {client.purpose}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-editorial-paper border border-editorial-border text-editorial-black uppercase tracking-wider">
-                      {client.status}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(client)}
-                        className="p-1 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-100 text-editorial-black transition-colors"
-                        title="Edit Client & Reassign Manager"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingClient(client)}
-                        className="p-1 border border-editorial-border hover:border-red-600 bg-white hover:bg-red-50 text-editorial-neutral hover:text-red-600 transition-colors"
-                        title="Delete Client"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-editorial-paper/40 border border-editorial-border space-y-2 text-xs">
-                  <div>
-                    <span className="text-[10px] font-mono text-editorial-neutral font-semibold block uppercase tracking-wider">
-                      Looking For:
-                    </span>
-                    <div className="font-medium text-editorial-black leading-snug">{client.lookingFor}</div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 border-t border-editorial-border">
-                    <span className="text-[10px] font-mono text-editorial-neutral uppercase">Budget:</span>
-                    <span className="font-mono font-bold text-editorial-black">{client.budgetMax}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-editorial-neutral uppercase">Lead Source:</span>
-                    <span className="font-mono font-bold text-editorial-red text-xs">{client.leadSource}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Anti-Poaching Lock Tag & Custody Manager */}
-              <div className="pt-3 border-t border-editorial-border flex items-center justify-between text-xs">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-editorial-neutral block">
-                      Manager: <strong className="text-editorial-black">{client.assignedAgent}</strong>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(client)}
-                      className="text-[9px] font-mono font-bold text-editorial-red hover:underline"
-                      title="Change who this client is assigned to as manager"
-                    >
-                      [Change]
-                    </button>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-emerald-800 flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-emerald-600" /> Locked: {client.lockExpiresInDays}d left
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openEditModal(client)}
-                    className="px-2.5 py-1.5 rounded-none border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-mono font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center gap-1"
-                    title="Edit client details"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    <span>Edit</span>
-                  </button>
-                  <a
-                    href={`https://wa.me/${formatWhatsAppDigits(client.phone)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3.5 py-1.5 rounded-none bg-editorial-black hover:bg-black text-white font-mono font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center gap-1"
-                  >
-                    WhatsApp
-                  </a>
-                </div>
-              </div>
-            </MotionCard>
-          ))}
+        <div className="overflow-x-auto bg-white border border-editorial-border">
+          <table className="w-full min-w-[900px] text-left text-xs font-geist">
+            <thead className="bg-neutral-50 border-b border-editorial-border text-[10px] font-heading uppercase tracking-wider text-editorial-muted">
+              <tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Requirement</th><th className="px-4 py-3">Budget</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Assigned agent</th><th className="px-4 py-3 text-right">Actions</th></tr>
+            </thead>
+            <tbody className="divide-y divide-editorial-border">
+              {filteredClients.map((client) => (
+                <tr key={client.id} onClick={() => setSelectedClient(client)} className="cursor-pointer hover:bg-[#fff5f3]/40" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedClient(client); }}>
+                  <td className="px-4 py-3"><div className="font-heading font-bold text-editorial-black">{client.name}</div><div className="text-[11px] text-editorial-muted">{client.phone} · {client.email || "No email"}</div></td>
+                  <td className="px-4 py-3"><div className="font-medium text-editorial-black">{client.lookingFor}</div><div className="text-[10px] text-editorial-muted">{client.purpose} · {client.leadSource}</div></td>
+                  <td className="px-4 py-3 font-mono font-bold">{client.budgetMax}</td>
+                  <td className="px-4 py-3"><span className="border border-editorial-border bg-editorial-paper px-2 py-1 text-[10px] font-mono font-bold uppercase">{client.status}</span></td>
+                  <td className="px-4 py-3"><div className="font-medium">{client.assignedAgent}</div><div className="text-[10px] text-emerald-800">Locked: {client.lockExpiresInDays}d</div></td>
+                  <td className="px-4 py-3 text-right"><div className="inline-flex items-center gap-2" onClick={(event) => event.stopPropagation()}><button type="button" onClick={() => openEditModal(client)} className="p-1.5 border border-editorial-border hover:border-editorial-black" title="Edit client"><Edit3 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => setDeletingClient(client)} className="p-1.5 border border-editorial-border text-red-600 hover:border-red-600" title="Delete client"><Trash2 className="h-3.5 w-3.5" /></button><a href={`https://wa.me/${formatWhatsAppDigits(client.phone)}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-editorial-black text-white text-[10px] font-mono font-bold">WhatsApp</a></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <SelectedRowDetailsDialog
+        open={Boolean(selectedClient)}
+        onClose={() => setSelectedClient(null)}
+        eyebrow="Client CRM record"
+        title={selectedClient?.name || "Client"}
+        subtitle={selectedClient ? `${selectedClient.status || "—"} · ${selectedClient.purpose || "—"}` : undefined}
+        details={selectedClient ? [
+          { label: "Phone", value: selectedClient.phone },
+          { label: "Email", value: selectedClient.email },
+          { label: "Looking for", value: selectedClient.lookingFor },
+          { label: "Budget", value: selectedClient.budgetMax },
+          { label: "Preferred suburbs", value: selectedClient.preferredSuburbs },
+          { label: "Lead source", value: selectedClient.leadSource },
+          { label: "Assigned agent", value: selectedClient.assignedAgent },
+          { label: "Anti-poaching lock", value: `${selectedClient.lockExpiresInDays} days remaining` },
+          { label: "Pipeline status", value: selectedClient.status },
+          { label: "Notes", value: selectedClient.notes },
+        ] : []}
+        children={selectedClient ? <div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a></div> : undefined}
+      />
 
       {/* Interactive Modal: Add New Client */}
       {isModalOpen && (

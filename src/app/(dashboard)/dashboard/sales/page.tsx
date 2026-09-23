@@ -17,6 +17,7 @@ import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 
 function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
@@ -28,6 +29,7 @@ function PropertySalesContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [canOverrideCommission, setCanOverrideCommission] = useState(false);
   const [isRecordingSale, setIsRecordingSale] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<any | null>(null);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -489,7 +491,7 @@ function PropertySalesContent() {
                     const isLodged = sale.transferStatus === "DEEDS_LODGED";
 
                     return (
-                      <tr key={sale.id} className="hover:bg-[#fff5f3]/40 transition-colors">
+                      <tr key={sale.id} onClick={() => setSelectedSale(sale)} className="cursor-pointer hover:bg-[#fff5f3]/40 transition-colors" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedSale(sale); }}>
                         <td className="py-3.5 px-4">
                           <div className="font-heading font-bold text-editorial-black uppercase max-w-xs">
                             {sale.propertyTitle}
@@ -542,6 +544,26 @@ function PropertySalesContent() {
           </>
         )}
       </div>
+
+      <SelectedRowDetailsDialog
+        open={Boolean(selectedSale)}
+        onClose={() => setSelectedSale(null)}
+        eyebrow="Closed property sale"
+        title={selectedSale?.propertyTitle || "Property sale"}
+        subtitle={selectedSale ? `${selectedSale.suburb || "—"} · ${selectedSale.closedAt || "No closing date"}` : undefined}
+        details={selectedSale ? [
+          { label: "Buyer", value: selectedSale.buyerName },
+          { label: "Buyer contact", value: selectedSale.buyerContact },
+          { label: "NRC / Passport", value: selectedSale.buyerNrcPassport },
+          { label: "Purchase price", value: formatCurrency(selectedSale.salePrice, selectedSale.currency) },
+          { label: "Agency commission", value: formatCurrency(selectedSale.agencyCommissionEarned, selectedSale.currency) },
+          { label: "Agent split", value: formatCurrency(selectedSale.agentSplitPaid, selectedSale.currency) },
+          { label: "Closing agent", value: selectedSale.closingAgent },
+          { label: "Transfer status", value: selectedSale.transferStatus?.replace(/_/g, " ") },
+          { label: "Ministry reference", value: selectedSale.ministryReference },
+          { label: "Title deed reference", value: selectedSale.titleDeedReference },
+        ] : []}
+      />
 
       {/* Interactive Modal: Record Property Sale */}
       {isModalOpen && (
