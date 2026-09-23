@@ -7,9 +7,10 @@ const outputIndex = args.indexOf("--output");
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : null;
 const eslintArgs = ["exec", "eslint", ".", "-f", "json", ...args.filter((arg, index) => index !== outputIndex && index !== outputIndex + 1)];
 
-const result = spawnSync(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["exec", "eslint", ".", "-f", "json"], {
+const result = spawnSync("pnpm", ["exec", "eslint", ".", "-f", "json"], {
   encoding: "utf8",
   stdio: ["ignore", "pipe", "ignore"],
+  shell: process.platform === "win32",
   maxBuffer: 50 * 1024 * 1024,
 });
 if (result.error) throw result.error;
