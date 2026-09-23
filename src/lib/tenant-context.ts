@@ -12,6 +12,14 @@ export type TenantContext = {
   permissions: readonly Permission[];
 };
 
+type Membership = {
+  organizationId?: string;
+  role: string;
+  status: string;
+  roleAssignments: Array<{ role: { key: string; permissions: Array<{ permission: string }> } }>;
+  permissionOverrides: Array<{ effect: string; permission: string }>;
+};
+
 /**
  * Resolves the authenticated tenant for a request.
  *
@@ -28,13 +36,13 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
   const userId = session.user.id;
   let organizationId = session.session?.activeOrganizationId;
 
-  let membership: any = null;
+  let membership: Membership | null = null;
   if (organizationId) {
     try {
       membership = await db.member.findUnique({
         where: { organizationId_userId: { organizationId, userId } },
         select: { id: true, role: true, status: true, roleAssignments: { include: { role: { include: { permissions: true } } } }, permissionOverrides: true },
-      });
+      }) as Membership | null;
     } catch {
       // Allow an application rollout before the additive RBAC migration has been applied.
       const legacyMembership = await db.member.findUnique({
@@ -63,7 +71,7 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
       });
       if (latestMember) {
         organizationId = latestMember.organizationId;
-        membership = latestMember;
+        membership = latestMember as Membership;
 
         // Persist activeOrganizationId into the active session record
         if (session.session?.id) {
