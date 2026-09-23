@@ -65,6 +65,12 @@ async function waitForFlyerAssets(root: HTMLElement): Promise<void> {
 export type FlyerTemplate = "SWISS_LIGHT" | "SWISS_DARK" | "NAVY_EDITORIAL" | "GOLD_CLASSIC";
 export type FlyerAspectRatio = "4:5" | "1:1" | "9:16";
 
+const FLYER_CANVAS = {
+  "4:5": { width: 1080, height: 1350 },
+  "1:1": { width: 1080, height: 1080 },
+  "9:16": { width: 1080, height: 1920 },
+} as const;
+
 type SocialMediaCardGeneratorModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -207,18 +213,28 @@ export default function SocialMediaCardGeneratorModal({
       await waitForFlyerAssets(cardRef.current);
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
+      const canvasWidth = cardRef.current.getBoundingClientRect().width;
+      const exportScale = FLYER_CANVAS[aspectRatio].width / canvasWidth;
       const canvas = await html2canvas(cardRef.current, {
-        scale: 2, // High-DPI 2x social media export
+        // Export dimensions are a contract, not a side effect of the modal's
+        // responsive preview width. This guarantees 1080x1350, 1080x1080,
+        // or 1080x1920 for every download.
+        scale: exportScale,
         useCORS: true,
         allowTaint: false,
         backgroundColor: isDark ? "#282828" : "#ffffff",
         logging: false,
         imageTimeout: 5000,
-        width: cardRef.current.scrollWidth,
-        height: cardRef.current.scrollHeight,
+        width: cardRef.current.clientWidth,
+        height: cardRef.current.clientHeight,
         scrollX: 0,
         scrollY: 0,
       });
+
+      const expectedCanvas = FLYER_CANVAS[aspectRatio];
+      if (canvas.width !== expectedCanvas.width || canvas.height !== expectedCanvas.height) {
+        throw new Error(`Flyer export size mismatch: expected ${expectedCanvas.width}x${expectedCanvas.height}, received ${canvas.width}x${canvas.height}`);
+      }
 
       console.log("[FlyerModal] html2canvas finished successfully, canvas width:", canvas.width);
       const dataUrl = canvas.toDataURL("image/png");
@@ -569,7 +585,7 @@ export default function SocialMediaCardGeneratorModal({
             {aspectRatio === "4:5" && (
               <div
                 ref={cardRef}
-                className={`w-full max-w-[680px] border border-[#282828] flex flex-col font-sans transition-all relative select-none ${
+                className={`w-full max-w-[680px] aspect-[4/5] overflow-hidden border border-[#282828] flex flex-col font-sans transition-all relative select-none ${
                   isDark ? "bg-[#282828] text-white" : "bg-white text-[#282828]"
                 }`}
               >
@@ -637,7 +653,7 @@ export default function SocialMediaCardGeneratorModal({
                       <p className={`text-[8.5px] font-mono leading-snug mt-1 break-words ${
                         isDark ? "text-neutral-300" : "text-[#6b6b6b]"
                       }`}>
-                        {flyerCopy}
+                        <span className="line-clamp-5">{flyerCopy}</span>
                       </p>
                     </div>
 
@@ -659,7 +675,7 @@ export default function SocialMediaCardGeneratorModal({
                       {homeFeatures.slice(0, 8).map((feat, idx) => (
                         <div key={idx} className="min-w-0 flex items-start gap-1">
                           <span className="text-[#fa3600] font-bold">+</span>
-                          <span className="break-words">{feat}</span>
+                          <span className="break-words line-clamp-2">{feat}</span>
                         </div>
                       ))}
                     </div>
@@ -723,7 +739,7 @@ export default function SocialMediaCardGeneratorModal({
                   <div className="flex min-h-8 bg-black text-white">
                     <div className="flex-1 flex items-center px-3 gap-1.5 text-[8px] text-neutral-300 min-w-0 py-1">
                       <MapPin className="w-3 h-3 text-[#fa3600] shrink-0" />
-                      <span className="break-words">
+                      <span className="break-words line-clamp-2">
                         {property.suburb}, Lusaka ({property.landmarkDirections || "Prime Area"})
                       </span>
                     </div>
@@ -741,7 +757,7 @@ export default function SocialMediaCardGeneratorModal({
             {aspectRatio === "1:1" && (
               <div
                 ref={cardRef}
-                className={`w-full max-w-[680px] aspect-square border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
+                className={`w-full max-w-[680px] aspect-square overflow-hidden border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
                   isDark ? "bg-[#282828] text-white" : "bg-white text-[#282828]"
                 }`}
               >
@@ -795,7 +811,7 @@ export default function SocialMediaCardGeneratorModal({
                     <h4 className={`font-heading font-bold text-sm uppercase tracking-tight break-words mt-0.5 ${
                       isDark ? "text-white" : "text-[#282828]"
                     }`}>
-                      {property.title}
+                      <span className="line-clamp-2">{property.title}</span>
                     </h4>
                   </div>
 
@@ -834,7 +850,7 @@ export default function SocialMediaCardGeneratorModal({
             {aspectRatio === "9:16" && (
               <div
                 ref={cardRef}
-                className={`w-[290px] h-[515px] border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
+                className={`w-[324px] aspect-[9/16] overflow-hidden border border-[#282828] flex flex-col justify-between font-sans transition-all relative select-none ${
                   isDark ? "bg-[#282828] text-white" : "bg-white text-[#282828]"
                 }`}
               >
@@ -889,7 +905,7 @@ export default function SocialMediaCardGeneratorModal({
                     <h4 className={`font-heading font-bold text-xs uppercase leading-tight break-words mt-0.5 ${
                       isDark ? "text-white" : "text-[#282828]"
                     }`}>
-                      {property.title}
+                      <span className="line-clamp-2">{property.title}</span>
                     </h4>
                     <div className="font-mono font-bold text-sm text-[#fa3600] mt-1">
                       {currency} {price?.toLocaleString()}
@@ -902,7 +918,7 @@ export default function SocialMediaCardGeneratorModal({
                     {homeFeatures.slice(0, 4).map((f, i) => (
                       <div key={i} className="break-words flex items-start gap-1">
                         <span className="text-[#fa3600]">+</span>
-                        <span className="break-words">{f}</span>
+                        <span className="break-words line-clamp-2">{f}</span>
                       </div>
                     ))}
                   </div>
