@@ -485,6 +485,8 @@ model Property {
 
   // Assignments & Metadata
   assignedAgentId     String?
+  assignedAgentAt     DateTime?
+  assignedAgentLockExpiresAt DateTime?
   createdById         String
   embedding           Unsupported("vector(1536)")?
   createdAt           DateTime       @default(now())
@@ -512,6 +514,7 @@ model Property {
   @@index([organizationId, suburb])
   @@index([organizationId, createdAt])
   @@index([assignedAgentId])
+  @@index([assignedAgentLockExpiresAt])
   @@map("property")
 }
 

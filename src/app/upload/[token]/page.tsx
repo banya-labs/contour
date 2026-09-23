@@ -163,14 +163,13 @@ export default function ClientUploadPortalPage() {
 
         // 2. Stream bytes directly to MinIO
         const bytes = await file.arrayBuffer();
-        try {
-          await fetch(presignData.uploadUrl, {
+        const storageRes = await fetch(presignData.uploadUrl, {
             method: "PUT",
             headers: { "Content-Type": file.type || "application/octet-stream" },
             body: bytes,
           });
-        } catch (s3Err) {
-          console.warn("Direct upload fetch notice (dev fallback active):", s3Err);
+        if (!storageRes.ok) {
+          throw new Error(`Secure storage rejected ${file.name} (${storageRes.status})`);
         }
 
         uploadedFileRecords.push({

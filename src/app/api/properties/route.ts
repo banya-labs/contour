@@ -10,6 +10,7 @@ import { smartCache } from "@/lib/cache";
 import { propertySlugFromTitle, publicPropertyPath } from "@/lib/public-property";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
+import { canChangePropertyAgent, getPropertyAgentLockExpiry } from "@/lib/property-agent-lock";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -306,6 +307,8 @@ const getHandler = createApiHandler({
               standBoundary: true,
               landmarkDirections: true,
               assignedAgentId: true,
+              assignedAgentAt: true,
+              assignedAgentLockExpiresAt: true,
               createdAt: true,
               updatedAt: true,
               assignedAgent: {
@@ -483,7 +486,9 @@ const postHandler = createApiHandler({
         titleDeedNumber: body.titleDeedNumber,
         standBoundary: body.standBoundary || undefined,
         createdById: effectiveUserId!,
-        assignedAgentId: effectiveAssignedAgentId,
+         assignedAgentId: effectiveAssignedAgentId,
+         assignedAgentAt: effectiveAssignedAgentId ? new Date() : null,
+         assignedAgentLockExpiresAt: effectiveAssignedAgentId ? getPropertyAgentLockExpiry(new Date()) : null,
         }
       });
     } catch (error) {
@@ -634,13 +639,18 @@ const patchHandler = createApiHandler({
 
     const existingProperty = await db.property.findFirst({
       where: { id, organizationId: ctx.organizationId },
-      select: { id: true },
+      select: { id: true, assignedAgentId: true, assignedAgentLockExpiresAt: true },
     });
     if (!existingProperty) {
       return NextResponse.json(
         { success: false, error: "Property not found." },
         { status: 404 },
       );
+    }
+
+    const isAgentChange = updateData.assignedAgentId !== undefined && updateData.assignedAgentId !== existingProperty.assignedAgentId;
+    if (isAgentChange && !canChangePropertyAgent(existingProperty.assignedAgentLockExpiresAt)) {
+      return NextResponse.json({ success: false, error: "This property is locked to its assigned agent for 30 days.", lockExpiresAt: existingProperty.assignedAgentLockExpiresAt }, { status: 409 });
     }
 
     const property = await db.property.update({
@@ -666,7 +676,14 @@ const patchHandler = createApiHandler({
         featuredPhoto: updateData.featuredPhoto,
         titleDeedNumber: updateData.titleDeedNumber,
         standBoundary: updateData.standBoundary !== undefined ? (updateData.standBoundary as Prisma.InputJsonValue) : undefined,
-        assignedAgentId: updateData.assignedAgentId,
+         assignedAgentId: updateData.assignedAgentId,
+         ...(isAgentChange && updateData.assignedAgentId ? {
+           assignedAgentAt: new Date(),
+           assignedAgentLockExpiresAt: getPropertyAgentLockExpiry(new Date()),
+         } : updateData.assignedAgentId === null ? {
+           assignedAgentAt: null,
+           assignedAgentLockExpiresAt: null,
+         } : {}),
       }
     });
 

@@ -571,7 +571,7 @@ function PropertiesCatalogContent() {
                 {/* Card Footer */}
                 <div className="p-3 bg-neutral-50 border-t border-editorial-border flex items-center justify-between text-xs">
                   <span className="text-[10px] font-geist text-editorial-muted truncate">
-                    Agent: <strong className="text-editorial-black">{p.assignedAgent?.name || p.assignedAgentName || "Grace Banda"}</strong>
+                    Agent: <strong className="text-editorial-black">{p.assignedAgent?.name || p.assignedAgentName || "Unassigned"}</strong>
                   </span>
                   <div className="flex items-center gap-2.5">
                     <button

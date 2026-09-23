@@ -233,6 +233,7 @@ export default function PropertyFullDetailModal({
         titleDeedNumber: property.titleDeedNumber || "",
         landmarkDirections: property.landmarkDirections || "",
         description: property.description || "",
+        assignedAgentId: property.assignedAgentId || property.assignedAgent?.id || "",
         assignedAgentName: property.assignedAgentName || property.assignedAgent?.name || "",
         assignedAgentPhone: property.assignedAgentPhone || property.assignedAgent?.phone || "",
         status: property.status || "AVAILABLE",
@@ -240,12 +241,18 @@ export default function PropertyFullDetailModal({
         featuredPhoto: property.featuredPhoto || initPhotos[0] || "",
       });
 
-      // Load real stakeholders if attached to property object, otherwise empty array
-      if (Array.isArray(property.dealParties)) {
-        setStakeholders(property.dealParties);
-      } else {
-        setStakeholders([]);
-      }
+      const parties = Array.isArray(property.dealParties) ? property.dealParties : [];
+      const assignedAgent = property.assignedAgent || (property.assignedAgentId ? { id: property.assignedAgentId, name: property.assignedAgentName, phone: property.assignedAgentPhone } : null);
+      const agentParty = assignedAgent?.id && assignedAgent?.name ? [{
+        id: assignedAgent.id,
+        name: assignedAgent.name,
+        title: "Assigned Property Agent",
+        dealAssociation: "Locked property assignment",
+        phone: assignedAgent.phone || "",
+        email: assignedAgent.email || "",
+        roleType: "BROKER" as const,
+      }] : [];
+      setStakeholders([...agentParty, ...parties.filter((party: DealParty) => party.id !== assignedAgent?.id)]);
     }
   }, [property]);
 
@@ -312,6 +319,7 @@ export default function PropertyFullDetailModal({
       description: editFormData.description?.trim() || "",
       assignedAgentName: editFormData.assignedAgentName?.trim() || "",
       assignedAgentPhone: editFormData.assignedAgentPhone?.trim() || "",
+      assignedAgentId: editFormData.assignedAgentId || null,
       status: editFormData.status,
       photos: Array.isArray(editFormData.photos) ? editFormData.photos : (property.photos || []),
       featuredPhoto: editFormData.featuredPhoto ?? (editFormData.photos && editFormData.photos[0]) ?? null,
@@ -340,6 +348,7 @@ export default function PropertyFullDetailModal({
       description: editFormData.description?.trim() || "",
       assignedAgentName: editFormData.assignedAgentName?.trim() || "",
       assignedAgentPhone: editFormData.assignedAgentPhone?.trim() || "",
+      assignedAgentId: editFormData.assignedAgentId || null,
       status: editFormData.status,
       photos: Array.isArray(editFormData.photos) ? editFormData.photos : (property.photos || []),
       featuredPhoto: editFormData.featuredPhoto ?? (editFormData.photos && editFormData.photos[0]) ?? null,
@@ -985,6 +994,7 @@ export default function PropertyFullDetailModal({
                               const matchedAgent = orgAgents.find((a) => a.name === selectedName);
                               setEditFormData({
                                 ...editFormData,
+                                assignedAgentId: matchedAgent?.id || "",
                                 assignedAgentName: selectedName,
                                 assignedAgentPhone: matchedAgent?.phone || editFormData.assignedAgentPhone || "",
                               });
