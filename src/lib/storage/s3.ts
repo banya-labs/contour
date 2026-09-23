@@ -1,6 +1,5 @@
 import { HeadBucketCommand, HeadObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { randomUUID } from "node:crypto";
 import { Agent as HttpsAgent } from "node:https";
 
 export type StorageCategory =
@@ -82,9 +81,12 @@ export class S3StorageService {
         process.env.S3_TLS_REJECT_UNAUTHORIZED === "false";
 
       // Dynamically instantiate default handler with connection timeout and SSL resilience
+      // AWS SDK exposes the request-handler constructor only through its runtime config.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let customRequestHandler: any = undefined;
       try {
         const dummyClient = new S3Client({ region: this.region });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const HandlerClass = dummyClient.config.requestHandler?.constructor as any;
         if (HandlerClass) {
           customRequestHandler = new HandlerClass({
@@ -163,7 +165,7 @@ export class S3StorageService {
 
   async getObject(objectKey: string): Promise<{ body: Buffer; contentType: string; contentLength: number }> {
     const result = await this.getClient().send(new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey }));
-    const streamToBuffer = async (stream: any): Promise<Buffer> => {
+    const streamToBuffer = async (stream: AsyncIterable<Uint8Array>): Promise<Buffer> => {
       const chunks: Buffer[] = [];
       for await (const chunk of stream) {
         chunks.push(Buffer.from(chunk));
