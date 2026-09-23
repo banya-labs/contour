@@ -40,16 +40,21 @@ import { getAgencySettings, AgencySettings } from "@/lib/settings/agency-setting
 import { publicPropertyPath } from "@/lib/public-property";
 import { resolveFlyerContact, FlyerContactSource } from "./flyer-contact";
 
-async function waitForFlyerAssets(root: HTMLElement): Promise<void> {
+async function waitForFlyerAssets(root: HTMLElement): Promise<number> {
   const images = Array.from(root.querySelectorAll("img"));
+  let failedImages = 0;
   await Promise.all(
     images.map(async (image) => {
       if (!image.complete) {
         await new Promise<void>((resolve) => {
           image.addEventListener("load", () => resolve(), { once: true });
-          image.addEventListener("error", () => resolve(), { once: true });
+          image.addEventListener("error", () => {
+            failedImages += 1;
+            resolve();
+          }, { once: true });
         });
       }
+      if (image.complete && image.naturalWidth === 0) failedImages += 1;
       if (image.complete && image.naturalWidth > 0 && typeof image.decode === "function") {
         try {
           await image.decode();
@@ -62,6 +67,7 @@ async function waitForFlyerAssets(root: HTMLElement): Promise<void> {
   if (typeof document !== "undefined" && "fonts" in document) {
     await document.fonts.ready;
   }
+  return failedImages;
 }
 
 export type FlyerTemplate = "SWISS_LIGHT" | "SWISS_DARK" | "NAVY_EDITORIAL" | "GOLD_CLASSIC";
@@ -94,6 +100,7 @@ export default function SocialMediaCardGeneratorModal({
   const [imagePickerSlot, setImagePickerSlot] = useState<keyof typeof imageSlots | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Editable Narrative State derived directly from property.description
   const [flyerCopy, setFlyerCopy] = useState<string>("");
@@ -236,14 +243,21 @@ export default function SocialMediaCardGeneratorModal({
 
   // Real-Photo PNG Generation via html2canvas
   const handleDownloadCard = async () => {
-    console.log("[FlyerModal] handleDownloadCard triggered, hasCardRef:", !!cardRef.current);
-    if (!cardRef.current) return;
+    setDownloadError(null);
+    setDownloadSuccess(false);
+    if (!cardRef.current) {
+      setDownloadError("The flyer preview is not ready yet. Close and reopen the generator, then try again.");
+      return;
+    }
     setIsDownloading(true);
 
     try {
       // Wait for every image/font used by the flyer. A fixed delay is not enough
       // for signed storage URLs or large property photos.
-      await waitForFlyerAssets(cardRef.current);
+      const failedImages = await waitForFlyerAssets(cardRef.current);
+      if (failedImages > 0) {
+        throw new Error(`${failedImages} flyer image${failedImages === 1 ? "" : "s"} could not be loaded. Check the image or storage connection and try again.`);
+      }
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       const canvasWidth = cardRef.current.getBoundingClientRect().width;
@@ -269,7 +283,6 @@ export default function SocialMediaCardGeneratorModal({
         throw new Error(`Flyer export size mismatch: expected ${expectedCanvas.width}x${expectedCanvas.height}, received ${canvas.width}x${canvas.height}`);
       }
 
-      console.log("[FlyerModal] html2canvas finished successfully, canvas width:", canvas.width);
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((value) => {
           if (value) resolve(value);
@@ -286,10 +299,10 @@ export default function SocialMediaCardGeneratorModal({
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 
       setDownloadSuccess(true);
-      console.log("[FlyerModal] setDownloadSuccess true");
-      setTimeout(() => setDownloadSuccess(false), 3000);
-    } catch (err: any) {
-      console.error("[FlyerModal] HTML2Canvas compilation failed:", err?.message || err);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "The flyer could not be downloaded. Please try again.";
+      console.error("[FlyerModal] HTML2Canvas compilation failed:", err);
+      setDownloadError(message);
     } finally {
       setIsDownloading(false);
     }
@@ -297,6 +310,46 @@ export default function SocialMediaCardGeneratorModal({
 
   return (
     <div className="fixed inset-0 z-[2300] bg-[#282828]/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 font-sans animate-in fade-in duration-200">
+      {(isDownloading || downloadSuccess || downloadError) && (
+        <div className="fixed inset-0 z-[2400] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="flyer-download-title">
+          <div className="w-full max-w-sm border border-[#282828] bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#fa3600]">Flyer download</p>
+                <h2 id="flyer-download-title" className="mt-1 text-lg font-heading font-bold text-[#282828]">
+                  {isDownloading ? "Generating your flyer" : downloadError ? "Download could not be completed" : "Flyer ready"}
+                </h2>
+              </div>
+              {!isDownloading && (
+                <button
+                  type="button"
+                  onClick={() => { setDownloadSuccess(false); setDownloadError(null); }}
+                  aria-label="Close download dialog"
+                  className="border border-[#e0e0e0] p-1 text-[#282828] hover:border-[#fa3600]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {isDownloading ? (
+              <div className="mt-5 space-y-3">
+                <div className="h-1.5 overflow-hidden bg-[#e0e0e0]"><div className="h-full w-2/3 animate-pulse bg-[#fa3600]" /></div>
+                <p className="text-xs font-mono text-[#6b6b6b]">Loading images, rendering the flyer, and preparing the PNG download…</p>
+              </div>
+            ) : downloadError ? (
+              <div className="mt-4 space-y-4">
+                <p className="border-l-2 border-[#fa3600] bg-[#fff5f3] p-3 text-xs font-mono leading-relaxed text-[#282828]">{downloadError}</p>
+                <button type="button" onClick={handleDownloadCard} className="w-full bg-[#fa3600] px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-white hover:bg-[#d92f00]">Try again</button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-4">
+                <p className="text-xs font-mono leading-relaxed text-[#282828]">Your flyer has been generated and the PNG download has started.</p>
+                <button type="button" onClick={() => setDownloadSuccess(false)} className="w-full border border-[#282828] px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-[#282828] hover:bg-[#282828] hover:text-white">Done</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="bg-white border border-[#e0e0e0] flex flex-col overflow-hidden w-full max-w-[1500px] max-h-[96vh] rounded-none shadow-none">
         {/* Modal Header: Swiss Editorial Rule Grid */}
         <div className="px-5 py-3.5 bg-white border-b border-[#e0e0e0] flex items-center justify-between shrink-0">
