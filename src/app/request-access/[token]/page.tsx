@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 export default function RequestAccessPage() {
   const { token } = useParams<{ token: string }>();
@@ -63,8 +65,15 @@ export default function RequestAccessPage() {
 
   if (sessionPending || !organization) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-sm text-editorial-muted">
-        {error || "Checking access link..."}
+      <main className="flex min-h-screen items-center justify-center bg-white px-6">
+        {error ? (
+          <p role="alert" className="text-sm text-red-700">{error}</p>
+        ) : (
+          <SectionPendingState
+            label="Checking access link…"
+            description="Confirming the workspace invitation is still available."
+          />
+        )}
       </main>
     );
   }
@@ -148,13 +157,17 @@ export default function RequestAccessPage() {
             )}
             <button
               disabled={submitting}
+              aria-busy={submitting}
               className="w-full min-h-[44px] bg-editorial-black px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-white disabled:opacity-50 hover:bg-neutral-800 transition-colors cursor-pointer"
             >
-              {submitting
-                ? "Submitting..."
-                : session
-                ? "Request workspace access"
-                : "Create account and request access"}
+              <PendingButtonContent
+                pending={submitting}
+                pendingLabel="Submitting request…"
+              >
+                {session
+                  ? "Request workspace access"
+                  : "Create account and request access"}
+              </PendingButtonContent>
             </button>
           </form>
         )}

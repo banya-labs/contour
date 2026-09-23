@@ -4,7 +4,14 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient, signOut } from "@/lib/auth-client";
-import { AlertCircle, Smartphone, ShieldCheck } from "lucide-react";
+import {
+  authTransitionCopy,
+  shouldBlockAuthSurface,
+  type AuthTransitionStage,
+} from "@/lib/auth-transition";
+import { ContourTransitionScreen } from "@/components/ui/contour-transition-screen";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { AlertCircle } from "lucide-react";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -27,7 +34,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stage, setStage] = useState<AuthTransitionStage>("IDLE");
 
   const isSignUp = mode === "sign-up";
   const rawRedirectUrl = searchParams.get("redirect_url") || "/dashboard";
@@ -39,43 +46,41 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     ? `/onboarding?flow=new_agency&redirect_url=${encodeURIComponent(redirectUrl)}`
     : `/onboarding?redirect_url=${encodeURIComponent(redirectUrl)}`;
   const noticeParam = searchParams.get("notice");
-  const errorParam = searchParams.get("error");
   const isAgentPwaIntent = redirectUrl.startsWith("/agent") || redirectUrl.startsWith("/kiosk");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-
-    setIsSubmitting(true);
-
-    const result = isSignUp
-      ? await authClient.signUp.email({
-          name,
-          email,
-          password,
-          callbackURL: onboardingUrl,
-        })
-      : await authClient.signIn.email({
-          email,
-          password,
-          rememberMe: true,
-          callbackURL: onboardingUrl,
-        });
-
-    setIsSubmitting(false);
-
-    if (result.error) {
-      let friendly = result.error.message || "Authentication failed. Please try again.";
-      if (friendly.toLowerCase().includes("invalid email or password")) {
-        friendly = isSignUp
-          ? "Unable to create account. An account with this email may already exist, or credentials were invalid."
-          : "Invalid email or password. If you do not have an agency workspace yet, please register your agency or check your invitation link.";
-      }
-      setError(friendly);
-      return;
-    }
-
     try {
+      setStage(isSignUp ? "CREATING_ACCOUNT" : "AUTHENTICATING");
+      const result = isSignUp
+        ? await authClient.signUp.email({
+            name,
+            email,
+            password,
+            callbackURL: onboardingUrl,
+          })
+        : await authClient.signIn.email({
+            email,
+            password,
+            rememberMe: true,
+            callbackURL: onboardingUrl,
+          });
+
+      if (result.error) {
+        let friendly =
+          result.error.message || "Authentication failed. Please try again.";
+        if (friendly.toLowerCase().includes("invalid email or password")) {
+          friendly = isSignUp
+            ? "Unable to create account. An account with this email may already exist, or credentials were invalid."
+            : "Invalid email or password. If you do not have an agency workspace yet, please register your agency or check your invitation link.";
+        }
+        setStage("ERROR");
+        setError(friendly);
+        return;
+      }
+
+      setStage("CLAIMING_INVITATION");
       const claimRes = await fetch("/api/organization/invitations/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,9 +89,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       const claimData = await claimRes.json().catch(() => null);
       if (claimData?.success && (claimData.claimed || claimData.hasMembership || claimData.isAlreadyMember)) {
         if (claimData.organizationId) {
+          setStage("ACTIVATING_ORGANIZATION");
           await authClient.organization.setActive({ organizationId: claimData.organizationId });
         }
         const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
+        setStage("NAVIGATING");
         window.location.href = target;
         return;
       }
@@ -95,6 +102,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     }
 
     // Redirect to onboarding to resolve membership or create agency (avoids middleware loop)
+    setStage("NAVIGATING");
     window.location.href = onboardingUrl;
   }
 
@@ -102,24 +110,22 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     setError(null);
     setEmail(quickEmail);
     setPassword("Password123!");
-    setIsSubmitting(true);
-    console.log("[handleQuickLogin] signing in:", quickEmail);
+    setStage("AUTHENTICATING");
     const result = await authClient.signIn.email({
       email: quickEmail,
       password: "Password123!",
       rememberMe: true,
     });
-    console.log("[handleQuickLogin] result:", result);
-    setIsSubmitting(false);
     if (result.error) {
-      console.error("[handleQuickLogin] error:", result.error);
+      setStage("ERROR");
       setError(result.error.message || "Quick sign-in failed.");
       return;
     }
 
-    let rawTarget = searchParams.get("redirect_url");
+    const rawTarget = searchParams.get("redirect_url");
     let targetUrl = rawTarget === "/agent/kiosk" || rawTarget === "/kiosk/agent" ? "/agent" : rawTarget;
     try {
+      setStage("CLAIMING_INVITATION");
       const claimRes = await fetch("/api/organization/invitations/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,6 +134,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       const claimData = await claimRes.json().catch(() => null);
       if (claimData?.success) {
         if (claimData.organizationId) {
+          setStage("ACTIVATING_ORGANIZATION");
           await authClient.organization.setActive({ organizationId: claimData.organizationId });
         }
         if (!targetUrl || targetUrl === "/dashboard") {
@@ -141,11 +148,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     if (!targetUrl) {
       targetUrl = quickEmail === "tembo@contour.app" || quickEmail.toLowerCase().includes("agent") ? "/agent" : "/dashboard";
     }
+    setStage("NAVIGATING");
     window.location.href = targetUrl;
   }
 
   async function handleGoogleSignIn() {
     setError(null);
+    setStage("AUTHENTICATING");
     try {
       const result = await authClient.signIn.social({
         provider: "google",
@@ -153,7 +162,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       });
 
       if (result.error) {
-        console.error("Google sign in error:", result.error);
+        setStage("ERROR");
         setError(
           result.error.message ||
             (result.error.status
@@ -161,10 +170,26 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               : "Google authentication is not configured. Please ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set in Dokploy.")
         );
       }
-    } catch (err: any) {
-      console.error("Google sign in exception:", err);
-      setError(err?.message || "Failed to initiate Google sign in.");
+    } catch (caught) {
+      setStage("ERROR");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to initiate Google sign in.",
+      );
     }
+  }
+
+  const isTransitioning = shouldBlockAuthSurface(stage);
+
+  if (isTransitioning) {
+    const copy = authTransitionCopy(stage);
+    return (
+      <ContourTransitionScreen
+        label={copy.label}
+        description={copy.description}
+      />
+    );
   }
 
   return (
@@ -230,10 +255,17 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       <button
         type="button"
         onClick={handleGoogleSignIn}
+        disabled={shouldBlockAuthSurface(stage)}
+        aria-busy={shouldBlockAuthSurface(stage)}
         className="flex w-full items-center justify-center gap-2 border border-editorial-black bg-white px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
       >
-        <GoogleLogo />
-        <span>Continue with Google</span>
+        <PendingButtonContent
+          pending={isTransitioning}
+          pendingLabel="Opening secure Google sign-in…"
+          icon={<GoogleLogo />}
+        >
+          Continue with Google
+        </PendingButtonContent>
       </button>
 
       {/* Dev Quick-Login Bar for Fast Agent Switching */}
@@ -322,10 +354,16 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={shouldBlockAuthSurface(stage)}
+          aria-busy={shouldBlockAuthSurface(stage)}
           className="w-full bg-editorial-black px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isSubmitting ? "Please wait..." : isSignUp ? "Create account" : "Sign in"}
+          <PendingButtonContent
+            pending={shouldBlockAuthSurface(stage)}
+            pendingLabel={isSignUp ? "Creating your account…" : "Signing you in…"}
+          >
+            {isSignUp ? "Create account" : "Sign in"}
+          </PendingButtonContent>
         </button>
       </form>
 

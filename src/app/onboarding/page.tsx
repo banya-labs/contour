@@ -5,6 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient, signOut } from "@/lib/auth-client";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { ContourTransitionScreen } from "@/components/ui/contour-transition-screen";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
+import {
+  authTransitionCopy,
+  shouldBlockAuthSurface,
+  type AuthTransitionStage,
+} from "@/lib/auth-transition";
 import {
   Scale,
   ShieldCheck,
@@ -67,7 +75,8 @@ function OnboardingContent() {
   const [dpoEmail, setDpoEmail] = useState("");
   const [regulatoryDeclarationAgreed, setRegulatoryDeclarationAgreed] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [transitionStage, setTransitionStage] =
+    useState<AuthTransitionStage>("IDLE");
   const [error, setError] = useState<string | null>(null);
 
   async function checkInvitationsAndMembership(manualTrigger = false) {
@@ -86,10 +95,12 @@ function OnboardingContent() {
       const claimData = await claimRes.json().catch(() => null);
 
       if (claimData?.success && (claimData.claimed || claimData.hasMembership || claimData.isAlreadyMember) && claimData.organizationId) {
+        setTransitionStage("ACTIVATING_ORGANIZATION");
         await authClient.organization.setActive({
           organizationId: claimData.organizationId,
         });
         const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
+        setTransitionStage("NAVIGATING");
         router.replace(target);
         router.refresh();
         return;
@@ -99,14 +110,17 @@ function OnboardingContent() {
       const result = await authClient.organization.list();
       if (result.data && result.data.length > 0) {
         const firstOrganization = result.data[0];
+        setTransitionStage("ACTIVATING_ORGANIZATION");
         const activeResult = await authClient.organization.setActive({
           organizationId: firstOrganization.id,
         });
         if (!activeResult.error) {
+          setTransitionStage("NAVIGATING");
           router.replace(redirectUrl);
           router.refresh();
           return;
         }
+        setTransitionStage("ERROR");
       }
 
       // 3. User is authenticated, but no active agency membership was found
@@ -157,6 +171,7 @@ function OnboardingContent() {
     if (!inviteInput.trim()) return;
 
     setIsClaimingInvite(true);
+    setTransitionStage("CLAIMING_INVITATION");
     setInviteStatusMessage(null);
 
     try {
@@ -173,29 +188,26 @@ function OnboardingContent() {
           text: data.error || "The invite link or code provided could not be claimed.",
         });
         setIsClaimingInvite(false);
+        setTransitionStage("ERROR");
         return;
       }
 
       if (data.organizationId) {
+        setTransitionStage("ACTIVATING_ORGANIZATION");
         await authClient.organization.setActive({ organizationId: data.organizationId });
       }
 
       const target = data.destination || (data.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
-      setInviteStatusMessage({
-        type: "success",
-        text: `Connected to ${data.organizationName || "agency"}! Redirecting...`,
-      });
-
-      setTimeout(() => {
-        router.replace(target);
-        router.refresh();
-      }, 800);
+      setTransitionStage("NAVIGATING");
+      router.replace(target);
+      router.refresh();
     } catch {
       setInviteStatusMessage({
         type: "error",
         text: "Network error claiming invite. Please check your internet connection.",
       });
       setIsClaimingInvite(false);
+      setTransitionStage("ERROR");
     }
   }
 
@@ -218,9 +230,10 @@ function OnboardingContent() {
     setError(null);
     if (!regulatoryDeclarationAgreed) {
       setError("Statutory Regulatory Declaration required: You must certify PACRA standing, FIC AML compliance, and DPA adherence to activate this workspace.");
-      setIsSubmitting(false);
       return;
     }
+
+    setTransitionStage("CREATING_WORKSPACE");
 
     const result = await authClient.organization.create({
       name: organizationName.trim(),
@@ -230,7 +243,7 @@ function OnboardingContent() {
 
     if (result.error) {
       setError(result.error.message || "Unable to create your organization.");
-      setIsSubmitting(false);
+      setTransitionStage("ERROR");
       return;
     }
 
@@ -240,7 +253,7 @@ function OnboardingContent() {
       });
       if (activeResult.error) {
         setError(activeResult.error.message || "Unable to activate your organization.");
-        setIsSubmitting(false);
+        setTransitionStage("ERROR");
         return;
       }
 
@@ -264,7 +277,7 @@ function OnboardingContent() {
       if (!profileResponse.ok) {
         const profileError = await profileResponse.json().catch(() => null) as { error?: string } | null;
         setError(profileError?.error || "Workspace created, but profile setup needs to be retried.");
-        setIsSubmitting(false);
+        setTransitionStage("ERROR");
         return;
       }
 
@@ -275,12 +288,13 @@ function OnboardingContent() {
         if (!logoResponse.ok) {
           const logoError = await logoResponse.json().catch(() => null) as { error?: string } | null;
           setError(logoError?.error || "Workspace created, but the logo upload needs to be retried.");
-          setIsSubmitting(false);
+          setTransitionStage("ERROR");
           return;
         }
       }
     }
 
+    setTransitionStage("NAVIGATING");
     router.replace(redirectUrl);
     router.refresh();
   }
@@ -288,18 +302,24 @@ function OnboardingContent() {
   // 1. Initial State: Checking memberships
   if (isSessionPending || (!isNewAgencyFlow && view === "CHECKING")) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
-        <ContourLogo size="md" variant="dark" />
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <RefreshCw className="h-4 w-4 animate-spin text-contour-red" />
-          <p className="font-heading text-xs font-bold uppercase tracking-wider text-editorial-black">
-            {isNewAgencyFlow ? "Preparing your workspace setup..." : "Verifying agency membership & invitations..."}
-          </p>
-        </div>
-        <p className="mt-2 text-xs text-editorial-muted">
-          Connecting your authenticated account to Contour real estate operations.
-        </p>
+      <main className="flex min-h-screen items-center justify-center bg-white px-6">
+        <SectionPendingState
+          label={isNewAgencyFlow ? "Preparing workspace setup…" : "Checking agency access…"}
+          description="Connecting your authenticated account to Contour real estate operations."
+        />
       </main>
+    );
+  }
+
+  const isTransitioning = shouldBlockAuthSurface(transitionStage);
+
+  if (isTransitioning) {
+    const copy = authTransitionCopy(transitionStage);
+    return (
+      <ContourTransitionScreen
+        label={copy.label}
+        description={copy.description}
+      />
     );
   }
 
@@ -675,11 +695,20 @@ function OnboardingContent() {
 
           <button
             type="submit"
-            disabled={isSubmitting || !regulatoryDeclarationAgreed}
+            disabled={
+              shouldBlockAuthSurface(transitionStage) ||
+              !regulatoryDeclarationAgreed
+            }
+            aria-busy={shouldBlockAuthSurface(transitionStage)}
             className="w-full bg-editorial-black px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <ShieldCheck className="w-4 h-4 text-contour-red" />
-            <span>{isSubmitting ? "Creating workspace..." : "Affirm & Continue to Contour"}</span>
+            <PendingButtonContent
+              pending={isTransitioning}
+              pendingLabel="Creating your workspace…"
+              icon={<ShieldCheck className="h-4 w-4 text-contour-red" />}
+            >
+              Affirm &amp; Continue to Contour
+            </PendingButtonContent>
           </button>
         </form>
       </section>

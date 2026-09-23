@@ -29,8 +29,11 @@ describe("Contour loading feedback", () => {
     const html = renderToStaticMarkup(
       createElement(
         PendingButtonContent,
-        { pending: true, pendingLabel: "Saving client changes" },
-        "Save Changes",
+        {
+          pending: true,
+          pendingLabel: "Saving client changes",
+          children: "Save Changes",
+        },
       ),
     );
 

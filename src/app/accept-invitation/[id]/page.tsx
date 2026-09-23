@@ -4,7 +4,15 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { ContourLogo } from "@/components/brand/contour-logo";
-import { Building2, ShieldCheck, UserCheck, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ContourTransitionScreen } from "@/components/ui/contour-transition-screen";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
+import {
+  authTransitionCopy,
+  shouldBlockAuthSurface,
+  type AuthTransitionStage,
+} from "@/lib/auth-transition";
+import { Building2, UserCheck, ArrowRight, CheckCircle2 } from "lucide-react";
 
 function GoogleLogo() {
   return (
@@ -55,6 +63,8 @@ function AcceptInvitationContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [transitionStage, setTransitionStage] =
+    useState<AuthTransitionStage>("IDLE");
 
   // Email form state for unauthenticated users
   const [authMode, setAuthMode] = useState<"sign-in" | "sign-up">("sign-up");
@@ -103,6 +113,7 @@ function AcceptInvitationContent() {
   // 2. Claim handler for authenticated user
   const handleClaim = async (confirmRoleChange = false) => {
     setIsProcessing(true);
+    setTransitionStage("CLAIMING_INVITATION");
     setError(null);
 
     try {
@@ -116,26 +127,31 @@ function AcceptInvitationContent() {
       if (!response.ok || !data.success) {
         setError(data.error || "Failed to claim invitation.");
         setIsProcessing(false);
+        setTransitionStage("ERROR");
         return;
       }
 
       // Activate organization in Better Auth client
       if (data.organizationId) {
+        setTransitionStage("ACTIVATING_ORGANIZATION");
         await authClient.organization.setActive({ organizationId: data.organizationId });
       }
 
       const destination = data.destination || (data.roleKey === "FIELD_AGENT" ? "/agent" : "/dashboard");
+      setTransitionStage("NAVIGATING");
       router.replace(destination);
       router.refresh();
     } catch {
       setError("An unexpected error occurred while joining the workspace.");
       setIsProcessing(false);
+      setTransitionStage("ERROR");
     }
   };
 
   // 3. Google OAuth trigger
   const handleGoogleSignIn = async () => {
     setAuthError(null);
+    setTransitionStage("AUTHENTICATING");
     const callbackURL = typeof window !== "undefined" ? window.location.href : `/accept-invitation/${invitationId}`;
     const result = await authClient.signIn.social({
       provider: "google",
@@ -144,6 +160,7 @@ function AcceptInvitationContent() {
 
     if (result.error) {
       setAuthError(result.error.message || "Google authentication failed.");
+      setTransitionStage("ERROR");
     }
   };
 
@@ -152,6 +169,9 @@ function AcceptInvitationContent() {
     e.preventDefault();
     setAuthError(null);
     setIsProcessing(true);
+    setTransitionStage(
+      authMode === "sign-up" ? "CREATING_ACCOUNT" : "AUTHENTICATING",
+    );
 
     const callbackURL = typeof window !== "undefined" ? window.location.href : `/accept-invitation/${invitationId}`;
 
@@ -171,15 +191,33 @@ function AcceptInvitationContent() {
     if (result.error) {
       setAuthError(result.error.message || "Authentication failed. Please check your credentials.");
       setIsProcessing(false);
+      setTransitionStage("ERROR");
       return;
     }
+
+    setTransitionStage("NAVIGATING");
   };
 
   if (isLoading || isSessionPending) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-sm text-editorial-muted">
-        Verifying workspace invitation...
+      <main className="flex min-h-screen items-center justify-center bg-white px-6">
+        <SectionPendingState
+          label="Verifying workspace invitation…"
+          description="Checking the invitation and your current membership."
+        />
       </main>
+    );
+  }
+
+  const isTransitioning = shouldBlockAuthSurface(transitionStage);
+
+  if (isTransitioning) {
+    const copy = authTransitionCopy(transitionStage);
+    return (
+      <ContourTransitionScreen
+        label={copy.label}
+        description={copy.description}
+      />
     );
   }
 
@@ -320,7 +358,12 @@ function AcceptInvitationContent() {
                     onClick={() => handleClaim(true)}
                     className="flex-1 bg-editorial-black px-3 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red disabled:opacity-50 text-center"
                   >
-                    {isProcessing ? "Updating..." : `Switch to ${invitation?.roleName}`}
+                    <PendingButtonContent
+                      pending={isProcessing}
+                      pendingLabel="Updating agency role…"
+                    >
+                      {`Switch to ${invitation?.roleName}`}
+                    </PendingButtonContent>
                   </button>
                 </div>
               </div>
@@ -343,8 +386,13 @@ function AcceptInvitationContent() {
               disabled={isProcessing}
               className="w-full bg-editorial-black px-4 py-3.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-contour-red disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              <UserCheck className="w-4 h-4" />
-              <span>{isProcessing ? "Joining workspace..." : `Accept & Join as ${invitation?.roleName}`}</span>
+              <PendingButtonContent
+                pending={isProcessing}
+                pendingLabel="Joining workspace…"
+                icon={<UserCheck className="h-4 w-4" />}
+              >
+                {`Accept & Join as ${invitation?.roleName}`}
+              </PendingButtonContent>
             </button>
           </div>
         ) : (
@@ -361,8 +409,13 @@ function AcceptInvitationContent() {
                 disabled={isProcessing}
                 className="flex w-full items-center justify-center gap-2.5 border border-editorial-black bg-white px-4 py-3.5 text-xs font-heading font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
               >
-                <GoogleLogo />
-                <span>Continue with Google to Accept</span>
+                <PendingButtonContent
+                  pending={isTransitioning}
+                  pendingLabel="Opening secure Google sign-in…"
+                  icon={<GoogleLogo />}
+                >
+                  Continue with Google to Accept
+                </PendingButtonContent>
               </button>
               <p className="mt-1.5 text-[10px] text-editorial-muted">
                 Signs in with your Google account and immediately connects you to {invitation?.organizationName}.
@@ -431,11 +484,18 @@ function AcceptInvitationContent() {
                 disabled={isProcessing}
                 className="w-full bg-editorial-black px-4 py-3 text-xs font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red transition-colors disabled:opacity-50"
               >
-                {isProcessing
-                  ? "Processing..."
-                  : authMode === "sign-up"
-                  ? "Create Account & Join Agency"
-                  : "Sign In & Join Agency"}
+                <PendingButtonContent
+                  pending={isProcessing}
+                  pendingLabel={
+                    authMode === "sign-up"
+                      ? "Creating your account…"
+                      : "Signing you in…"
+                  }
+                >
+                  {authMode === "sign-up"
+                    ? "Create Account & Join Agency"
+                    : "Sign In & Join Agency"}
+                </PendingButtonContent>
               </button>
 
               <div className="text-center pt-1">
