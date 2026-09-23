@@ -69,23 +69,15 @@ function PropertySalesContent() {
         }
 
         if (salesData.success && salesData.transactions) {
-          const normalized = salesData.transactions.map((t: any, index: number) => {
-            const buyerNames = [
-              "Mwansa Mwape",
-              "Mwamba Phiri",
-              "Kondwani Zulu",
-              "Chipo Tembo",
-              "Mutale Bwalya",
-              "Seward Richard",
-            ];
-            const buyerName = buyerNames[index % buyerNames.length];
-            const buyerContact = `+260 97 ${Math.floor(100000 + Math.random() * 900000)}`;
-            const buyerNrcPassport = `${Math.floor(100000 + index * 12345)}/11/1`;
+          const normalized = salesData.transactions.map((t: any) => {
+            const buyerName = t.inquiry?.clientName || "Buyer details pending";
+            const buyerContact = t.inquiry?.clientPhone || "—";
+            const buyerNrcPassport = "Not captured";
             const ministryRef = `LUS/LAND/2026/${t.id.slice(-4).toUpperCase()}-A`;
 
             let transferStatus = "PENDING_STATE_CONSENT";
             if (t.status === "RECEIVED") transferStatus = "TRANSFER_COMPLETE";
-            else if (t.status === "EXPECTED" && index % 2 === 0) transferStatus = "DEEDS_LODGED";
+            else if (t.status === "EARNED" || t.status === "EXPECTED") transferStatus = "DEEDS_LODGED";
 
             return {
               id: t.id,

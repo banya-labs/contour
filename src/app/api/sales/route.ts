@@ -51,7 +51,14 @@ const getHandler = createApiHandler({
             id: true,
             name: true,
           }
-        }
+        },
+        inquiry: {
+          select: {
+            clientName: true,
+            clientPhone: true,
+            clientEmail: true,
+          },
+        },
       },
       orderBy: { closedAt: "desc" }
     });

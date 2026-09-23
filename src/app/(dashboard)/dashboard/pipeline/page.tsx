@@ -77,8 +77,6 @@ type ExistingClient = {
 const STAGES = [
   { id: "NEW_INQUIRY", label: "New Inquiry", tag: "RAW" },
   { id: "CONTACTED", label: "Contacted", tag: "TOUCH" },
-  { id: "VIEWING_SCHEDULED", label: "Viewing Booked", tag: "VIEW" },
-  { id: "NEGOTIATING", label: "In Negotiation", tag: "TERMS" },
   { id: "OFFER_MADE", label: "Written Offer", tag: "OFFER" },
   { id: "MANAGEMENT_HANDOVER", label: "Management Handover", tag: "REVIEW" },
 ];
@@ -175,7 +173,13 @@ function DealPipelineContent() {
             agentName: inquiry.assignedAgent?.name || "Unassigned",
             assignedAgentId: inquiry.assignedAgent?.id || inquiry.assignedAgentId || null,
             daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),
-            stage: inquiry.status === "NEGOTIATING" ? "NEGOTIATING" : inquiry.status,
+            // Retain visibility for legacy stages after the simplified workflow:
+            // viewings remain Contacted, while negotiation records become Written Offer.
+            stage: inquiry.status === "VIEWING_SCHEDULED"
+              ? "CONTACTED"
+              : inquiry.status === "NEGOTIATING"
+                ? "OFFER_MADE"
+                : inquiry.status,
             outcome: inquiry.outcome,
             lostReason: inquiry.lostReason,
             closedAt: inquiry.closedAt,
@@ -238,7 +242,7 @@ function DealPipelineContent() {
     deals.filter((d) => d.stage !== "CLOSED").forEach((d) => {
       totalsByCurrency[d.currency] = (totalsByCurrency[d.currency] || 0) + d.dealValue;
       commByCurrency[d.currency] = (commByCurrency[d.currency] || 0) + d.agencyCommission;
-      if (d.stage === "NEGOTIATING") {
+      if (d.stage === "OFFER_MADE") {
         totalNegotiatingDays += d.daysInStage;
         negotiatingCount++;
       }
@@ -605,7 +609,7 @@ function DealPipelineContent() {
             Pipeline & Velocity Board
           </h1>
           <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
-            Track transactions across 5 verified stages: Inquiries → Site Viewings → Term Negotiation → Signed Offer → Closed Escrow.
+            Track active transactions across four operating stages: New Inquiry → Contacted → Written Offer → Management Handover. Completed outcomes are kept in the closed deal register below.
           </p>
         </div>
 
@@ -652,7 +656,7 @@ function DealPipelineContent() {
             {stats.avgVelocity}
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
-            Viewing to offer
+            Written offer stage age
           </span>
         </MotionCard>
 
@@ -890,7 +894,7 @@ function DealPipelineContent() {
 
       {/* Visual Kanban Columns Grid (Desktop & Tablet) */}
       <div className="hidden md:block overflow-x-auto pb-4">
-        <div className="grid grid-cols-5 gap-3.5 items-start min-w-[1040px]">
+        <div className="grid grid-cols-4 gap-3.5 items-start min-w-[860px]">
           {STAGES.map((stage) => {
             const stageDeals = deals.filter((d) => d.stage === stage.id);
 
@@ -1355,8 +1359,6 @@ function DealPipelineContent() {
                   >
                     <option value="NEW_INQUIRY">New Inquiry</option>
                     <option value="CONTACTED">Contacted</option>
-                    <option value="VIEWING_SCHEDULED">Viewing Booked</option>
-                    <option value="NEGOTIATING">In Negotiation</option>
                     <option value="OFFER_MADE">Written Offer</option>
                   </select>
                 </div>

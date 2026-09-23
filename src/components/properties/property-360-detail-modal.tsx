@@ -59,6 +59,7 @@ type PropertyFullDetailModalProps = {
   property: any;
   canOverrideCommission?: boolean;
   onUpdateProperty?: (updatedProperty: any) => void;
+  onDeleteProperty?: (property: any) => void;
   onOpenSocialGenerator: (property: any) => void;
   onOpenMatchingBuyers: (property: any) => void;
 };
@@ -125,6 +126,7 @@ export default function PropertyFullDetailModal({
   property,
   canOverrideCommission = false,
   onUpdateProperty,
+  onDeleteProperty,
   onOpenSocialGenerator,
   onOpenMatchingBuyers,
 }: PropertyFullDetailModalProps) {
@@ -652,17 +654,30 @@ export default function PropertyFullDetailModal({
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditing(true);
-                  setActiveSection("DETAILS");
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-2 sm:px-3.5 sm:py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-[10px] sm:text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-[#FA3600]" />
-                <span className="hidden sm:inline">Edit Details</span><span className="sm:hidden">Edit</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(true);
+                    setActiveSection("DETAILS");
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-2 sm:px-3.5 sm:py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-[10px] sm:text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-[#FA3600]" />
+                  <span className="hidden sm:inline">Edit Details</span><span className="sm:hidden">Edit</span>
+                </button>
+                {onDeleteProperty && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteProperty(property)}
+                    className="flex items-center justify-center w-9 h-9 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 border border-red-200 bg-white text-red-700 hover:bg-red-50 text-[10px] sm:text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
+                    title="Delete property"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline ml-1.5">Delete</span>
+                  </button>
+                )}
+              </div>
             )}
 
             <button

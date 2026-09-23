@@ -178,8 +178,8 @@ function PropertiesCatalogContent() {
     setTimeout(() => setCopiedPropertyId(null), 2500);
   };
 
-  const handleDeleteProperty = async (property: any, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteProperty = async (property: any, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!window.confirm(`Delete “${property.title}”? This removes the listing and its associated records.`)) return;
     setDeletingPropertyId(property.id);
     try {
@@ -187,6 +187,7 @@ function PropertiesCatalogContent() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || "Unable to delete listing.");
       setProperties((current) => current.filter((item) => item.id !== property.id));
+      setDetailModalState({ isOpen: false, property: null });
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Unable to delete listing.");
     } finally {
@@ -1098,6 +1099,7 @@ function PropertiesCatalogContent() {
         onClose={() => setDetailModalState({ isOpen: false, property: null })}
         property={detailModalState.property}
         canOverrideCommission={canOverrideCommission}
+        onDeleteProperty={(property) => void handleDeleteProperty(property)}
         onUpdateProperty={(updatedProp) => {
           setProperties((prev) =>
             prev.map((p) => (p.id === updatedProp.id ? updatedProp : p))

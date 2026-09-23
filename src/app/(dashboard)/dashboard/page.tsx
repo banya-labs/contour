@@ -15,6 +15,7 @@ import {
   ArrowUpRight,
   Plus,
   Sparkles,
+  X,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
@@ -52,6 +53,11 @@ export default function DashboardOverviewPage() {
   const [expiringSoonLeases, setExpiringSoonLeases] = useState<any[]>([]);
   const [inquiryStatusBreakdown, setInquiryStatusBreakdown] = useState<any[]>([]);
   const [totalInquiries, setTotalInquiries] = useState(0);
+  const [handoverCloseTarget, setHandoverCloseTarget] = useState<any | null>(null);
+  const [handoverCloseOutcome, setHandoverCloseOutcome] = useState<"WON" | "LOST">("WON");
+  const [handoverLostReason, setHandoverLostReason] = useState("");
+  const [isClosingHandover, setIsClosingHandover] = useState(false);
+  const [handoverCloseError, setHandoverCloseError] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -100,6 +106,46 @@ export default function DashboardOverviewPage() {
     alert(`[ACTION EXECUTED] ${actionMsg}`);
   };
 
+  const startHandoverClose = (inquiry: any, outcome: "WON" | "LOST") => {
+    setHandoverCloseTarget(inquiry);
+    setHandoverCloseOutcome(outcome);
+    setHandoverLostReason("");
+    setHandoverCloseError("");
+  };
+
+  const handleCloseHandover = async () => {
+    if (!handoverCloseTarget) return;
+    if (handoverCloseOutcome === "LOST" && handoverLostReason.trim().length < 10) {
+      setHandoverCloseError("Please provide a lost reason of at least 10 characters.");
+      return;
+    }
+
+    setIsClosingHandover(true);
+    setHandoverCloseError("");
+    try {
+      const response = await fetch(`/api/clients/${handoverCloseTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CLOSED",
+          outcome: handoverCloseOutcome,
+          lostReason: handoverCloseOutcome === "LOST" ? handoverLostReason.trim() : undefined,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        setHandoverCloseError(result?.error || "Unable to close this handover.");
+        return;
+      }
+      setManagementHandoverInquiries((current) => current.filter((item) => item.id !== handoverCloseTarget.id));
+      setHandoverCloseTarget(null);
+    } catch {
+      setHandoverCloseError("Network error while closing this handover.");
+    } finally {
+      setIsClosingHandover(false);
+    }
+  };
+
   // Build real Daily Action Queue from DB results
   const dailyActionQueue: Array<{
     id: string;
@@ -140,8 +186,8 @@ export default function DashboardOverviewPage() {
       tag: "MANAGEMENT",
       title: `Management Handover — ${inq.property?.title || "Property"}`,
       detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
-      actionLabel: "Review Handover",
-      actionMsg: `Management handover for ${inq.property?.title || "the property"} opened for review.`,
+      actionLabel: "Close Handover",
+      actionMsg: "",
     });
   });
 
@@ -420,6 +466,45 @@ export default function DashboardOverviewPage() {
               Review Pipeline <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
+          <div className="mt-4 space-y-2 border-t border-contour-red/20 pt-3">
+            {managementHandoverInquiries.map((inquiry) => (
+              <div key={inquiry.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white border border-contour-red/20 px-3 py-3">
+                <div className="min-w-0">
+                  <p className="font-heading font-bold text-xs text-editorial-black truncate">{inquiry.property?.title || "Property"}</p>
+                  <p className="text-[11px] text-editorial-muted truncate">{inquiry.clientName} · TO: {inquiry.assignedAgent?.name || "Unassigned"}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button type="button" onClick={() => startHandoverClose(inquiry, "WON")} className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-heading font-bold uppercase tracking-wider">Close Won</button>
+                  <button type="button" onClick={() => startHandoverClose(inquiry, "LOST")} className="px-3 py-1.5 border border-red-300 bg-white hover:bg-red-50 text-red-700 text-[10px] font-heading font-bold uppercase tracking-wider">Close Lost</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {handoverCloseTarget && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md border border-editorial-border p-5 space-y-4 shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b border-editorial-border pb-3">
+              <div>
+                <p className="text-[10px] font-geist font-bold uppercase tracking-widest text-contour-red">Management handover outcome</p>
+                <h2 className="font-heading font-bold text-base text-editorial-black mt-1">{handoverCloseTarget.property?.title || "Property"}</h2>
+                <p className="text-xs text-editorial-muted mt-1">{handoverCloseTarget.clientName}</p>
+              </div>
+              <button type="button" onClick={() => setHandoverCloseTarget(null)} disabled={isClosingHandover} className="text-editorial-muted hover:text-editorial-black"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setHandoverCloseOutcome("WON")} className={`px-3 py-2 border text-xs font-heading font-bold uppercase tracking-wider ${handoverCloseOutcome === "WON" ? "border-emerald-700 bg-emerald-700 text-white" : "border-emerald-200 text-emerald-800"}`}>Won</button>
+              <button type="button" onClick={() => setHandoverCloseOutcome("LOST")} className={`px-3 py-2 border text-xs font-heading font-bold uppercase tracking-wider ${handoverCloseOutcome === "LOST" ? "border-red-700 bg-red-700 text-white" : "border-red-200 text-red-800"}`}>Lost</button>
+            </div>
+            {handoverCloseOutcome === "LOST" && <textarea value={handoverLostReason} onChange={(event) => setHandoverLostReason(event.target.value)} rows={3} placeholder="Why was this opportunity lost?" className="w-full border border-editorial-border p-3 text-xs text-editorial-black focus:outline-none focus:border-contour-red" />}
+            {handoverCloseError && <p className="border border-red-300 bg-red-50 p-2.5 text-xs text-red-800">{handoverCloseError}</p>}
+            <div className="flex justify-end gap-2 border-t border-editorial-border pt-3">
+              <button type="button" onClick={() => setHandoverCloseTarget(null)} disabled={isClosingHandover} className="px-3 py-2 border border-editorial-border text-xs font-heading font-semibold uppercase tracking-wider">Cancel</button>
+              <button type="button" onClick={() => void handleCloseHandover()} disabled={isClosingHandover} className={`px-3 py-2 text-white text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50 ${handoverCloseOutcome === "WON" ? "bg-emerald-700" : "bg-red-700"}`}>{isClosingHandover ? "Saving…" : `Confirm ${handoverCloseOutcome === "WON" ? "Won" : "Lost"}`}</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -479,7 +564,14 @@ export default function DashboardOverviewPage() {
 
                   {!isDone ? (
                     <button
-                      onClick={() => handleCompleteAction(item.id, item.actionMsg)}
+                      onClick={() => {
+                        if (item.tag === "MANAGEMENT") {
+                          const inquiry = managementHandoverInquiries.find((candidate) => `handover_${candidate.id}` === item.id);
+                          if (inquiry) startHandoverClose(inquiry, "WON");
+                        } else {
+                          handleCompleteAction(item.id, item.actionMsg);
+                        }
+                      }}
                       className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none"
                     >
                       {item.actionLabel}

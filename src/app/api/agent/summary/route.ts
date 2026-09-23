@@ -154,6 +154,7 @@ const getHandler = createApiHandler({
       where: { organizationId, closingAgentId: userId },
       include: {
         property: { select: { title: true, suburb: true } },
+        inquiry: { select: { clientName: true, clientPhone: true, clientEmail: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -179,6 +180,8 @@ const getHandler = createApiHandler({
         id: tx.id,
         property: tx.property.title,
         suburb: tx.property.suburb,
+        buyerName: tx.inquiry?.clientName || "—",
+        buyerPhone: tx.inquiry?.clientPhone || "—",
         grossCommission: formatCurrency(grossCommission, tx.currency),
         commissionPct: `${Number(tx.agencyCommissionPct)}%`,
         agentSplit: formatCurrency(agentSplit, tx.currency),

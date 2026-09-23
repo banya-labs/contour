@@ -339,6 +339,8 @@ function AgentKioskContent() {
       }));
       loadSummary();
       void syncData();
+      const summaryRefresh = window.setInterval(loadSummary, 60_000);
+      return () => window.clearInterval(summaryRefresh);
     }
   }, [session, syncData]);
 
