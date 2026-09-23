@@ -4,19 +4,22 @@ Updated: 2026-09-23
 
 ## Current gate
 
-The application is not yet commercially launch-ready. The live service responds
-to `/api/health`, but `/api/ready` returns `503` because the production Redis
-dependency is unavailable.
+The infrastructure readiness gate is now passing. The live service responds to
+both `/api/health` and `/api/ready`, with all required production dependencies
+healthy. Commercial launch still requires the payment, authentication,
+tenant-isolation, and recovery rehearsals below.
 
 Live dependency evidence:
 
 - Database: healthy
 - Object storage (MinIO/S3): healthy
-- Redis: unavailable / not configured
+- Redis: healthy (dedicated persistent `contour-redis` service)
 
-## Required release action
+## Completed infrastructure action
 
-Configure `REDIS_URL` in the production deployment, redeploy, and verify:
+Redis was deployed on the shared Docker Swarm network with persistent storage,
+an authentication password, and an authenticated `REDIS_URL` on the Contour
+service. Verified live:
 
 ```text
 GET /api/health -> 200
