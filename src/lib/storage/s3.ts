@@ -1,4 +1,4 @@
-import { HeadObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { HeadBucketCommand, HeadObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
 import { Agent as HttpsAgent } from "node:https";
@@ -60,6 +60,16 @@ export class S3StorageService {
       process.env.S3_SECRET_ACCESS_KEY &&
       process.env.S3_ENDPOINT
     );
+  }
+
+  async ping(): Promise<boolean> {
+    if (!this.isConfigured()) return false;
+    try {
+      await this.getClient().send(new HeadBucketCommand({ Bucket: this.bucketName }));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private getClient(): S3Client {
