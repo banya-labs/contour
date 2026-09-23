@@ -13,11 +13,12 @@ const getHandler = createApiHandler({
   querySchema: z.object({
     assigned: z.string().optional(), // "me" | "all"
     assignedAgentId: z.string().optional(),
+    propertyId: z.string().optional(),
     search: z.string().optional(),
   }).partial(),
   handler: async (req, ctx) => {
     const { organizationId, userId, query } = ctx;
-    const { assigned, assignedAgentId, search } = query;
+    const { assigned, assignedAgentId, propertyId, search } = query;
 
     const whereClause: Prisma.InquiryWhereInput = { organizationId };
 
@@ -25,6 +26,10 @@ const getHandler = createApiHandler({
       whereClause.assignedAgentId = userId;
     } else if (assignedAgentId) {
       whereClause.assignedAgentId = assignedAgentId;
+    }
+
+    if (propertyId) {
+      whereClause.propertyId = propertyId;
     }
 
     if (search) {
@@ -61,6 +66,11 @@ const postHandler = createApiHandler({
   handler: async (req, ctx) => {
     const { organizationId, body, userId } = ctx;
 
+    if (body.idempotencyKey) {
+      const existing = await db.inquiry.findFirst({ where: { organizationId: organizationId!, idempotencyKey: body.idempotencyKey }, include: { property: true, assignedAgent: true } });
+      if (existing) return NextResponse.json({ success: true, client: existing, deduplicated: true });
+    }
+
     // Safely resolve assignedAgentId to an existing User record in DB
     const candidateAgentId = body.assignedAgentId || userId || undefined;
     let effectiveAgentId: string | undefined = undefined;
@@ -94,11 +104,42 @@ const postHandler = createApiHandler({
       }
     }
 
+    // Resolve an inquiry to the best currently marketable property when the
+    // client came in without a specific listing. Closed inventory is never a
+    // candidate for a new pipeline relationship.
+    if (!validPropertyId) {
+      const candidates = await db.property.findMany({
+        where: {
+          organizationId: organizationId!,
+          status: { not: "SOLD" },
+          listingType: body.lookingFor === "FOR_RENT" ? { in: ["FOR_RENT", "BOTH"] } : { in: ["FOR_SALE", "BOTH"] },
+          ...(body.propertyType ? { propertyType: body.propertyType } : {}),
+          ...(body.preferredSuburbs?.length ? { suburb: { in: body.preferredSuburbs, mode: "insensitive" } } : {}),
+        },
+        select: { id: true, askingPrice: true, rentalPrice: true },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+      });
+      const budgetMax = body.budgetMax;
+      const match = candidates.find((property) => {
+        if (!budgetMax) return true;
+        const price = body.lookingFor === "FOR_RENT" ? property.rentalPrice : property.askingPrice;
+        return price == null || Number(price) <= budgetMax * 1.1;
+      });
+      validPropertyId = match?.id;
+    }
+
     const lockDurationDays = 30;
     const exclusiveLockExpiresAt = new Date();
     exclusiveLockExpiresAt.setDate(exclusiveLockExpiresAt.getDate() + lockDurationDays);
 
     const clientPhone = normalizePhoneNumber(body.clientPhone);
+
+    const recentDuplicate = await db.inquiry.findFirst({
+      where: { organizationId: organizationId!, clientPhone, propertyId: validPropertyId, status: { not: "CLOSED" }, createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (recentDuplicate) return NextResponse.json({ success: true, client: recentDuplicate, deduplicated: true });
 
     const client = await db.inquiry.create({
       data: {
@@ -116,9 +157,11 @@ const postHandler = createApiHandler({
         status: body.status || "CONTACTED",
         leadSource: body.leadSource || "OTHER",
         propertyId: validPropertyId,
+        matchStatus: validPropertyId ? "MATCHED" : "UNMATCHED",
         dealValue: body.dealValue !== undefined ? new Prisma.Decimal(body.dealValue) : undefined,
         assignedAgentId: effectiveAgentId,
         exclusiveLockExpiresAt,
+        idempotencyKey: body.idempotencyKey,
       },
       include: {
         assignedAgent: {

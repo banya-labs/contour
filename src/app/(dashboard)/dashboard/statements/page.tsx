@@ -58,9 +58,12 @@ function LandlordStatementsContent() {
           setStatements(data.statements);
         }
         if (propsData.success && propsData.properties) {
-          setProperties(propsData.properties);
-          if (propsData.properties.length > 0) {
-            setFormData((prev) => ({ ...prev, propertyId: propsData.properties[0].id }));
+          const rentalProperties = propsData.properties.filter(
+            (property: any) => property.listingType === "FOR_RENT" || property.listingType === "BOTH"
+          );
+          setProperties(rentalProperties);
+          if (rentalProperties.length > 0) {
+            setFormData((prev) => ({ ...prev, propertyId: rentalProperties[0].id }));
           }
         }
       } catch (err) {
@@ -81,15 +84,6 @@ function LandlordStatementsContent() {
       return;
     }
 
-    const gross = parseFloat(formData.grossRentCollected) || 0;
-    const fee = parseFloat(formData.agencyFeeDeducted) || 0;
-    const maint = parseFloat(formData.maintenanceDeducted) || 0;
-
-    if (gross <= 0) {
-      setFormError("Gross rent collected must be greater than 0.");
-      return;
-    }
-
     setIsCreatingStatement(true);
     try {
       const res = await fetch("/api/statements", {
@@ -99,9 +93,9 @@ function LandlordStatementsContent() {
           propertyId: formData.propertyId,
           statementMonth: Number(formData.statementMonth),
           statementYear: Number(formData.statementYear),
-          grossRentCollected: gross,
-          agencyFeeDeducted: fee,
-          maintenanceDeducted: maint,
+          grossRentCollected: 0,
+          agencyFeeDeducted: 0,
+          maintenanceDeducted: 0,
           currency: formData.currency,
         }),
       });

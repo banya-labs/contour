@@ -45,6 +45,7 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { ProfilePhoneEditor } from "@/components/settings/profile-phone-editor";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -58,7 +59,7 @@ type WorkspaceMember = {
   id: string;
   role: string;
   status: string;
-  user: { id: string; name: string; email: string; image?: string | null };
+  user: { id: string; name: string; email: string; phone?: string | null; image?: string | null };
   roleAssignments: Array<{ role: { key: string; displayName: string } }>;
 };
 
@@ -99,6 +100,7 @@ function SettingsContent() {
   const { data: session } = authClient.useSession();
   const [workspace, setWorkspace] = useState<{ id?: string; slug?: string; name: string; subscriptionTier: string; subscriptionStatus: string; trialEndsAt: string } | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [memberPhoneDrafts, setMemberPhoneDrafts] = useState<Record<string, string>>({});
   const [roles, setRoles] = useState<Array<{ key: string; displayName: string }>>([]);
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
@@ -269,6 +271,29 @@ function SettingsContent() {
       if (refreshed.success) setMembers(refreshed.members || []);
     }
     } finally { setSettingsActionPending(key, false); }
+  };
+
+  const handlePhoneChange = async (member: WorkspaceMember) => {
+    const key = `${member.id}:phone`;
+    setSettingsActionPending(key, true);
+    try {
+      const isSelf = member.user.id === session?.user?.id;
+      const response = await fetch(isSelf ? "/api/profile/phone" : "/api/organization/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isSelf
+          ? { phone: memberPhoneDrafts[member.id] || null }
+          : { memberId: member.id, phone: memberPhoneDrafts[member.id] || null }),
+      });
+      const data = await response.json();
+      setSettingsMessage(response.ok ? "WhatsApp number updated." : data.error || "Unable to update WhatsApp number.");
+      if (response.ok) {
+        const refreshed = await fetch("/api/organization/members").then((res) => res.json());
+        if (refreshed.success) setMembers(refreshed.members || []);
+      }
+    } finally {
+      setSettingsActionPending(key, false);
+    }
   };
 
   const handleGenerateInviteLink = async (e?: React.FormEvent) => {
@@ -1032,6 +1057,20 @@ function SettingsContent() {
                           <p className="text-xs text-editorial-muted truncate font-mono">
                             {member.user.email}
                           </p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <PhoneNumberInput
+                              value={memberPhoneDrafts[member.id] ?? member.user.phone ?? ""}
+                              onChange={(value) => setMemberPhoneDrafts((current) => ({ ...current, [member.id]: value }))}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handlePhoneChange(member)}
+                              disabled={isKeyPending(pendingSettingsActions, `${member.id}:phone`)}
+                              className="border border-editorial-black px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-editorial-black hover:bg-editorial-black hover:text-white disabled:opacity-50"
+                            >
+                              Save WhatsApp
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -1146,6 +1185,7 @@ function SettingsContent() {
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
+              <ProfilePhoneEditor />
               <div className="border border-editorial-border bg-neutral-50 p-4">
                 <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Authenticated user</p>
                 <p className="mt-2 text-sm font-semibold text-editorial-black">{session?.user.name || "Loading..."}</p>

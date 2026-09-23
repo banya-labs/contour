@@ -711,6 +711,7 @@ model Transaction {
   agentSplitAmount       Decimal          @db.Decimal(12, 2) // e.g. K50,000
   status                 CommissionStatus @default(EXPECTED)
   closingAgentId         String
+  inquiryId              String?          @unique
   closedAt               DateTime?
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
@@ -718,6 +719,7 @@ model Transaction {
   organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   property               Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   closingAgent           User             @relation("ClosingAgent", fields: [closingAgentId], references: [id])
+  inquiry                Inquiry?         @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
   @@index([organizationId, createdAt])
@@ -802,12 +804,15 @@ model Inquiry {
   visits                 PropertyVisit[]
   documentRequests       DocumentRequest[]
   followUpTasks          FollowUpTask[]
+  transactions           Transaction[]
+  idempotencyKey         String?
 
   @@index([organizationId, status])
   @@index([organizationId, leadSource])
   @@index([propertyId])
   @@index([organizationId, createdAt])
   @@index([assignedAgentId])
+  @@unique([organizationId, idempotencyKey])
   @@map("inquiry")
 }
 

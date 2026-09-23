@@ -10,7 +10,7 @@ import { hasRequiredRole } from "@/lib/authorization";
 export const PATCH = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
   bodySchema: updateInquirySchema,
-  handler: async (_req, { body, params, organizationId, userId }) => {
+  handler: async (_req, { body, params, organizationId, userId, userRole }) => {
     const inquiryId = typeof params?.id === "string" ? params.id : undefined;
     if (!inquiryId) return NextResponse.json({ success: false, error: "Inquiry id is required." }, { status: 400 });
 
@@ -94,7 +94,7 @@ export const PATCH = createApiHandler({
       },
       include: {
         assignedAgent: { select: { id: true, name: true, phone: true } },
-        property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } },
+        property: { select: { id: true, title: true, suburb: true, rentalPrice: true, agencyCommissionPct: true } },
       },
     });
       if (isClosed && body.outcome === "WON" && targetPropertyId) {
@@ -103,6 +103,39 @@ export const PATCH = createApiHandler({
       }
       return result;
     });
+
+    if (isClosed && body.outcome === "WON" && targetPropertyId && updated.assignedAgentId) {
+      const property = await db.property.findFirst({
+        where: { id: targetPropertyId, organizationId: organizationId! },
+        select: { listingType: true, askingPrice: true, rentalPrice: true, currency: true, agencyCommissionPct: true },
+      });
+      const grossValue = Number(updated.dealValue || property?.askingPrice || property?.rentalPrice || 0);
+      if (property && grossValue > 0) {
+        const commissionPct = Number(property.agencyCommissionPct);
+        const commissionAmount = grossValue * commissionPct / 100;
+        try {
+          await db.transaction.create({
+            data: {
+              organizationId: organizationId!,
+              propertyId: targetPropertyId,
+              inquiryId: inquiry.id,
+              transactionType: property.listingType === "FOR_RENT" ? "RENTAL_PLACEMENT" : "PROPERTY_SALE",
+              grossValue: new Prisma.Decimal(grossValue),
+              currency: updated.currency,
+              agencyCommissionPct: new Prisma.Decimal(commissionPct),
+              agencyCommissionAmount: new Prisma.Decimal(commissionAmount),
+              agentSplitPct: new Prisma.Decimal(50),
+              agentSplitAmount: new Prisma.Decimal(commissionAmount / 2),
+              status: "EARNED",
+              closingAgentId: updated.assignedAgentId,
+              closedAt: new Date(),
+            },
+          });
+        } catch (error) {
+          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
+        }
+      }
+    }
 
     await db.auditLog.create({
       data: {
@@ -129,7 +162,21 @@ export const PATCH = createApiHandler({
       smartCache.invalidateTag(organizationId, "agent-summary", "/agent");
     }
 
-    return NextResponse.json({ success: true, inquiry: updated });
+    return NextResponse.json({
+      success: true,
+      inquiry: updated,
+      leasePrefill: updated.outcome === "WON" && updated.lookingFor === "FOR_RENT" && updated.property
+        ? {
+            propertyId: updated.property.id,
+            propertyTitle: updated.property.title,
+            tenantName: updated.clientName,
+            tenantPhone: updated.clientPhone,
+            tenantEmail: updated.clientEmail,
+            monthlyRent: Number(updated.dealValue || updated.property.rentalPrice || 0),
+            currency: updated.currency,
+          }
+        : null,
+    });
   },
 });
 

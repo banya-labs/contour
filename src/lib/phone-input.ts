@@ -48,3 +48,11 @@ export function validatePhoneDigits(countryCode: string, localValue: string) {
   }
   return { valid: true as const };
 }
+
+export function normalizeWhatsAppPhone(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  const { countryCode, localDigits } = splitPhoneValue(value);
+  const validation = validatePhoneDigits(countryCode, localDigits);
+  if (!validation.valid) throw new Error(validation.message);
+  return composePhoneValue(countryCode, localDigits);
+}

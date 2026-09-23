@@ -202,8 +202,8 @@ export default function PropertyFullDetailModal({
   useEffect(() => {
     if (isOpen && property?.id) {
       loadVaultDocuments();
-      fetch("/api/clients").then((res) => res.ok ? res.json() : null).then((data) => {
-        if (data?.success) setPropertyInquiries((data.clients || []).filter((client: any) => client.propertyId === property.id));
+      fetch(`/api/clients?propertyId=${encodeURIComponent(property.id)}`).then((res) => res.ok ? res.json() : null).then((data) => {
+        if (data?.success) setPropertyInquiries(data.clients || []);
       }).catch(() => setPropertyInquiries([]));
     }
   }, [isOpen, property?.id]);

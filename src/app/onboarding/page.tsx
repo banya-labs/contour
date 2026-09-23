@@ -316,10 +316,7 @@ function OnboardingContent() {
   if (isTransitioning) {
     const copy = authTransitionCopy(transitionStage);
     return (
-      <ContourTransitionScreen
-        label={copy.label}
-        description={copy.description}
-      />
+      <ContourTransitionScreen label={copy.label} description={copy.description} />
     );
   }
 

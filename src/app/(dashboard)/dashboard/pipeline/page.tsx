@@ -316,6 +316,7 @@ function DealPipelineContent() {
           lostReason: closeOutcome === "LOST" ? lostReason.trim() : undefined,
         }),
       });
+      const result = await response.json().catch(() => null);
       if (!response.ok) {
         setFormError("Unable to close this deal.");
         return;
@@ -333,6 +334,10 @@ function DealPipelineContent() {
         ),
       );
       setCloseTarget(null);
+      if (closeOutcome === "WON" && result?.leasePrefill) {
+        const encoded = encodeURIComponent(JSON.stringify(result.leasePrefill));
+        window.location.assign(`/dashboard/leases?new=1&prefill=${encoded}`);
+      }
     } finally {
       setIsClosingDeal(false);
     }

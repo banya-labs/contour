@@ -55,11 +55,22 @@ const postHandler = createApiHandler({
     }
 
     const property = await db.property.findFirst({
-      where: { id: body.propertyId, organizationId: organizationId! },
+      where: { id: body.propertyId, organizationId: organizationId!, listingType: { in: ["FOR_RENT", "BOTH"] } },
     });
-    if (!property) return NextResponse.json({ success: false, error: "Property not found" }, { status: 404 });
+    if (!property) return NextResponse.json({ success: false, error: "Select an active rental property." }, { status: 404 });
 
-    const netPayout = body.grossRentCollected - body.agencyFeeDeducted - (body.maintenanceDeducted || 0);
+    const payments = await db.rentPayment.findMany({
+      where: { organizationId: organizationId!, lease: { propertyId: body.propertyId }, periodMonth: body.statementMonth, periodYear: body.statementYear, status: "CONFIRMED" },
+      select: { amountPaid: true, currency: true },
+    });
+    const expenses = await db.maintenanceExpense.findMany({
+      where: { organizationId: organizationId!, propertyId: body.propertyId, periodMonth: body.statementMonth, periodYear: body.statementYear, status: { in: ["APPROVED", "PAID"] } },
+      select: { amount: true },
+    });
+    const grossRentCollected = payments.reduce((sum, payment) => sum + Number(payment.amountPaid), 0);
+    const maintenanceDeducted = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+    const agencyFeeDeducted = grossRentCollected * Number(property.agencyCommissionPct ?? 10) / 100;
+    const netPayout = grossRentCollected - agencyFeeDeducted - maintenanceDeducted;
 
     const statement = await db.landlordStatement.create({
       data: {
@@ -68,9 +79,9 @@ const postHandler = createApiHandler({
         landlordName: property.ownerName || "Landlord",
         statementMonth: body.statementMonth,
         statementYear: body.statementYear,
-        grossRentCollected: new Prisma.Decimal(body.grossRentCollected),
-        agencyFeeDeducted: new Prisma.Decimal(body.agencyFeeDeducted),
-        maintenanceDeducted: new Prisma.Decimal(body.maintenanceDeducted || 0),
+        grossRentCollected: new Prisma.Decimal(grossRentCollected),
+        agencyFeeDeducted: new Prisma.Decimal(agencyFeeDeducted),
+        maintenanceDeducted: new Prisma.Decimal(maintenanceDeducted),
         netLandlordPayout: new Prisma.Decimal(netPayout),
         currency: body.currency,
         status: "DRAFT",

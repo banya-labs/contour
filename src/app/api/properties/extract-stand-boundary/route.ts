@@ -199,7 +199,12 @@ export async function POST(req: NextRequest) {
     }
 
     const organizationId = tenant.organizationId;
-    const formData = await req.formData();
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return NextResponse.json({ success: false, error: "OCR upload must be sent as multipart/form-data. Please select the title deed again and retry." }, { status: 415 });
+    }
     const file = formData.get("file") as File | null;
     const isSample = formData.get("sample") === "true";
     const rawText = formData.get("rawText") as string | null;

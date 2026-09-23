@@ -29,6 +29,22 @@ function LeasesManagementContent() {
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
       setIsModalOpen(true);
     }
+    const rawPrefill = searchParams?.get("prefill");
+    if (rawPrefill) {
+      try {
+        const prefill = JSON.parse(rawPrefill) as { propertyId?: string; tenantName?: string; tenantPhone?: string; tenantEmail?: string; monthlyRent?: number; currency?: string };
+        setFormData((prev) => ({
+          ...prev,
+          propertyId: prefill.propertyId || prev.propertyId,
+          tenantName: prefill.tenantName || prev.tenantName,
+          tenantPhone: prefill.tenantPhone || prev.tenantPhone,
+          monthlyRent: prefill.monthlyRent ? String(prefill.monthlyRent) : prev.monthlyRent,
+          currency: prefill.currency || prev.currency,
+        }));
+      } catch {
+        setFormError("The rental deal could not be prefilled. Please complete the lease manually.");
+      }
+    }
   }, [searchParams]);
 
   // Form State

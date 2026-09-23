@@ -159,6 +159,7 @@ export const generateLandlordStatementSchema = z.object({
 });
 
 export const createInquirySchema = z.object({
+  idempotencyKey: z.string().min(8).max(120).optional(),
   clientName: z.string().min(2).max(100),
   clientPhone: z.string().min(6).max(30),
   clientEmail: z.string().email().optional().or(z.literal("")),

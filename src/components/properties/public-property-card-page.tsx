@@ -119,7 +119,9 @@ async function getOrganizationOtherProperties(organizationId?: string, currentPr
       where: {
         organizationId,
         id: currentPropertyId ? { not: currentPropertyId } : undefined,
-        status: { in: ["AVAILABLE", "UNDER_OFFER", "SOLD"] },
+        // Closed inventory must never be promoted from a public property page.
+        // The detail route itself is also restricted to active inventory.
+        status: { in: ["AVAILABLE", "UNDER_OFFER"] },
       },
       orderBy: { createdAt: "desc" },
       take: 6,
