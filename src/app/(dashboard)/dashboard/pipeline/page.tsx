@@ -22,6 +22,7 @@ import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
+import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 
 type Deal = {
   id: string;
@@ -1144,12 +1145,10 @@ function DealPipelineContent() {
                         <label className="block text-[10px] font-heading uppercase text-editorial-muted mb-0.5">
                           Client Phone *
                         </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. +260 97 788 9900"
+                        <PhoneNumberInput
                           value={formData.clientPhone}
-                          onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                          className="w-full bg-white px-3 py-1.5 border border-editorial-border text-editorial-black focus:outline-none font-geist"
+                          onChange={(clientPhone) => setFormData({ ...formData, clientPhone })}
+                          label=""
                           required
                         />
                       </div>

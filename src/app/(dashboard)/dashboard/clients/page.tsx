@@ -26,6 +26,7 @@ import { useSession } from "@/lib/auth-client";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
+import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -597,12 +598,10 @@ function ClientsCRMContent() {
 
                 <div>
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Phone Number *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. +260 97 123 4567"
+                  <PhoneNumberInput
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono"
+                    onChange={(phone) => setFormData({ ...formData, phone })}
+                    label=""
                     required
                   />
                 </div>
@@ -757,11 +756,10 @@ function ClientsCRMContent() {
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
                     Phone Number *
                   </label>
-                  <input
-                    type="text"
+                  <PhoneNumberInput
                     value={editFormData.phone}
-                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
-                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono"
+                    onChange={(phone) => setEditFormData({ ...editFormData, phone })}
+                    label=""
                     required
                   />
                 </div>

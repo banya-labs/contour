@@ -44,6 +44,7 @@ import { MfaSetupDialog } from "@/components/auth/mfa-setup-dialog";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
+import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -618,13 +619,10 @@ function SettingsContent() {
                     <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
                       Official WhatsApp Number
                     </label>
-                    <input
-                      type="text"
+                    <PhoneNumberInput
                       value={settings.whatsApp}
-                      onChange={(e) =>
-                        setSettings({ ...settings, whatsApp: e.target.value })
-                      }
-                      className="w-full px-3.5 py-2.5 bg-white border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black transition-colors font-geist"
+                      onChange={(whatsApp) => setSettings({ ...settings, whatsApp })}
+                      label=""
                     />
                   </div>
                   <div>

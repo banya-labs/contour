@@ -14,6 +14,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 
 function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
@@ -469,12 +470,10 @@ function LeasesManagementContent() {
                   <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
                     Tenant Phone Number *
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. +260 97 811 2233"
+                  <PhoneNumberInput
                     value={formData.tenantPhone}
-                    onChange={(e) => setFormData({ ...formData, tenantPhone: e.target.value })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    onChange={(tenantPhone) => setFormData({ ...formData, tenantPhone })}
+                    label=""
                     required
                   />
                 </div>

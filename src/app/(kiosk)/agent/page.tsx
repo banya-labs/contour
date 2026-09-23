@@ -66,6 +66,7 @@ import { normalizePhoneNumber, formatWhatsAppDigits } from "@/lib/phone-utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
+import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -2875,13 +2876,11 @@ function AgentKioskContent() {
                   <label className="block text-editorial-black font-heading font-semibold mb-1">
                     WhatsApp Phone Number <span className="text-contour-red">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. +260 97 999 8888"
+                  <PhoneNumberInput
                     value={newClientPhone}
-                    onChange={(e) => setNewClientPhone(e.target.value)}
-                    className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                    onChange={setNewClientPhone}
+                    label=""
+                    required
                   />
                 </div>
 
@@ -3190,13 +3189,11 @@ function AgentKioskContent() {
                         <label className="block text-editorial-black font-heading font-semibold mb-1">
                           WhatsApp Phone Number <span className="text-contour-red">*</span>
                         </label>
-                        <input
-                          type="text"
-                          required={offerClientMode === "NEW"}
-                          placeholder="e.g. +260 97 999 8888"
+                        <PhoneNumberInput
                           value={offerClientPhone}
-                          onChange={(e) => setOfferClientPhone(e.target.value)}
-                          className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
+                          onChange={setOfferClientPhone}
+                          label=""
+                          required={offerClientMode === "NEW"}
                         />
                       </div>
                       <p className="text-[10px] text-editorial-muted">
@@ -3609,13 +3606,11 @@ function AgentKioskContent() {
                 <label className="block text-editorial-black font-heading font-semibold mb-1">
                   Phone Number (WhatsApp Ready) *
                 </label>
-                <input
-                  type="text"
-                  required
+                <PhoneNumberInput
                   value={editClientPhone}
-                  onChange={(e) => setEditClientPhone(e.target.value)}
-                  placeholder="e.g. 0977 123 456 or +260 977..."
-                  className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
+                  onChange={setEditClientPhone}
+                  label=""
+                  required
                 />
                 <p className="mt-1 text-[10px] text-editorial-muted font-mono">
                   Normalized automatically with Zambia country code (+260) for 1-click WhatsApp.

@@ -18,6 +18,7 @@ import {
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
+import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 
 interface RequestDetails {
   id: string;
@@ -367,12 +368,10 @@ export default function ClientUploadPortalPage() {
                   <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
                     Phone Number (WhatsApp)
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. +260 97 1234567"
+                  <PhoneNumberInput
                     value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 px-3 py-2 outline-none focus:ring-1 focus:ring-amber-500"
+                    onChange={setClientPhone}
+                    label=""
                   />
                 </div>
               </div>
