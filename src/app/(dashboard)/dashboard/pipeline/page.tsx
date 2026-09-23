@@ -13,6 +13,7 @@ import {
   Building,
   User,
   Edit3,
+  Trash2,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
@@ -42,6 +43,7 @@ type Deal = {
   stage: "NEW_INQUIRY" | "CONTACTED" | "VIEWING_SCHEDULED" | "NEGOTIATING" | "OFFER_MADE" | "MANAGEMENT_HANDOVER" | "CLOSED";
   outcome?: "WON" | "LOST" | null;
   lostReason?: string | null;
+  closedAt?: string | null;
   leadSource?: string;
   notes?: string | null;
 };
@@ -79,7 +81,6 @@ const STAGES = [
   { id: "NEGOTIATING", label: "In Negotiation", tag: "TERMS" },
   { id: "OFFER_MADE", label: "Written Offer", tag: "OFFER" },
   { id: "MANAGEMENT_HANDOVER", label: "Management Handover", tag: "REVIEW" },
-  { id: "CLOSED", label: "Closed", tag: "OUTCOME" },
 ];
 
 function DealPipelineContent() {
@@ -125,6 +126,9 @@ function DealPipelineContent() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [isClosingDeal, setIsClosingDeal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
+  const [isDeletingDeal, setIsDeletingDeal] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [pendingDealActions, setPendingDealActions] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -174,6 +178,7 @@ function DealPipelineContent() {
             stage: inquiry.status === "NEGOTIATING" ? "NEGOTIATING" : inquiry.status,
             outcome: inquiry.outcome,
             lostReason: inquiry.lostReason,
+            closedAt: inquiry.closedAt,
             leadSource: inquiry.leadSource,
             notes: inquiry.notes,
           }));
@@ -230,7 +235,7 @@ function DealPipelineContent() {
     let totalNegotiatingDays = 0;
     let negotiatingCount = 0;
 
-    deals.forEach((d) => {
+    deals.filter((d) => d.stage !== "CLOSED").forEach((d) => {
       totalsByCurrency[d.currency] = (totalsByCurrency[d.currency] || 0) + d.dealValue;
       commByCurrency[d.currency] = (commByCurrency[d.currency] || 0) + d.agencyCommission;
       if (d.stage === "NEGOTIATING") {
@@ -256,6 +261,9 @@ function DealPipelineContent() {
 
     return { totalValStr, commValStr, avgVelocity };
   }, [deals]);
+
+  const openDeals = deals.filter((deal) => deal.stage !== "CLOSED");
+  const closedDeals = deals.filter((deal) => deal.stage === "CLOSED");
 
   const openCloseModal = (deal: Deal) => {
     setCloseTarget(deal);
@@ -456,6 +464,7 @@ function DealPipelineContent() {
         clientName,
         clientPhone,
         clientEmail: clientEmail || undefined,
+        existingInquiryId: clientSelectionMode === "existing" ? formData.selectedExistingClientId : undefined,
         lookingFor: "FOR_SALE",
         currency: formData.currency,
         assignedAgentId: formData.assignedAgentId || undefined,
@@ -496,7 +505,7 @@ function DealPipelineContent() {
       notes: formData.notes,
     };
 
-    setDeals([newDeal, ...deals]);
+    setDeals((current) => [newDeal, ...current.filter((deal) => deal.id !== newDeal.id)]);
 
     // Keep existing clients list refreshed
     setExistingClients((prev) => {
@@ -525,6 +534,27 @@ function DealPipelineContent() {
       setFormError("Network error while creating this pipeline opportunity.");
     } finally {
       setIsCreatingDeal(false);
+    }
+  };
+
+  const handleDeleteDeal = async () => {
+    if (!deleteTarget) return;
+    setIsDeletingDeal(true);
+    setDeleteError("");
+    try {
+      const response = await fetch(`/api/clients/${deleteTarget.id}`, { method: "DELETE" });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        setDeleteError(result?.error || "Unable to delete this deal opportunity.");
+        return;
+      }
+      setDeals((current) => current.filter((deal) => deal.id !== deleteTarget.id));
+      setExistingClients((current) => current.filter((client) => client.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch {
+      setDeleteError("Network error while deleting this deal opportunity.");
+    } finally {
+      setIsDeletingDeal(false);
     }
   };
 
@@ -598,7 +628,7 @@ function DealPipelineContent() {
             {stats.totalValStr}
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
-            {deals.length} active opportunities
+            {openDeals.length} active opportunities
           </span>
         </MotionCard>
 
@@ -631,11 +661,11 @@ function DealPipelineContent() {
             Funnel Balance
           </span>
           <div className="font-geist text-xs sm:text-base font-bold text-editorial-black mt-1 tracking-tight">
-            {deals.filter((d) => d.stage !== "CLOSED").length} Open • {deals.filter((d) => d.stage === "CLOSED" && d.outcome === "WON").length} Won
+            {openDeals.length} Open • {closedDeals.filter((d) => d.outcome === "WON").length} Won
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
             {deals.length > 0
-              ? ((deals.filter((d) => d.stage === "CLOSED" && d.outcome === "WON").length / deals.length) * 100).toFixed(0)
+              ? ((closedDeals.filter((d) => d.outcome === "WON").length / deals.length) * 100).toFixed(0)
               : "0"}% Win rate
           </span>
         </MotionCard>
@@ -768,7 +798,7 @@ function DealPipelineContent() {
                   </span>
                 )}
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => openEditModal(deal)}
@@ -776,6 +806,15 @@ function DealPipelineContent() {
                   >
                     <Edit3 className="w-3 h-3" />
                     <span>Edit Deal</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDeleteError(""); setDeleteTarget(deal); }}
+                    className="w-full py-2 px-2 border border-red-200 bg-white hover:bg-red-50 text-red-700 flex items-center justify-center gap-1 font-heading text-[11px] font-semibold uppercase tracking-wider"
+                    title="Delete deal opportunity"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Delete</span>
                   </button>
                   <a
                     href={`https://wa.me/${formatWhatsAppDigits(deal.clientPhone)}?text=Hello%20${encodeURIComponent(deal.clientName)}%2C%20following%20up%20on%20${encodeURIComponent(deal.propertyTitle)}`}
@@ -851,7 +890,7 @@ function DealPipelineContent() {
 
       {/* Visual Kanban Columns Grid (Desktop & Tablet) */}
       <div className="hidden md:block overflow-x-auto pb-4">
-        <div className="grid grid-cols-6 gap-3.5 items-start min-w-[1180px]">
+        <div className="grid grid-cols-5 gap-3.5 items-start min-w-[1040px]">
           {STAGES.map((stage) => {
             const stageDeals = deals.filter((d) => d.stage === stage.id);
 
@@ -988,6 +1027,14 @@ function DealPipelineContent() {
                         >
                           <MessageSquare className="w-2.5 h-2.5" /> WhatsApp
                         </a>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setDeleteError(""); setDeleteTarget(deal); }}
+                          className="text-red-700 hover:underline flex items-center gap-0.5 font-medium"
+                          title="Delete deal opportunity"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" /> Delete
+                        </button>
                       </div>
 
                       {stage.id === "CLOSED" && (
@@ -1053,6 +1100,98 @@ function DealPipelineContent() {
           })}
         </div>
       </div>
+
+      {/* Closed deals are a register, not an active workflow stage. */}
+      <section className="border border-editorial-border bg-white">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-editorial-border px-4 py-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+              <h2 className="font-heading font-bold text-sm uppercase tracking-wider text-editorial-black">Closed Deal Register</h2>
+            </div>
+            <p className="text-xs text-editorial-muted mt-1">Won and lost outcomes completed after management review.</p>
+          </div>
+          <span className="self-start text-[10px] font-geist font-bold uppercase tracking-wider px-2 py-1 border border-editorial-border bg-neutral-50 text-editorial-muted">
+            {closedDeals.length} {closedDeals.length === 1 ? "record" : "records"}
+          </span>
+        </div>
+
+        {closedDeals.length === 0 ? (
+          <div className="p-6 text-center text-xs text-editorial-muted">No closed deals recorded yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left">
+              <thead className="bg-neutral-50 border-b border-editorial-border">
+                <tr className="text-[10px] font-heading uppercase tracking-wider text-editorial-muted">
+                  <th className="px-4 py-3">Client / Property</th>
+                  <th className="px-4 py-3">TO / Agent</th>
+                  <th className="px-4 py-3 text-right">Deal Value</th>
+                  <th className="px-4 py-3 text-right">Commission</th>
+                  <th className="px-4 py-3">Outcome</th>
+                  <th className="px-4 py-3">Closed</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-editorial-border">
+                {closedDeals.map((deal) => (
+                  <tr key={deal.id} className="align-top hover:bg-neutral-50/70">
+                    <td className="px-4 py-3">
+                      <div className="font-heading font-bold text-xs text-editorial-black">{deal.clientName}</div>
+                      <div className="text-[11px] text-editorial-muted mt-0.5">{deal.propertyTitle} · {deal.suburb}</div>
+                      {deal.lostReason && <div className="text-[10px] text-red-700 mt-1 max-w-xs">Reason: {deal.lostReason}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-editorial-black">{deal.agentName || "Unassigned"}</td>
+                    <td className="px-4 py-3 text-right font-geist font-bold text-xs text-editorial-black">{formatCurrency(deal.dealValue, deal.currency)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-geist font-bold text-xs text-contour-red">{formatCurrency(deal.agencyCommission, deal.currency)}</div>
+                      <div className="text-[10px] text-editorial-muted">{deal.agencyCommissionPct}%</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-heading font-bold uppercase tracking-wider border ${deal.outcome === "WON" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+                        {deal.outcome === "WON" ? <CheckCircle2 className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                        {deal.outcome === "WON" ? "Won" : "Lost"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-editorial-muted whitespace-nowrap">
+                      {deal.closedAt ? new Date(deal.closedAt).toLocaleDateString("en-ZM", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-3">
+                        <button type="button" onClick={() => openCloseModal(deal)} className="text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted hover:text-editorial-black hover:underline">Edit outcome</button>
+                        <button type="button" onClick={() => { setDeleteError(""); setDeleteTarget(deal); }} className="text-red-700 hover:underline" title="Delete closed deal"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md border border-red-200 p-5 space-y-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 bg-red-50 text-red-700 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-editorial-black">Delete deal opportunity?</h3>
+                <p className="text-xs text-editorial-muted mt-1">This will remove the pipeline opportunity for {deleteTarget.clientName}. This action cannot be undone.</p>
+              </div>
+            </div>
+            {deleteError && <p className="border border-red-300 bg-red-50 p-2.5 text-xs text-red-800">{deleteError}</p>}
+            <div className="flex justify-end gap-2 border-t border-editorial-border pt-3">
+              <button type="button" onClick={() => setDeleteTarget(null)} disabled={isDeletingDeal} className="px-3 py-2 border border-editorial-border text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black">Cancel</button>
+              <button type="button" onClick={() => void handleDeleteDeal()} disabled={isDeletingDeal} className="px-3 py-2 bg-red-700 hover:bg-red-800 text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50">
+                {isDeletingDeal ? <ContourSunLoader size="sm" label="Deleting deal…" decorative /> : <Trash2 className="w-3.5 h-3.5" />}
+                {isDeletingDeal ? "Deleting…" : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Interactive Modal: New Deal Opportunity */}
       {isModalOpen && (

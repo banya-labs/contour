@@ -135,6 +135,55 @@ const postHandler = createApiHandler({
 
     const clientPhone = normalizePhoneNumber(body.clientPhone);
 
+    // Reuse an existing open opportunity selected from the pipeline instead of
+    // creating a second deal for the same tenant-scoped client record.
+    if (body.existingInquiryId) {
+      const existingInquiry = await db.inquiry.findFirst({
+        where: { id: body.existingInquiryId, organizationId: organizationId! },
+        select: { id: true, status: true },
+      });
+
+      if (!existingInquiry) {
+        return NextResponse.json({ success: false, error: "The selected client opportunity was not found." }, { status: 404 });
+      }
+
+      if (existingInquiry.status !== "CLOSED") {
+        const updated = await db.inquiry.update({
+          where: { id: existingInquiry.id },
+          data: {
+            clientName: body.clientName.trim(),
+            clientPhone,
+            clientEmail: body.clientEmail?.trim() || null,
+            lookingFor: body.lookingFor || "FOR_SALE",
+            currency: body.currency || "ZMW",
+            notes: body.notes || null,
+            status: body.status || existingInquiry.status,
+            leadSource: body.leadSource || "OTHER",
+            propertyId: validPropertyId || null,
+            matchStatus: validPropertyId ? "MATCHED" : "UNMATCHED",
+            dealValue: body.dealValue !== undefined ? new Prisma.Decimal(body.dealValue) : undefined,
+            ...(effectiveAgentId ? { assignedAgentId: effectiveAgentId } : {}),
+            exclusiveLockExpiresAt,
+          },
+          include: {
+            assignedAgent: { select: { name: true, phone: true } },
+            property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } },
+          },
+        });
+
+        if (organizationId) {
+          smartCache.invalidateTag(organizationId, "clients", "/dashboard/clients");
+          smartCache.invalidateTag(organizationId, "pipeline", "/dashboard/pipeline");
+          smartCache.invalidateTag(organizationId, "dashboard-metrics");
+          smartCache.invalidateTag(organizationId, "dashboard-action-queue");
+          smartCache.invalidateTag(organizationId, "agent-summary", "/agent");
+        }
+
+        return NextResponse.json({ success: true, client: updated, attached: true });
+      }
+      // Closed inquiries remain historical; create a new opportunity below.
+    }
+
     const recentDuplicate = await db.inquiry.findFirst({
       where: { organizationId: organizationId!, clientPhone, propertyId: validPropertyId, status: { not: "CLOSED" }, createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) } },
       orderBy: { createdAt: "desc" },
