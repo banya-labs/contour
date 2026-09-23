@@ -68,6 +68,8 @@ point it at production.
 
 ### Production storage and database
 
+Production recovery, rollback, backup, and incident procedures are documented in [`docs/PRODUCTION_OPERATIONS_RUNBOOK.md`](docs/PRODUCTION_OPERATIONS_RUNBOOK.md).
+
 Contour requires an S3-compatible bucket for document storage. Configure
 `S3_BUCKET_NAME`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and
 optionally `S3_ENDPOINT` for MinIO, Dokploy storage, or another compatible
