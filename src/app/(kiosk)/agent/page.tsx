@@ -593,7 +593,7 @@ function AgentKioskContent() {
       map.set(d.id, d);
     });
 
-    const dealStages = ["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"];
+    const dealStages = ["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER"];
     (clients || []).forEach((inq: any) => {
       if (dealStages.includes(inq.status) && !map.has(inq.id)) {
         const val = Number(inq.dealValue || inq.budgetMax || inq.property?.askingPrice || inq.property?.rentalPrice || 0);
@@ -606,7 +606,7 @@ function AgentKioskContent() {
         if (inq.status === "VIEWING_SCHEDULED") stageLabel = "Viewing Booked";
         if (inq.status === "NEGOTIATING") stageLabel = "In Negotiation";
         if (inq.status === "OFFER_MADE") stageLabel = "Offer Submitted";
-        if (inq.status === "CLOSED") stageLabel = "Deal Closed Won";
+        if (inq.status === "MANAGEMENT_HANDOVER") stageLabel = "Management Handover Requested";
 
         map.set(inq.id, {
           id: inq.id,
@@ -972,9 +972,8 @@ function AgentKioskContent() {
       nextStage = "OFFER_MADE";
       nextStageLabel = "Written Offer Submitted";
     } else if (currentDeal.stage === "OFFER_MADE" || currentDeal.stage === "OFFER_ACCEPTED" || currentDeal.stage === "DEEDS_LODGED") {
-      nextStage = "CLOSED";
-      nextStageLabel = "Deal Closed Won";
-      nextOutcome = "WON";
+      nextStage = "MANAGEMENT_HANDOVER";
+      nextStageLabel = "Management Handover Requested";
     } else {
       return;
     }
@@ -2424,22 +2423,23 @@ function AgentKioskContent() {
                     </div>
 
                     {/* Stage Advancement Action */}
-                    <button
-                      onClick={() => advanceDealStage(deal.id)}
-                      className="w-full py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <ArrowUpRight className="w-3.5 h-3.5 text-contour-red" />
-                      <span>
-                        {deal.stage === "NEW_INQUIRY" && "Advance: Contact & Qualify"}
-                        {deal.stage === "CONTACTED" && "Advance: Schedule Viewing"}
-                        {deal.stage === "VIEWING_SCHEDULED" && "Advance: Lodge Buyer Offer"}
-                        {deal.stage === "NEGOTIATING" && "Advance: Submit Written Offer"}
-                        {deal.stage === "OFFER_MADE" && "Advance: Mark Offer Accepted"}
-                        {deal.stage === "OFFER_ACCEPTED" && "Advance: Lodge Deeds at Ministry"}
-                        {deal.stage === "DEEDS_LODGED" && "Advance: Confirm Payout Settled"}
-                        {(deal.stage === "CLOSED" || deal.stage === "COMMISSION_PAID") && "Deal Completed & Settled ✅"}
-                      </span>
-                    </button>
+                    <label className="flex w-full items-center gap-2 border border-editorial-border bg-editorial-black px-3 py-2 text-white">
+                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-contour-red" />
+                      <span className="sr-only">Deal stage</span>
+                      <select
+                        value={deal.stage}
+                        disabled={deal.stage === "MANAGEMENT_HANDOVER" || deal.stage === "CLOSED" || deal.stage === "COMMISSION_PAID"}
+                        onChange={() => void advanceDealStage(deal.id)}
+                        className="w-full bg-transparent text-xs font-heading font-semibold uppercase tracking-wider outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        <option value={deal.stage} className="text-editorial-black">{deal.stage === "MANAGEMENT_HANDOVER" ? "Awaiting Management Close" : deal.stageLabel}</option>
+                        {deal.stage !== "MANAGEMENT_HANDOVER" && deal.stage !== "CLOSED" && deal.stage !== "COMMISSION_PAID" && (
+                          <option value="NEXT" className="text-editorial-black">
+                            {deal.stage === "OFFER_MADE" ? "Request Management Handover" : "Advance to next stage"}
+                          </option>
+                        )}
+                      </select>
+                    </label>
                   </div>
                 ))
               )}

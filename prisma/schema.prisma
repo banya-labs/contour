@@ -49,6 +49,7 @@ model User {
   grantedVaultAccess VaultAccessGrant[]  @relation("GrantedVaultAccess")
   documentRequests   DocumentRequest[]
   sentInvitations    Invitation[]        @relation("InvitationInviter")
+  managementCloseRequests Inquiry[]      @relation("ManagementCloseRequests")
   accessRequests     AccessRequest[]
   createdAccessRequestLinks AccessRequestLink[] @relation("AccessRequestLinkCreator")
   createdBoundaries   PropertyBoundary[]  @relation("BoundaryCreatedBy")
@@ -735,6 +736,7 @@ enum InquiryStatus {
   VIEWING_SCHEDULED
   NEGOTIATING
   OFFER_MADE
+  MANAGEMENT_HANDOVER
   CLOSED
   CLOSED_WON
   CLOSED_LOST
@@ -781,6 +783,8 @@ model Inquiry {
   lostReason             String?       @db.Text
   closedAt               DateTime?
   closedById             String?
+  managementCloseRequestedAt DateTime?
+  managementCloseRequestedById String?
   leadSource             LeadSource    @default(OTHER)
   propertyId             String?
   dealValue              Decimal?      @db.Decimal(14, 2)
@@ -793,6 +797,7 @@ model Inquiry {
 
   organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignedAgent          User?         @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
+  managementCloseRequestedBy User?     @relation("ManagementCloseRequests", fields: [managementCloseRequestedById], references: [id])
   property               Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   visits                 PropertyVisit[]
   documentRequests       DocumentRequest[]

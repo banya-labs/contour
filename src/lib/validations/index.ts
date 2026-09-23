@@ -170,7 +170,7 @@ export const createInquirySchema = z.object({
   preferredSuburbs: z.array(z.string()).default([]),
   notes: z.string().max(1000).optional(),
   assignedAgentId: z.string().optional(),
-  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"]).optional(),
+  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER", "CLOSED"]).optional(),
   leadSource: LeadSourceEnum.default("OTHER"),
   propertyId: z.string().optional(),
   dealValue: z.number().positive().optional(),
@@ -178,7 +178,7 @@ export const createInquirySchema = z.object({
 
 export const updateInquirySchema = z.object({
   // Pipeline fields
-  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"]).optional(),
+  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER", "CLOSED"]).optional(),
   outcome: PipelineOutcomeEnum.optional(),
   lostReason: z.string().trim().min(10).max(2000).optional(),
   assignedAgentId: z.string().optional().nullable(),
@@ -206,7 +206,7 @@ export const updateInquirySchema = z.object({
 });
 
 export const updateInquiryPipelineSchema = z.object({
-  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED"]),
+  status: z.enum(["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER", "CLOSED"]),
   outcome: PipelineOutcomeEnum.optional(),
   lostReason: z.string().trim().min(10).max(2000).optional(),
   assignedAgentId: z.string().optional(),

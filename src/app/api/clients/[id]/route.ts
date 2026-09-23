@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { updateInquirySchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { normalizePhoneNumber } from "@/lib/phone-utils";
+import { hasRequiredRole } from "@/lib/authorization";
 
 export const PATCH = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
@@ -18,6 +19,10 @@ export const PATCH = createApiHandler({
       select: { id: true, status: true, outcome: true, clientName: true, propertyId: true },
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
+
+    if (body.status === "CLOSED" && !hasRequiredRole(userRole || "FIELD_AGENT", ["SUPER_ADMIN", "BROKER_MANAGER", "OWNER"])) {
+      return NextResponse.json({ success: false, error: "Only management can close deals." }, { status: 403 });
+    }
 
     if (body.assignedAgentId) {
       const isDemoUser = body.assignedAgentId.startsWith("user_demo") || body.assignedAgentId.startsWith("usr_");
@@ -75,6 +80,7 @@ export const PATCH = createApiHandler({
         ...(isClosed && body.outcome !== undefined ? { outcome: body.outcome } : {}),
         ...(isClosed && body.outcome === "LOST" && body.lostReason !== undefined ? { lostReason: body.lostReason } : {}),
         ...(isClosed ? { closedAt: new Date(), closedById: userId } : {}),
+        ...(body.status === "MANAGEMENT_HANDOVER" ? { managementCloseRequestedAt: new Date(), managementCloseRequestedById: userId } : {}),
         ...(body.assignedAgentId !== undefined ? {
           assignedAgentId: body.assignedAgentId || null,
           exclusiveLockExpiresAt: body.assignedAgentId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null,
