@@ -88,6 +88,7 @@ export default function SocialMediaCardGeneratorModal({
   const [contactSource, setContactSource] = useState<FlyerContactSource>("agent");
   const [logoFailed, setLogoFailed] = useState(false);
   const [imageSlots, setImageSlots] = useState({ hero: 0, secondaryOne: 1, secondaryTwo: 2, secondaryThree: 3, secondaryFour: 4 });
+  const [imagePickerSlot, setImagePickerSlot] = useState<keyof typeof imageSlots | null>(null);
   const [subImageCount, setSubImageCount] = useState(2);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -112,11 +113,24 @@ export default function SocialMediaCardGeneratorModal({
           setAgencySettings((current) => ({
             ...(current || getAgencySettings()),
             agencyName: organization.name || current?.agencyName || "",
-            logoUrl: organization.logo || current?.logoUrl || "",
+            // The profile endpoint exposes the persisted object key. Resolve the
+            // key through the logo endpoint below before using it in the flyer.
+            logoUrl: current?.logoUrl || "",
             phone: organization.profile?.primaryPhone || current?.phone || "",
             whatsApp: organization.profile?.primaryPhone || current?.whatsApp || "",
             email: organization.profile?.primaryEmail || current?.email || "",
             officeAddress: organization.profile?.primaryOfficeAddress || current?.officeAddress || "",
+          }));
+        })
+        .catch(() => undefined);
+
+      void fetch("/api/organization/logo")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (!data?.logoUrl) return;
+          setAgencySettings((current) => ({
+            ...(current || getAgencySettings()),
+            logoUrl: data.logoUrl,
           }));
         })
         .catch(() => undefined);
@@ -187,7 +201,7 @@ export default function SocialMediaCardGeneratorModal({
     src: photos[imageSlots[slot]] || photos[index + 1] || fallbackInteriorPhotos[index],
     slot,
   }));
-  const brochureContentHeight = subImageCount >= 3 ? 300 : subImageCount === 2 ? 230 : subImageCount === 1 ? 185 : 155;
+  const brochureContentHeight = subImageCount >= 3 ? 250 : subImageCount === 2 ? 210 : subImageCount === 1 ? 185 : 155;
 
   // Dynamic feature bullet points derived strictly from property data
   const homeFeatures: string[] = property.features && property.features.length > 0
@@ -418,31 +432,66 @@ export default function SocialMediaCardGeneratorModal({
                 ] as const).map(([slot, label]) => (
                   <div key={slot} className="flex items-center gap-2">
                     <span className="w-20 shrink-0 text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">{label}</span>
-                    <div className="grid grid-cols-5 gap-1.5 flex-1">
-                      {photos.map((photo: string, idx: number) => (
-                        <button key={idx} type="button" aria-label={`${label}: image ${idx + 1}`} onClick={() => setImageSlots((current) => ({ ...current, [slot]: idx }))} className={`relative h-12 border overflow-hidden ${imageSlots[slot] === idx ? "border-[#fa3600] ring-2 ring-[#fa3600]" : "border-[#e0e0e0] opacity-75 hover:opacity-100"}`}>
-                          <img src={photo} alt="" crossOrigin="anonymous" className="w-full h-full object-cover" />
-                          {imageSlots[slot] === idx && <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-[#fa3600] text-white flex items-center justify-center"><Check className="w-2.5 h-2.5" /></span>}
-                        </button>
-                      ))}
-                    </div>
+                    <button type="button" onClick={() => setImagePickerSlot(slot)} className="relative h-12 w-20 overflow-hidden border border-[#fa3600] bg-neutral-100 text-left">
+                      <img src={photos[imageSlots[slot]]} alt={`${label} selected`} crossOrigin="anonymous" className="h-full w-full object-cover" />
+                      <span className="absolute inset-x-0 bottom-0 bg-[#282828]/85 px-1 py-0.5 text-center text-[8px] font-mono text-white">Choose image</span>
+                    </button>
                   </div>
                 ))}
               </div>
-              <div className="mt-2 flex items-center justify-between border-t border-[#e0e0e0] pt-2">
-                <span className="text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">Sub-images on flyer</span>
-                <select
-                  value={subImageCount}
-                  onChange={(event) => setSubImageCount(Number(event.target.value))}
-                  className="border border-[#e0e0e0] bg-white px-2 py-1 text-[10px] font-mono text-[#282828] focus:border-[#fa3600] focus:outline-hidden"
-                  aria-label="Number of sub-images on flyer"
-                >
+              <div className="mt-3 border-t border-[#e0e0e0] pt-2">
+                <span className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">
+                  Sub-images on flyer
+                </span>
+                <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="Number of sub-images on flyer">
                   {[0, 1, 2, 3, 4].map((count) => (
-                    <option key={count} value={count}>{count}</option>
+                    <button
+                      key={count}
+                      type="button"
+                      aria-pressed={subImageCount === count}
+                      aria-label={count === 0 ? "No sub-images" : `${count} sub-image${count === 1 ? "" : "s"}`}
+                      onClick={() => setSubImageCount(count)}
+                      className={`flex h-10 items-center justify-center gap-0.5 border px-1 transition-colors ${
+                        subImageCount === count
+                          ? "border-[#fa3600] bg-[#282828] text-white ring-1 ring-[#fa3600]"
+                          : "border-[#e0e0e0] bg-white text-[#282828] hover:border-[#fa3600]"
+                      }`}
+                    >
+                      {count === 0 ? (
+                        <span className="text-sm leading-none">—</span>
+                      ) : (
+                        Array.from({ length: count }).map((_, index) => (
+                          <span key={index} className="h-4 w-1.5 border border-current" aria-hidden="true" />
+                        ))
+                      )}
+                      <span className="sr-only">{count}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             </div>
+
+            {imagePickerSlot && (
+              <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Choose property image">
+                <div className="w-full max-w-lg border border-[#282828] bg-white p-4 shadow-2xl">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#6b6b6b]">Choose property image</p>
+                      <p className="text-sm font-bold text-[#282828]">{imagePickerSlot === "hero" ? "Main image" : `Sub-image ${subImageSlots.indexOf(imagePickerSlot) + 1}`}</p>
+                    </div>
+                    <button type="button" onClick={() => setImagePickerSlot(null)} aria-label="Close image picker" className="border border-[#e0e0e0] p-1 hover:border-[#fa3600]"><X className="h-4 w-4" /></button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {photos.map((photo: string, idx: number) => (
+                      <button key={idx} type="button" onClick={() => { setImageSlots((current) => ({ ...current, [imagePickerSlot]: idx })); setImagePickerSlot(null); }} className={`relative aspect-square overflow-hidden border-2 ${imageSlots[imagePickerSlot] === idx ? "border-[#fa3600]" : "border-[#e0e0e0] hover:border-[#fa3600]"}`}>
+                        <img src={photo} alt={`Property image ${idx + 1}`} crossOrigin="anonymous" className="h-full w-full object-cover" />
+                        {imageSlots[imagePickerSlot] === idx && <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center bg-[#fa3600] text-white"><Check className="h-3 w-3" /></span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 5. Exact Property Description / Editable Flyer Copy */}
             <div>
@@ -708,15 +757,13 @@ export default function SocialMediaCardGeneratorModal({
                       </div>
                     </div>
 
-                    {/* Responsive sub-image grid: images crop centrally, never stretch. */}
+                    {/* Secondary images stay in one equal-width row and crop safely. */}
                     {subImages.length > 0 && (
-                      <div className={`grid gap-1 ${subImages.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                      <div className="flex h-24 min-w-0 gap-1">
                         {subImages.map(({ src, slot }, index) => (
                           <div
                             key={`${slot}-${index}`}
-                            className={`border border-[#e0e0e0] overflow-hidden bg-neutral-100 ${
-                              subImages.length === 1 ? "h-24" : "aspect-square"
-                            }`}
+                            className="min-w-0 flex-1 overflow-hidden border border-[#e0e0e0] bg-neutral-100"
                           >
                             <img
                               src={src}
