@@ -279,12 +279,18 @@ export default function SocialMediaCardGeneratorModal({
       });
 
       const expectedCanvas = FLYER_CANVAS[aspectRatio];
-      if (canvas.width !== expectedCanvas.width || canvas.height !== expectedCanvas.height) {
-        throw new Error(`Flyer export size mismatch: expected ${expectedCanvas.width}x${expectedCanvas.height}, received ${canvas.width}x${canvas.height}`);
-      }
+      // Browser layout widths can be fractional, so html2canvas may round its
+      // bitmap a few pixels short. Normalize to the export contract instead of
+      // treating harmless raster rounding as a failed download.
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = expectedCanvas.width;
+      exportCanvas.height = expectedCanvas.height;
+      const exportContext = exportCanvas.getContext("2d");
+      if (!exportContext) throw new Error("The flyer export canvas could not be created.");
+      exportContext.drawImage(canvas, 0, 0, expectedCanvas.width, expectedCanvas.height);
 
       const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((value) => {
+        exportCanvas.toBlob((value) => {
           if (value) resolve(value);
           else reject(new Error("The flyer image could not be encoded."));
         }, "image/png");
@@ -762,7 +768,7 @@ export default function SocialMediaCardGeneratorModal({
                   />
 
                   {/* Top Left Floating Agency Monogram / Brand Badge */}
-                  <div className="absolute left-2.5 right-2.5 top-2.5 flex w-auto max-w-none items-center gap-2 border border-[#282828]/20 bg-white p-1.5 text-[#282828] sm:p-2">
+                  <div className="absolute left-2.5 top-2.5 flex w-fit max-w-[calc(100%-1.25rem)] items-center gap-2 border border-[#282828]/20 bg-white p-1.5 text-[#282828] sm:p-2">
                     {logoUrl && !logoFailed ? (
                       <div className="flex h-6 max-w-[90px] shrink-0 items-center justify-center bg-white px-1 py-0.5">
                         <img
@@ -797,7 +803,7 @@ export default function SocialMediaCardGeneratorModal({
                   style={{ flexBasis: `${brochureContentHeight}px` }}
                 >
                   {/* Left Column (7 Cols) */}
-                  <div className="col-span-7 space-y-2 flex flex-col justify-between">
+                  <div className="col-span-7 space-y-2 flex flex-col justify-start">
                     <div>
                       {/* Telemetry Stand Line */}
                       <div className="text-[8px] font-mono uppercase tracking-widest text-[#fa3600] font-bold">
@@ -827,7 +833,7 @@ export default function SocialMediaCardGeneratorModal({
                     </div>
 
                     {/* 2-Column Features Bullet List with '+' marks */}
-                    <div className={`grid grid-cols-2 gap-x-1 gap-y-0.5 text-[9px] font-mono ${
+                    <div className={`mt-1 grid grid-cols-2 gap-x-1 gap-y-0.5 text-[9px] font-mono ${
                       isDark ? "text-neutral-200" : "text-[#282828]"
                     }`}>
                       {homeFeatures.slice(0, 8).map((feat, idx) => (
@@ -882,7 +888,7 @@ export default function SocialMediaCardGeneratorModal({
                     {qrCodeUrl ? <img src={qrCodeUrl} alt="Scan to view this property" className="h-full w-full object-contain" /> : <span className="text-[7px] font-mono text-[#282828]">SCAN</span>}
                   </div>
                   <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5">
-                    <MessageSquare className="h-4 w-4 shrink-0 text-[#25D366]" />
+                    <img src="/images/whatsapp-icon.svg" alt="WhatsApp" className="h-4 w-4 shrink-0 object-contain" />
                     <div className="min-w-0">
                       <div className="font-heading text-[9px] font-bold uppercase tracking-wider">Contact {activeContact.name}</div>
                       <div className="truncate text-[8px] font-mono text-neutral-300">WhatsApp {formatPhoneDisplay(activeContact.phone) || "number unavailable"}</div>
@@ -915,7 +921,7 @@ export default function SocialMediaCardGeneratorModal({
                   />
 
                   {/* Top Floating Badge */}
-                  <div className="absolute left-2.5 right-2.5 top-2.5 flex w-auto max-w-none items-center gap-1.5 border border-[#282828]/20 bg-white px-2 py-1 text-[#282828]">
+                  <div className="absolute left-2.5 top-2.5 flex w-fit max-w-[calc(100%-1.25rem)] items-center gap-1.5 border border-[#282828]/20 bg-white px-2 py-1 text-[#282828]">
                     {logoUrl && !logoFailed ? (
                       <div className="flex h-4 max-w-[70px] shrink-0 items-center justify-center bg-white px-1 py-0.5">
                         <img
@@ -1008,7 +1014,7 @@ export default function SocialMediaCardGeneratorModal({
                   />
 
                   {/* Monogram / Brand Crest */}
-                  <div className="absolute left-3 right-3 top-3 flex w-auto max-w-none items-center gap-1.5 border border-[#282828]/20 bg-white px-2 py-1 text-[#282828]">
+                  <div className="absolute left-3 top-3 flex w-fit max-w-[calc(100%-1.5rem)] items-center gap-1.5 border border-[#282828]/20 bg-white px-2 py-1 text-[#282828]">
                     {logoUrl && !logoFailed ? (
                       <div className="flex h-5 max-w-[80px] shrink-0 items-center justify-center bg-white px-1 py-0.5">
                         <img
