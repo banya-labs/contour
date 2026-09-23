@@ -187,6 +187,7 @@ export default function SocialMediaCardGeneratorModal({
     src: photos[imageSlots[slot]] || photos[index + 1] || fallbackInteriorPhotos[index],
     slot,
   }));
+  const brochureContentHeight = subImageCount >= 3 ? 300 : subImageCount === 2 ? 230 : subImageCount === 1 ? 185 : 155;
 
   // Dynamic feature bullet points derived strictly from property data
   const homeFeatures: string[] = property.features && property.features.length > 0
@@ -605,7 +606,7 @@ export default function SocialMediaCardGeneratorModal({
                 </span>
 
                 {/* 1. Top Section - Hero Exterior Photo */}
-                <div className="relative h-[34%] min-h-56 shrink-0 bg-neutral-200 overflow-hidden border-b border-[#282828]">
+                <div className="relative min-h-56 min-w-0 flex-1 bg-neutral-200 overflow-hidden border-b border-[#282828]">
                   <img
                     src={heroPhoto}
                     alt={property.title}
@@ -644,7 +645,10 @@ export default function SocialMediaCardGeneratorModal({
                 </div>
 
                 {/* 2. Middle Body Section */}
-                <div className={`min-h-0 flex-1 p-3.5 grid grid-cols-12 gap-3 ${isDark ? "bg-[#282828]" : "bg-white"}`}>
+                <div
+                  className={`min-h-0 shrink-0 p-3.5 grid grid-cols-12 gap-3 ${isDark ? "bg-[#282828]" : "bg-white"}`}
+                  style={{ flexBasis: `${brochureContentHeight}px` }}
+                >
                   {/* Left Column (7 Cols) */}
                   <div className="col-span-7 space-y-2 flex flex-col justify-between">
                     <div>
@@ -657,7 +661,7 @@ export default function SocialMediaCardGeneratorModal({
                       }`}>
                         {isSale ? "MODERN HOME FOR SALE" : "LUXURY RESIDENCE FOR RENT"}
                       </h4>
-                      <p className={`text-[8.5px] font-mono leading-snug mt-1 break-words ${
+                      <p className={`text-[9.5px] font-mono leading-snug mt-1 break-words ${
                         isDark ? "text-neutral-300" : "text-[#6b6b6b]"
                       }`}>
                         <span className="line-clamp-5">{flyerCopy}</span>
@@ -676,13 +680,13 @@ export default function SocialMediaCardGeneratorModal({
                     </div>
 
                     {/* 2-Column Features Bullet List with '+' marks */}
-                    <div className={`grid grid-cols-2 gap-x-1 gap-y-0.5 text-[8px] font-mono ${
+                    <div className={`grid grid-cols-2 gap-x-1 gap-y-0.5 text-[9px] font-mono ${
                       isDark ? "text-neutral-200" : "text-[#282828]"
                     }`}>
                       {homeFeatures.slice(0, 8).map((feat, idx) => (
                         <div key={idx} className="min-w-0 flex items-start gap-1">
                           <span className="text-[#fa3600] font-bold">+</span>
-                          <span className="break-words line-clamp-2">{feat}</span>
+                        <span className="break-words line-clamp-2">{feat}</span>
                         </div>
                       ))}
                     </div>
@@ -695,7 +699,7 @@ export default function SocialMediaCardGeneratorModal({
                       <div className="text-[7.5px] font-mono tracking-wider uppercase text-[#9b9b9b]">
                         {isSale ? "OFFERED AT" : "AVAILABLE LEASE"}
                       </div>
-                      <div className="font-mono font-bold text-[10px] leading-tight text-white break-words">
+                      <div className="font-mono font-bold text-[11px] leading-tight text-white break-words">
                         {currency} {price?.toLocaleString()}
                         {!isSale && <span className="text-[8px] text-[#fa3600]">/mo</span>}
                       </div>
