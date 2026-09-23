@@ -32,6 +32,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { formatCurrency } from "@/lib/utils";
@@ -975,12 +976,10 @@ export default function PropertyFullDetailModal({
 
                         <div>
                           <label className="block text-[11px] text-[#73716B] font-mono mb-1">Agent WhatsApp / Phone</label>
-                          <input
-                            type="text"
+                          <PhoneNumberInput
                             value={editFormData.assignedAgentPhone}
-                            onChange={(e) => setEditFormData({ ...editFormData, assignedAgentPhone: e.target.value })}
-                            placeholder="+260 97..."
-                            className="w-full bg-white px-3 py-2 border border-[#E6E4DF] text-[#1C1C1A] text-xs font-mono focus:outline-none focus:border-[#FA3600]"
+                            onChange={(assignedAgentPhone) => setEditFormData({ ...editFormData, assignedAgentPhone })}
+                            label=""
                           />
                         </div>
                       </div>
@@ -1643,12 +1642,10 @@ export default function PropertyFullDetailModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] text-[#73716B] font-mono mb-1">Phone / WhatsApp</label>
-                        <input
-                          type="text"
-                          placeholder="+260 97..."
+                        <PhoneNumberInput
                           value={newStakeholder.phone}
-                          onChange={(e) => setNewStakeholder({ ...newStakeholder, phone: e.target.value })}
-                          className="w-full bg-white px-3 py-2 border border-[#E6E4DF] text-[#1C1C1A] text-xs font-mono focus:outline-none focus:border-[#FA3600]"
+                          onChange={(phone) => setNewStakeholder({ ...newStakeholder, phone })}
+                          label=""
                         />
                       </div>
 
