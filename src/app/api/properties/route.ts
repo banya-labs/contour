@@ -569,8 +569,26 @@ const patchHandler = createApiHandler({
       );
     }
 
+    if (!ctx.organizationId) {
+      return NextResponse.json(
+        { success: false, error: "Organization context required." },
+        { status: 403 },
+      );
+    }
+
+    const existingProperty = await db.property.findFirst({
+      where: { id, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (!existingProperty) {
+      return NextResponse.json(
+        { success: false, error: "Property not found." },
+        { status: 404 },
+      );
+    }
+
     const property = await db.property.update({
-      where: { id },
+      where: { id: existingProperty.id },
       data: {
         title: updateData.title,
         suburb: updateData.suburb,
