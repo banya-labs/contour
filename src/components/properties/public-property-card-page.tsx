@@ -187,7 +187,7 @@ export async function generateMetadata({
     ? `${property.description.slice(0, 155)}...`
     : `Exclusive real estate listing in ${property.suburb}, ${property.city}. Certified title deed and mandate verification on Contour.`;
   const canonicalUrl = `${siteUrl}${publicPropertyPath(property.organizationSlug, property.slug)}`;
-  const photoUrl = property.featuredPhoto || property.photos[0];
+  const photoUrl = `${siteUrl}/p/${property.organizationSlug}/${property.slug}/opengraph-image`;
 
   return {
     title,

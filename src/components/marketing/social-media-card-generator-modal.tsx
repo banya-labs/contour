@@ -848,16 +848,13 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Right Column: Price Box & Stacked Interior Photos (5 Cols) */}
                   <div className="col-span-5 space-y-1.5 flex flex-col justify-between">
                     {/* Top Price Card */}
-                      <div className="bg-[#282828] text-white p-2 border border-[#404040] text-center space-y-0.5 min-w-0">
-                      <div className="text-[7.5px] font-mono tracking-wider uppercase text-[#9b9b9b]">
+                      <div className="bg-[#282828] text-white p-2.5 border border-[#404040] text-center space-y-1 min-w-0">
+                      <div className="text-[9px] font-mono tracking-wider uppercase text-[#bdbdbd]">
                         {isSale ? "OFFERED AT" : "AVAILABLE LEASE"}
                       </div>
-                      <div className="font-mono font-bold text-[11px] leading-tight text-white break-words">
+                      <div className="font-mono font-bold text-[18px] leading-none text-white break-words">
                         {currency} {price?.toLocaleString()}
-                        {!isSale && <span className="text-[8px] text-[#fa3600]">/mo</span>}
-                      </div>
-                      <div className="text-[7px] font-mono text-[#fa3600]">
-                        VERIFIED CLEAN TITLE
+                        {!isSale && <span className="text-[10px] text-[#fa3600]">/mo</span>}
                       </div>
                     </div>
 
