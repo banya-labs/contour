@@ -28,6 +28,8 @@ const getHandler = createApiHandler({
 });
 
 import { generateLandlordStatementSchema } from "@/lib/validations";
+import { Prisma } from "@prisma/client";
+import type { ApiRouteContext } from "@/lib/api-handler";
 
 const updateStatementStatusSchema = z.object({
   id: z.string(),
@@ -66,10 +68,10 @@ const postHandler = createApiHandler({
         landlordName: property.ownerName || "Landlord",
         statementMonth: body.statementMonth,
         statementYear: body.statementYear,
-        grossRentCollected: body.grossRentCollected as any,
-        agencyFeeDeducted: body.agencyFeeDeducted as any,
-        maintenanceDeducted: (body.maintenanceDeducted || 0) as any,
-        netLandlordPayout: netPayout as any,
+        grossRentCollected: new Prisma.Decimal(body.grossRentCollected),
+        agencyFeeDeducted: new Prisma.Decimal(body.agencyFeeDeducted),
+        maintenanceDeducted: new Prisma.Decimal(body.maintenanceDeducted || 0),
+        netLandlordPayout: new Prisma.Decimal(netPayout),
         currency: body.currency,
         status: "DRAFT",
       },
@@ -87,10 +89,10 @@ const postHandler = createApiHandler({
   },
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }
 
-export async function POST(req: NextRequest, context?: any) {
+export async function POST(req: NextRequest, context: ApiRouteContext) {
   return postHandler(req, context);
 }

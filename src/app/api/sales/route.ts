@@ -5,6 +5,8 @@ import { smartCache } from "@/lib/cache";
 import { z } from "zod";
 import { isManagementRole } from "@/lib/authorization";
 import { resolveCommissionPct } from "@/lib/commission-policy";
+import { Prisma } from "@prisma/client";
+import type { ApiRouteContext } from "@/lib/api-handler";
 
 const createTransactionSchema = z.object({
   propertyId: z.string(),
@@ -12,7 +14,7 @@ const createTransactionSchema = z.object({
   currency: z.enum(["ZMW", "USD", "ZAR"]).default("ZMW"),
   agencyCommissionPct: z.number().min(0).max(100).optional(),
   agentSplitPct: z.number().min(0).max(100).default(50.0),
-  status: z.enum(["EXPECTED", "RECEIVED", "CANCELLED"]).default("EXPECTED"),
+  status: z.enum(["EXPECTED", "EARNED", "PARTIALLY_RECEIVED", "RECEIVED", "AGENT_PAID_OUT"]).default("EXPECTED"),
   closingAgentId: z.string(),
   closedAt: z.string().optional(),
 });
@@ -26,7 +28,7 @@ const getHandler = createApiHandler({
     const { organizationId, userId, contourRole, query } = ctx;
     const { assigned, closingAgentId } = query;
 
-    const whereClause: any = { organizationId };
+    const whereClause: Prisma.TransactionWhereInput = { organizationId };
 
     if (assigned === "me" || contourRole === "FIELD_AGENT") {
       whereClause.closingAgentId = userId;
@@ -97,13 +99,13 @@ const postHandler = createApiHandler({
         organizationId: organizationId!,
         propertyId: body.propertyId,
         transactionType: "PROPERTY_SALE",
-        grossValue: body.grossValue as any,
+        grossValue: new Prisma.Decimal(body.grossValue),
         currency: body.currency,
-        agencyCommissionPct: commissionPct as any,
-        agencyCommissionAmount: commissionAmt as any,
-        agentSplitPct: splitPct as any,
-        agentSplitAmount: agentSplitAmt as any,
-        status: (body.status || "EXPECTED") as any,
+        agencyCommissionPct: new Prisma.Decimal(commissionPct),
+        agencyCommissionAmount: new Prisma.Decimal(commissionAmt),
+        agentSplitPct: new Prisma.Decimal(splitPct),
+        agentSplitAmount: new Prisma.Decimal(agentSplitAmt),
+        status: body.status || "EXPECTED",
         closingAgentId: body.closingAgentId,
         closedAt: body.closedAt ? new Date(body.closedAt) : null,
       },
@@ -144,10 +146,10 @@ const postHandler = createApiHandler({
   }
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }
 
-export async function POST(req: NextRequest, context?: any) {
+export async function POST(req: NextRequest, context: ApiRouteContext) {
   return postHandler(req, context);
 }

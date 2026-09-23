@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { updateInquirySchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { normalizePhoneNumber } from "@/lib/phone-utils";
@@ -46,8 +47,8 @@ export const PATCH = createApiHandler({
         ...(clientName ? { clientName } : {}),
         ...(clientPhone ? { clientPhone } : {}),
         ...(clientEmail !== undefined ? { clientEmail } : {}),
-        ...(body.budgetMax !== undefined ? { budgetMax: body.budgetMax as any } : {}),
-        ...(body.budgetMin !== undefined ? { budgetMin: body.budgetMin as any } : {}),
+        ...(body.budgetMax != null ? { budgetMax: new Prisma.Decimal(body.budgetMax) } : {}),
+        ...(body.budgetMin != null ? { budgetMin: new Prisma.Decimal(body.budgetMin) } : {}),
         ...(body.currency !== undefined ? { currency: body.currency } : {}),
         ...(body.preferredSuburbs !== undefined ? { preferredSuburbs: body.preferredSuburbs } : {}),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
@@ -63,7 +64,7 @@ export const PATCH = createApiHandler({
         } : {}),
         ...(body.leadSource !== undefined ? { leadSource: body.leadSource } : {}),
         ...(body.propertyId !== undefined ? { propertyId: body.propertyId || null } : {}),
-        ...(body.dealValue !== undefined ? { dealValue: body.dealValue as any } : {}),
+        ...(body.dealValue != null ? { dealValue: new Prisma.Decimal(body.dealValue) } : {}),
         ...(body.matchStatus !== undefined ? { matchStatus: body.matchStatus } : {}),
         ...(body.unmatchedReason !== undefined ? { unmatchedReason: body.unmatchedReason || null } : {}),
         ...(body.failedAtStage !== undefined && body.status === "CLOSED" && body.outcome === "LOST" ? { failedAtStage: body.failedAtStage } : {}),

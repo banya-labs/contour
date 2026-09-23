@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { createLeaseSchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
+import { Prisma } from "@prisma/client";
+import type { ApiRouteContext } from "@/lib/api-handler";
 
 const getHandler = createApiHandler({
   handler: async (req, ctx) => {
@@ -53,10 +55,10 @@ const postHandler = createApiHandler({
         tenantPhone: body.tenantPhone,
         tenantEmail: body.tenantEmail || undefined,
         tenantIdNumber: body.tenantIdNumber || undefined,
-        monthlyRent: body.monthlyRent as any,
+        monthlyRent: new Prisma.Decimal(body.monthlyRent),
         currency: body.currency,
-        depositAmount: body.depositAmount as any,
-        managementFeePercent: body.managementFeePercent as any,
+        depositAmount: new Prisma.Decimal(body.depositAmount ?? 0),
+        managementFeePercent: new Prisma.Decimal(body.managementFeePercent ?? 10),
         leaseStartDate: new Date(body.leaseStartDate),
         leaseEndDate: new Date(body.leaseEndDate),
         paymentDayOfMonth: body.paymentDayOfMonth,
@@ -93,10 +95,10 @@ const postHandler = createApiHandler({
   }
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }
 
-export async function POST(req: NextRequest, context?: any) {
+export async function POST(req: NextRequest, context: ApiRouteContext) {
   return postHandler(req, context);
 }

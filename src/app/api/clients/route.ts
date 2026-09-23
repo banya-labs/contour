@@ -5,6 +5,8 @@ import { createInquirySchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import type { ApiRouteContext } from "@/lib/api-handler";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -17,7 +19,7 @@ const getHandler = createApiHandler({
     const { organizationId, userId, query } = ctx;
     const { assigned, assignedAgentId, search } = query;
 
-    const whereClause: any = { organizationId };
+    const whereClause: Prisma.InquiryWhereInput = { organizationId };
 
     if (assigned === "me" && userId) {
       whereClause.assignedAgentId = userId;
@@ -106,15 +108,15 @@ const postHandler = createApiHandler({
         clientEmail: body.clientEmail?.trim() || undefined,
         lookingFor: body.lookingFor || "FOR_SALE",
         propertyType: body.propertyType,
-        budgetMin: body.budgetMin ? (body.budgetMin as any) : undefined,
-        budgetMax: body.budgetMax ? (body.budgetMax as any) : undefined,
+        budgetMin: body.budgetMin ? new Prisma.Decimal(body.budgetMin) : undefined,
+        budgetMax: body.budgetMax ? new Prisma.Decimal(body.budgetMax) : undefined,
         currency: body.currency || "ZMW",
         preferredSuburbs: body.preferredSuburbs || [],
         notes: body.notes,
         status: body.status || "CONTACTED",
         leadSource: body.leadSource || "OTHER",
         propertyId: validPropertyId,
-        dealValue: body.dealValue as any,
+        dealValue: body.dealValue !== undefined ? new Prisma.Decimal(body.dealValue) : undefined,
         assignedAgentId: effectiveAgentId,
         exclusiveLockExpiresAt,
       },
@@ -149,10 +151,10 @@ const postHandler = createApiHandler({
   },
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }
 
-export async function POST(req: NextRequest, context?: any) {
+export async function POST(req: NextRequest, context: ApiRouteContext) {
   return postHandler(req, context);
 }
