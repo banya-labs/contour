@@ -87,9 +87,8 @@ export default function SocialMediaCardGeneratorModal({
   const [agencySettings, setAgencySettings] = useState<AgencySettings | null>(null);
   const [contactSource, setContactSource] = useState<FlyerContactSource>("agent");
   const [logoFailed, setLogoFailed] = useState(false);
-  const [imageSlots, setImageSlots] = useState({ hero: 0, secondaryOne: 1, secondaryTwo: 2, secondaryThree: 3, secondaryFour: 4 });
+  const [imageSlots, setImageSlots] = useState({ hero: 0, secondaryOne: 1, secondaryTwo: 2 });
   const [imagePickerSlot, setImagePickerSlot] = useState<keyof typeof imageSlots | null>(null);
-  const [subImageCount, setSubImageCount] = useState(2);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
@@ -103,8 +102,7 @@ export default function SocialMediaCardGeneratorModal({
       setAgencySettings(getAgencySettings());
       setContactSource("agent");
       setLogoFailed(false);
-      setImageSlots({ hero: 0, secondaryOne: 1, secondaryTwo: 2, secondaryThree: 3, secondaryFour: 4 });
-      setSubImageCount(2);
+      setImageSlots({ hero: 0, secondaryOne: 1, secondaryTwo: 2 });
       void fetch("/api/organization/profile")
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
@@ -196,12 +194,12 @@ export default function SocialMediaCardGeneratorModal({
     "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=800",
     "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800",
   ];
-  const subImageSlots = ["secondaryOne", "secondaryTwo", "secondaryThree", "secondaryFour"] as const;
-  const subImages = subImageSlots.slice(0, subImageCount).map((slot, index) => ({
+  const subImageSlots = ["secondaryOne", "secondaryTwo"] as const;
+  const subImages = subImageSlots.map((slot, index) => ({
     src: photos[imageSlots[slot]] || photos[index + 1] || fallbackInteriorPhotos[index],
     slot,
   }));
-  const brochureContentHeight = subImageCount === 3 ? 250 : subImageCount === 2 ? 210 : 185;
+  const brochureContentHeight = 210;
 
   // Dynamic feature bullet points derived strictly from property data
   const homeFeatures: string[] = property.features && property.features.length > 0
@@ -422,45 +420,20 @@ export default function SocialMediaCardGeneratorModal({
               <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#282828] block mb-1.5">
                 3. Choose Flyer Images ({photos.length} available)
               </label>
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
                 {([
                   ["hero", "Main image"],
                   ["secondaryOne", "Sub-image 1"],
                   ["secondaryTwo", "Sub-image 2"],
-                  ["secondaryThree", "Sub-image 3"],
-                  ["secondaryFour", "Sub-image 4"],
                 ] as const).map(([slot, label]) => (
-                  <div key={slot} className="flex items-center gap-2">
-                    <span className="w-20 shrink-0 text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">{label}</span>
-                    <button type="button" onClick={() => setImagePickerSlot(slot)} className="relative h-12 w-20 overflow-hidden border border-[#fa3600] bg-neutral-100 text-left">
-                      <img src={photos[imageSlots[slot]]} alt={`${label} selected`} crossOrigin="anonymous" className="h-full w-full object-cover" />
+                  <div key={slot} className="flex min-w-0 items-center gap-1.5">
+                    <span className="w-16 shrink-0 text-[9px] font-mono font-bold uppercase text-[#6b6b6b]">{label}</span>
+                    <button type="button" onClick={() => setImagePickerSlot(slot)} className="relative h-12 min-w-0 flex-1 overflow-hidden border border-[#fa3600] bg-neutral-100 text-left">
+                      <img src={photos[imageSlots[slot]] || fallbackInteriorPhotos[slot === "hero" ? 0 : slot === "secondaryOne" ? 1 : 2]} alt={`${label} selected`} crossOrigin="anonymous" className="h-full w-full object-cover" />
                       <span className="absolute inset-x-0 bottom-0 bg-[#282828]/85 px-1 py-0.5 text-center text-[8px] font-mono text-white">Choose image</span>
                     </button>
                   </div>
                 ))}
-              </div>
-              <div className="mt-3 border-t border-[#e0e0e0] pt-2">
-                <span className="mb-1.5 block text-[10px] font-mono font-bold uppercase text-[#6b6b6b]">
-                  Number of sub-images
-                </span>
-                <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Number of sub-images on flyer">
-                  {[1, 2, 3].map((count) => (
-                    <button
-                      key={count}
-                      type="button"
-                      aria-pressed={subImageCount === count}
-                      aria-label={`${count} sub-image${count === 1 ? "" : "s"}`}
-                      onClick={() => setSubImageCount(count)}
-                      className={`flex h-10 items-center justify-center gap-0.5 border px-1 transition-colors ${
-                        subImageCount === count
-                          ? "border-[#fa3600] bg-[#282828] text-white ring-1 ring-[#fa3600]"
-                          : "border-[#e0e0e0] bg-white text-[#282828] hover:border-[#fa3600]"
-                      }`}
-                    >
-                      <span className="text-sm font-bold leading-none">{count}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 
