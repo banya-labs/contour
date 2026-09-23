@@ -22,7 +22,7 @@ describe("readiness probe", () => {
     mocks.queryRaw.mockResolvedValue([{ ok: 1 }]);
     mocks.redisPing.mockResolvedValue(true);
     mocks.storagePing.mockResolvedValue(true);
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
   });
 
   it("reports all production dependencies when healthy", async () => {

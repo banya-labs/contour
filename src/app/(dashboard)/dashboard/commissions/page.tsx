@@ -30,7 +30,7 @@ export default function CommissionsPage() {
     const earnedByCurrency: Record<string, number> = {};
     const agentSplitsByCurrency: Record<string, number> = {};
     const netByCurrency: Record<string, number> = {};
-    let totalDeals = transactions.length;
+    const totalDeals = transactions.length;
 
     transactions.forEach((tx) => {
       const cur = tx.currency || "ZMW";

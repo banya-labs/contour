@@ -81,7 +81,7 @@ const postHandler = createApiHandler({
     const currency: SupportedCurrency = body.currency || "ZMW";
     const channel: PaymentChannel = body.channel || "mobile_money";
 
-    if (!plan || (currency === "ZAR" && channel === "mobile_money")) {
+    if (!plan) {
       return NextResponse.json({ success: false, error: "This payment combination is not supported." }, { status: 400 });
     }
 

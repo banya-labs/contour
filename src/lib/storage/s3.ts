@@ -172,7 +172,9 @@ export class S3StorageService {
       }
       return Buffer.concat(chunks);
     };
-    const body = result.Body ? await streamToBuffer(result.Body) : Buffer.alloc(0);
+    const body = result.Body
+      ? await streamToBuffer(result.Body as AsyncIterable<Uint8Array>)
+      : Buffer.alloc(0);
     return {
       body,
       contentType: result.ContentType || "application/octet-stream",

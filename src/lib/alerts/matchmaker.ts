@@ -98,7 +98,7 @@ export const INITIAL_MOCK_ALERTS: PropertyAlert[] = [
   },
 ];
 
-let globalAlertsStore: PropertyAlert[] = [...INITIAL_MOCK_ALERTS];
+const globalAlertsStore: PropertyAlert[] = [...INITIAL_MOCK_ALERTS];
 
 export function getActiveAlerts(): PropertyAlert[] {
   return globalAlertsStore.filter((a) => a.status === "ACTIVE");

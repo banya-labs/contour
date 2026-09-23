@@ -128,7 +128,7 @@ export const auth = betterAuth({
         }
       } else if (ctx.path === "/sign-out") {
         try {
-          const sessionUserId = ctx.context?.session?.userId;
+          const sessionUserId = ctx.context?.session?.user?.id;
           if (sessionUserId) {
             const member = await db.member.findFirst({
               where: { userId: sessionUserId, status: "active" },

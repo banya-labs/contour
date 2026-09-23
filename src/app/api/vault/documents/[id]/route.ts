@@ -72,7 +72,7 @@ export const GET = createApiHandler({
     }
 
     // Use authenticated preview stream endpoint for robust, CORS-free image and PDF previews
-    let previewUrl: string = `/api/vault/documents/${doc.id}/preview`;
+    const previewUrl: string = `/api/vault/documents/${doc.id}/preview`;
     let presignedS3Url: string | null = null;
     if (s3Storage.isConfigured() && !doc.objectKey.startsWith("local:")) {
       try {
