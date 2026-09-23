@@ -28,12 +28,16 @@ export type ApiHandlerOptions<TBody, TQuery> = {
   ) => Promise<NextResponse | Response>;
 };
 
+export type ApiRouteContext = {
+  params: Promise<Record<string, string | string[]>>;
+};
+
 export function createApiHandler<TBody = unknown, TQuery = unknown>(
   options: ApiHandlerOptions<TBody, TQuery>
 ) {
-  return async (req: NextRequest, context?: any) => {
+  return async (req: NextRequest, context: ApiRouteContext) => {
     try {
-      const params = context?.params;
+      const params = context.params;
       const resolvedParams = params instanceof Promise ? await params : params;
       const isLocalDevelopment =
         process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true";
@@ -116,7 +120,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       }
 
       // Parse Query
-      let query: any = {};
+      let query = {} as TQuery;
       if (options.querySchema) {
         const url = new URL(req.url);
         const rawQuery = Object.fromEntries(url.searchParams.entries());
@@ -128,7 +132,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       }
 
       // Parse Body
-      let body: any = {};
+      let body = {} as TBody;
       if (options.bodySchema && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
         const json = await req.json().catch(() => ({}));
         const parsed = options.bodySchema.safeParse(json);

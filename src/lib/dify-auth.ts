@@ -143,12 +143,13 @@ export async function authenticateDifyRequest(
       }
       throw dbErr;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Dify Auth Verification Error:", error);
+    const message = error instanceof Error ? error.message : "Authentication verification failed";
     return {
       context: null,
       errorResponse: NextResponse.json(
-        { error: "Authentication verification failed", details: error.message },
+        { error: "Authentication verification failed", details: message },
         { status: 500 }
       ),
     };

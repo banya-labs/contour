@@ -18,7 +18,7 @@ type CacheEntry<T> = {
 };
 
 class SmartCacheManager {
-  private store = new Map<string, CacheEntry<any>>();
+  private store = new Map<string, CacheEntry<unknown>>();
   private tagIndex = new Map<string, Set<string>>(); // "tenantId:tag" -> Set of cacheKeys
 
   private buildKey(tenantId: string, tag: string, key: string): string {

@@ -46,7 +46,7 @@ describe("createApiHandler", () => {
       handler: async (_request, context) => NextResponse.json({ contourRole: context.contourRole }),
     });
 
-    const response = await handler(new NextRequest("http://localhost/api/onboarding/profile"));
+    const response = await handler(new NextRequest("http://localhost/api/onboarding/profile"), { params: Promise.resolve({}) });
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ contourRole: "BROKER_MANAGER" });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { createApiHandler } from "@/lib/api-handler";
+import { createApiHandler, type ApiRouteContext } from "@/lib/api-handler";
 import {
   initiateLencoCollection,
   getPlanPrice,
@@ -172,6 +172,6 @@ const postHandler = createApiHandler({
   },
 });
 
-export async function POST(req: NextRequest, context?: unknown) {
+export async function POST(req: NextRequest, context: ApiRouteContext) {
   return postHandler(req, context);
 }

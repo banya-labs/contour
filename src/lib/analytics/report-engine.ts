@@ -22,6 +22,17 @@ import {
   KpiComparison,
 } from "./types";
 
+type ReportOrganization = {
+  name: string;
+  currency: string;
+  logo: string | null;
+  profile?: {
+    primaryOfficeAddress: string | null;
+    primaryPhone: string | null;
+    primaryEmail: string | null;
+  } | null;
+};
+
 export class ContourReportEngine {
   /**
    * Computes a 100% deterministic business intelligence and performance report
@@ -62,7 +73,7 @@ export class ContourReportEngine {
     };
 
     // 2. Fetch Organization Profile & Meta
-    let org: any = null;
+    let org: ReportOrganization | null = null;
     try {
       org = await db.organization.findUnique({
         where: { id: organizationId },
@@ -592,11 +603,10 @@ export class ContourReportEngine {
     // BATCH 7: Tasks & Work Queue
     // -------------------------------------------------------------------------
     let pendingTasksCount = 0;
-    let completedTasksInPeriod = 0;
-    let dueFollowUps: any[] = [];
+    let dueFollowUps: Array<{ dueDate: Date; title: string; assignedUserId: string | null; assignedUser: { name: string } | null }> = [];
 
     try {
-      [pendingTasksCount, completedTasksInPeriod, dueFollowUps] = await Promise.all([
+      [, , dueFollowUps] = await Promise.all([
         db.followUpTask.count({
           where: { organizationId, status: "PENDING" },
         }),
@@ -620,7 +630,6 @@ export class ContourReportEngine {
     } catch {
       // Table may not exist yet if db migration hasn't been pushed
       pendingTasksCount = 0;
-      completedTasksInPeriod = 0;
       dueFollowUps = [];
     }
 

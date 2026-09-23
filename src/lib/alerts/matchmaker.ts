@@ -25,13 +25,26 @@ export type PropertyAlert = {
 export type AlertMatchResult = {
   id: string;
   alert: PropertyAlert;
-  matchedProperty: any;
+  matchedProperty: MatchedProperty;
   whatsAppMessage: string;
   dispatchTimestamp: string;
   reminderStatus: "SENT" | "QUEUED" | "DELIVERED";
   deliveryChannel: "WHATSAPP_TWILIO" | "WHATSAPP_DIRECT" | "SMS";
   matchPercentage: number;
   customOfferText: string;
+};
+
+export type MatchedProperty = {
+  title: string;
+  slug: string;
+  suburb: string;
+  listingType: "FOR_SALE" | "FOR_RENT" | "BOTH" | string;
+  askingPrice?: number | null;
+  rentalPrice?: number | null;
+  currency?: string | null;
+  bedrooms?: number | null;
+  landmarkDirections?: string | null;
+  assignedAgentName?: string | null;
 };
 
 // Realistic seed alerts for Lusaka buyers
@@ -120,18 +133,7 @@ export function registerPropertyAlert(
 /**
  * Event-Driven Matchmaker: Evaluates a property against all active alerts
  */
-export function evaluatePropertyAgainstAlerts(newProperty: {
-  title: string;
-  slug: string;
-  suburb: string;
-  listingType: "FOR_SALE" | "FOR_RENT" | "BOTH" | string;
-  askingPrice?: number | null;
-  rentalPrice?: number | null;
-  currency?: string | null;
-  bedrooms?: number | null;
-  landmarkDirections?: string | null;
-  assignedAgentName?: string | null;
-}): AlertMatchResult[] {
+export function evaluatePropertyAgainstAlerts(newProperty: MatchedProperty): AlertMatchResult[] {
   const activeAlerts = getActiveAlerts();
   const matches: AlertMatchResult[] = [];
   const propertyPrice = newProperty.listingType === "FOR_SALE"
@@ -208,6 +210,6 @@ export function evaluatePropertyAgainstAlerts(newProperty: {
 /**
  * Get active matches for any existing property in inventory
  */
-export function getMatchesForExistingProperty(property: any): AlertMatchResult[] {
+export function getMatchesForExistingProperty(property: MatchedProperty): AlertMatchResult[] {
   return evaluatePropertyAgainstAlerts(property);
 }
