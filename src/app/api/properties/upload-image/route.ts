@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { auth, type Session } from "@/lib/auth";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, canManagePropertyPhotos } from "@/lib/authorization";
 import { s3Storage } from "@/lib/storage/s3";
@@ -11,26 +11,6 @@ import { existsSync } from "node:fs";
 import sharp from "sharp";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024; // 25MB to accommodate high-res camera photos
-const ALLOWED_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/avif",
-  "image/jpg",
-  "image/heic",
-  "image/heif",
-  "image/jfif",
-  "image/tiff",
-  "application/octet-stream",
-]);
-
-function isSupportedImage(file: File): boolean {
-  const mime = file.type.toLowerCase();
-  if (ALLOWED_MIME_TYPES.has(mime)) return true;
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  return ["jpg", "jpeg", "png", "webp", "avif", "heic", "heif", "jfif", "tiff"].includes(ext || "");
-}
-
 async function processAndSaveImage(
   organizationId: string,
   fileName: string,
@@ -50,8 +30,8 @@ async function processAndSaveImage(
       .resize(2048, 2048, { fit: "inside", withoutEnlargement: true }) // optimize huge 48MP photos
       .webp({ quality: 85 })
       .toBuffer();
-  } catch (sharpErr: any) {
-    console.warn("Sharp image processing fallback:", sharpErr?.message);
+  } catch (sharpErr: unknown) {
+    console.warn("Sharp image processing fallback:", sharpErr instanceof Error ? sharpErr.message : "unknown error");
     processedBuffer = Buffer.from(rawBytes);
     finalMime = originalMime || "image/jpeg";
   }
@@ -69,8 +49,8 @@ async function processAndSaveImage(
       mimeType: finalMime,
       sanitizedName: uniqueName,
     };
-  } catch (fsErr: any) {
-    console.warn("Failed to write to public/uploads, falling back to data URI:", fsErr?.message);
+  } catch (fsErr: unknown) {
+    console.warn("Failed to write to public/uploads, falling back to data URI:", fsErr instanceof Error ? fsErr.message : "unknown error");
     const base64 = processedBuffer.toString("base64");
     return {
       buffer: processedBuffer,
@@ -97,7 +77,7 @@ export async function POST(req: NextRequest) {
           id: "sess_demo",
           activeOrganizationId: "org_contour_demo",
         },
-      } as any,
+      } as Session,
       userId: "user_demo_superadmin",
       organizationId: "org_contour_demo",
       userRole: "SUPER_ADMIN",
@@ -120,8 +100,8 @@ export async function POST(req: NextRequest) {
               session,
               userId: session.user.id,
               organizationId: member.organizationId,
-              userRole: (session.user as any).role || "FIELD_AGENT",
-              contourRole: resolveContourRole((session.user as any).role, member.role),
+              userRole: "role" in session.user && typeof session.user.role === "string" ? session.user.role : "FIELD_AGENT",
+              contourRole: resolveContourRole("role" in session.user && typeof session.user.role === "string" ? session.user.role : undefined, member.role),
               permissions: [],
             };
           }
@@ -217,7 +197,14 @@ export async function POST(req: NextRequest) {
     }
 
     // If propertyId is provided, verify ownership or management permissions
-    let existingProperty: any = null;
+    let existingProperty: {
+      id: string;
+      title: string;
+      photos: unknown;
+      featuredPhoto: string | null;
+      assignedAgentId: string | null;
+      createdById: string | null;
+    } | null = null;
     if (propertyId) {
       existingProperty = await db.property.findFirst({
         where: {
@@ -273,8 +260,8 @@ export async function POST(req: NextRequest) {
           if (publicDomain && !publicDomain.includes("cdn.banyalabs.com")) {
             photoUrl = `${publicDomain.replace(/\/$/, "")}/${bucketName}/${objectKey}`;
           }
-        } catch (s3Error: any) {
-          console.warn("S3 background archive notice (using local storage):", s3Error?.message || s3Error);
+        } catch (s3Error: unknown) {
+          console.warn("S3 background archive notice (using local storage):", s3Error instanceof Error ? s3Error.message : "unknown error");
         }
       }
 
@@ -311,8 +298,8 @@ export async function POST(req: NextRequest) {
             },
           },
         });
-      } catch (auditErr: any) {
-        console.warn("Non-fatal audit log creation failure during photo upload:", auditErr?.message);
+      } catch (auditErr: unknown) {
+        console.warn("Non-fatal audit log creation failure during photo upload:", auditErr instanceof Error ? auditErr.message : "unknown error");
       }
 
       // Invalidate caches
@@ -336,13 +323,13 @@ export async function POST(req: NextRequest) {
       count: uploadedUrls.length,
       message: `${uploadedUrls.length} photo(s) uploaded successfully.`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/properties/upload-image error:", error);
     return NextResponse.json(
       { 
         success: false, 
         error: "Failed to upload image", 
-        details: error?.message || String(error) 
+        details: error instanceof Error ? error.message : String(error)
       },
       { status: 500 }
     );
