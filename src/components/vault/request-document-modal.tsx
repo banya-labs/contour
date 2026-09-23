@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Link2, Copy, Check, MessageSquare, ShieldCheck, KeyRound, Loader2, AlertCircle } from "lucide-react";
+import { Link2, Copy, Check, MessageSquare, ShieldCheck, KeyRound, AlertCircle } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 interface RequestDocumentModalProps {
   isOpen: boolean;
@@ -372,8 +373,8 @@ export function RequestDocumentModal({
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Generating Encrypted Link...</span>
+                    <ContourSunLoader size="sm" label="Creating secure request…" decorative />
+                    <span>Creating secure request…</span>
                   </>
                 ) : (
                   <>

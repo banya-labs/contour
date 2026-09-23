@@ -41,6 +41,9 @@ import {
 import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { MfaSetupDialog } from "@/components/auth/mfa-setup-dialog";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -111,9 +114,13 @@ function SettingsContent() {
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [showMfaSetup, setShowMfaSetup] = useState(false);
   const [mfaDisabling, setMfaDisabling] = useState(false);
+  const [pendingSettingsActions, setPendingSettingsActions] = useState<ReadonlySet<string>>(new Set());
+  const setSettingsActionPending = (key: string, pending: boolean) =>
+    setPendingSettingsActions((current) => setKeyPending(current, key, pending));
 
   async function handleDisableMfa() {
     setMfaDisabling(true);
+    setSettingsActionPending("mfa:disable", true);
     try {
       await (authClient as any).twoFactor.disable();
       setMfaEnabled(false);
@@ -121,6 +128,7 @@ function SettingsContent() {
       // silent fail — user can try again
     } finally {
       setMfaDisabling(false);
+      setSettingsActionPending("mfa:disable", false);
     }
   }
 
@@ -177,6 +185,7 @@ function SettingsContent() {
   };
 
   const handleLogoUpload = async (file: File) => {
+    setSettingsActionPending("logo:upload", true);
     try {
       const body = new FormData();
       body.append("file", file);
@@ -186,6 +195,7 @@ function SettingsContent() {
         const updated = saveAgencySettings({ ...settings, logoUrl: data.logoUrl });
         setSettings(updated);
         setSettingsMessage("Agency logo updated and saved.");
+        setSettingsActionPending("logo:upload", false);
         return;
       }
     } catch {
@@ -199,6 +209,11 @@ function SettingsContent() {
       const updated = saveAgencySettings({ ...settings, logoUrl: dataUrl });
       setSettings(updated);
       setSettingsMessage("Agency logo updated and saved.");
+      setSettingsActionPending("logo:upload", false);
+    };
+    reader.onerror = () => {
+      setSettingsMessage("Unable to read the selected logo.");
+      setSettingsActionPending("logo:upload", false);
     };
     reader.readAsDataURL(file);
   };
@@ -210,25 +225,38 @@ function SettingsContent() {
   };
 
   const handleCreateAccessLink = async () => {
+    setSettingsActionPending("access-link:create", true);
     setSettingsMessage(null);
-    const response = await fetch("/api/organization/access-link", { method: "POST" });
-    const data = await response.json();
-    if (!response.ok) { setSettingsMessage(data.error || "Unable to create access link."); return; }
-    const fullLink = `${window.location.origin}/request-access/${data.token}`;
-    setAccessLink(fullLink);
-    await navigator.clipboard.writeText(fullLink);
-    setSettingsMessage("Access link created and copied. Requests still require admin approval.");
+    try {
+      const response = await fetch("/api/organization/access-link", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) { setSettingsMessage(data.error || "Unable to create access link."); return; }
+      const fullLink = `${window.location.origin}/request-access/${data.token}`;
+      setAccessLink(fullLink);
+      await navigator.clipboard.writeText(fullLink);
+      setSettingsMessage("Access link created and copied. Requests still require admin approval.");
+    } finally {
+      setSettingsActionPending("access-link:create", false);
+    }
   };
 
   const handleReviewRequest = async (requestId: string, decision: "APPROVE" | "DECLINE") => {
-    const response = await fetch("/api/organization/access-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId, decision }) });
-    const data = await response.json();
-    setSettingsMessage(response.ok ? `Access request ${decision === "APPROVE" ? "approved" : "declined"}.` : data.error || "Unable to review access request.");
-    if (response.ok) window.location.reload();
+    const key = `${requestId}:${decision.toLowerCase()}`;
+    setSettingsActionPending(key, true);
+    try {
+      const response = await fetch("/api/organization/access-requests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId, decision }) });
+      const data = await response.json();
+      setSettingsMessage(response.ok ? `Access request ${decision === "APPROVE" ? "approved" : "declined"}.` : data.error || "Unable to review access request.");
+      if (response.ok) window.location.reload();
+    } finally {
+      setSettingsActionPending(key, false);
+    }
   };
 
   const handleRoleChange = async (memberId: string, roleKey: string) => {
-    const response = await fetch("/api/organization/members", {
+    const key = `${memberId}:role`;
+    setSettingsActionPending(key, true);
+    try { const response = await fetch("/api/organization/members", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ memberId, roleKey }),
@@ -239,11 +267,13 @@ function SettingsContent() {
       const refreshed = await fetch("/api/organization/members").then((res) => res.json());
       if (refreshed.success) setMembers(refreshed.members || []);
     }
+    } finally { setSettingsActionPending(key, false); }
   };
 
   const handleGenerateInviteLink = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsInviting(true);
+    setSettingsActionPending("invitation:create", true);
     setSettingsMessage(null);
 
     const trimmedEmail = inviteEmail.trim();
@@ -259,7 +289,6 @@ function SettingsContent() {
         }),
       });
       const data = await res.json();
-      setIsInviting(false);
 
       if (!res.ok || !data.success) {
         setSettingsMessage(data.error || "Unable to generate invitation link.");
@@ -292,12 +321,16 @@ function SettingsContent() {
       const refreshed = await fetch("/api/organization/invitations").then((r) => r.json());
       if (refreshed.success) setInvitations(refreshed.invitations || []);
     } catch {
-      setIsInviting(false);
       setSettingsMessage("Network error creating invitation link.");
+    } finally {
+      setIsInviting(false);
+      setSettingsActionPending("invitation:create", false);
     }
   };
 
   const handleToggleSuspend = async (member: WorkspaceMember) => {
+    const key = `${member.id}:suspend`;
+    setSettingsActionPending(key, true);
     const newStatus = member.status === "suspended" ? "active" : "suspended";
     setSettingsMessage(null);
     try {
@@ -316,11 +349,14 @@ function SettingsContent() {
       if (refreshed.success) setMembers(refreshed.members || []);
     } catch {
       setSettingsMessage("Network error updating member status.");
+    } finally {
+      setSettingsActionPending(key, false);
     }
   };
 
   const handleDeleteMember = async (memberId: string) => {
     setIsDeletingMember(true);
+    setSettingsActionPending(`${memberId}:delete`, true);
     setDeleteMemberError(null);
     setSettingsMessage(null);
     try {
@@ -330,7 +366,6 @@ function SettingsContent() {
         body: JSON.stringify({ memberId }),
       });
       const data = await res.json();
-      setIsDeletingMember(false);
 
       if (!res.ok || !data.success) {
         const errorMsg = data.error || "Failed to remove member.";
@@ -345,13 +380,16 @@ function SettingsContent() {
       const refreshed = await fetch("/api/organization/members").then((r) => r.json());
       if (refreshed.success) setMembers(refreshed.members || []);
     } catch {
-      setIsDeletingMember(false);
       setDeleteMemberError("Network error removing member.");
       setSettingsMessage("Network error removing member.");
+    } finally {
+      setIsDeletingMember(false);
+      setSettingsActionPending(`${memberId}:delete`, false);
     }
   };
 
   const handleRevokeInvite = async (invitationId: string) => {
+    setSettingsActionPending(`${invitationId}:revoke`, true);
     try {
       const res = await fetch("/api/organization/invitations", {
         method: "DELETE",
@@ -365,6 +403,8 @@ function SettingsContent() {
       }
     } catch {
       setSettingsMessage("Failed to revoke invitation.");
+    } finally {
+      setSettingsActionPending(`${invitationId}:revoke`, false);
     }
   };
 
@@ -472,12 +512,13 @@ function SettingsContent() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="inline-flex cursor-pointer items-center gap-2 bg-editorial-black hover:bg-neutral-800 text-white px-3 py-2 text-[10px] font-heading font-bold uppercase tracking-wider transition-colors shadow-none">
-                        <Upload className="h-3.5 w-3.5 text-contour-red" />
-                        <span>{settings.logoUrl ? "Change Agency Logo" : "Upload Agency Logo"}</span>
+                        {isKeyPending(pendingSettingsActions, "logo:upload") ? <ContourSunLoader size="sm" label="Uploading agency logo…" decorative /> : <Upload className="h-3.5 w-3.5 text-contour-red" />}
+                        <span>{isKeyPending(pendingSettingsActions, "logo:upload") ? "Uploading agency logo…" : settings.logoUrl ? "Change Agency Logo" : "Upload Agency Logo"}</span>
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/webp,image/svg+xml"
                           className="hidden"
+                          disabled={isKeyPending(pendingSettingsActions, "logo:upload")}
                           onChange={(event) => {
                             const file = event.target.files?.[0];
                             if (file) void handleLogoUpload(file).catch((error: Error) => setSettingsMessage(error.message));
@@ -801,14 +842,9 @@ function SettingsContent() {
                     disabled={isInviting}
                     className="bg-editorial-black hover:bg-contour-red px-5 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
-                    <LinkIcon className="w-3.5 h-3.5" />
-                    <span>
-                      {isInviting
-                        ? "Creating..."
-                        : inviteEmail.trim()
-                        ? "Pre-Authorize & Generate Link"
-                        : "Generate Invite Link"}
-                    </span>
+                    <PendingButtonContent pending={isInviting} pendingLabel="Creating invitation…">
+                      {inviteEmail.trim() ? "Pre-Authorize & Generate Link" : "Generate Invite Link"}
+                    </PendingButtonContent>
                   </button>
                 </div>
               </form>
@@ -908,11 +944,11 @@ function SettingsContent() {
                           <button
                             type="button"
                             onClick={() => void handleRevokeInvite(inv.id)}
+                            disabled={isKeyPending(pendingSettingsActions, `${inv.id}:revoke`)}
                             className="border border-red-200 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 flex items-center gap-1"
                             title="Revoke invitation link"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Revoke</span>
+                            <PendingButtonContent pending={isKeyPending(pendingSettingsActions, `${inv.id}:revoke`)} pendingLabel="Revoking invitation…">Revoke</PendingButtonContent>
                           </button>
                         </div>
                       </div>
@@ -925,10 +961,10 @@ function SettingsContent() {
             {/* OPTIONAL PUBLIC ACCESS REQUEST LINK */}
             <div className="mb-6 border border-editorial-border bg-neutral-50 p-4">
               <p className="mb-3 text-xs text-editorial-muted">Alternative: Share a general open link where prospective agents request access for admin review.</p>
-              <button type="button" onClick={() => void handleCreateAccessLink()} className="inline-flex items-center justify-center gap-2 bg-editorial-black px-4 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red"><LinkIcon className="h-3.5 w-3.5" /> Create & copy public link</button>
+              <button type="button" disabled={isKeyPending(pendingSettingsActions, "access-link:create")} onClick={() => void handleCreateAccessLink()} className="inline-flex items-center justify-center gap-2 bg-editorial-black px-4 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-white hover:bg-contour-red disabled:opacity-60"><PendingButtonContent pending={isKeyPending(pendingSettingsActions, "access-link:create")} pendingLabel="Creating access link…">Create & copy public link</PendingButtonContent></button>
               {accessLink && accessLink !== "active" && <p className="mt-3 break-all border border-editorial-border bg-white px-3 py-2 text-xs text-editorial-black">{accessLink}</p>}
             </div>
-            {accessRequests.length > 0 && <div className="mb-6 border border-amber-200 bg-amber-50 p-4"><p className="mb-3 text-[10px] font-heading font-bold uppercase tracking-wider text-amber-900">Pending access requests</p>{accessRequests.map((request) => <div key={request.id} className="mb-2 flex flex-col gap-3 border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-editorial-black">{request.firstName} {request.lastName}</p><p className="text-xs text-editorial-muted">{request.email} · requested {request.roleKey.replaceAll("_", " ").toLowerCase()}</p></div><div className="flex gap-2"><button type="button" onClick={() => void handleReviewRequest(request.id, "DECLINE")} className="border border-editorial-border px-3 py-2 text-[10px] font-bold uppercase">Decline</button><button type="button" onClick={() => void handleReviewRequest(request.id, "APPROVE")} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase text-white">Approve</button></div></div>)}</div>}
+            {accessRequests.length > 0 && <div className="mb-6 border border-amber-200 bg-amber-50 p-4"><p className="mb-3 text-[10px] font-heading font-bold uppercase tracking-wider text-amber-900">Pending access requests</p>{accessRequests.map((request) => <div key={request.id} className="mb-2 flex flex-col gap-3 border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-editorial-black">{request.firstName} {request.lastName}</p><p className="text-xs text-editorial-muted">{request.email} · requested {request.roleKey.replaceAll("_", " ").toLowerCase()}</p></div><div className="flex gap-2"><button type="button" disabled={isKeyPending(pendingSettingsActions, `${request.id}:decline`)} onClick={() => void handleReviewRequest(request.id, "DECLINE")} className="border border-editorial-border px-3 py-2 text-[10px] font-bold uppercase disabled:opacity-60"><PendingButtonContent pending={isKeyPending(pendingSettingsActions, `${request.id}:decline`)} pendingLabel="Declining…">Decline</PendingButtonContent></button><button type="button" disabled={isKeyPending(pendingSettingsActions, `${request.id}:approve`)} onClick={() => void handleReviewRequest(request.id, "APPROVE")} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase text-white disabled:opacity-60"><PendingButtonContent pending={isKeyPending(pendingSettingsActions, `${request.id}:approve`)} pendingLabel="Approving…">Approve</PendingButtonContent></button></div></div>)}</div>}
 
             {/* ACCEPTED WORKSPACE MEMBERS & MANAGEMENT */}
             <div className="mb-6 space-y-3">
@@ -1008,7 +1044,7 @@ function SettingsContent() {
                           <span className="text-[10px] font-mono uppercase text-editorial-muted hidden sm:inline">Role:</span>
                           <select
                             value={currentRoleKey}
-                            disabled={isOwner || isSelf}
+                            disabled={isOwner || isSelf || isKeyPending(pendingSettingsActions, `${member.id}:role`)}
                             onChange={(event) => void handleRoleChange(member.id, event.target.value)}
                             className="border border-editorial-border bg-white px-2.5 py-1.5 text-xs text-editorial-black disabled:bg-neutral-100 disabled:text-editorial-muted"
                             title={isSelf ? "You cannot reassign your own role" : isOwner ? "Workspace owner role cannot be changed" : "Change member role"}
@@ -1027,7 +1063,7 @@ function SettingsContent() {
                         {/* Suspend / Reactivate Button */}
                         <button
                           type="button"
-                          disabled={isSelf || isOwner}
+                          disabled={isSelf || isOwner || isKeyPending(pendingSettingsActions, `${member.id}:suspend`)}
                           onClick={() => void handleToggleSuspend(member)}
                           className={`px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
                             isSuspended
@@ -1036,7 +1072,7 @@ function SettingsContent() {
                           } disabled:opacity-40 disabled:pointer-events-none`}
                           title={isSelf ? "You cannot suspend your own account" : isOwner ? "Owner cannot be suspended" : isSuspended ? "Reactivate member access" : "Suspend member access"}
                         >
-                          {isSuspended ? "Reactivate" : "Suspend"}
+                          <PendingButtonContent pending={isKeyPending(pendingSettingsActions, `${member.id}:suspend`)} pendingLabel="Updating…">{isSuspended ? "Reactivate" : "Suspend"}</PendingButtonContent>
                         </button>
 
                         {/* Delete / Remove Member Button */}
@@ -1104,8 +1140,7 @@ function SettingsContent() {
                       onClick={() => void handleDeleteMember(memberToDelete.id)}
                       className="px-4 py-2 bg-red-600 hover:bg-red-700 text-xs font-bold uppercase tracking-wider text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>{isDeletingMember ? "Removing..." : "Confirm Remove"}</span>
+                      <PendingButtonContent pending={isDeletingMember} pendingLabel="Removing member…">Confirm Remove</PendingButtonContent>
                     </button>
                   </div>
                 </div>
@@ -1185,7 +1220,7 @@ function SettingsContent() {
                 disabled={mfaDisabling}
                 className="shrink-0 px-4 py-2.5 border border-red-200 text-red-600 text-[10px] font-bold uppercase tracking-wider hover:bg-red-50 transition-colors disabled:opacity-50"
               >
-                {mfaDisabling ? "Disabling..." : "Disable 2FA"}
+                <PendingButtonContent pending={mfaDisabling} pendingLabel="Disabling MFA…">Disable 2FA</PendingButtonContent>
               </button>
             )}
           </div>

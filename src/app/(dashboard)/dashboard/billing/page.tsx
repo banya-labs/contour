@@ -9,13 +9,15 @@ import {
   CreditCard,
   Download,
   FileText,
-  Loader2,
   ShieldCheck,
   TriangleAlert,
   Sparkles,
 } from "lucide-react";
 import { CONTOUR_PLANS, getPlanPrice, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
 import { ContourLogo } from "@/components/brand/contour-logo";
+import { ContourTransitionScreen } from "@/components/ui/contour-transition-screen";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 type BillingData = {
   subscription: {
@@ -59,6 +61,7 @@ export default function BillingPage() {
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutHandoff, setCheckoutHandoff] = useState(false);
 
   const loadBilling = async () => {
     setLoading(true);
@@ -110,7 +113,11 @@ export default function BillingPage() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || data.message || "Payment could not be started.");
       setMessage(data.message || "Payment started. Complete the authorization request to activate your plan.");
-      if (data.checkoutUrl) window.open(data.checkoutUrl, "_blank", "noopener,noreferrer");
+      if (data.checkoutUrl) {
+        setCheckoutHandoff(true);
+        window.location.href = data.checkoutUrl;
+        return;
+      }
       await loadBilling();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment could not be started.");
@@ -121,11 +128,14 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center p-8 text-sm text-editorial-muted">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin text-contour-red" />
-        <span>Loading billing details…</span>
+      <div className="flex h-full items-center justify-center p-8">
+        <SectionPendingState label="Loading billing details…" compact />
       </div>
     );
+  }
+
+  if (checkoutHandoff) {
+    return <ContourTransitionScreen label="Opening secure checkout…" description="Transferring you to the payment provider." />;
   }
 
   return (
@@ -356,16 +366,13 @@ export default function BillingPage() {
                         : "bg-editorial-black text-white hover:bg-contour-red"
                     }`}
                   >
-                    {processingPlan === plan.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : active ? (
-                      "Current plan"
-                    ) : trialActive ? (
-                      `Choose ${plan.name}`
-                    ) : (
-                      `Move to ${plan.name}`
-                    )}
-                    {!active && processingPlan !== plan.id && <ArrowRight className="h-3.5 w-3.5" />}
+                    <PendingButtonContent
+                      pending={processingPlan === plan.id}
+                      pendingLabel="Preparing secure checkout…"
+                      icon={!active ? <ArrowRight className="h-3.5 w-3.5" /> : undefined}
+                    >
+                      {active ? "Current plan" : trialActive ? `Choose ${plan.name}` : `Move to ${plan.name}`}
+                    </PendingButtonContent>
                   </button>
                 </article>
               );

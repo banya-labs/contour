@@ -20,12 +20,12 @@ import {
   FileCheck2,
   Building,
   ExternalLink,
-  Loader2,
   AlertCircle,
   FileSpreadsheet,
   FileImage,
   Users,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { VaultMember } from "./folder-collaborators-modal";
 
 export interface VaultDoc {
@@ -300,7 +300,7 @@ export function VaultTree({
                           className="p-1 hover:bg-[#fff5f3] text-editorial-muted hover:text-editorial-black rounded-none transition-colors border border-transparent hover:border-editorial-border"
                         >
                           {downloadingId === doc.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-contour-red" />
+                            <ContourSunLoader size="sm" label="Preparing download…" decorative />
                           ) : (
                             <Download className="w-3.5 h-3.5" />
                           )}
@@ -557,7 +557,7 @@ export function VaultTree({
               className="p-1 hover:bg-[#fff5f3] text-editorial-muted hover:text-editorial-black rounded-none transition-colors border border-transparent hover:border-editorial-border"
             >
               {downloadingId === doc.id ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-contour-red" />
+                <ContourSunLoader size="sm" label="Preparing download…" decorative />
               ) : (
                 <Download className="w-3.5 h-3.5" />
               )}
@@ -573,7 +573,7 @@ export function VaultTree({
                 className="p-1 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-800 rounded-none transition-colors border border-transparent hover:border-emerald-300"
               >
                 {verifyingId === doc.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                  <ContourSunLoader size="sm" label="Verifying document…" decorative />
                 ) : (
                   <ShieldCheck className="w-3.5 h-3.5" />
                 )}
@@ -590,7 +590,7 @@ export function VaultTree({
                 className="p-1 hover:bg-red-50 text-editorial-muted hover:text-contour-red rounded-none transition-colors border border-transparent hover:border-red-200"
               >
                 {deletingId === doc.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-contour-red" />
+                  <ContourSunLoader size="sm" label="Deleting document…" decorative />
                 ) : (
                   <Trash2 className="w-3.5 h-3.5" />
                 )}

@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Upload, Loader2, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, X, RefreshCw } from "lucide-react";
+import { Upload, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, X, RefreshCw } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 interface UploadDocumentModalProps {
   isOpen: boolean;
@@ -394,8 +395,8 @@ export function UploadDocumentModal({
               >
                 {isUploading ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Encrypting &amp; Saving...</span>
+                    <ContourSunLoader size="sm" label="Uploading document…" decorative />
+                    <span>Uploading document…</span>
                   </>
                 ) : (
                   <>

@@ -16,10 +16,10 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   Building,
   Lock,
 } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 export interface VaultMember {
   id: string;
@@ -67,6 +67,7 @@ export function FolderCollaboratorsModal({
 }: FolderCollaboratorsModalProps) {
   const [selectedUserId, setSelectedUserId] = React.useState<string>("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [removingId, setRemovingId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
 
@@ -151,7 +152,7 @@ export function FolderCollaboratorsModal({
       return;
     }
 
-    setIsSubmitting(true);
+    setRemovingId(memberId);
     setError(null);
     setSuccessMsg(null);
 
@@ -183,7 +184,7 @@ export function FolderCollaboratorsModal({
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setIsSubmitting(false);
+      setRemovingId(null);
     }
   };
 
@@ -254,7 +255,7 @@ export function FolderCollaboratorsModal({
                 className="px-4 py-1.5 text-xs font-heading font-semibold uppercase tracking-wider bg-editorial-black hover:bg-contour-red text-white disabled:opacity-50 transition-colors rounded-none flex items-center justify-center gap-1.5 shrink-0"
               >
                 {isSubmitting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <ContourSunLoader size="sm" label="Adding collaborator…" decorative />
                 ) : (
                   <UserPlus className="w-3.5 h-3.5" />
                 )}
@@ -307,11 +308,16 @@ export function FolderCollaboratorsModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveCollaborator(c.id)}
-                        disabled={isSubmitting}
+                        disabled={removingId === c.id}
+                        aria-busy={removingId === c.id}
                         title="Revoke access"
                         className="p-1 hover:bg-red-50 text-editorial-muted hover:text-contour-red border border-transparent hover:border-red-200 transition-colors"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {removingId === c.id ? (
+                          <ContourSunLoader size="sm" label="Removing collaborator…" decorative />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
                       </button>
                     </div>
                   </div>

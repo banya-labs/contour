@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldAlert, Check, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, ShieldAlert, Check } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 export default function DocumentAccessControlPage() {
   const [members, setMembers] = useState<any[]>([]);
@@ -81,7 +83,7 @@ export default function DocumentAccessControlPage() {
 
       {loading ? (
         <div className="p-12 text-center text-xs text-stone-400 flex flex-col items-center justify-center gap-2">
-          <RefreshCw className="w-5 h-5 animate-spin text-amber-600" />
+          <SectionPendingState label="Loading vault access…" compact />
           <span>Loading organization access grants...</span>
         </div>
       ) : (
@@ -113,7 +115,7 @@ export default function DocumentAccessControlPage() {
                   <div className="flex items-center gap-2">
                     {savingUserId === member.id && (
                       <span className="text-xs text-amber-600 flex items-center gap-1">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                        <ContourSunLoader size="sm" label="Updating vault access…" decorative /> Updating vault access…
                       </span>
                     )}
                     {savedUserId === member.id && (

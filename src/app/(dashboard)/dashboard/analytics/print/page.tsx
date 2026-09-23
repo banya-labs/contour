@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download, Loader2 } from "lucide-react";
+import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download } from "lucide-react";
 import Link from "next/link";
 import { ContourReportPayload } from "@/lib/analytics/types";
 import { formatCurrency } from "@/lib/utils";
@@ -10,6 +10,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { getAgencySettings } from "@/lib/settings/agency-settings";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 function AnalyticsPrintContent() {
   const searchParams = useSearchParams();
@@ -118,8 +119,8 @@ function AnalyticsPrintContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#2B2D31] text-xs font-mono text-neutral-300">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mb-3" />
-        Preparing multi-page executive PDF report...
+        <ContourSunLoader size="lg" label="Preparing executive report…" />
+        <span className="mt-3">Preparing multi-page executive PDF report…</span>
       </div>
     );
   }
@@ -193,7 +194,7 @@ function AnalyticsPrintContent() {
           >
             {isGenerating ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <ContourSunLoader size="sm" label="Generating report…" decorative />
                 <span>{progressText || "Rendering PDF..."}</span>
               </>
             ) : (

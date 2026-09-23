@@ -25,6 +25,8 @@ import { VaultAccessModal } from "@/components/vault/vault-access-modal";
 import { FolderCollaboratorsModal } from "@/components/vault/folder-collaborators-modal";
 import { DocumentDetailsModal } from "@/components/vault/document-details-modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 export default function DocumentVaultPage() {
   const [documents, setDocuments] = useState<VaultDoc[]>([]);
@@ -217,7 +219,7 @@ export default function DocumentVaultPage() {
             title="Refresh Vault Data"
             className="p-2 text-editorial-muted hover:text-editorial-black hover:bg-[#fff5f3] rounded-none border border-editorial-border transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-contour-red" : ""}`} />
+            {loading ? <ContourSunLoader size="sm" label="Refreshing vault…" decorative /> : <RefreshCw className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
@@ -358,10 +360,7 @@ export default function DocumentVaultPage() {
         </div>
 
         {loading ? (
-          <div className="py-20 text-center text-xs font-mono text-editorial-muted flex flex-col items-center justify-center gap-2">
-            <RefreshCw className="w-6 h-6 animate-spin text-contour-red" />
-            <span className="uppercase tracking-wider">Decrypting and assembling vault hierarchy...</span>
-          </div>
+          <SectionPendingState label="Loading document vault…" description="Decrypting and assembling the vault hierarchy." />
         ) : viewMode === "GRID" ? (
           <VaultPropertyGrid
             properties={filteredProperties}

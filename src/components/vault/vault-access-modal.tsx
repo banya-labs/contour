@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ShieldAlert, Check, Loader2 } from "lucide-react";
+import { ShieldAlert, Check } from "lucide-react";
+import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 interface VaultAccessModalProps {
   isOpen: boolean;
@@ -101,7 +102,7 @@ export function VaultAccessModal({
 
         {loading ? (
           <div className="py-12 flex justify-center items-center gap-2 text-xs font-mono text-editorial-muted">
-            <Loader2 className="w-4 h-4 animate-spin text-contour-red" />
+            <ContourSunLoader size="sm" label="Loading vault access…" decorative />
             <span className="uppercase tracking-wider">Loading tenant permissions...</span>
           </div>
         ) : (
@@ -132,7 +133,7 @@ export function VaultAccessModal({
                     </div>
 
                     {savingUserId === member.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-contour-red" />
+                      <ContourSunLoader size="sm" label="Updating vault access…" decorative />
                     ) : successUserId === member.id ? (
                       <span className="flex items-center gap-1 text-xs font-mono text-emerald-600 font-bold uppercase">
                         <Check className="w-3.5 h-3.5" /> Saved

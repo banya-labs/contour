@@ -15,7 +15,6 @@ import {
   AlertTriangle,
   Clock,
   ArrowUpRight,
-  RefreshCw,
   CheckCircle2,
   ChevronRight,
   ShieldCheck,
@@ -35,6 +34,8 @@ import {
 } from "@/components/ui/dialog";
 import { ContourReportPayload } from "@/lib/analytics/types";
 import { formatCurrency } from "@/lib/utils";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 export default function AnalyticsDashboardPage() {
   const [preset, setPreset] = useState<string>("this_month");
@@ -166,8 +167,7 @@ export default function AnalyticsDashboardPage() {
             disabled={aiLoading || !report}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#16382B]/10 hover:bg-[#16382B]/20 text-[#16382B] border border-[#16382B]/25 transition-colors disabled:opacity-50"
           >
-            <Sparkles className={`w-3.5 h-3.5 ${aiLoading ? "animate-spin" : ""}`} />
-            <span>{aiLoading ? "Synthesizing..." : "Refresh AI Insights"}</span>
+            <PendingButtonContent pending={aiLoading} pendingLabel="Refreshing analytics…" icon={<Sparkles className="h-3.5 w-3.5" />}>Refresh AI Insights</PendingButtonContent>
           </button>
 
           <button
@@ -187,10 +187,7 @@ export default function AnalyticsDashboardPage() {
 
       {/* Main Content Area */}
       {loading ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-12 text-[#666158]">
-          <RefreshCw className="w-6 h-6 animate-spin text-[#16382B] mb-2" />
-          <p className="text-xs font-medium tracking-wide">Computing deterministic intelligence from database...</p>
-        </div>
+        <SectionPendingState label="Loading analytics…" description="Computing deterministic intelligence from the database." />
       ) : !report ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto my-auto">
           <div className="w-12 h-12 bg-amber-50 border border-amber-200 text-amber-800 rounded-full flex items-center justify-center mb-3">

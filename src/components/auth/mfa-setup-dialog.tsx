@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ShieldCheck, Copy, Check, Eye, EyeOff, X, Download } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
 
 interface MfaSetupDialogProps {
   onClose: () => void;
@@ -127,7 +128,7 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
                 {error && <p className="text-[11px] text-red-600 bg-red-50 border border-red-200 px-3 py-2">{error}</p>}
                 <button type="button" onClick={() => void handleEnable()} disabled={loading || !password}
                   className="w-full py-2.5 bg-editorial-black text-white text-xs font-bold uppercase tracking-wider hover:bg-editorial-black/90 transition-colors disabled:opacity-50">
-                  {loading ? "Generating QR Code..." : "Continue"}
+                  <PendingButtonContent pending={loading} pendingLabel="Enabling MFA…">Continue</PendingButtonContent>
                 </button>
               </div>
             </>
@@ -195,7 +196,7 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
                   </button>
                   <button type="button" onClick={() => void handleVerify()} disabled={loading || code.length !== 6}
                     className="flex-1 py-2.5 bg-editorial-black text-white text-xs font-bold uppercase tracking-wider hover:bg-editorial-black/90 transition-colors disabled:opacity-50">
-                    {loading ? "Verifying..." : "Verify and Enable"}
+                    <PendingButtonContent pending={loading} pendingLabel="Verifying code…">Verify and Enable</PendingButtonContent>
                   </button>
                 </div>
               </div>
