@@ -40,6 +40,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { PropertyCardSkeleton } from "@/components/ui/skeleton";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { publicPropertyPath } from "@/lib/public-property";
+import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 
 const SUBURB_GPS_COORDINATES: Record<string, [number, number]> = {
   "Kabulonga": [-15.4215, 28.3345],
@@ -398,6 +399,8 @@ function PropertiesCatalogContent() {
         activeTab={filterType}
         onChange={(tabId) => setFilterType(tabId)}
       />
+
+      <UnassignedMatchPanel compact />
 
       {/* Filter Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-3 border border-editorial-border">

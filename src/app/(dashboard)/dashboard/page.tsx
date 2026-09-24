@@ -24,6 +24,7 @@ import { DashboardMetricSkeleton, ActionQueueSkeleton } from "@/components/ui/sk
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { authClient } from "@/lib/auth-client";
 import { isManagementRole } from "@/lib/authorization";
+import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 
 export default function DashboardOverviewPage() {
   const { data: session } = authClient.useSession();
@@ -123,13 +124,13 @@ export default function DashboardOverviewPage() {
     setIsClosingHandover(true);
     setHandoverCloseError("");
     try {
-      const response = await fetch(`/api/clients/${handoverCloseTarget.id}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/clients/${handoverCloseTarget.id}/transition`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "CLOSED",
+          targetStage: "CLOSED",
           outcome: handoverCloseOutcome,
-          lostReason: handoverCloseOutcome === "LOST" ? handoverLostReason.trim() : undefined,
+          reason: handoverCloseOutcome === "LOST" ? handoverLostReason.trim() : undefined,
         }),
       });
       const result = await response.json().catch(() => null);
@@ -450,6 +451,8 @@ export default function DashboardOverviewPage() {
       )}
 
       {/* 2. Daily Action Queue */}
+      <UnassignedMatchPanel />
+
       {isManagement && managementHandoverInquiries.length > 0 && (
         <div className="border-2 border-contour-red bg-[#fff5f3] p-4 sm:p-5 shadow-none">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

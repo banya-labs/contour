@@ -21,6 +21,14 @@ export const PATCH = createApiHandler({
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
 
+    if (body.status !== undefined) {
+      return NextResponse.json({
+        success: false,
+        error: "Pipeline stage changes must use the transition endpoint.",
+        transitionEndpoint: `/api/clients/${inquiryId}/transition`,
+      }, { status: 409 });
+    }
+
     if (body.status === "CLOSED" && !isManagementRole(contourRole)) {
       return NextResponse.json({ success: false, error: "Only management can close deals." }, { status: 403 });
     }

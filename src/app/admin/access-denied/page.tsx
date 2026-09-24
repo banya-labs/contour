@@ -2,8 +2,6 @@ import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 
-export const dynamic = "force-dynamic";
-
 export default function AdminAccessDeniedPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-editorial-bg px-5 py-12 font-geist text-editorial-black">

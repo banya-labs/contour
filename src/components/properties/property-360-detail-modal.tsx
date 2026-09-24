@@ -172,6 +172,7 @@ export default function PropertyFullDetailModal({
   // Stakeholders / Deal Parties State (Real, not hardcoded dummy data)
   const [stakeholders, setStakeholders] = useState<DealParty[]>([]);
   const [propertyInquiries, setPropertyInquiries] = useState<any[]>([]);
+  const [unassignedMatches, setUnassignedMatches] = useState<Array<{ inquiry: { id: string; clientName: string }; score: number; reasons: string[] }>>([]);
   const [isAddingStakeholder, setIsAddingStakeholder] = useState(false);
   const [newStakeholder, setNewStakeholder] = useState<Omit<DealParty, "id">>({
     name: "",
@@ -245,6 +246,7 @@ export default function PropertyFullDetailModal({
       setVaultDocumentCount(readCachedVaultCount(property));
       loadVaultDocuments();
       setPropertyInquiries([]);
+      setUnassignedMatches([]);
       const controller = new AbortController();
       fetch(`/api/clients?propertyId=${encodeURIComponent(property.id)}`, {
         cache: "no-store",
@@ -255,6 +257,17 @@ export default function PropertyFullDetailModal({
         if (error instanceof DOMException && error.name === "AbortError") return;
         setPropertyInquiries([]);
       });
+      fetch("/api/matching/unassigned", { cache: "no-store", signal: controller.signal })
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data?.success) {
+            setUnassignedMatches((data.matches || []).filter((match: { property?: { id?: string } }) => match.property?.id === property.id));
+          }
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setUnassignedMatches([]);
+        });
       return () => controller.abort();
     }
   }, [isOpen, property?.id]);
@@ -786,6 +799,11 @@ export default function PropertyFullDetailModal({
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#FA3600]" />
                 <span>Matching Buyers</span>
+                {unassignedMatches.length > 0 && (
+                  <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-[#FA3600] text-white text-[10px] font-mono font-bold flex items-center justify-center" aria-label={`${unassignedMatches.length} live matching inquiries`}>
+                    {unassignedMatches.length}
+                  </span>
+                )}
               </button>
 
               {/* Share Public Link */}
@@ -827,6 +845,17 @@ export default function PropertyFullDetailModal({
             {/* SECTION 1: PROPERTY DETAILS */}
             {activeSection === "DETAILS" && (
               <div className="space-y-6 max-w-4xl">
+                {unassignedMatches.length > 0 && (
+                  <div className="border-2 border-[#FA3600] bg-[#fff5f3] p-3.5 flex items-start gap-3">
+                    <Sparkles className="w-4 h-4 text-[#FA3600] shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#FA3600]">New match notification</p>
+                      <p className="font-heading font-bold text-sm text-[#1C1C1A] mt-0.5">{unassignedMatches.length} client {unassignedMatches.length === 1 ? "inquiry matches" : "inquiries match"} this property</p>
+                      <p className="text-xs text-[#73716B] mt-1">Open Matching Buyers to review the inquiry and assign this property to move it to Contacted.</p>
+                      <button type="button" onClick={() => onOpenMatchingBuyers(property)} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1C1C1A] hover:bg-[#FA3600] text-white text-[10px] font-heading font-bold uppercase tracking-wider">Review {unassignedMatches.length} Match{unassignedMatches.length === 1 ? "" : "es"}</button>
+                    </div>
+                  </div>
+                )}
                 {isEditing ? (
                   /* EDIT MODE FORM */
                   <form onSubmit={handleSaveListingDetails} className="space-y-5">

@@ -957,7 +957,7 @@ function AgentKioskContent() {
       preferredSuburbs: [selectedOfferProperty.suburb || "Lusaka"],
       assignedAgentId: session?.user?.id || undefined,
       propertyId: selectedOfferProperty.id,
-      status: "OFFER_MADE",
+       status: "NEW_INQUIRY",
       lookingFor: selectedOfferProperty.listingType || "FOR_SALE",
       notes: `[Lodge Offer Intake] Formal offer of ${offerCurrency} ${amount.toLocaleString()} submitted by ${session?.user?.name || currentAgent.name}`,
       exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -992,20 +992,17 @@ function AgentKioskContent() {
     if (!currentDeal) return;
 
     if (currentDeal.stage === "NEW_INQUIRY") {
-      nextStage = "CONTACTED";
-      nextStageLabel = "Contacted Lead";
-    } else if (currentDeal.stage === "CONTACTED") {
-      nextStage = "VIEWING_SCHEDULED";
-      nextStageLabel = "Viewing Booked";
-    } else if (currentDeal.stage === "VIEWING_SCHEDULED") {
+      nextStage = "QUALIFIED";
+      nextStageLabel = "Qualified Lead";
+    } else if (currentDeal.stage === "QUALIFIED") {
+      nextStage = "VIEWING_OR_OFFER";
+      nextStageLabel = "Viewing / Offer";
+    } else if (currentDeal.stage === "VIEWING_OR_OFFER") {
       nextStage = "NEGOTIATING";
       nextStageLabel = "In Negotiation";
     } else if (currentDeal.stage === "NEGOTIATING") {
-      nextStage = "OFFER_MADE";
-      nextStageLabel = "Written Offer Submitted";
-    } else if (currentDeal.stage === "OFFER_MADE" || currentDeal.stage === "OFFER_ACCEPTED" || currentDeal.stage === "DEEDS_LODGED") {
-      nextStage = "MANAGEMENT_HANDOVER";
-      nextStageLabel = "Management Handover Requested";
+      nextStage = "VERIFICATION_CLOSING";
+      nextStageLabel = "Verification & Closing";
     } else {
       return;
     }
@@ -1021,10 +1018,10 @@ function AgentKioskContent() {
     // If it's a real database inquiry, sync to server immediately
     if (!dealId.startsWith("deal_")) {
       try {
-        const payload: any = { status: nextStage };
-        if (nextOutcome) payload.outcome = nextOutcome;
-        await fetch(`/api/clients/${dealId}`, {
-          method: "PATCH",
+        const payload: any = { targetStage: nextStage };
+        if (nextOutcome) { payload.targetStage = "CLOSED"; payload.outcome = nextOutcome; }
+        await fetch(`/api/clients/${dealId}/transition`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });

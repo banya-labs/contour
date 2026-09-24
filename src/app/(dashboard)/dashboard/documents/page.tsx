@@ -27,6 +27,7 @@ import { DocumentDetailsModal } from "@/components/vault/document-details-modal"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
+import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 
 export default function DocumentVaultPage() {
   const [documents, setDocuments] = useState<VaultDoc[]>([]);
@@ -182,7 +183,9 @@ export default function DocumentVaultPage() {
           <p className="text-xs text-editorial-muted mt-1 max-w-2xl">
             Custodial repository for Certificates of Title, NRC ID scans, Sole Mandates, and client ingestions with granular collaborator controls.
           </p>
-        </div>
+      </div>
+
+      <UnassignedMatchPanel compact />
 
         {/* Global Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
