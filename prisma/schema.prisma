@@ -130,22 +130,25 @@ model TwoFactor {
 }
 
 model Organization {
-  id                    String    @id @default(cuid())
+  id                    String                    @id @default(cuid())
   name                  String
-  slug                  String    @unique
+  slug                  String                    @unique
   logo                  String?
   metadata              String?
-  currency              Currency  @default(ZMW)
+  currency              Currency                  @default(ZMW)
   lencoCustomerId       String?
   lencoSubscriptionId   String?
   lencoAccountReference String?
   paystackCustomerId    String?
   paystackSubCode       String?
-  subscriptionTier      String    @default("STARTER") // STARTER, GROWTH, ENTERPRISE
-  subscriptionStatus    String    @default("active") // active, past_due, trialing
+  subscriptionTier      String                    @default("STARTER") // STARTER, GROWTH, ENTERPRISE
+  subscriptionStatus    String                    @default("active") // active, past_due, trialing
   trialEndsAt           DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  accountStatus         OrganizationAccountStatus @default(ACTIVE)
+  accountLockedAt       DateTime?
+  accountLockReason     String?
 
   members                Member[]
   invitations            Invitation[]
@@ -180,6 +183,13 @@ model Organization {
   organizationOffers     OrganizationOffer[]
 
   @@map("organization")
+}
+
+enum OrganizationAccountStatus {
+  ACTIVE
+  LOCKED
+  SUSPENDED
+  DELETION_PENDING
 }
 
 model Member {
