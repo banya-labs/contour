@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getLencoTransactionStatus, verifyLencoSignature } from "@/lib/lenco";
+import { commitOrganizationOffer, releaseOrganizationOffer } from "@/lib/billing-offer-reservation";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, received: true, pendingVerification: true }, { status: 202 });
     }
 
+    let paymentSettled = false;
     await db.$transaction(async (transaction) => {
       const updated = await transaction.payment.updateMany({
         where: { reference, status: { not: "SUCCESS" } },
@@ -105,6 +107,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (updated.count > 0) {
+        paymentSettled = true;
         await transaction.organization.update({
           where: { id: payment.organizationId },
           data: {
@@ -127,6 +130,8 @@ export async function POST(req: NextRequest) {
 
       await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
     });
+    const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
+    if (paymentSettled && paymentMetadata?.offerReservationId) await commitOrganizationOffer(payment.id);
   } else if (FAILED_EVENTS.has(event)) {
     await db.$transaction(async (transaction) => {
       await transaction.payment.updateMany({
@@ -138,6 +143,8 @@ export async function POST(req: NextRequest) {
       });
       await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
     });
+    const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
+    if (paymentMetadata?.offerReservationId) await releaseOrganizationOffer(payment.id);
   } else {
     await db.webhookEvent.update({ where: { id: webhookEvent.id }, data: { processedAt: new Date() } });
   }

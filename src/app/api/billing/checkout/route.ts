@@ -13,6 +13,8 @@ import {
   MobileMoneyOperator,
 } from "@/lib/lenco";
 import { z } from "zod";
+import { calculateOfferDiscount } from "@/lib/billing-offers";
+import { commitOrganizationOffer, releaseOrganizationOffer, reserveOrganizationOffer } from "@/lib/billing-offer-reservation";
 
 const checkoutSchema = z.object({
   planId: z.enum(["starter", "growth", "enterprise"]),
@@ -25,6 +27,7 @@ const checkoutSchema = z.object({
   phone: z.string().trim().min(7).max(30).optional(),
   customerName: z.string().trim().min(2).max(120).optional(),
   customerEmail: z.string().email().optional(),
+  offerId: z.string().min(1).optional(),
 }).superRefine((value, context) => {
   if (value.channel === "mobile_money" && !value.phone) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["phone"], message: "A phone number is required for mobile money." });
@@ -112,8 +115,20 @@ const postHandler = createApiHandler({
       throw error;
     }
 
+    let offerReservation: Awaited<ReturnType<typeof reserveOrganizationOffer>> = null;
+    let chargedAmount = priceInfo.amount;
+    if (body.offerId) {
+      offerReservation = await reserveOrganizationOffer({ organizationId: targetOrgId, offerId: body.offerId, paymentId: payment.id });
+      if (!offerReservation) return NextResponse.json({ success: false, error: "The selected offer is no longer available." }, { status: 409 });
+      if (offerReservation.kind === "FIXED_AMOUNT" && offerReservation.currency !== currency) {
+        await releaseOrganizationOffer(payment.id);
+        return NextResponse.json({ success: false, error: "The offer currency does not match this checkout." }, { status: 400 });
+      }
+      chargedAmount = priceInfo.amount - calculateOfferDiscount({ kind: offerReservation.kind, value: offerReservation.value, subtotal: priceInfo.amount });
+      await db.payment.update({ where: { id: payment.id }, data: { amount: chargedAmount, metadata: { channel, mobileMoneyOperator: body.mobileMoneyOperator || null, offerId: body.offerId, offerReservationId: offerReservation.grantId } } });
+    }
     const collectionResult = await initiateLencoCollection({
-      amount: priceInfo.amount,
+      amount: chargedAmount,
       currency,
       reference,
       narration: `Contour ${plan.name} (${billingCycle}) - ${targetOrgId}`,
@@ -130,6 +145,9 @@ const postHandler = createApiHandler({
       callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com"}/dashboard/billing?ref=${reference}`,
     });
 
+    if (!collectionResult.success) {
+      if (offerReservation) await releaseOrganizationOffer(payment.id);
+    }
     const updatedPayment = await db.payment.update({
       where: { id: payment.id },
       data: {
@@ -142,6 +160,7 @@ const postHandler = createApiHandler({
     });
 
     if (updatedPayment.status === "SUCCESS") {
+      if (offerReservation) await commitOrganizationOffer(payment.id);
       await db.organization.update({
         where: { id: targetOrgId },
         data: {
