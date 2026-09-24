@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { Key, ShieldAlert, Copy, Check, Plus, Terminal, RefreshCw } from "lucide-react";
+import { ShieldAlert, Plus, Terminal } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 
 export default function AdminMcpPage() {
@@ -22,8 +22,6 @@ export default function AdminMcpPage() {
       lastUsed: "1 hour ago",
     },
   ]);
-
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleRevoke = (id: string) => {
     setKeys((prev) =>
