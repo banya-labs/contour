@@ -153,7 +153,6 @@ export default function WorkspaceSidebar() {
       name: "Properties",
       icon: Home,
       items: [
-        { name: "Contacts", href: "/dashboard/contacts" },
         { name: "Catalog & Vault", href: "/dashboard/properties" },
         { name: "Property Sales", href: "/dashboard/sales" },
         { name: "Rentals & Leases", href: "/dashboard/leases" },

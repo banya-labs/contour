@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import ContactsPage from "../contacts/page";
 import {
   Users,
   Search,
@@ -399,6 +400,10 @@ function ClientsCRMContent() {
         setFormError(`Failed to save client: ${err.message}`);
       });
   };
+
+  if (activeView === "contacts") {
+    return <ContactsPage />;
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
