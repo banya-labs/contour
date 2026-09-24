@@ -46,6 +46,7 @@ import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { ProfilePhoneEditor } from "@/components/settings/profile-phone-editor";
+import { PERMISSION_GROUPS, type PermissionGroup } from "@/lib/authorization-groups";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -103,6 +104,7 @@ function SettingsContent() {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [memberPhoneDrafts, setMemberPhoneDrafts] = useState<Record<string, string>>({});
   const [roles, setRoles] = useState<Array<{ key: string; displayName: string; permissions: string[] }>>([]);
+  const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([...PERMISSION_GROUPS]);
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
@@ -112,6 +114,10 @@ function SettingsContent() {
   const [isInviting, setIsInviting] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
   const [memberToDelete, setMemberToDelete] = useState<WorkspaceMember | null>(null);
+  const [permissionEditorMember, setPermissionEditorMember] = useState<WorkspaceMember | null>(null);
+  const [permissionEditorRole, setPermissionEditorRole] = useState("NONE");
+  const [permissionEditorPermissions, setPermissionEditorPermissions] = useState<string[]>([]);
+  const [permissionEditorSaving, setPermissionEditorSaving] = useState(false);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
   const [deleteMemberError, setDeleteMemberError] = useState<string | null>(null);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
@@ -172,7 +178,7 @@ function SettingsContent() {
         const linkData = await linkResponse.json();
         const requestsData = await requestsResponse.json();
         const invitationsData = await invitationsResponse.json().catch(() => ({ success: false }));
-        if (membersData.success) { setMembers(membersData.members || []); setRoles(membersData.roles || []); }
+        if (membersData.success) { setMembers(membersData.members || []); setRoles(membersData.roles || []); setPermissionGroups(membersData.permissionGroups || [...PERMISSION_GROUPS]); }
         if (requestsData.success) setAccessRequests(requestsData.requests || membersData.accessRequests || []);
         if (invitationsData.success) setInvitations(invitationsData.invitations || []);
         if (linkData.active) setAccessLink("active");
@@ -260,33 +266,30 @@ function SettingsContent() {
     }
   };
 
-  const handleRoleChange = async (memberId: string, roleKey: string) => {
-    const key = `${memberId}:role`;
-    setSettingsActionPending(key, true);
-    try { const response = await fetch("/api/organization/members", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memberId, roleKey }),
-    });
-    const data = await response.json();
-    setSettingsMessage(response.ok ? "Member permissions updated." : data.error || "Unable to update permissions.");
-    if (response.ok) {
-      const refreshed = await fetch("/api/organization/members").then((res) => res.json());
-      if (refreshed.success) setMembers(refreshed.members || []);
-    }
-    } finally { setSettingsActionPending(key, false); }
+  const openPermissionEditor = (member: WorkspaceMember) => {
+    setPermissionEditorMember(member);
+    setPermissionEditorRole(member.role === "owner" ? "OWNER" : member.roleAssignments[0]?.role.key || "NONE");
+    setPermissionEditorPermissions([...member.effectivePermissions]);
   };
 
-  const handlePermissionToggle = async (member: WorkspaceMember, permission: string) => {
-    const permissions = member.effectivePermissions.includes(permission)
-      ? member.effectivePermissions.filter((item) => item !== permission)
-      : [...member.effectivePermissions, permission];
-    const response = await fetch("/api/organization/members", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId: member.id, permissions }) });
-    const data = await response.json();
-    setSettingsMessage(response.ok ? "Member permission tags updated." : data.error || "Unable to update permission tags.");
-    if (response.ok) {
-      const refreshed = await fetch("/api/organization/members").then((res) => res.json());
-      if (refreshed.success) setMembers(refreshed.members || []);
+  const handlePermissionEditorSave = async () => {
+    if (!permissionEditorMember || permissionEditorMember.role === "owner") return;
+    setPermissionEditorSaving(true);
+    try {
+      const response = await fetch("/api/organization/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: permissionEditorMember.id, roleKey: permissionEditorRole, permissions: permissionEditorPermissions }),
+      });
+      const data = await response.json();
+      setSettingsMessage(response.ok ? "Member permissions saved." : data.error || "Unable to save member permissions.");
+      if (response.ok) {
+        const refreshed = await fetch("/api/organization/members").then((res) => res.json());
+        if (refreshed.success) setMembers(refreshed.members || []);
+        setPermissionEditorMember(null);
+      }
+    } finally {
+      setPermissionEditorSaving(false);
     }
   };
 
@@ -1055,7 +1058,6 @@ function SettingsContent() {
                 {members.map((member) => {
                   const isSelf = member.user.id === session?.user?.id;
                   const isOwner = member.role === "owner";
-                  const currentRoleKey = member.roleAssignments[0]?.role.key || (isOwner ? "OWNER" : "NONE");
                   const isSuspended = member.status === "suspended";
 
                   return (
@@ -1112,38 +1114,7 @@ function SettingsContent() {
 
                       {/* Member Actions */}
                       <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-                        {/* Role Selector */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono uppercase text-editorial-muted hidden sm:inline">Role:</span>
-                          <select
-                            value={currentRoleKey}
-                            disabled={isOwner || isSelf || isKeyPending(pendingSettingsActions, `${member.id}:role`)}
-                            onChange={(event) => void handleRoleChange(member.id, event.target.value)}
-                            className="border border-editorial-border bg-white px-2.5 py-1.5 text-xs text-editorial-black disabled:bg-neutral-100 disabled:text-editorial-muted"
-                            title={isSelf ? "You cannot reassign your own role" : isOwner ? "Workspace owner role cannot be changed" : "Change member role"}
-                          >
-                            {isOwner && <option value="OWNER">Owner</option>}
-                            {!isOwner && <option value="NONE">No role template</option>}
-                            {roles
-                              .filter((role) => role.key !== "OWNER")
-                              .map((role) => (
-                                <option key={role.key} value={role.key}>
-                                  {role.displayName}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-
-                        <div className="w-full lg:max-w-xl">
-                          <span className="text-[10px] font-mono uppercase text-editorial-muted">Permission tags</span>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {(roles.flatMap((role) => role.permissions || []).filter((permission, index, all) => all.indexOf(permission) === index)).map((permission) => {
-                              const active = member.effectivePermissions.includes(permission);
-                              return <button key={permission} type="button" aria-pressed={active} disabled={isOwner || isSelf} onClick={() => void handlePermissionToggle(member, permission)} className={`border px-1.5 py-1 text-[9px] font-mono transition-colors ${active ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-editorial-border bg-white text-editorial-muted hover:border-editorial-black hover:text-editorial-black"}`}>{active ? "✓ " : "＋ "}{permission}</button>;
-                            })}
-                            {!member.effectivePermissions.length && <span className="text-[10px] text-editorial-muted">No permissions</span>}
-                          </div>
-                        </div>
+                        <button type="button" disabled={isOwner || isSelf} onClick={() => openPermissionEditor(member)} className="border border-editorial-black bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-contour-red disabled:cursor-not-allowed disabled:opacity-40" title={isOwner ? "Owner permissions cannot be changed" : isSelf ? "You cannot change your own permissions" : "Manage member permissions"}>Permissions</button>
 
                         {/* Suspend / Reactivate Button */}
                         <button
@@ -1184,6 +1155,42 @@ function SettingsContent() {
                 )}
               </div>
             </div>
+
+            {permissionEditorMember && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="permission-editor-title">
+                <div className="w-full max-w-3xl border border-editorial-border bg-white shadow-2xl">
+                  <div className="flex items-start justify-between border-b border-editorial-border p-5">
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-editorial-muted">Access control</p>
+                      <h4 id="permission-editor-title" className="mt-1 font-heading text-lg font-bold text-editorial-black">Manage permissions</h4>
+                      <p className="mt-1 text-xs text-editorial-muted">{permissionEditorMember.user.name} · {permissionEditorMember.user.email}</p>
+                    </div>
+                    <button type="button" onClick={() => setPermissionEditorMember(null)} className="text-xs font-bold uppercase text-editorial-muted hover:text-editorial-black">Close</button>
+                  </div>
+                  <div className="space-y-5 p-5">
+                    <div>
+                      <label htmlFor="permission-role" className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-editorial-muted">Preset role</label>
+                      <select id="permission-role" value={permissionEditorRole} onChange={(event) => { const role = roles.find((item) => item.key === event.target.value); setPermissionEditorRole(event.target.value); if (role) setPermissionEditorPermissions([...role.permissions]); }} className="w-full border border-editorial-border bg-white px-3 py-2 text-sm text-editorial-black">
+                        <option value="NONE">Custom permissions</option>
+                        {roles.filter((role) => role.key !== "OWNER").map((role) => <option key={role.key} value={role.key}>{role.displayName}</option>)}
+                      </select>
+                      <p className="mt-2 text-[11px] text-editorial-muted">Choose a prepared role, or select Custom permissions and adjust access below.</p>
+                    </div>
+                    <div>
+                      <div className="mb-2 flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-wider text-editorial-muted">Access groups</span><span className="font-mono text-[11px] text-editorial-muted">{permissionEditorPermissions.length} permissions selected</span></div>
+                      <div className="max-h-72 overflow-y-auto space-y-2">
+                        {permissionGroups.filter((group) => !group.roleOnly).map((group) => {
+                          const active = group.permissions.every((permission) => permissionEditorPermissions.includes(permission));
+                          return <button key={group.key} type="button" aria-pressed={active} onClick={() => setPermissionEditorPermissions((current) => { const currentSet = new Set(current); if (active) group.permissions.forEach((permission) => currentSet.delete(permission)); else group.permissions.forEach((permission) => currentSet.add(permission)); return [...currentSet]; })} className={`w-full border p-3 text-left transition-colors ${active ? "border-emerald-300 bg-emerald-50" : "border-editorial-border bg-white hover:border-editorial-black"}`}><span className="flex items-center justify-between"><span className="text-xs font-bold text-editorial-black">{active ? "✓ " : "＋ "}{group.displayName}</span><span className="text-[10px] font-mono text-editorial-muted">{group.permissions.length} permissions</span></span><span className="mt-1 block text-[11px] text-editorial-muted">{group.description}</span></button>;
+                        })}
+                      </div>
+                      <p className="mt-2 text-[11px] text-editorial-muted">Use the group switches for normal access management. Individual exceptions remain enforced by the server-side permission overrides.</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 border-t border-editorial-border bg-neutral-50 p-4"><button type="button" onClick={() => setPermissionEditorMember(null)} className="border border-editorial-border px-4 py-2 text-[10px] font-bold uppercase">Cancel</button><button type="button" disabled={permissionEditorSaving} onClick={() => void handlePermissionEditorSave()} className="bg-editorial-black px-4 py-2 text-[10px] font-bold uppercase text-white disabled:opacity-50">{permissionEditorSaving ? "Saving…" : "Save permissions"}</button></div>
+                </div>
+              </div>
+            )}
 
             {/* DELETE MEMBER CONFIRMATION MODAL */}
             {memberToDelete && (

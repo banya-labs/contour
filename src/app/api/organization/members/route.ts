@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { applyPermissionOverrides, CONTOUR_ROLE_KEYS, PERMISSIONS, permissionOverridesForSelection, ROLE_DESCRIPTIONS, ROLE_PRESETS, type Permission } from "@/lib/authorization";
+import { PERMISSION_GROUPS } from "@/lib/authorization-groups";
 import { normalizeWhatsAppPhone } from "@/lib/phone-input";
 import { smartCache } from "@/lib/cache";
 
@@ -47,6 +48,7 @@ export const GET = createApiHandler({
     return NextResponse.json({
       success: true,
       roles: Object.entries(ROLE_DESCRIPTIONS).map(([key, value]) => ({ key, ...value, permissions: ROLE_PRESETS[key as keyof typeof ROLE_PRESETS] })),
+      permissionGroups: PERMISSION_GROUPS,
       members: membersWithEffectivePermissions,
     });
   },
@@ -128,7 +130,7 @@ export const PATCH = createApiHandler({
       if (member.role === "owner") {
         return NextResponse.json({ success: false, error: "The workspace owner always has full permissions." }, { status: 400 });
       }
-      const nextRoleKey = roleKey && roleKey !== "NONE" ? roleKey : member.roleAssignments[0]?.role.key;
+      const nextRoleKey = roleKey === "NONE" ? undefined : roleKey || member.roleAssignments[0]?.role.key;
       const basePermissions = nextRoleKey && nextRoleKey in ROLE_PRESETS
         ? ROLE_PRESETS[nextRoleKey as keyof typeof ROLE_PRESETS]
         : [];
