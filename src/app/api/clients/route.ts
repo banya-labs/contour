@@ -7,6 +7,7 @@ import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
+import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -97,9 +98,12 @@ const postHandler = createApiHandler({
     if (body.propertyId) {
       const property = await db.property.findFirst({
         where: { id: body.propertyId, organizationId: organizationId! },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       if (property) {
+        if (!isPropertyAvailableForNewOpportunity(property.status)) {
+          return NextResponse.json({ success: false, error: "This property has already been sold and cannot be attached to a new deal." }, { status: 409 });
+        }
         validPropertyId = property.id;
       }
     }

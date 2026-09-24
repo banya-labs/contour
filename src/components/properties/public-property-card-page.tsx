@@ -33,8 +33,8 @@ async function getPropertyBySlug(slug: string) {
   try {
     const dbProperty = await db.property.findFirst({
       where: organizationSlug
-        ? { slug: propertySlug, organization: { slug: organizationSlug } }
-        : { OR: [{ slug: propertySlug }, { id: propertySlug }] },
+        ? { slug: propertySlug, organization: { slug: organizationSlug }, status: { in: ["AVAILABLE", "UNDER_OFFER"] } }
+        : { OR: [{ slug: propertySlug }, { id: propertySlug }], status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
       include: {
         assignedAgent: {
           select: {

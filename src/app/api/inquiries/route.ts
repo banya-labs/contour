@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { publicInquirySchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { smartCache } from "@/lib/cache";
+import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -68,10 +69,13 @@ export async function POST(req: NextRequest) {
       try {
         const property = await db.property.findFirst({
           where: { id: parsed.propertyId, organizationId: organization.id },
-          select: { title: true, assignedAgentId: true }
+          select: { title: true, assignedAgentId: true, status: true }
         });
 
         if (property) {
+          if (!isPropertyAvailableForNewOpportunity(property.status)) {
+            return NextResponse.json({ success: false, error: "This property is no longer available and cannot receive new inquiries." }, { status: 409 });
+          }
           assignedAgentId = property.assignedAgentId;
           const propRefNote = `[Website Inquiry for property: ${property.title} (ID: ${parsed.propertyId})]`;
           enrichedNotes = enrichedNotes ? `${propRefNote}\n${enrichedNotes}` : propRefNote;
