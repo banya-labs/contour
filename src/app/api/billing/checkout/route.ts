@@ -15,6 +15,7 @@ import { z } from "zod";
 import { calculateOfferDiscount } from "@/lib/billing-offers";
 import { commitOrganizationOffer, releaseOrganizationOffer, reserveOrganizationOffer } from "@/lib/billing-offer-reservation";
 import { getCatalogPlanName, getCatalogPlanPrice } from "@/lib/subscriptions/tier-catalog";
+import { recordSettledSubscription } from "@/lib/billing-ledger";
 
 const checkoutSchema = z.object({
   planId: z.enum(["starter", "growth", "enterprise"]),
@@ -22,7 +23,10 @@ const checkoutSchema = z.object({
   // Lenco settlement is currently implemented for ZMW and USD only. Do not
   // silently convert a ZAR request into a ZMW charge.
   currency: z.enum(["ZMW", "USD"]).default("ZMW"),
-  channel: z.enum(["mobile_money", "card", "bank_transfer"]).default("mobile_money"),
+  // Only the documented and verified Lenco mobile-money path is enabled.
+  // Card requires PCI-DSS/JWE handling; bank transfer has no implemented
+  // collection endpoint in this integration.
+  channel: z.enum(["mobile_money"]).default("mobile_money"),
   mobileMoneyOperator: z.enum(["mtn", "airtel", "zamtel"]).optional(),
   phone: z.string().trim().min(7).max(30).optional(),
   customerName: z.string().trim().min(2).max(120).optional(),
@@ -171,6 +175,7 @@ const postHandler = createApiHandler({
           lencoAccountReference: reference,
         },
       });
+      await recordSettledSubscription({ organizationId: targetOrgId, paymentId: payment.id, reference, planId: body.planId, billingCycle, amount: Number(updatedPayment.amount), currency, settledAt: updatedPayment.completedAt || new Date() });
       await db.auditLog.create({
         data: {
           organizationId: targetOrgId,

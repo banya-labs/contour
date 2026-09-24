@@ -63,7 +63,7 @@ export function PricingGrid() {
     { name: "1-Click WhatsApp listing flyer generator", starter: true, growth: true, enterprise: true },
     { name: "30-Day anti-poaching client registration", starter: true, growth: true, enterprise: true },
     { name: "Public shareable property cards (/p/[slug])", starter: true, growth: true, enterprise: true },
-    { name: "Lenco Mobile Money (MTN, Airtel, Zamtel) & Cards", starter: true, growth: true, enterprise: true },
+    { name: "Lenco Mobile Money (MTN, Airtel, Zamtel)", starter: true, growth: true, enterprise: true },
 
     // Growth Tier Automation
     { name: "True 5% Commission & Agent Split Ledger", starter: false, growth: true, enterprise: true },
@@ -333,7 +333,7 @@ export function PricingGrid() {
         <div className="max-w-[1400px] mx-auto py-8 text-center space-y-2 border-x border-editorial-border">
           <div className="inline-flex items-center gap-2 border border-editorial-border px-4 py-1.5 font-geist text-xs text-editorial-black">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            <span>Powered by <strong>Lenco Zambia</strong> · Cards & Mobile Money</span>
+            <span>Powered by <strong>Lenco Zambia</strong> · Mobile Money</span>
           </div>
           <p className="font-geist text-xs text-editorial-muted max-w-xl mx-auto px-4">
             Prices in Zambian Kwacha (ZMW). USD equivalent shown on toggle. All plans include 14-day free trial. No credit card required.

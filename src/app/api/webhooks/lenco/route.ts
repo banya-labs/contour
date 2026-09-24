@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getLencoTransactionStatus, verifyLencoSignature } from "@/lib/lenco";
 import { commitOrganizationOffer, releaseOrganizationOffer } from "@/lib/billing-offer-reservation";
+import { recordSettledSubscription } from "@/lib/billing-ledger";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
     });
     const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
     if (paymentSettled && paymentMetadata?.offerReservationId) await commitOrganizationOffer(payment.id);
+    if (paymentSettled) await recordSettledSubscription({ organizationId: payment.organizationId, paymentId: payment.id, reference, planId: payment.planId, billingCycle: payment.billingCycle as "MONTHLY" | "ANNUAL", amount: Number(payment.amount), currency: payment.currency as "ZMW" | "USD", settledAt: new Date() });
   } else if (FAILED_EVENTS.has(event)) {
     await db.$transaction(async (transaction) => {
       await transaction.payment.updateMany({

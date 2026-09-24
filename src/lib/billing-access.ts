@@ -1,5 +1,13 @@
 export const TRIAL_DURATION_DAYS = 14;
 
+export type BillingAccessState = "PAID" | "TRIAL_ACTIVE" | "TRIAL_EXPIRED";
+
+export type BillingAccessInput = {
+  subscriptionStatus: string | null | undefined;
+  trialEndsAt: Date | null | undefined;
+  hasSuccessfulPayment: boolean;
+};
+
 export function getTrialEnd(startedAt: Date): Date {
   const trialEndsAt = new Date(startedAt);
   trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DURATION_DAYS);
@@ -12,4 +20,9 @@ export function isTrialActive(trialEndsAt: Date | null | undefined, now = new Da
 
 export function hasPaidSubscription(subscriptionStatus: string | null | undefined, hasSuccessfulPayment: boolean): boolean {
   return hasSuccessfulPayment || subscriptionStatus === "active";
+}
+
+export function getBillingAccessState(input: BillingAccessInput, now = new Date()): BillingAccessState {
+  if (hasPaidSubscription(input.subscriptionStatus, input.hasSuccessfulPayment)) return "PAID";
+  return isTrialActive(input.trialEndsAt, now) ? "TRIAL_ACTIVE" : "TRIAL_EXPIRED";
 }

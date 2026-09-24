@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { getTrialEnd, hasPaidSubscription, isTrialActive } from "@/lib/billing-access";
+import { expireDueTrial } from "@/lib/billing-lifecycle";
 import { db } from "@/lib/db";
 import { CONTOUR_PLANS, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
 import { getCatalogPlanName, getCatalogPlanPrice } from "@/lib/subscriptions/tier-catalog";
@@ -15,6 +16,7 @@ export const GET = createApiHandler({
   requireAuth: true,
   requirePermissions: ["org.billing.read"],
   handler: async (_req, { organizationId }) => {
+    await expireDueTrial(organizationId!);
     const organization = await db.organization.findUnique({
       where: { id: organizationId! },
       select: {
