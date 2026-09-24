@@ -130,7 +130,8 @@ export async function POST(req: NextRequest) {
 
       await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
     });
-    if (paymentSettled) await commitOrganizationOffer(payment.id);
+    const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
+    if (paymentSettled && paymentMetadata?.offerReservationId) await commitOrganizationOffer(payment.id);
   } else if (FAILED_EVENTS.has(event)) {
     await db.$transaction(async (transaction) => {
       await transaction.payment.updateMany({
@@ -142,7 +143,8 @@ export async function POST(req: NextRequest) {
       });
       await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
     });
-    await releaseOrganizationOffer(payment.id);
+    const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
+    if (paymentMetadata?.offerReservationId) await releaseOrganizationOffer(payment.id);
   } else {
     await db.webhookEvent.update({ where: { id: webhookEvent.id }, data: { processedAt: new Date() } });
   }
