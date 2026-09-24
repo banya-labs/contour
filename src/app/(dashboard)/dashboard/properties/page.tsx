@@ -15,7 +15,6 @@ import {
   DollarSign,
   X,
   Sparkles,
-  Palette,
   Eye,
   Image as ImageIcon,
   Trash2,
@@ -388,14 +387,6 @@ function PropertiesCatalogContent() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/settings"
-            className="px-3 sm:px-4 py-2 border border-editorial-border hover:border-editorial-black bg-white text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
-          >
-            <Palette className="w-3.5 h-3.5 text-contour-red" />
-            <span className="hidden sm:inline">Brand Settings</span>
-          </Link>
-
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-3 sm:px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
