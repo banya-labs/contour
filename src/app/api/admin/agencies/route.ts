@@ -28,11 +28,11 @@ export async function GET(request: NextRequest) {
     db.organization.count({ where }),
     db.organization.findMany({
       where,
-      select: { id: true, name: true, slug: true, subscriptionTier: true, subscriptionStatus: true, trialEndsAt: true, createdAt: true, _count: { select: { members: true, properties: true, inquiries: true } } },
+      select: { id: true, name: true, slug: true, subscriptionTier: true, subscriptionStatus: true, trialEndsAt: true, createdAt: true, members: { where: { role: { in: ["owner", "admin", "principal"] }, status: { not: "suspended" } }, take: 2, select: { role: true, user: { select: { name: true, email: true } } } }, _count: { select: { members: true, properties: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
   ]);
-  return NextResponse.json({ success: true, agencies: organizations, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
+  return NextResponse.json({ success: true, agencies: organizations.map(({ members, ...agency }) => ({ ...agency, owner: members.length === 1 ? members[0].user : null, ownerCount: members.length })), pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
 }

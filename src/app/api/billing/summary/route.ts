@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { getTrialEnd, hasPaidSubscription, isTrialActive } from "@/lib/billing-access";
 import { db } from "@/lib/db";
-import { CONTOUR_PLANS, getPlanPrice, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
+import { CONTOUR_PLANS, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
+import { getCatalogPlanName, getCatalogPlanPrice } from "@/lib/subscriptions/tier-catalog";
 
 function addMonths(date: Date, months: number): Date {
   const next = new Date(date);
@@ -57,6 +58,7 @@ export const GET = createApiHandler({
       ? (organization.subscriptionTier || "STARTER").toLowerCase() as keyof typeof CONTOUR_PLANS
       : null;
     const currentPlan = currentPlanId ? CONTOUR_PLANS[currentPlanId] || CONTOUR_PLANS.starter : null;
+    const currentPlanName = currentPlanId ? await getCatalogPlanName(currentPlanId) : "14-day free trial";
     const lastPayment = successfulPayment
       ? { ...successfulPayment, amount: Number(successfulPayment.amount) }
       : null;
@@ -71,12 +73,12 @@ export const GET = createApiHandler({
       workspace: { id: organization.id, name: organization.name },
       subscription: {
         planId: currentPlan?.id || null,
-        planName: currentPlan?.name || "14-day free trial",
+          planName: currentPlanName,
         status: paidSubscription ? organization.subscriptionStatus || "active" : trialActive ? "trialing" : "expired",
         trialEndsAt,
         nextPaymentAt,
         nextPayment: nextPaymentAt
-          ? { ...getPlanPrice(currentPlan?.id || "starter", cycle, currency), currency, cycle }
+          ? { ...await getCatalogPlanPrice(currentPlan?.id || "starter", cycle, currency), currency, cycle }
           : null,
         lastPayment,
       },

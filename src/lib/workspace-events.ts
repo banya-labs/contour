@@ -6,6 +6,7 @@ export type WorkspaceMutationScope =
   | "properties"
   | "leases"
   | "sales"
+  | "commissions"
   | "documents"
   | "organization"
   | "dashboard"

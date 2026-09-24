@@ -960,6 +960,24 @@ model Contact {
   @@map("contact")
 }
 
+model SubscriptionTier {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String
+  monthlyZmw  Decimal  @db.Decimal(12, 2)
+  annualZmw   Decimal  @db.Decimal(12, 2)
+  monthlyUsd  Decimal  @db.Decimal(12, 2)
+  annualUsd   Decimal  @db.Decimal(12, 2)
+  active      Boolean  @default(true)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, key])
+  @@map("subscription_tier")
+}
+
 model Inquiry {
   id                           String           @id @default(cuid())
   organizationId               String
