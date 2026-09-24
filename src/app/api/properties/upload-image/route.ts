@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth, type Session } from "@/lib/auth";
+import { toAuthHeaders } from "@/lib/auth-headers";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, canManagePropertyPhotos } from "@/lib/authorization";
 import { s3Storage } from "@/lib/storage/s3";
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
     if (!tenant) {
       // Fallback: If user is authenticated in Better Auth session, find their active organization
       try {
-        const session = await auth.api.getSession({ headers: req.headers });
+        const session = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
         if (session?.user?.id) {
           const member = await db.member.findFirst({
             where: { userId: session.user.id, status: "active" },

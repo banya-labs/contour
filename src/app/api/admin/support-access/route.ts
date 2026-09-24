@@ -9,7 +9,7 @@ import { toAuthHeaders } from "@/lib/auth-headers";
 const schema = z.object({ organizationId: z.string().min(1), reason: z.string().trim().min(8).max(500), durationMinutes: z.number().int().min(5).max(60).default(30) });
 
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
   if (!actor || !canPlatformRole(actor.role, "support.impersonate")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const sessions = await db.supportAccessSession.findMany({ where: { startedByUserId: actor.userId }, select: { id: true, mode: true, reason: true, expiresAt: true, revokedAt: true, createdAt: true, organization: { select: { id: true, name: true, slug: true } } }, orderBy: { createdAt: "desc" }, take: 50 });

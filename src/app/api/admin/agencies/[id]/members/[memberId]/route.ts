@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { toAuthHeaders } from "@/lib/auth-headers";
 import { db } from "@/lib/db";
 import { getPlatformActor } from "@/lib/control-plane";
 import { canPlatformRole } from "@/lib/platform-authorization";
@@ -12,7 +13,7 @@ const mutationSchema = z.object({
 });
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; memberId: string }> }) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
   if (!actor || !canPlatformRole(actor.role, "agency.configure")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = mutationSchema.safeParse(await request.json().catch(() => null));
