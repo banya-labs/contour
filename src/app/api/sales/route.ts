@@ -20,6 +20,7 @@ const createTransactionSchema = z.object({
 });
 
 const getHandler = createApiHandler({
+  requirePermissions: ["finance.read"],
   querySchema: z.object({
     assigned: z.string().optional(), // "me" | "all"
     closingAgentId: z.string().optional(),
@@ -68,6 +69,7 @@ const getHandler = createApiHandler({
 });
 
 const postHandler = createApiHandler({
+  requirePermissions: ["finance.manage"],
   bodySchema: createTransactionSchema,
   handler: async (req, ctx) => {
     const { organizationId, body } = ctx;
