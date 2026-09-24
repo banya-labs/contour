@@ -40,6 +40,11 @@ RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 RUN mkdir -p ./public/uploads/properties && chown -R nextjs:nodejs ./public/uploads
+# Keep the Prisma CLI and migration dependencies in the runtime image. The
+# application must apply committed migrations before Next.js serves requests;
+# generating Prisma Client alone does not change the deployed database schema.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
@@ -48,4 +53,4 @@ USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node server.js"]

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import ContactsPage from "../contacts/page";
 import {
   Users,
   Search,
@@ -66,6 +68,7 @@ function ClientsCRMContent() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const searchParams = useSearchParams();
+  const activeTab = searchParams?.get("tab") === "contacts" ? "contacts" : "inquiries";
   useEffect(() => {
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
       setIsModalOpen(true);
@@ -399,6 +402,10 @@ function ClientsCRMContent() {
       });
   };
 
+  if (activeTab === "contacts") {
+    return <ContactsPage />;
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
       {/* Header */}
@@ -422,6 +429,11 @@ function ClientsCRMContent() {
           <Plus className="w-3.5 h-3.5 text-editorial-red" />
           <span>New Client Inquiry</span>
         </button>
+      </div>
+
+      <div className="flex border-b border-editorial-border">
+        <Link href="/dashboard/clients" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider border-b-2 border-contour-red">Inquiries</Link>
+        <Link href="/dashboard/clients?tab=contacts" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider text-editorial-muted">Contacts</Link>
       </div>
 
       {/* 30-Day Anti-Poaching Rule Notice */}

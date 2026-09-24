@@ -151,7 +151,6 @@ export default function WorkspaceSidebar() {
       name: "Properties",
       icon: Home,
       items: [
-        { name: "Contacts", href: "/dashboard/contacts" },
         { name: "Catalog & Vault", href: "/dashboard/properties" },
         { name: "Live Map Hub", href: "/dashboard/map", highlight: true },
         { name: "Property Sales", href: "/dashboard/sales" },
@@ -163,7 +162,7 @@ export default function WorkspaceSidebar() {
       icon: Users,
       items: [
         { name: "Deal Pipeline", href: "/dashboard/pipeline" },
-        { name: "Client CRM", href: "/dashboard/clients" },
+        { name: "Inquiries", href: "/dashboard/clients" },
       ],
     },
   ];
