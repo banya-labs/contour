@@ -38,6 +38,10 @@ describe("organization authorization", () => {
     expect(resolveContourRole("SUPER_ADMIN", "member", "FIELD_AGENT")).toBe("FIELD_AGENT");
   });
 
+  it("never downgrades an organization owner to an assigned field-agent role", () => {
+    expect(resolveContourRole("FIELD_AGENT", "owner", "FIELD_AGENT")).toBe("OWNER");
+  });
+
   it("keeps field agents PWA-first and excludes dashboard access", () => {
     expect(roleHasPermission("FIELD_AGENT", "pwa.access")).toBe(true);
     expect(roleHasPermission("FIELD_AGENT", "dashboard.read")).toBe(false);

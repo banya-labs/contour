@@ -47,4 +47,24 @@ describe("tenant context", () => {
       userRole: "SUPER_ADMIN",
     });
   });
+
+  it("gives the organization owner full permissions despite a conflicting assignment", async () => {
+    getSession.mockResolvedValueOnce({
+      user: { id: "owner-a", role: "FIELD_AGENT" },
+      session: { activeOrganizationId: "org-a" },
+    });
+    findUnique.mockResolvedValueOnce({
+      id: "member-owner",
+      role: "owner",
+      status: "active",
+      roleAssignments: [{ role: { key: "FIELD_AGENT", permissions: [{ permission: "pwa.access" }] } }],
+      permissionOverrides: [],
+    });
+
+    await expect(getTenantContext(new Request("http://localhost") as never)).resolves.toMatchObject({
+      contourRole: "OWNER",
+      userRole: "SUPER_ADMIN",
+      permissions: expect.arrayContaining(["dashboard.read", "org.members.invite", "finance.manage"]),
+    });
+  });
 });

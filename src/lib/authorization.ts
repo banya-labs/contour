@@ -67,8 +67,11 @@ export function resolveApplicationRole(userRole: string | undefined, membershipR
 }
 
 export function resolveContourRole(userRole: string | undefined, membershipRole: string, assignedRole?: string): ContourRoleKey {
+  // Better Auth organization ownership is authoritative. A role tag must not
+  // be able to downgrade the person who created/owns the organization.
+  if (membershipRole === "owner") return "OWNER";
   if (assignedRole) return normalizeContourRole(assignedRole);
-  if (membershipRole === "owner" || userRole === "SUPER_ADMIN") return "OWNER";
+  if (userRole === "SUPER_ADMIN") return "OWNER";
   if (membershipRole === "admin" || userRole === "BROKER_MANAGER") return "BROKER_MANAGER";
   return normalizeContourRole(userRole);
 }

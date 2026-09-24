@@ -100,9 +100,19 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
   const permissionOverrides = membership.permissionOverrides ?? [];
   const assignedRole = roleAssignments[0]?.role.key;
   const contourRole = resolveContourRole(session.user.role ?? undefined, membership.role, assignedRole);
-  const assignedRoleKey = assignedRole ? normalizeContourRole(assignedRole) : null;
-  const presetPermissions = assignedRoleKey ? permissionsForRole(assignedRoleKey) : membership.role === "owner" ? permissionsForRole("OWNER") : membership.role === "admin" ? permissionsForRole("BROKER_MANAGER") : [];
-  const rolePermissions = assignedRoleKey ? presetPermissions : roleAssignments.flatMap((assignment) => assignment.role.permissions.map((permission) => permission.permission as Permission));
+  const assignedRoleKey = membership.role === "owner" ? null : assignedRole ? normalizeContourRole(assignedRole) : null;
+  const presetPermissions = membership.role === "owner"
+    ? permissionsForRole("OWNER")
+    : assignedRoleKey
+      ? permissionsForRole(assignedRoleKey)
+      : membership.role === "admin"
+        ? permissionsForRole("BROKER_MANAGER")
+        : [];
+  const rolePermissions = membership.role === "owner"
+    ? presetPermissions
+    : assignedRoleKey
+      ? presetPermissions
+      : roleAssignments.flatMap((assignment) => assignment.role.permissions.map((permission) => permission.permission as Permission));
   const permissions = applyPermissionOverrides(rolePermissions, permissionOverrides);
 
   return {
