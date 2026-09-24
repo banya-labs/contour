@@ -9,6 +9,7 @@ import { Prisma } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
 import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
 import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
+import { getOrCreateContact } from "@/lib/crm/contact-service";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -54,6 +55,7 @@ const getHandler = createApiHandler({
           }
         },
         property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } },
+        contact: { select: { id: true, name: true, phone: true, email: true } },
       },
       orderBy: { createdAt: "desc" }
     });
@@ -70,6 +72,9 @@ const postHandler = createApiHandler({
 
     if (body.status && body.status !== "NEW_INQUIRY") {
       return NextResponse.json({ success: false, error: "New opportunities must start at New Inquiry and progress through the pipeline." }, { status: 409 });
+    }
+    if (body.existingInquiryId && !body.propertyId) {
+      return NextResponse.json({ success: false, error: "A property must be attached before an inquiry enters the pipeline." }, { status: 400 });
     }
 
     if (body.idempotencyKey) {
@@ -143,6 +148,14 @@ const postHandler = createApiHandler({
     exclusiveLockExpiresAt.setDate(exclusiveLockExpiresAt.getDate() + lockDurationDays);
 
     const clientPhone = normalizePhoneNumber(body.clientPhone);
+    let contactId = body.contactId;
+    if (contactId) {
+      const contact = await db.contact.findFirst({ where: { id: contactId, organizationId: organizationId! }, select: { id: true } });
+      if (!contact) return NextResponse.json({ success: false, error: "The selected contact was not found in this workspace." }, { status: 400 });
+    } else {
+      const contact = await getOrCreateContact(db, { organizationId: organizationId!, name: body.clientName, phone: clientPhone, email: body.clientEmail });
+      contactId = contact.id;
+    }
 
     if (!body.existingInquiryId) {
       const openClient = await db.inquiry.findFirst({ where: { organizationId: organizationId!, clientPhone, status: { not: "CLOSED" } }, orderBy: { updatedAt: "desc" } });
@@ -166,6 +179,7 @@ const postHandler = createApiHandler({
           where: { id: existingInquiry.id },
           data: {
             clientName: body.clientName.trim(),
+            contactId,
             clientPhone,
             clientEmail: body.clientEmail?.trim() || null,
             lookingFor: body.lookingFor || "FOR_SALE",
@@ -207,6 +221,7 @@ const postHandler = createApiHandler({
     const client = await db.inquiry.create({
       data: {
         organizationId: organizationId!,
+        contactId: contactId!,
         clientName: body.clientName.trim(),
         clientPhone,
         clientEmail: body.clientEmail?.trim() || undefined,

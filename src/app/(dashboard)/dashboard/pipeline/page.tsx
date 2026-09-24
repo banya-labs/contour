@@ -71,6 +71,7 @@ type OrganizationAgent = {
 
 type ExistingClient = {
   id: string;
+  contactId?: string | null;
   clientName: string;
   clientPhone: string;
   clientEmail?: string | null;
@@ -196,6 +197,7 @@ function DealPipelineContent() {
               if (!clientsMap.has(key)) {
                 clientsMap.set(key, {
                   id: c.id,
+                  contactId: c.contactId || c.contact?.id || null,
                   clientName: c.clientName,
                   clientPhone: c.clientPhone,
                   clientEmail: c.clientEmail,
@@ -465,6 +467,11 @@ function DealPipelineContent() {
       return;
     }
 
+    if (!formData.propertyId) {
+      setFormError("Select a property before adding an inquiry to the pipeline.");
+      return;
+    }
+
     const matchedProp = availableProperties.find((p) => p.id === formData.propertyId);
     const matchedAgent = agents.find((a) => a.id === formData.assignedAgentId);
 
@@ -479,6 +486,7 @@ function DealPipelineContent() {
         clientPhone,
         clientEmail: clientEmail || undefined,
         existingInquiryId: clientSelectionMode === "existing" ? formData.selectedExistingClientId : undefined,
+        contactId: clientSelectionMode === "existing" ? (existingClients.find((client) => client.id === formData.selectedExistingClientId)?.contactId || undefined) : undefined,
         lookingFor: "FOR_SALE",
         currency: formData.currency,
         assignedAgentId: formData.assignedAgentId || undefined,
@@ -1361,15 +1369,15 @@ function DealPipelineContent() {
               {/* Property Target Selection */}
               <div>
                 <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1 flex items-center justify-between">
-                  <span>Property Target</span>
-                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">can link or change later</span>
+                  <span>Property Target *</span>
+                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">required for pipeline</span>
                 </label>
                 <select
                   value={formData.propertyId}
                   onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
                   className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                 >
-                  <option value="">No Property Associated (Unassigned)</option>
+                  <option value="">Select a property...</option>
                   {availableProperties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.title} ({p.suburb || "Lusaka"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}

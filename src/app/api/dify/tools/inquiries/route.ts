@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { authenticateDifyRequest } from "@/lib/dify-auth";
 import { inquiryToolSchema } from "@/lib/ai-tool-schemas";
 import { getOrCreateCorrelationId } from "@/lib/correlation";
+import { getOrCreateContact } from "@/lib/crm/contact-service";
 
 /**
  * Dify Tool: `create_inquiry_or_lead`
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const tenantOrgId = context!.organizationId;
+    const contact = await getOrCreateContact(db, { organizationId: tenantOrgId, name: clientName, phone: clientPhone, email: clientEmail });
 
     // Calculate 30-Day Anti-Poaching Lock
     const antiPoachingExpiry = new Date();
@@ -31,6 +33,7 @@ export async function POST(req: NextRequest) {
     const createdInquiry = await db.inquiry.create({
         data: {
           organizationId: tenantOrgId,
+          contactId: contact.id,
           clientName,
           clientPhone,
           clientEmail: clientEmail || null,

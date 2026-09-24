@@ -36,6 +36,7 @@ export const POST = createApiHandler({
         outcome: true,
         clientName: true,
         clientPhone: true,
+        contactId: true,
         propertyId: true,
         assignedAgentId: true,
         budgetMin: true,
@@ -68,7 +69,7 @@ export const POST = createApiHandler({
     }
 
     const context: PipelineRequirementContext = {
-      hasClient: Boolean(inquiry.clientName.trim() && inquiry.clientPhone.trim()),
+      hasClient: Boolean(inquiry.contactId && inquiry.clientName.trim() && inquiry.clientPhone.trim()),
       hasProperty: Boolean(inquiry.propertyId),
       hasAssignedAgent: Boolean(inquiry.assignedAgentId),
       hasQualificationNote: Boolean(inquiry.notes?.trim()),

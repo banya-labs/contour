@@ -17,7 +17,7 @@ export const PATCH = createApiHandler({
 
     const inquiry = await db.inquiry.findFirst({
       where: { id: inquiryId, organizationId: organizationId! },
-      select: { id: true, status: true, outcome: true, clientName: true, propertyId: true },
+      select: { id: true, status: true, outcome: true, clientName: true, propertyId: true, contactId: true },
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
 
@@ -50,6 +50,11 @@ export const PATCH = createApiHandler({
       if (property.status === "SOLD" && inquiry.propertyId !== property.id) {
         return NextResponse.json({ success: false, error: "This property has already been sold and cannot enter another pipeline." }, { status: 409 });
       }
+    }
+
+    if (body.contactId) {
+      const contact = await db.contact.findFirst({ where: { id: body.contactId, organizationId: organizationId! }, select: { id: true } });
+      if (!contact) return NextResponse.json({ success: false, error: "Selected contact was not found in this organization." }, { status: 400 });
     }
 
     const targetPropertyId = body.propertyId !== undefined ? body.propertyId : inquiry.propertyId;
@@ -102,6 +107,7 @@ export const PATCH = createApiHandler({
         } : {}),
         ...(body.leadSource !== undefined ? { leadSource: body.leadSource } : {}),
         ...(body.propertyId !== undefined ? { propertyId: body.propertyId || null } : {}),
+        ...(body.contactId !== undefined ? { contactId: body.contactId } : {}),
         ...(body.dealValue != null ? { dealValue: new Prisma.Decimal(body.dealValue) } : {}),
         ...(body.matchStatus !== undefined ? { matchStatus: body.matchStatus } : {}),
         ...(body.unmatchedReason !== undefined ? { unmatchedReason: body.unmatchedReason || null } : {}),
@@ -109,6 +115,7 @@ export const PATCH = createApiHandler({
       },
       include: {
         assignedAgent: { select: { id: true, name: true, phone: true } },
+        contact: { select: { id: true, name: true, phone: true, email: true } },
         property: { select: { id: true, title: true, suburb: true, rentalPrice: true, askingPrice: true, listingType: true, currency: true, agencyCommissionPct: true } },
       },
     });
