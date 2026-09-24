@@ -125,7 +125,8 @@ Run focused tests, typecheck, build, migration validation, readiness checks, bro
 - Modify: billing runbook/status documentation
 - Modify: CI checks only if evidence shows a safe deterministic gate
 
-- [ ] Verify environment variable presence by name only.
+- [x] Document the provider evidence gate and local-vs-live boundary.
+- [ ] Verify environment variable presence by name only in the authorized deployment.
 - [ ] Execute a disposable Lenco verification transaction in the authorized environment.
 - [ ] Capture reference, provider status, webhook status, and ledger result without secrets/PII.
 - [ ] Run typecheck, build, focused tests, readiness, and browser workflow.
