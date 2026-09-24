@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   FileSpreadsheet,
@@ -157,6 +158,10 @@ function LandlordStatementsContent() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
+      <div className="flex gap-1 border-b border-editorial-border pb-2">
+        <Link href="/dashboard/leases" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Leases</Link>
+        <Link href="/dashboard/leases?tab=statements" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Statements</Link>
+      </div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>

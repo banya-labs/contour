@@ -332,7 +332,7 @@ export default function DashboardOverviewPage() {
           </Link>
 
           <Link
-            href="/dashboard/statements?new=1"
+            href="/dashboard/leases?tab=statements&new=1"
             className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
           >
             <Plus className="w-3 h-3 text-contour-red" />
@@ -371,6 +371,9 @@ export default function DashboardOverviewPage() {
               {formatCurrency(metrics.expectedCommission || 0, "ZMW")}
             </span>
           </div>
+          <Link href="/dashboard/sales?tab=commissions" className="mt-2 inline-flex text-[10px] font-heading font-semibold uppercase tracking-wider text-contour-red hover:underline">
+            View commission ledger <ArrowUpRight className="ml-1 h-3 w-3" />
+          </Link>
         </MotionCard>
 
         {/* Properties Catalog */}

@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Home,
   Users,
-  DollarSign,
   Settings,
   LogOut,
   FolderArchive,
@@ -67,7 +66,6 @@ export default function WorkspaceSidebar() {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Properties: true,
     "CRM & Deals": true,
-    Finance: true,
   });
 
   // Real-time dynamic workspace title pulled from agency settings
@@ -165,15 +163,6 @@ export default function WorkspaceSidebar() {
       items: [
         { name: "Deal Pipeline", href: "/dashboard/pipeline" },
         { name: "Client CRM", href: "/dashboard/clients" },
-      ],
-    },
-    {
-      name: "Finance",
-      icon: DollarSign,
-      items: [
-        { name: "Commissions Ledger", href: "/dashboard/commissions" },
-        { name: "Landlord Statements", href: "/dashboard/statements" },
-        { name: "Subscription & Billing", href: "/dashboard/billing" },
       ],
     },
   ];

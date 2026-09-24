@@ -18,6 +18,7 @@ import { MotionCard } from "@/components/ui/animate/motion-card";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
+import CommissionsPage from "@/app/(dashboard)/dashboard/commissions/page";
 
 function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
@@ -32,6 +33,7 @@ function PropertySalesContent() {
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
 
   const searchParams = useSearchParams();
+  const activeTab = searchParams?.get("tab") === "commissions" ? "commissions" : "sales";
   useEffect(() => {
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
       setIsModalOpen(true);
@@ -290,8 +292,12 @@ function PropertySalesContent() {
     return matchesSearch && matchesStatus;
   });
 
-  return (
+  return activeTab === "commissions" ? <CommissionsPage /> : (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
+      <div className="flex gap-1 border-b border-editorial-border pb-2">
+        <Link href="/dashboard/sales" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Sales Register</Link>
+        <Link href="/dashboard/sales?tab=commissions" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Commissions</Link>
+      </div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
