@@ -4,7 +4,7 @@ import { ContourLogo } from "@/components/brand/contour-logo";
 
 const modules = [
   { label: "Agencies", description: "Tenant directory and controlled agency access.", icon: Building2, status: "Available", href: "/admin/agencies" },
-  { label: "People", description: "Platform staff and agency membership oversight.", icon: Users, status: "Available", href: "/admin/staff" },
+  { label: "Staff", description: "Platform staff access and governance.", icon: Users, status: "Available", href: "/admin/staff" },
   { label: "Subscriptions", description: "Plans, trials, payments, discounts, and offers.", icon: CreditCard, status: "Available", href: "/admin/subscriptions" },
   { label: "Audit trail", description: "Administrative actions with actor and reason.", icon: ShieldCheck, status: "Foundation active", href: undefined },
 ];
