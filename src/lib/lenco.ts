@@ -187,7 +187,7 @@ export async function initiateLencoCollection(
 ): Promise<LencoCollectionResult> {
   const apiKey = process.env.LENCO_API_KEY;
   const isDevMode = isDevelopmentSimulationEnabled();
-  const apiUrl = process.env.LENCO_API_URL || "https://api.lenco.co";
+  const apiUrl = process.env.LENCO_API_URL || "https://api.lenco.co/access/v2";
 
   // Simulation is intentionally limited to non-production environments.
   if (isDevMode) {
@@ -214,6 +214,15 @@ export async function initiateLencoCollection(
     };
   }
 
+  if (payload.channel === "card") {
+    return {
+      success: false,
+      status: "FAILED",
+      reference: payload.reference,
+      message: "Lenco card collections require a PCI-DSS-approved encrypted JWE flow and are not enabled in Contour yet.",
+    };
+  }
+
   try {
     const endpoint =
       payload.channel === "mobile_money"
@@ -233,6 +242,8 @@ export async function initiateLencoCollection(
         narration: payload.narration,
         phone: payload.customer.phone,
         operator: payload.mobileMoneyOperator || "mtn",
+        country: "zm",
+        bearer: "merchant",
         customer: {
           name: payload.customer.name,
           email: payload.customer.email,
@@ -287,7 +298,7 @@ export async function initiateLencoCollection(
 export async function getLencoTransactionStatus(reference: string): Promise<Record<string, unknown> | null> {
   const apiKey = process.env.LENCO_API_KEY;
   const isDevMode = isDevelopmentSimulationEnabled();
-  const apiUrl = process.env.LENCO_API_URL || "https://api.lenco.co";
+  const apiUrl = process.env.LENCO_API_URL || "https://api.lenco.co/access/v2";
 
   if (isDevMode) {
     return {

@@ -26,3 +26,14 @@ describe("Lenco webhook signatures", () => {
     if (previousApiKey) process.env.LENCO_API_KEY = previousApiKey;
   });
 });
+
+describe("Lenco collection configuration", () => {
+  it("does not attempt an unsafe plaintext card collection", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.LENCO_API_KEY = "test-api-token";
+    const { initiateLencoCollection } = await import("./lenco");
+    const result = await initiateLencoCollection({ amount: 100, currency: "ZMW", reference: "card-test-1", narration: "Test", customer: { name: "Test User", email: "test@example.com", phone: "+260970000000" }, channel: "card", organizationId: "org-1", planId: "starter", billingCycle: "MONTHLY" });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("PCI-DSS-approved encrypted JWE");
+  });
+});

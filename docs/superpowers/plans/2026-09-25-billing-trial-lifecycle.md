@@ -128,6 +128,7 @@ Run focused tests, typecheck, build, migration validation, readiness checks, bro
 - [x] Document the provider evidence gate and local-vs-live boundary.
 - [ ] Verify environment variable presence by name only in the authorized deployment.
 - [ ] Execute a disposable Lenco verification transaction in the authorized environment.
+- [x] Align the mobile-money base URL/payload with Lenco’s documented `/access/v2` contract and disable the unimplemented plaintext card path.
 - [ ] Capture reference, provider status, webhook status, and ledger result without secrets/PII.
 - [ ] Run typecheck, build, focused tests, readiness, and browser workflow.
 - [ ] Publish a bounded readiness report.

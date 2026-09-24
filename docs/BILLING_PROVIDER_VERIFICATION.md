@@ -8,6 +8,7 @@ This document separates automated local evidence from real Lenco settlement evid
 - `scripts/test-lenco-gateway.ts` covers plan pricing, the implemented HMAC-SHA512 verifier, and explicitly labeled development simulation.
 - Development simulation is enabled only when `NODE_ENV !== production` and `NEXT_PUBLIC_DEV_MODE=true`.
 - No real Lenco authorization, mobile-money approval, card settlement, or provider callback has been verified in this workspace.
+- Card collection is intentionally disabled: Lenco documents a PCI-DSS requirement and encrypted JWE payload for the card API; Contour does not claim that capability yet.
 
 ## Authorized provider run
 
