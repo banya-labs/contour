@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { hasControlPlaneAccess } from "@/lib/control-plane";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -150,6 +151,11 @@ export async function middleware(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname;
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (!hasControlPlaneAccess(session.user.email)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
   if (pathname.startsWith("/agent") || pathname.startsWith("/kiosk") || pathname.startsWith("/dashboard")) {
     const tenant = await getTenantContext(request);
     const role = tenant?.contourRole || resolveContourRole(session.user.role ?? undefined, "member", tenant?.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);

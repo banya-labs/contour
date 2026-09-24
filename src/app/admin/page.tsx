@@ -1,94 +1,37 @@
-import React from "react";
 import Link from "next/link";
-import { ShieldCheck, Key, Cpu, Users, ArrowUpRight, Activity } from "lucide-react";
+import { Activity, ArrowUpRight, Building2, CreditCard, ShieldCheck, Users } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
+
+const modules = [
+  { label: "Agencies", description: "Tenant directory and controlled agency access.", icon: Building2, status: "Planned" },
+  { label: "People", description: "Platform staff and agency membership oversight.", icon: Users, status: "Planned" },
+  { label: "Subscriptions", description: "Plans, trials, payments, discounts, and offers.", icon: CreditCard, status: "Planned" },
+  { label: "Audit trail", description: "Administrative actions with actor and reason.", icon: ShieldCheck, status: "Foundation active" },
+];
 
 export default function AdminPage() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto w-full font-geist pb-20 sm:pb-32">
-      {/* Top Admin Brand Navigation */}
-      <div className="flex items-center justify-between border-b border-editorial-border pb-4">
-        <div className="flex items-center gap-2">
-          <ContourLogo size="sm" />
-          <span className="text-[9px] font-mono uppercase tracking-wider text-editorial-muted bg-neutral-100 px-1.5 py-0.5 border border-editorial-border font-bold">
-            Super Admin
-          </span>
-        </div>
-        <Link
-          href="/dashboard"
-          className="text-xs font-mono uppercase tracking-wider text-editorial-muted hover:text-editorial-black flex items-center gap-1 transition-colors"
-        >
-          <span>&larr; Back to Workspace</span>
-        </Link>
+    <main className="min-h-screen bg-editorial-bg px-4 py-5 font-geist text-editorial-black sm:px-8 lg:px-12">
+      <div className="mx-auto w-full max-w-7xl space-y-8 pb-20">
+        <header className="flex flex-col gap-5 border-b border-editorial-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3"><ContourLogo size="sm" /><span className="border border-editorial-border bg-white px-2 py-1 text-[9px] font-bold uppercase tracking-[0.18em] text-editorial-muted">Internal control plane</span></div>
+            <div><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-editorial-red">Platform operations // private surface</p><h1 className="mt-2 font-heading text-3xl font-bold uppercase tracking-tight sm:text-5xl">Contour Control Plane</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-editorial-muted">The operator ledger for agencies, access, subscriptions, support, and platform health. Privileged actions will be introduced with explicit scope and audit evidence.</p></div>
+          </div>
+          <Link href="/dashboard" className="text-xs font-bold uppercase tracking-wider text-editorial-muted transition-colors hover:text-editorial-red">Back to workspace <span aria-hidden="true">↗</span></Link>
+        </header>
+        <section className="grid gap-4 md:grid-cols-3" aria-label="Control plane status">
+          <StatusCard icon={Activity} label="Platform readiness" value="Not connected" note="Live system checks will appear here." tone="neutral" />
+          <StatusCard icon={Building2} label="Agencies under management" value="Not queried" note="No tenant data is loaded in this shell." tone="neutral" />
+          <StatusCard icon={ShieldCheck} label="Administrative audit" value="Foundation active" note="Bootstrap access is server-gated." tone="safe" />
+        </section>
+        <section><div className="mb-4 flex items-end justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-editorial-muted">Operator modules</p><h2 className="mt-1 font-serif text-2xl font-bold">Run Contour with evidence</h2></div><span className="hidden text-[10px] font-mono uppercase tracking-widest text-editorial-muted sm:block">Phase 01 / access foundation</span></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{modules.map(({ label, description, icon: Icon, status }) => <div key={label} className="flex min-h-52 flex-col justify-between border border-editorial-border bg-white p-5 shadow-subtle"><div><div className="mb-5 flex h-10 w-10 items-center justify-center border border-editorial-border bg-editorial-paper text-editorial-red"><Icon className="h-5 w-5" aria-hidden="true" /></div><h3 className="flex items-center justify-between font-serif text-lg font-bold">{label}<ArrowUpRight className="h-4 w-4 text-editorial-muted" aria-hidden="true" /></h3><p className="mt-2 text-xs leading-5 text-editorial-muted">{description}</p></div><div className="mt-6 border-t border-editorial-border pt-3 text-[10px] font-bold uppercase tracking-widest text-editorial-muted">{status}</div></div>)}</div></section>
+        <section className="border border-editorial-border bg-[#282828] p-5 text-white sm:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#fa3600]">Safety boundary</p><h2 className="mt-2 font-serif text-2xl font-bold">Privileged access is deliberate</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-white/70">Agency owner roles do not automatically grant platform access. Support access, impersonation, billing overrides, locks, and deletion will each require their own permission, reason, expiry or recovery path, and immutable audit event.</p></section>
       </div>
-
-      <div className="border-b border-editorial-border pb-6">
-        <span className="text-[10px] sm:text-[11px] font-mono font-bold text-editorial-red uppercase tracking-widest">
-          SUPER ADMIN PLANE // MULTI-TENANT GOVERNANCE
-        </span>
-        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-1 uppercase">
-          Contour Control Plane
-        </h1>
-        <p className="text-xs text-editorial-muted mt-1">
-          Multi-tenant governance, Dokploy container status, and machine MCP keys.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <Link
-          href="/admin/mcp"
-          className="bg-white rounded-none p-6 border border-editorial-border hover:border-editorial-black transition-colors group flex flex-col justify-between"
-        >
-          <div>
-            <div className="w-10 h-10 bg-editorial-paper border border-editorial-border flex items-center justify-center text-editorial-red mb-4">
-              <Key className="w-5 h-5" />
-            </div>
-            <h3 className="font-serif font-bold text-lg text-editorial-black flex items-center justify-between">
-              <span>MCP Studio &amp; API Keys</span>
-              <ArrowUpRight className="w-4 h-4 text-editorial-neutral group-hover:text-editorial-red transition-colors" />
-            </h3>
-            <p className="text-xs text-editorial-neutral mt-1">
-              Manage user-scoped Bearer tokens with 1-click compromise revocation for Antigravity, Claude, and Cursor.
-            </p>
-          </div>
-          <div className="pt-4 mt-4 border-t border-editorial-border text-[11px] font-mono font-bold text-editorial-black uppercase tracking-wider">
-            Open Key Studio &rarr;
-          </div>
-        </Link>
-
-        <div className="bg-white rounded-none p-6 border border-editorial-border hover:border-editorial-black transition-colors flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 bg-editorial-paper border border-editorial-border flex items-center justify-center text-emerald-700 mb-4">
-              <Activity className="w-5 h-5" />
-            </div>
-            <h3 className="font-serif font-bold text-lg text-editorial-black">Dokploy Cluster Health</h3>
-            <div className="mt-2 flex items-center gap-2 text-xs font-mono font-bold text-emerald-800">
-              <span className="w-2 h-2 bg-emerald-600 animate-pulse" />
-              <span>All 3 Containers Healthy</span>
-            </div>
-            <p className="text-xs font-mono text-editorial-neutral mt-1">Next.js Standalone • PostgreSQL 16 • Redis</p>
-          </div>
-          <div className="pt-4 mt-4 border-t border-editorial-border text-[11px] font-mono text-emerald-800 uppercase tracking-wider">
-            100% Uptime / 0 Errors
-          </div>
-        </div>
-
-        <div className="bg-white rounded-none p-6 border border-editorial-border hover:border-editorial-black transition-colors flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 bg-editorial-paper border border-editorial-border flex items-center justify-center text-editorial-black mb-4">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="font-serif font-bold text-lg text-editorial-black">POPIA Audit Trail</h3>
-            <div className="font-mono text-2xl font-bold text-editorial-black mt-1">
-              142 Events
-            </div>
-            <p className="text-xs font-mono text-editorial-neutral mt-1">Zero unmasked PII leaks detected</p>
-          </div>
-          <div className="pt-4 mt-4 border-t border-editorial-border text-[11px] font-mono text-editorial-black uppercase tracking-wider">
-            Immutable Audit Trail Active
-          </div>
-        </div>
-      </div>
-    </div>
+    </main>
   );
+}
+
+function StatusCard({ icon: Icon, label, value, note, tone }: { icon: typeof Activity; label: string; value: string; note: string; tone: "neutral" | "safe" }) {
+  return <div className="border border-editorial-border bg-white p-5 shadow-subtle"><div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-widest text-editorial-muted">{label}</span><Icon className={tone === "safe" ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-editorial-red"} aria-hidden="true" /></div><div className="mt-4 font-mono text-xl font-bold">{value}</div><p className="mt-1 text-xs text-editorial-muted">{note}</p></div>;
 }

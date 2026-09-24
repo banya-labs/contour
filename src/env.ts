@@ -24,6 +24,7 @@ export const env = createEnv({
     S3_ACCESS_KEY_ID: z.string().optional(),
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     S3_PUBLIC_DOMAIN: z.string().optional(),
+    CONTOUR_CONTROL_PLANE_OWNER_EMAILS: z.string().default(""),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   },
   client: {
@@ -52,6 +53,7 @@ export const env = createEnv({
     S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,
     S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY,
     S3_PUBLIC_DOMAIN: process.env.S3_PUBLIC_DOMAIN,
+    CONTOUR_CONTROL_PLANE_OWNER_EMAILS: process.env.CONTOUR_CONTROL_PLANE_OWNER_EMAILS,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_DEV_MODE: process.env.NEXT_PUBLIC_DEV_MODE,
