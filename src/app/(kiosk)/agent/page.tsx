@@ -54,6 +54,7 @@ import {
   Pencil,
   Clock,
 } from "lucide-react";
+import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 import { formatCurrency } from "@/lib/utils";
 import { PowerSyncProvider, usePowerSync } from "@/lib/powersync";
 import type { PropertyMapItem } from "@/types/property-map";
@@ -155,6 +156,7 @@ function AgentKioskContent() {
   const [clientLookingForFilter, setClientLookingForFilter] = useState<"ALL" | "FOR_SALE" | "FOR_RENT">("ALL");
 
   const [dealAgentFilter, setDealAgentFilter] = useState<string>("ALL");
+  const [agentRefreshNonce, setAgentRefreshNonce] = useState(0);
 
   const [currentAgent, setCurrentAgent] = useState({
     id: session?.user?.id || "",
@@ -344,7 +346,16 @@ function AgentKioskContent() {
       const summaryRefresh = window.setInterval(loadSummary, 60_000);
       return () => window.clearInterval(summaryRefresh);
     }
-  }, [earningsPeriod, session, syncData]);
+  }, [earningsPeriod, session, syncData, agentRefreshNonce]);
+
+  useEffect(() => {
+    const handleWorkspaceMutation = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "agent")) setAgentRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
+  }, []);
 
   useEffect(() => {
     const handleFocus = () => {
@@ -1007,12 +1018,13 @@ function AgentKioskContent() {
       return;
     }
 
-    setAgentDeals((prev) =>
+      setAgentDeals((prev) =>
       prev.map((deal) => {
         if (deal.id !== dealId) return deal;
         return { ...deal, stage: nextStage, stageLabel: nextStageLabel, updatedAt: "Just now" };
       })
-    );
+      );
+      emitWorkspaceMutation(["agent", "pipeline", "clients", "dashboard"], dealId);
     playSuccessTone();
 
     // If it's a real database inquiry, sync to server immediately

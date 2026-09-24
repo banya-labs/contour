@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldAlert, Check } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
+import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 export default function DocumentAccessControlPage() {
   const [members, setMembers] = useState<any[]>([]);
@@ -12,6 +13,7 @@ export default function DocumentAccessControlPage() {
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [savedUserId, setSavedUserId] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const fetchGrants = async () => {
     setLoading(true);
@@ -31,6 +33,14 @@ export default function DocumentAccessControlPage() {
 
   useEffect(() => {
     fetchGrants();
+  }, [refreshNonce]);
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "documents")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handle);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
   }, []);
 
   const handleUpdate = async (userId: string, accessLevel: string, propertyIds: string[] = []) => {

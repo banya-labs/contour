@@ -41,6 +41,7 @@ import { PropertyCardSkeleton } from "@/components/ui/skeleton";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { publicPropertyPath } from "@/lib/public-property";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
+import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 const SUBURB_GPS_COORDINATES: Record<string, [number, number]> = {
   "Kabulonga": [-15.4215, 28.3345],
@@ -73,6 +74,7 @@ function PropertiesCatalogContent() {
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
   const [propertyToDelete, setPropertyToDelete] = useState<any | null>(null);
   const [organizationSlug, setOrganizationSlug] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -105,6 +107,15 @@ function PropertiesCatalogContent() {
       }
     }
     loadProperties();
+  }, [refreshNonce]);
+
+  useEffect(() => {
+    const handleWorkspaceMutation = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "properties")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
   }, []);
 
   // Reverse-Match Summary Modal State
@@ -192,6 +203,7 @@ function PropertiesCatalogContent() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || "Unable to delete listing.");
       setProperties((current) => current.filter((item) => item.id !== property.id));
+      emitWorkspaceMutation(["properties", "dashboard", "pipeline", "agent"], property.id);
       setDetailModalState({ isOpen: false, property: null });
       setPropertyToDelete(null);
     } catch (error) {
@@ -294,6 +306,7 @@ function PropertiesCatalogContent() {
       const data = await res.json();
       if (data.success && data.property) {
         setProperties((prev) => [data.property, ...prev]);
+        emitWorkspaceMutation(["properties", "dashboard", "pipeline", "agent"], data.property.id);
         setIsModalOpen(false);
       } else {
         let errorMsg = data.error || "Failed to create property listing";
@@ -1145,6 +1158,7 @@ function PropertiesCatalogContent() {
           setProperties((prev) =>
             prev.map((p) => (p.id === updatedProp.id ? updatedProp : p))
           );
+          emitWorkspaceMutation(["properties", "dashboard", "pipeline", "agent"], updatedProp.id);
           setDetailModalState({ isOpen: true, property: updatedProp });
         }}
         onOpenSocialGenerator={(p) => setSocialModalState({ isOpen: true, property: p })}

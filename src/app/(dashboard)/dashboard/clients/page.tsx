@@ -29,6 +29,7 @@ import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { filterContacts, normalizeInquiryContact, sortContactsAlphabetically, type ContactRow } from "@/lib/crm/contacts-view-model";
+import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -43,6 +44,7 @@ function ClientsCRMContent() {
   const [matchResults, setMatchResults] = useState<Array<{ propertyId: string; score: number; reasons: string[]; property?: { title: string; suburb?: string | null; askingPrice?: unknown; rentalPrice?: unknown; currency?: string | null } }>>([]);
   const [matchingPending, setMatchingPending] = useState(false);
   const [matchingError, setMatchingError] = useState("");
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   // Edit Client State
   const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -106,6 +108,15 @@ function ClientsCRMContent() {
       }
     }
     loadData();
+  }, [refreshNonce]);
+
+  useEffect(() => {
+    const handleWorkspaceMutation = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "clients")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
   }, []);
 
   const openEditModal = (client: any) => {
@@ -250,6 +261,7 @@ function ClientsCRMContent() {
           };
         })
       );
+      emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], editingClient.id);
 
       setEditingClient(null);
     } catch (err: any) {
@@ -276,6 +288,7 @@ function ClientsCRMContent() {
       }
 
       setClients((prev) => prev.filter((c) => c.id !== deletingClient.id));
+      emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], deletingClient.id);
       setDeletingClient(null);
     } catch (err: any) {
       setDeleteError(`Failed to delete client: ${err?.message || "Network error"}`);
@@ -363,6 +376,7 @@ function ClientsCRMContent() {
             assignedAgent: data.client.assignedAgent || agents.find((a) => a.id === formData.assignedAgentId),
           });
           setClients([newClient, ...clients]);
+          emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], newClient.id);
           setIsModalOpen(false);
           setFormData({
             contactId: "",

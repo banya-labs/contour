@@ -25,6 +25,7 @@ import { ContourLogo } from "@/components/brand/contour-logo";
 import { authClient } from "@/lib/auth-client";
 import { isManagementRole } from "@/lib/authorization";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
+import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 export default function DashboardOverviewPage() {
   const { data: session } = authClient.useSession();
@@ -44,6 +45,7 @@ export default function DashboardOverviewPage() {
   const [recentLeases, setRecentLeases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedActions, setCompletedActions] = useState<string[]>([]);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   // Real action queue data from DB
   const [arrearsLeases, setArrearsLeases] = useState<any[]>([]);
@@ -100,6 +102,15 @@ export default function DashboardOverviewPage() {
       }
     }
     loadData();
+  }, [refreshNonce]);
+
+  useEffect(() => {
+    const handleWorkspaceMutation = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "dashboard")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
   }, []);
 
   const handleCompleteAction = (id: string, actionMsg: string) => {
