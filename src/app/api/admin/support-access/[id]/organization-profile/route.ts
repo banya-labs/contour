@@ -25,6 +25,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const { id } = await context.params;
   const access = await db.supportAccessSession.findUnique({ where: { id }, select: { id: true, organizationId: true, startedByUserId: true, mode: true, expiresAt: true, revokedAt: true } });
   if (!canMutateThroughSupportAccess(access, actor.userId)) return NextResponse.json({ error: "Active ACT_AS support session required" }, { status: 403 });
+  if (!access) return NextResponse.json({ error: "Support access session not found" }, { status: 404 });
   const parsed = profileSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid profile update", details: parsed.error.flatten() }, { status: 400 });
   const { reason, ...profile } = parsed.data;

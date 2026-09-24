@@ -59,7 +59,10 @@ export const PATCH = createApiHandler({
   requirePermissions: ["org.members.update_role"],
   bodySchema: memberUpdateSchema,
   handler: async (_req, { body, organizationId, userId }) => {
-    const member = await db.member.findFirst({ where: { id: body.memberId, organizationId: organizationId! } });
+    const member = await db.member.findFirst({
+      where: { id: body.memberId, organizationId: organizationId! },
+      include: { roleAssignments: { include: { role: true } } },
+    });
     if (!member) return NextResponse.json({ success: false, error: "Workspace member not found" }, { status: 404 });
 
     if (body.phone !== undefined) {
