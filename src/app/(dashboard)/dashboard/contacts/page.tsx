@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Search, Users, X } from "lucide-react";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
-import Link from "next/link";
+import { PageTabs } from "@/components/ui/page-tabs";
 
 type Contact = { id: string; name: string; phone: string; email?: string | null; notes?: string | null; _count?: { inquiries: number } };
 
@@ -37,10 +37,7 @@ export default function ContactsPage() {
       <div><span className="text-[10px] font-heading font-bold uppercase tracking-wider text-contour-red">Inquiries</span><h1 className="font-heading text-2xl sm:text-3xl font-bold uppercase tracking-tight">Contacts</h1><p className="text-xs text-editorial-muted mt-1">Reusable clients connected to their inquiries and property opportunities.</p></div>
       <button onClick={() => setOpen(true)} className="px-4 py-2 bg-editorial-black text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-2"><Plus className="w-4 h-4" /> Add Contact</button>
     </header>
-    <div className="flex border-b border-editorial-border">
-      <Link href="/dashboard/clients" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider text-editorial-muted">Inquiries</Link>
-      <Link href="/dashboard/clients?tab=contacts" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider border-b-2 border-contour-red">Contacts</Link>
-    </div>
+    <PageTabs tabs={[{ id: "inquiries", label: "Inquiries", href: "/dashboard/clients" }, { id: "contacts", label: "Contacts", href: "/dashboard/clients?tab=contacts" }]} activeTab="contacts" />
     <div className="flex items-center gap-2 border border-editorial-border bg-white px-3 py-2"><Search className="w-4 h-4 text-editorial-muted" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search contacts by name, phone, or email" className="w-full text-xs outline-none" /></div>
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{contacts.map((contact) => <article key={contact.id} className="border border-editorial-border bg-white p-4 space-y-3"><div className="flex items-start justify-between"><div><h2 className="font-heading font-bold uppercase tracking-tight">{contact.name}</h2><p className="text-xs text-editorial-muted">{contact.phone}</p></div><Users className="w-4 h-4 text-contour-red" /></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="border-t border-editorial-border pt-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>
     {contacts.length === 0 && <div className="border border-dashed border-editorial-border p-10 text-center text-xs text-editorial-muted">No contacts found. Add a contact before recording an inquiry.</div>}

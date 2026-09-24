@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DollarSign,
   TrendingUp,
@@ -20,6 +19,7 @@ import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import CommissionsPage from "@/app/(dashboard)/dashboard/commissions/page";
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { PageTabs } from "@/components/ui/page-tabs";
 
 function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
@@ -35,6 +35,7 @@ function PropertySalesContent() {
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const activeTab = searchParams?.get("tab") === "commissions" ? "commissions" : "sales";
   useEffect(() => {
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
@@ -305,10 +306,14 @@ function PropertySalesContent() {
 
   return activeTab === "commissions" ? <CommissionsPage /> : (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
-      <div className="flex gap-1 border-b border-editorial-border pb-2">
-        <Link href="/dashboard/sales" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Sales Register</Link>
-        <Link href="/dashboard/sales?tab=commissions" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Commissions</Link>
-      </div>
+      <PageTabs
+        tabs={[
+          { id: "sales", label: "Sales Register", count: sales.length },
+          { id: "commissions", label: "Commissions" },
+        ]}
+        activeTab={activeTab}
+        onChange={(tabId) => router.push(tabId === "commissions" ? "/dashboard/sales?tab=commissions" : "/dashboard/sales")}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>

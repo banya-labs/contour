@@ -40,7 +40,7 @@ import {
   AgencySettings,
   DEFAULT_AGENCY_SETTINGS,
 } from "@/lib/settings/agency-settings";
-import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { MfaSetupDialog } from "@/components/auth/mfa-setup-dialog";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
@@ -554,7 +554,7 @@ function SettingsContent() {
       </div>
 
       {/* Animate-UI Inspired Sliding Tabs */}
-      <AnimatedTabs
+      <PageTabs
         tabs={tabs}
         activeTab={activeTab}
         onChange={(tabId) => {

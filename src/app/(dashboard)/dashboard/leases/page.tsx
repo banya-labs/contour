@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   KeyRound,
   AlertTriangle,
@@ -19,6 +18,7 @@ import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import StatementsPage from "@/app/(dashboard)/dashboard/statements/page";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { PageTabs } from "@/components/ui/page-tabs";
 
 function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
@@ -31,6 +31,7 @@ function LeasesManagementContent() {
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const activeTab = searchParams?.get("tab") === "statements" ? "statements" : "leases";
   useEffect(() => {
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
@@ -190,10 +191,14 @@ function LeasesManagementContent() {
 
   return activeTab === "statements" ? <StatementsPage /> : (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
-      <div className="flex gap-1 border-b border-editorial-border pb-2">
-        <Link href="/dashboard/leases" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Leases</Link>
-        <Link href="/dashboard/leases?tab=statements" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Statements</Link>
-      </div>
+      <PageTabs
+        tabs={[
+          { id: "leases", label: "Active Leases", count: leases.length },
+          { id: "statements", label: "Landlord Statements" },
+        ]}
+        activeTab={activeTab}
+        onChange={(tabId) => router.push(tabId === "statements" ? "/dashboard/leases?tab=statements" : "/dashboard/leases")}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>

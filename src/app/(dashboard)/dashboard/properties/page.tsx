@@ -32,7 +32,7 @@ import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-c
 import TitleDeedOcrUploader from "@/components/properties/title-deed-ocr-uploader";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import LocationCoordinatePicker from "@/components/properties/location-coordinate-picker";
-import { AnimatedTabs } from "@/components/ui/animate/animated-tabs";
+import { PageTabs } from "@/components/ui/page-tabs";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -398,7 +398,7 @@ function PropertiesCatalogContent() {
       </div>
 
       {/* Type Filter Sliding Tabs */}
-      <AnimatedTabs
+      <PageTabs
         tabs={typeTabs}
         activeTab={filterType}
         onChange={(tabId) => setFilterType(tabId)}

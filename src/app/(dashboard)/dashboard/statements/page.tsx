@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   FileSpreadsheet,
@@ -19,6 +18,7 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { PageTabs } from "@/components/ui/page-tabs";
 
 type Statement = {
   id: string;
@@ -168,10 +168,7 @@ function LandlordStatementsContent() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
-      <div className="flex gap-1 border-b border-editorial-border pb-2">
-        <Link href="/dashboard/leases" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Leases</Link>
-        <Link href="/dashboard/leases?tab=statements" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Statements</Link>
-      </div>
+      <PageTabs tabs={[{ id: "leases", label: "Active Leases", href: "/dashboard/leases" }, { id: "statements", label: "Landlord Statements", href: "/dashboard/leases?tab=statements", count: statements.length }]} activeTab="statements" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>

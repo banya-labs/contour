@@ -29,6 +29,7 @@ import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { PageTabs } from "@/components/ui/page-tabs";
 
 export default function DocumentVaultPage() {
   const [documents, setDocuments] = useState<VaultDoc[]>([]);
@@ -326,35 +327,15 @@ export default function DocumentVaultPage() {
             <option value="VALUATION_REPORT">📊 Valuation Reports</option>
           </select>
 
-          {/* View Mode Switcher: Tree vs Grid */}
-          <div className="flex items-center border border-editorial-border rounded-none overflow-hidden ml-auto sm:ml-0">
-            <button
-              type="button"
-              onClick={() => setViewMode("TREE")}
-              title="Hierarchical Folder Tree View"
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors ${
-                viewMode === "TREE"
-                  ? "bg-editorial-black text-white"
-                  : "bg-white text-editorial-muted hover:text-editorial-black hover:bg-editorial-bg"
-              }`}
-            >
-              <FolderTree className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Tree View</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("GRID")}
-              title="Architectural Property Grid View"
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider border-l border-editorial-border transition-colors ${
-                viewMode === "GRID"
-                  ? "bg-editorial-black text-white"
-                  : "bg-white text-editorial-muted hover:text-editorial-black hover:bg-editorial-bg"
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Grid View</span>
-            </button>
-          </div>
+          <PageTabs
+            className="ml-auto sm:ml-0"
+            tabs={[
+              { id: "TREE", label: "Tree View", icon: FolderTree },
+              { id: "GRID", label: "Grid View", icon: LayoutGrid },
+            ]}
+            activeTab={viewMode}
+            onChange={(tabId) => setViewMode(tabId as "TREE" | "GRID")}
+          />
         </div>
       </div>
 
