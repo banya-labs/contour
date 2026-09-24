@@ -66,7 +66,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       // unauthenticated local smoke test; it must never shadow a signed-in
       // user's active organization.
       const authenticatedSession = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
-      const resolvedTenant = await getTenantContext(req);
+      const resolvedTenant = await getTenantContext(req, authenticatedSession);
       const tenant = resolvedTenant || (!authenticatedSession && isLocalDevelopment ? demoTenant : null);
 
       // API handlers are protected by default. Public endpoints should use a

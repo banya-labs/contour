@@ -28,8 +28,10 @@ type Membership = {
  * membership check. Callers must never accept organization IDs from the
  * client for protected operations.
  */
-export async function getTenantContext(req: NextRequest): Promise<TenantContext | null> {
-  const session = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
+export async function getTenantContext(req: NextRequest, existingSession?: Session | null): Promise<TenantContext | null> {
+  const session = existingSession === undefined
+    ? await auth.api.getSession({ headers: toAuthHeaders(req.headers) })
+    : existingSession;
   if (!session?.user?.id) {
     return null;
   }

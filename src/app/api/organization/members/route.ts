@@ -23,34 +23,43 @@ export const GET = createApiHandler({
   requireAuth: true,
   requirePermissions: ["org.members.read"],
   handler: async (_req, { organizationId }) => {
-    const members = await db.member.findMany({
-      where: { organizationId: organizationId! },
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true, image: true, createdAt: true } },
-        roleAssignments: { include: { role: { include: { permissions: true } } } },
-        permissionOverrides: true,
+    const response = await smartCache.getOrSet(
+      organizationId!,
+      "organization-members",
+      "list",
+      async () => {
+        const members = await db.member.findMany({
+          where: { organizationId: organizationId! },
+          include: {
+            user: { select: { id: true, name: true, email: true, phone: true, image: true, createdAt: true } },
+            roleAssignments: { include: { role: { include: { permissions: true } } } },
+            permissionOverrides: true,
+          },
+          orderBy: { createdAt: "asc" },
+        });
+        const membersWithEffectivePermissions = members.map((member) => {
+          const isOwner = member.role === "owner";
+          const assignedRoleKey = member.roleAssignments[0]?.role.key as keyof typeof ROLE_PRESETS | undefined;
+          const basePermissions = isOwner
+            ? ROLE_PRESETS.OWNER
+            : assignedRoleKey
+              ? ROLE_PRESETS[assignedRoleKey] || []
+              : [];
+          const effectivePermissions = isOwner
+            ? ROLE_PRESETS.OWNER
+            : applyPermissionOverrides(basePermissions, member.permissionOverrides);
+          return { ...member, effectivePermissions };
+        });
+        return {
+          success: true,
+          roles: Object.entries(ROLE_DESCRIPTIONS).map(([key, value]) => ({ key, ...value, permissions: ROLE_PRESETS[key as keyof typeof ROLE_PRESETS] })),
+          permissionGroups: PERMISSION_GROUPS,
+          members: membersWithEffectivePermissions,
+        };
       },
-      orderBy: { createdAt: "asc" },
-    });
-    const membersWithEffectivePermissions = members.map((member) => {
-      const isOwner = member.role === "owner";
-      const assignedRoleKey = member.roleAssignments[0]?.role.key as keyof typeof ROLE_PRESETS | undefined;
-      const basePermissions = isOwner
-        ? ROLE_PRESETS.OWNER
-        : assignedRoleKey
-          ? ROLE_PRESETS[assignedRoleKey] || []
-          : [];
-      const effectivePermissions = isOwner
-        ? ROLE_PRESETS.OWNER
-        : applyPermissionOverrides(basePermissions, member.permissionOverrides);
-      return { ...member, effectivePermissions };
-    });
-    return NextResponse.json({
-      success: true,
-      roles: Object.entries(ROLE_DESCRIPTIONS).map(([key, value]) => ({ key, ...value, permissions: ROLE_PRESETS[key as keyof typeof ROLE_PRESETS] })),
-      permissionGroups: PERMISSION_GROUPS,
-      members: membersWithEffectivePermissions,
-    });
+      15,
+    );
+    return NextResponse.json(response);
   },
 });
 
