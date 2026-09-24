@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import { s3Storage, StorageCategory } from "@/lib/storage/s3";
 import { recordClientConsent } from "@/lib/zambia-dpa";
+import { isDocumentRequestConsumed, ONE_TIME_UPLOAD_CONSUMED_MESSAGE } from "@/lib/document-request-status";
 
 // ── GET /api/upload/[token] ──────────────────────────────────────────────────
 export async function GET(
@@ -39,6 +40,7 @@ export async function GET(
     }
 
     const isExpired = new Date() > new Date(docRequest.expiresAt) || docRequest.status === "EXPIRED";
+    const isConsumed = isDocumentRequestConsumed(docRequest.status);
 
     return NextResponse.json({
       success: true,
@@ -51,6 +53,7 @@ export async function GET(
         maxSizeMbPerFile: docRequest.maxSizeMbPerFile,
         expiresAt: docRequest.expiresAt,
         status: isExpired ? "EXPIRED" : docRequest.status,
+        accessMessage: isConsumed ? ONE_TIME_UPLOAD_CONSUMED_MESSAGE : null,
         hasPin: !!docRequest.pinHash,
         agencyName: docRequest.organization.name,
         propertyTitle: docRequest.property?.title || null,
@@ -93,6 +96,10 @@ export async function POST(
 
     if (new Date() > new Date(docRequest.expiresAt) || docRequest.status === "EXPIRED") {
       return NextResponse.json({ error: "This document request link has expired" }, { status: 410 });
+    }
+
+    if (isDocumentRequestConsumed(docRequest.status)) {
+      return NextResponse.json({ error: ONE_TIME_UPLOAD_CONSUMED_MESSAGE }, { status: 410 });
     }
 
     // Action 1: Verify PIN
@@ -164,6 +171,16 @@ export async function POST(
         );
       }
 
+      // Consume the capability before writing any documents. The conditional
+      // update makes finalization single-use even if two requests arrive together.
+      const consumed = await db.documentRequest.updateMany({
+        where: { id: docRequest.id, status: "PENDING" },
+        data: { status: "FULFILLED" },
+      });
+      if (consumed.count !== 1) {
+        return NextResponse.json({ error: ONE_TIME_UPLOAD_CONSUMED_MESSAGE }, { status: 410 });
+      }
+
       const clientIp = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "REMOTE_CLIENT";
       const userAgent = req.headers.get("user-agent") || "UNKNOWN";
 
@@ -202,15 +219,7 @@ export async function POST(
         createdDocs.push(doc);
       }
 
-      // 3. Mark request as FULFILLED
-      await db.documentRequest.update({
-        where: { id: docRequest.id },
-        data: {
-          status: "FULFILLED",
-        },
-      });
-
-      // 4. If linked to Inquiry / Deal, append note to Inquiry
+      // 3. If linked to Inquiry / Deal, append note to Inquiry
       if (docRequest.inquiryId) {
         try {
           const inquiry = await db.inquiry.findUnique({
