@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
   Search,
@@ -28,16 +28,20 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
+import { filterContacts, normalizeInquiryContact, sortContactsAlphabetically, type ContactRow } from "@/lib/crm/contacts-view-model";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<ContactRow[]>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; roleKey?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [matchResults, setMatchResults] = useState<Array<{ propertyId: string; score: number; reasons: string[]; property?: { title: string; suburb?: string | null; askingPrice?: unknown; rentalPrice?: unknown; currency?: string | null } }>>([]);
+  const [matchingPending, setMatchingPending] = useState(false);
+  const [matchingError, setMatchingError] = useState("");
 
   // Edit Client State
   const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -63,7 +67,11 @@ function ClientsCRMContent() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const [activeView, setActiveView] = useState<"inquiries" | "contacts">("inquiries");
+  const [filterStatus, setFilterStatus] = useState("ALL");
   useEffect(() => {
+    setActiveView(searchParams?.get("view") === "contacts" ? "contacts" : "inquiries");
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
       setIsModalOpen(true);
     }
@@ -84,37 +92,7 @@ function ClientsCRMContent() {
         }
 
         if (data.success && data.clients) {
-          const normalized = data.clients.map((c: any) => {
-            const lockExpiresAt = c.exclusiveLockExpiresAt ? new Date(c.exclusiveLockExpiresAt) : null;
-            const daysLeft = lockExpiresAt 
-              ? Math.max(0, Math.ceil((lockExpiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
-              : 30;
-
-            const sourceMatch = c.notes?.match(/^\[Source:\s*([^\]]+)\]/);
-            const leadSource = c.leadSource || (sourceMatch 
-              ? sourceMatch[1] 
-              : (c.notes?.includes("[Website Inquiry") ? "Website Portal" : "Portal / Inbound"));
-            const cleanNotes = c.notes?.replace(/^\[Source:\s*[^\]]+\]\s*/, "") || c.notes || "Searching for property";
-
-            return {
-              id: c.id,
-              name: c.clientName,
-              phone: c.clientPhone,
-              email: c.email || c.clientEmail || "not-provided@client.zm",
-              lookingFor: cleanNotes,
-              preferredSuburbs: c.preferredSuburbs || [],
-              budgetMax: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : "No budget limit",
-              rawBudgetMax: c.budgetMax ? Number(c.budgetMax) : null,
-              currency: c.currency || "ZMW",
-              purpose: c.lookingFor === "FOR_RENT" ? "RENT" : "BUY",
-              leadSource,
-              assignedAgentId: c.assignedAgentId || c.assignedAgent?.id || "",
-              assignedAgent: c.assignedAgent?.name || "Unassigned",
-              lockExpiresInDays: daysLeft,
-              lastContacted: "Active client",
-              status: c.status || "NEW_INQUIRY",
-            };
-          });
+          const normalized = data.clients.map(normalizeInquiryContact);
           setClients(normalized);
         }
       } catch (err) {
@@ -142,6 +120,51 @@ function ClientsCRMContent() {
       assignedAgentId: client.assignedAgentId || "",
       status: client.status || "NEW_INQUIRY",
     });
+  };
+
+  const handleMatchProperties = async (client: ContactRow) => {
+    setMatchingPending(true);
+    setMatchingError("");
+    setMatchResults([]);
+    try {
+      const response = await fetch(`/api/clients/${client.id}/matches`);
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setMatchingError(data.error || "Unable to match properties.");
+        return;
+      }
+      setMatchResults(data.matches || []);
+    } catch (error) {
+      setMatchingError(error instanceof Error ? error.message : "Network error matching properties.");
+    } finally {
+      setMatchingPending(false);
+    }
+  };
+
+  const handleAssignProperty = async (propertyId: string) => {
+    if (!selectedClient) return;
+    setMatchingPending(true);
+    setMatchingError("");
+    try {
+      const response = await fetch(`/api/clients/${selectedClient.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId, matchStatus: "MATCHED", unmatchedReason: null }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setMatchingError(data.error || "Unable to assign this property.");
+        return;
+      }
+      const updated = normalizeInquiryContact(data.inquiry);
+      setClients((current) => current.map((client) => client.id === updated.id ? updated : client));
+      setSelectedClient(updated);
+      setMatchResults([]);
+    } catch (error) {
+      setMatchingError(error instanceof Error ? error.message : "Network error assigning property.");
+    } finally {
+      setMatchingPending(false);
+    }
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -271,19 +294,13 @@ function ClientsCRMContent() {
   });
   const [formError, setFormError] = useState("");
 
-  const filteredClients = clients.filter((c) => {
-    const matchesSearch =
-      search.trim() === "" ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.lookingFor.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone.includes(search);
-
-    const matchesAssigned =
-      filterAssigned === "ALL" ||
-      (session?.user?.id && (c.assignedAgentId === session.user.id || c.assignedAgent === session.user.name));
-
-    return matchesSearch && matchesAssigned;
-  });
+  const filteredClients = activeView === "contacts"
+    ? filterContacts(clients, { search, status: filterStatus, assignment: filterAssigned })
+    : sortContactsAlphabetically(clients.filter((c) => {
+        const matchesSearch = search.trim() === "" || c.name.toLowerCase().includes(search.toLowerCase()) || c.lookingFor.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
+        const matchesAssigned = filterAssigned === "ALL" || (session?.user?.id && (c.assignedAgentId === session.user.id || c.assignedAgent === session.user.name));
+        return matchesSearch && matchesAssigned && (filterStatus === "ALL" || c.status === filterStatus);
+      }));
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
@@ -331,26 +348,10 @@ function ClientsCRMContent() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.client) {
-          const sourceMatch = data.client.notes?.match(/^\[Source:\s*([^\]]+)\]/);
-          const leadSource = data.client.leadSource || (sourceMatch ? sourceMatch[1] : formData.leadSource);
-          const cleanNotes = data.client.notes?.replace(/^\[Source:\s*[^\]]+\]\s*/, "") || data.client.notes || "";
-          const assignedAgentObj = agents.find((a) => a.id === formData.assignedAgentId);
-
-          const newClient = {
-            id: data.client.id,
-            name: data.client.clientName,
-            phone: data.client.clientPhone,
-            email: data.client.email || data.client.clientEmail || "not-provided@client.zm",
-            lookingFor: cleanNotes,
-            preferredSuburbs: data.client.preferredSuburbs || [],
-            budgetMax: `${data.client.currency === "USD" ? "$" : "K"} ${Number(data.client.budgetMax || 0).toLocaleString()}`,
-            purpose: data.client.lookingFor === "FOR_RENT" ? "RENT" : "BUY",
-            leadSource,
-            assignedAgent: data.client.assignedAgent?.name || assignedAgentObj?.name || "Unassigned",
-            lockExpiresInDays: 30,
-            lastContacted: "Just now",
-            status: data.client.status || "NEW_INQUIRY",
-          };
+          const newClient = normalizeInquiryContact({
+            ...data.client,
+            assignedAgent: data.client.assignedAgent || agents.find((a) => a.id === formData.assignedAgentId),
+          });
           setClients([newClient, ...clients]);
           setIsModalOpen(false);
           setFormData({
@@ -399,6 +400,24 @@ function ClientsCRMContent() {
         </button>
       </div>
 
+      <div className="flex items-center gap-1 border-b border-editorial-border" role="tablist" aria-label="Inquiries workspace views">
+        {(["inquiries", "contacts"] as const).map((view) => (
+          <button
+            key={view}
+            type="button"
+            role="tab"
+            aria-selected={activeView === view}
+            onClick={() => {
+              setActiveView(view);
+              router.replace(`/dashboard/clients?view=${view}`, { scroll: false });
+            }}
+            className={`border-b-2 px-4 py-2.5 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors ${activeView === view ? "border-contour-red text-editorial-black" : "border-transparent text-editorial-muted hover:text-editorial-black"}`}
+          >
+            {view === "inquiries" ? "Inquiries" : "Contacts"}
+          </button>
+        ))}
+      </div>
+
       {/* 30-Day Anti-Poaching Rule Notice */}
       <div className="bg-editorial-paper/50 border border-editorial-border p-4 sm:p-5 rounded-none flex items-start gap-3">
         <Lock className="w-4 sm:w-5 h-4 sm:h-5 text-editorial-red shrink-0 mt-0.5" />
@@ -418,7 +437,7 @@ function ClientsCRMContent() {
           <Search className="w-4 h-4 text-editorial-neutral shrink-0" />
           <input
             type="text"
-            placeholder="Search by client name, requirements, or phone..."
+            placeholder={activeView === "contacts" ? "Search contacts by name, phone, or email..." : "Search by client name, requirements, or phone..."}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-transparent text-xs text-editorial-black placeholder:text-editorial-neutral focus:outline-none"
@@ -434,8 +453,22 @@ function ClientsCRMContent() {
             <option value="ALL">All Agents</option>
             <option value="ASSIGNED">Assigned to Me</option>
           </select>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="bg-white text-xs font-mono font-semibold uppercase tracking-wider text-editorial-black px-3 py-2 border border-editorial-border focus:outline-none"
+            aria-label="Filter by inquiry status"
+          >
+            <option value="ALL">All statuses</option>
+            <option value="NEW_INQUIRY">New inquiry</option>
+            <option value="CONTACTED">Contacted</option>
+            <option value="VIEWING_SCHEDULED">Viewing scheduled</option>
+            <option value="NEGOTIATING">Negotiating</option>
+            <option value="OFFER_MADE">Offer made</option>
+            <option value="CLOSED">Closed</option>
+          </select>
           <span className="text-xs font-mono font-semibold text-editorial-neutral whitespace-nowrap">
-            {filteredClients.length} REGISTERED BUYERS / TENANTS
+            {filteredClients.length} {activeView === "contacts" ? "CONTACTS" : "INQUIRIES"}
           </span>
         </div>
       </div>
@@ -446,8 +479,8 @@ function ClientsCRMContent() {
       ) : filteredClients.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-none border border-editorial-border text-center space-y-3">
           <Users className="w-12 h-12 text-editorial-neutral/50" />
-          <h3 className="font-serif font-bold text-editorial-black text-lg">No client inquiries found</h3>
-          <p className="text-xs text-editorial-neutral max-w-sm">No prospective buyers or tenants match your query or have been registered yet.</p>
+          <h3 className="font-serif font-bold text-editorial-black text-lg">No {activeView === "contacts" ? "contacts" : "inquiries"} found</h3>
+          <p className="text-xs text-editorial-neutral max-w-sm">No records match your search or filters yet.</p>
         </div>
       ) : (
         <div className="overflow-x-auto bg-white border border-editorial-border">
@@ -473,7 +506,7 @@ function ClientsCRMContent() {
 
       <SelectedRowDetailsDialog
         open={Boolean(selectedClient)}
-        onClose={() => setSelectedClient(null)}
+        onClose={() => { setSelectedClient(null); setMatchResults([]); setMatchingError(""); }}
         eyebrow="Client CRM record"
         title={selectedClient?.name || "Client"}
         subtitle={selectedClient ? `${selectedClient.status || "—"} · ${selectedClient.purpose || "—"}` : undefined}
@@ -489,7 +522,16 @@ function ClientsCRMContent() {
           { label: "Pipeline status", value: selectedClient.status },
           { label: "Notes", value: selectedClient.notes },
         ] : []}
-        children={selectedClient ? <div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a></div> : undefined}
+        children={selectedClient ? <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit inquiry</button>
+            <button type="button" onClick={() => router.push(`/dashboard/pipeline?new=1&inquiryId=${encodeURIComponent(selectedClient.id)}`)} className="px-3 py-2 border border-editorial-black text-editorial-black text-[10px] font-mono font-bold uppercase">Start deal</button>
+            <button type="button" onClick={() => void handleMatchProperties(selectedClient)} disabled={matchingPending} className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase disabled:opacity-50">{matchingPending ? "Matching…" : "Match properties"}</button>
+            <a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a>
+          </div>
+          {matchingError && <div className="border border-red-200 bg-red-50 p-3 text-xs text-red-700" role="alert">{matchingError}</div>}
+          {matchResults.length > 0 && <div className="space-y-2 border-t border-editorial-border pt-4"><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-muted">Ranked property matches</p>{matchResults.map((match) => <div key={match.propertyId} className="flex items-center justify-between gap-3 border border-editorial-border p-3"><div><p className="text-xs font-bold text-editorial-black">{match.property?.title}</p><p className="text-[11px] text-editorial-muted">{match.property?.suburb || "—"} · {match.reasons.join(" · ") || "Requirement match"}</p></div><div className="flex shrink-0 items-center gap-2"><span className="font-mono text-xs font-bold text-emerald-800">{match.score}%</span><button type="button" onClick={() => void handleAssignProperty(match.propertyId)} className="border border-editorial-black px-2 py-1 text-[10px] font-mono font-bold uppercase">Assign</button></div></div>)}</div>}
+        </div> : undefined}
       />
 
       {/* Interactive Modal: Add New Client */}

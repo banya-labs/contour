@@ -66,7 +66,7 @@ export default function WorkspaceSidebar() {
   // Track expanded submenu states
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Properties: true,
-    "CRM & Deals": true,
+    Inquiries: true,
   });
   const [isWorkspaceToolsOpen, setIsWorkspaceToolsOpen] = useState(false);
 
@@ -160,11 +160,11 @@ export default function WorkspaceSidebar() {
       ],
     },
     {
-      name: "CRM & Deals",
+      name: "Inquiries",
       icon: Users,
       items: [
-        { name: "Deal Pipeline", href: "/dashboard/pipeline" },
-        { name: "Client CRM", href: "/dashboard/clients" },
+        { name: "Deals", href: "/dashboard/pipeline" },
+        { name: "Inquiries", href: "/dashboard/clients" },
       ],
     },
   ];

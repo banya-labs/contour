@@ -151,6 +151,22 @@ function DealPipelineContent() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    const inquiryId = searchParams?.get("inquiryId");
+    if (!inquiryId) return;
+    const client = existingClients.find((item) => item.id === inquiryId);
+    if (!client) return;
+    setClientSelectionMode("existing");
+    setFormData((current) => ({
+      ...current,
+      selectedExistingClientId: client.id,
+      clientName: client.clientName,
+      clientPhone: client.clientPhone,
+      clientEmail: client.clientEmail || "",
+    }));
+    setIsModalOpen(true);
+  }, [existingClients, searchParams]);
+
   const loadAllPipelineData = () => {
     void Promise.all([
       fetch("/api/clients"),

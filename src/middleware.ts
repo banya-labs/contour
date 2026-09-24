@@ -137,8 +137,19 @@ export async function middleware(request: NextRequest) {
   const session = await auth.api.getSession({
     headers: toAuthHeaders(request.headers),
   });
+  const pathname = request.nextUrl.pathname;
 
   if (!session) {
+    // The control plane must always authenticate, even when local demo mode
+    // bypasses tenant-scoped dashboard authentication.
+    if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+      const signInUrl = new URL("/sign-in", request.url);
+      signInUrl.searchParams.set("redirect_url", pathname);
+      const response = NextResponse.redirect(signInUrl);
+      response.headers.set(CORRELATION_HEADER, correlationId);
+      return response;
+    }
+
     // Allow unauthenticated demo bypass if dev mode is enabled and no session exists
     if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
       return createForwardResponse();
@@ -152,7 +163,6 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const pathname = request.nextUrl.pathname;
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     const persistedStaff = await hasPersistedControlPlaneAccess(session.user.id);
     const destination = getControlPlaneAccessDestination(true, hasControlPlaneAccess(session.user.email, persistedStaff));
