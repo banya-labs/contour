@@ -92,19 +92,20 @@ function FlyerFooter({
   isSale: boolean;
 }) {
   return (
-    <div className="flex min-h-14 shrink-0 border-t border-[#282828] bg-black text-white">
-      <div className="flex w-14 shrink-0 items-center justify-center bg-white p-1.5">
+    <div className="flex min-h-20 shrink-0 border-t border-[#282828] bg-black text-white">
+      <div className="flex w-20 shrink-0 items-center justify-center bg-white p-2">
         {qrCodeUrl ? <img src={qrCodeUrl} alt="Scan to view this property" className="h-full w-full object-contain" /> : <span className="text-[7px] font-mono text-[#282828]">SCAN</span>}
       </div>
-      <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5">
-        <img src="/images/whatsapp-icon.svg" alt="WhatsApp" className="h-4 w-4 shrink-0 object-contain" />
+      <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2">
+        <img src="/images/whatsapp-icon.svg" alt="WhatsApp" className="h-6 w-6 shrink-0 object-contain" />
         <div className="min-w-0">
-          <div className="truncate font-heading text-[7.5px] font-bold uppercase tracking-wide">For more information and viewings, contact {contactName}</div>
-          <div className="truncate font-mono text-[11px] font-extrabold leading-tight text-white">{formatPhoneDisplay(contactPhone) || "number unavailable"}</div>
-          <div className="truncate text-[7px] font-mono text-neutral-300">ZIEA No. {zieaNumber || "—"}</div>
+          <div className="truncate font-heading text-[10px] font-bold uppercase tracking-wide">For more information and viewings, contact</div>
+          <div className="truncate font-heading text-[14px] font-extrabold leading-tight text-white">{contactName}</div>
+          <div className="truncate font-mono text-[15px] font-extrabold leading-tight text-white">{formatPhoneDisplay(contactPhone) || "number unavailable"}</div>
+          <div className="truncate text-[8px] font-mono text-neutral-300">ZIEA No. {zieaNumber || "—"}</div>
         </div>
       </div>
-      <div className="flex items-center bg-[#fa3600] px-3 font-heading text-[8.5px] font-bold uppercase tracking-wider text-white">
+      <div className="flex items-center bg-[#fa3600] px-4 font-heading text-[10px] font-bold uppercase tracking-wider text-white">
         {isSale ? "BOOK NOW" : "SCHEDULE TOUR"}
       </div>
     </div>
@@ -125,6 +126,7 @@ export default function SocialMediaCardGeneratorModal({
   const [template, setTemplate] = useState<FlyerTemplate>("SWISS_LIGHT");
   const [aspectRatio, setAspectRatio] = useState<FlyerAspectRatio>("4:5");
   const [agencySettings, setAgencySettings] = useState<AgencySettings | null>(null);
+  const [organizationMembers, setOrganizationMembers] = useState<Array<{ userId: string; phone?: string | null }>>([]);
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState("");
   const [contactSource, setContactSource] = useState<FlyerContactSource>("agent");
   const [logoFailed, setLogoFailed] = useState(false);
@@ -145,6 +147,7 @@ export default function SocialMediaCardGeneratorModal({
   useEffect(() => {
     if (isOpen && property) {
       setAgencySettings(getAgencySettings());
+      setOrganizationMembers([]);
       setOrganizationLogoUrl("");
       setContactSource("agent");
       setLogoFailed(false);
@@ -164,6 +167,19 @@ export default function SocialMediaCardGeneratorModal({
             email: organization.profile?.primaryEmail || current?.email || "",
             officeAddress: organization.profile?.primaryOfficeAddress || current?.officeAddress || "",
           }));
+        })
+        .catch(() => undefined);
+
+      void fetch("/api/organization/members", { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          const members = Array.isArray(data?.members) ? data.members : [];
+          setOrganizationMembers(
+            members.map((member: { userId?: string; user?: { id?: string; phone?: string | null } }) => ({
+              userId: member.userId || member.user?.id || "",
+              phone: member.user?.phone || null,
+            })).filter((member: { userId: string }) => member.userId),
+          );
         })
         .catch(() => undefined);
 
@@ -220,12 +236,16 @@ export default function SocialMediaCardGeneratorModal({
     ? property.askingPrice || 3500000
     : property.rentalPrice || (property.askingPrice ? Math.round(property.askingPrice / 150) : 2500);
   const currency = property.currency || "ZMW";
-  const assignedAgent = property.assignedAgent || {
-    name: property.assignedAgentName,
-    phone: property.assignedAgentPhone,
-    email: property.assignedAgentEmail,
-    instagram: property.assignedAgentInstagram,
-    website: property.assignedAgentWebsite,
+  const persistedAgentPhone = organizationMembers.find(
+    (member) => member.userId === property.assignedAgentId,
+  )?.phone;
+  const assignedAgent = {
+    ...(property.assignedAgent || {}),
+    name: property.assignedAgentName || property.assignedAgent?.name,
+    phone: property.assignedAgent?.phone || property.assignedAgentPhone || persistedAgentPhone,
+    email: property.assignedAgentEmail || property.assignedAgent?.email,
+    instagram: property.assignedAgentInstagram || property.assignedAgent?.instagram,
+    website: property.assignedAgentWebsite || property.assignedAgent?.website,
   };
   const flyerContact = resolveFlyerContact("agent", assignedAgent, {
     name: agencySettings?.agencyName,
@@ -952,7 +972,7 @@ export default function SocialMediaCardGeneratorModal({
                 </div>
 
                 {/* Bottom Half: Title, Specs & Contact Bar */}
-                <div className="min-h-0 flex-1 overflow-hidden p-3 flex flex-col justify-between">
+                <div className="min-h-0 flex-1 overflow-hidden p-3 flex flex-col justify-start">
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="text-[8px] font-mono uppercase text-[#fa3600] font-bold">
@@ -976,7 +996,7 @@ export default function SocialMediaCardGeneratorModal({
                   </div>
 
                   {/* 4 Feature Badges */}
-                  <div className="mt-2 grid grid-cols-4 gap-1 py-1.5 border-y border-[#e0e0e0] font-mono text-[8px] text-center">
+                  <div className="mt-3 grid grid-cols-4 gap-1 py-1.5 border-y border-[#e0e0e0] font-mono text-[8px] text-center">
                     <div className="bg-[#fafafa] p-1 border border-[#e0e0e0] text-[#282828] break-words">
                       🛏 {property.bedrooms || 4} Beds
                     </div>

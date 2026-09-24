@@ -18,9 +18,27 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 
+type Statement = {
+  id: string;
+  status: string;
+  landlordName: string;
+  currency: string;
+  grossRentCollected: number | string;
+  rentDue: number | string;
+  arrearsClosing: number | string;
+  agencyFeeDeducted: number | string;
+  maintenanceDeducted: number | string;
+  netLandlordPayout: number | string;
+  property?: { title?: string; suburb?: string };
+  statementMonth: number;
+  statementYear: number;
+};
+
+type RentalProperty = { id: string; title: string; suburb?: string; listingType: string };
+
 function LandlordStatementsContent() {
-  const [statements, setStatements] = useState<any[]>([]);
-  const [properties, setProperties] = useState<any[]>([]);
+  const [statements, setStatements] = useState<Statement[]>([]);
+  const [properties, setProperties] = useState<RentalProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formError, setFormError] = useState("");
@@ -32,9 +50,6 @@ function LandlordStatementsContent() {
     propertyId: "",
     statementMonth: new Date().getMonth() + 1,
     statementYear: new Date().getFullYear(),
-    grossRentCollected: "25000",
-    agencyFeeDeducted: "2500",
-    maintenanceDeducted: "0",
     currency: "ZMW",
   });
 
@@ -50,7 +65,7 @@ function LandlordStatementsContent() {
       try {
         const [res, propsRes] = await Promise.all([
           fetch("/api/statements"),
-          fetch("/api/properties"),
+          fetch("/api/properties?status=ALL"),
         ]);
         const data = await res.json();
         const propsData = await propsRes.json();
@@ -59,7 +74,7 @@ function LandlordStatementsContent() {
         }
         if (propsData.success && propsData.properties) {
           const rentalProperties = propsData.properties.filter(
-            (property: any) => property.listingType === "FOR_RENT" || property.listingType === "BOTH"
+            (property: RentalProperty) => property.listingType === "FOR_RENT" || property.listingType === "BOTH"
           );
           setProperties(rentalProperties);
           if (rentalProperties.length > 0) {
@@ -93,9 +108,6 @@ function LandlordStatementsContent() {
           propertyId: formData.propertyId,
           statementMonth: Number(formData.statementMonth),
           statementYear: Number(formData.statementYear),
-          grossRentCollected: 0,
-          agencyFeeDeducted: 0,
-          maintenanceDeducted: 0,
           currency: formData.currency,
         }),
       });
@@ -157,8 +169,8 @@ function LandlordStatementsContent() {
           <h1 className="font-serif text-xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-0.5 sm:mt-1">
             Landlord Remittance Statements
           </h1>
-          <p className="text-xs text-editorial-neutral mt-0.5 sm:mt-1">
-            Automated monthly rent reconciliation with 10% management fee deduction and maintenance offsets.
+            <p className="text-xs text-editorial-neutral mt-0.5 sm:mt-1">
+            Monthly rental ledger reconciliation from confirmed payments, approved expenses, and lease arrears.
           </p>
         </div>
 
@@ -230,7 +242,11 @@ function LandlordStatementsContent() {
                 </div>
 
                 {/* Equation Breakdown Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 p-4 bg-editorial-paper/40 border border-editorial-border text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 p-4 bg-editorial-paper/40 border border-editorial-border text-xs">
+                  <div>
+                    <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Rent Due</div>
+                    <div className="font-mono font-bold text-editorial-black text-sm mt-1">{formatCurrency(Number(stmt.rentDue), stmt.currency)}</div>
+                  </div>
                   <div>
                     <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Gross Rent Collected</div>
                     <div className="font-mono font-bold text-editorial-black text-sm mt-1">
@@ -238,7 +254,7 @@ function LandlordStatementsContent() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Agency Fee (10%)</div>
+                    <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Agency Fee</div>
                     <div className="font-mono font-bold text-editorial-red text-sm mt-1">
                       - {formatCurrency(Number(stmt.agencyFeeDeducted), stmt.currency)}
                     </div>
@@ -248,6 +264,10 @@ function LandlordStatementsContent() {
                     <div className="font-mono font-bold text-editorial-black text-sm mt-1">
                       - {formatCurrency(Number(stmt.maintenanceDeducted), stmt.currency)}
                     </div>
+                  </div>
+                  <div>
+                    <div className="text-editorial-neutral text-[10px] font-mono uppercase tracking-wider font-semibold">Closing Arrears</div>
+                    <div className="font-mono font-bold text-amber-800 text-sm mt-1">{formatCurrency(Number(stmt.arrearsClosing), stmt.currency)}</div>
                   </div>
                   <div className="col-span-1 sm:col-span-2 lg:col-span-1 border-t sm:border-t-0 lg:border-l border-editorial-border pt-3 sm:pt-0 lg:pl-4">
                     <div className="text-emerald-700 text-[10px] font-mono uppercase tracking-wider font-bold">Net Landlord Payout</div>
@@ -368,27 +388,7 @@ function LandlordStatementsContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Gross Rent Collected *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.grossRentCollected}
-                    onChange={(e) => {
-                      const gross = parseFloat(e.target.value) || 0;
-                      setFormData({
-                        ...formData,
-                        grossRentCollected: e.target.value,
-                        agencyFeeDeducted: (gross * 0.10).toFixed(0),
-                      });
-                    }}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                    required
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 gap-3">
                 <div>
                   <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
                     Currency
@@ -404,45 +404,8 @@ function LandlordStatementsContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    10% Agency Fee
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.agencyFeeDeducted}
-                    onChange={(e) => setFormData({ ...formData, agencyFeeDeducted: e.target.value })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Maintenance Deduction
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.maintenanceDeducted}
-                    onChange={(e) => setFormData({ ...formData, maintenanceDeducted: e.target.value })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-neutral-50 border border-editorial-border flex items-center justify-between">
-                <span className="text-editorial-neutral font-heading text-xs uppercase tracking-wider">
-                  Net Landlord Remittance:
-                </span>
-                <span className="font-geist font-bold text-emerald-800 text-sm">
-                  {formatCurrency(
-                    (parseFloat(formData.grossRentCollected) || 0) -
-                    (parseFloat(formData.agencyFeeDeducted) || 0) -
-                    (parseFloat(formData.maintenanceDeducted) || 0),
-                    formData.currency as any
-                  )}
-                </span>
+              <div className="p-3 bg-blue-50 border border-blue-200 text-blue-900 text-xs leading-relaxed">
+                Statement figures are generated from confirmed rent payments, approved or paid maintenance expenses, and active lease arrears. No amounts are entered manually.
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">

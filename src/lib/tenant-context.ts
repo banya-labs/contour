@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth, type Session } from "./auth";
 import { db } from "./db";
-import { permissionsForRole, resolveApplicationRole, resolveContourRole, type ContourRoleKey, type Permission } from "./authorization";
+import { applyPermissionOverrides, normalizeContourRole, permissionsForRole, resolveApplicationRole, resolveContourRole, type ContourRoleKey, type Permission } from "./authorization";
 
 export type TenantContext = {
   session: Session;
@@ -96,14 +96,12 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
   const permissionOverrides = membership.permissionOverrides ?? [];
   const assignedRole = roleAssignments[0]?.role.key;
   const contourRole = resolveContourRole(session.user.role ?? undefined, membership.role, assignedRole);
-  const basePermissions = new Set<Permission>(
-    assignedRole && assignedRole !== "OWNER" && assignedRole !== "BROKER_MANAGER" ? [] : permissionsForRole(contourRole),
-  );
-  for (const assignment of roleAssignments) for (const permission of assignment.role.permissions) basePermissions.add(permission.permission as Permission);
-  for (const override of permissionOverrides) {
-    if (override.effect === "DENY") basePermissions.delete(override.permission as Permission);
-    if (override.effect === "ALLOW") basePermissions.add(override.permission as Permission);
-  }
+  const assignedRoleKey = assignedRole ? normalizeContourRole(assignedRole) : null;
+  const presetPermissions = assignedRoleKey ? permissionsForRole(assignedRoleKey) : permissionsForRole(contourRole);
+  const rolePermissions = assignedRoleKey
+    ? presetPermissions
+    : roleAssignments.flatMap((assignment) => assignment.role.permissions.map((permission) => permission.permission as Permission));
+  const permissions = applyPermissionOverrides(rolePermissions, permissionOverrides);
 
   return {
     session,
@@ -111,6 +109,6 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
     organizationId,
     userRole: resolveApplicationRole(session.user.role ?? undefined, membership.role),
     contourRole,
-    permissions: [...basePermissions],
+    permissions,
   };
 }

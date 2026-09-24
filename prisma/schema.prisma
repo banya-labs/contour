@@ -23,77 +23,78 @@ enum UserRole {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          UserRole  @default(FIELD_AGENT)
-  phone         String?
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  image            String?
+  role             UserRole @default(FIELD_AGENT)
+  phone            String?
   twoFactorEnabled Boolean? @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  sessions           Session[]
-  accounts           Account[]
-  members            Member[]
-  apiKeys            ApiKey[]
-  twoFactor          TwoFactor?
-  assignedProperties Property[]          @relation("AssignedAgent")
-  createdProperties  Property[]          @relation("CreatedProperties")
-  inquiries          Inquiry[]           @relation("AssignedInquiries")
-  visits             PropertyVisit[]
-  transactions       Transaction[]       @relation("ClosingAgent")
-  approvedStatements LandlordStatement[] @relation("ApprovedBy")
-  vaultGrants        VaultAccessGrant[]  @relation("VaultGrants")
-  grantedVaultAccess VaultAccessGrant[]  @relation("GrantedVaultAccess")
-  documentRequests   DocumentRequest[]
-  sentInvitations    Invitation[]        @relation("InvitationInviter")
-  managementCloseRequests Inquiry[]      @relation("ManagementCloseRequests")
-  accessRequests     AccessRequest[]
-  createdAccessRequestLinks AccessRequestLink[] @relation("AccessRequestLinkCreator")
-  createdBoundaries   PropertyBoundary[]  @relation("BoundaryCreatedBy")
-  verifiedBoundaries  PropertyBoundary[]  @relation("BoundaryVerifiedBy")
-  assignedTasks       FollowUpTask[]      @relation("AssignedTasks")
+  sessions                  Session[]
+  accounts                  Account[]
+  members                   Member[]
+  apiKeys                   ApiKey[]
+  twoFactor                 TwoFactor?
+  assignedProperties        Property[]                  @relation("AssignedAgent")
+  createdProperties         Property[]                  @relation("CreatedProperties")
+  inquiries                 Inquiry[]                   @relation("AssignedInquiries")
+  visits                    PropertyVisit[]
+  transactions              Transaction[]               @relation("ClosingAgent")
+  approvedStatements        LandlordStatement[]         @relation("ApprovedBy")
+  vaultGrants               VaultAccessGrant[]          @relation("VaultGrants")
+  grantedVaultAccess        VaultAccessGrant[]          @relation("GrantedVaultAccess")
+  documentRequests          DocumentRequest[]
+  sentInvitations           Invitation[]                @relation("InvitationInviter")
+  managementCloseRequests   Inquiry[]                   @relation("ManagementCloseRequests")
+  accessRequests            AccessRequest[]
+  createdAccessRequestLinks AccessRequestLink[]         @relation("AccessRequestLinkCreator")
+  createdBoundaries         PropertyBoundary[]          @relation("BoundaryCreatedBy")
+  verifiedBoundaries        PropertyBoundary[]          @relation("BoundaryVerifiedBy")
+  assignedTasks             FollowUpTask[]              @relation("AssignedTasks")
+  matchNotifications        PropertyMatchNotification[]
 
   @@map("user")
 }
 
 model Session {
-  id             String   @id @default(cuid())
-  userId         String
-  token          String   @unique
-  expiresAt      DateTime
-  ipAddress      String?
-  userAgent      String?
-  organizationId String?
+  id                   String   @id @default(cuid())
+  userId               String
+  token                String   @unique
+  expiresAt            DateTime
+  ipAddress            String?
+  userAgent            String?
+  organizationId       String?
   activeOrganizationId String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("session")
 }
 
 model Account {
-  id           String    @id @default(cuid())
-  userId       String
-  accountId    String
-  providerId   String
-  accessToken  String?
-  refreshToken String?
-  expiresAt    DateTime?
-  idToken      String?
-  accessTokenExpiresAt DateTime?
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  expiresAt             DateTime?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
-  scope        String?
-  password     String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("account")
 }
@@ -119,75 +120,76 @@ model TwoFactor {
   failedVerificationCount Int       @default(0)
   lockedUntil             DateTime?
 
-  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("two_factor")
 }
 
 model Organization {
-  id                  String   @id @default(cuid())
-  name                String
-  slug                String   @unique
-  logo                String?
-  metadata            String?
-  currency            Currency @default(ZMW)
-  lencoCustomerId     String?
-  lencoSubscriptionId String?
+  id                    String    @id @default(cuid())
+  name                  String
+  slug                  String    @unique
+  logo                  String?
+  metadata              String?
+  currency              Currency  @default(ZMW)
+  lencoCustomerId       String?
+  lencoSubscriptionId   String?
   lencoAccountReference String?
-  paystackCustomerId  String?
-  paystackSubCode     String?
-  subscriptionTier    String   @default("STARTER") // STARTER, GROWTH, ENTERPRISE
-  subscriptionStatus  String   @default("active")  // active, past_due, trialing
-  trialEndsAt         DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  paystackCustomerId    String?
+  paystackSubCode       String?
+  subscriptionTier      String    @default("STARTER") // STARTER, GROWTH, ENTERPRISE
+  subscriptionStatus    String    @default("active") // active, past_due, trialing
+  trialEndsAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  members             Member[]
-  invitations         Invitation[]
-  apiKeys             ApiKey[]
-  properties          Property[]
-  leases              Lease[]
-  rentPayments        RentPayment[]
-  maintenanceExpenses MaintenanceExpense[]
-  landlordStatements  LandlordStatement[]
-  arrearsReminders    RentArrearsReminder[]
-  transactions        Transaction[]
-  inquiries           Inquiry[]
-  visits              PropertyVisit[]
-  auditLogs           AuditLog[]
-  aiUsageLogs         AiUsageLog[]
-  vaultDocuments      VaultDocument[]
-  vaultAccessGrants   VaultAccessGrant[]
-  documentRequests    DocumentRequest[]
-  payments            Payment[]
-  profile             OrganizationProfile?
-  assets              OrganizationAsset[]
-  roles               OrganizationRole[]
-  uploadSessions      UploadSession[]
-  accessRequestLink   AccessRequestLink?
-  accessRequests      AccessRequest[]
-  surveyExtractionJobs SurveyExtractionJob[]
-  boundaries          PropertyBoundary[]
+  members                Member[]
+  invitations            Invitation[]
+  apiKeys                ApiKey[]
+  properties             Property[]
+  leases                 Lease[]
+  rentPayments           RentPayment[]
+  maintenanceExpenses    MaintenanceExpense[]
+  landlordStatements     LandlordStatement[]
+  arrearsReminders       RentArrearsReminder[]
+  transactions           Transaction[]
+  inquiries              Inquiry[]
+  visits                 PropertyVisit[]
+  auditLogs              AuditLog[]
+  aiUsageLogs            AiUsageLog[]
+  vaultDocuments         VaultDocument[]
+  vaultAccessGrants      VaultAccessGrant[]
+  documentRequests       DocumentRequest[]
+  payments               Payment[]
+  profile                OrganizationProfile?
+  assets                 OrganizationAsset[]
+  roles                  OrganizationRole[]
+  uploadSessions         UploadSession[]
+  accessRequestLink      AccessRequestLink?
+  accessRequests         AccessRequest[]
+  surveyExtractionJobs   SurveyExtractionJob[]
+  boundaries             PropertyBoundary[]
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
   followUpTasks          FollowUpTask[]
+  matchNotifications     PropertyMatchNotification[]
 
   @@map("organization")
 }
 
 model Member {
-  id             String       @id @default(cuid())
-  organizationId String
-  userId         String
-  role           String       @default("member")
-  status         String       @default("active")
-  deactivatedAt  DateTime?
-  deactivatedById String?
+  id                String    @id @default(cuid())
+  organizationId    String
+  userId            String
+  role              String    @default("member")
+  status            String    @default("active")
+  deactivatedAt     DateTime?
+  deactivatedById   String?
   lastRoleChangedAt DateTime?
-  createdAt      DateTime     @default(now())
+  createdAt         DateTime  @default(now())
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roleAssignments MemberRoleAssignment[]
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleAssignments     MemberRoleAssignment[]
   permissionOverrides MemberPermissionOverride[]
 
   @@unique([organizationId, userId])
@@ -196,59 +198,59 @@ model Member {
 }
 
 model Invitation {
-  id             String       @id @default(cuid())
-  organizationId String
-  inviterId      String?
-  email          String
-  role           String       @default("member")
-  status         String       @default("pending")
-  expiresAt      DateTime
-  tokenHash      String?      @unique
-  acceptedAt     DateTime?
+  id               String    @id @default(cuid())
+  organizationId   String
+  inviterId        String?
+  email            String
+  role             String    @default("member")
+  status           String    @default("pending")
+  expiresAt        DateTime
+  tokenHash        String?   @unique
+  acceptedAt       DateTime?
   acceptedByUserId String?
-  revokedAt      DateTime?
-  roleKey        String?
-  note           String?
-  createdAt      DateTime     @default(now())
+  revokedAt        DateTime?
+  roleKey          String?
+  note             String?
+  createdAt        DateTime  @default(now())
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  inviter        User?        @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter      User?        @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
 
   @@map("invitation")
 }
 
 model AccessRequestLink {
-  id             String   @id @default(cuid())
-  organizationId String   @unique
-  tokenHash      String   @unique
+  id             String    @id @default(cuid())
+  organizationId String    @unique
+  tokenHash      String    @unique
   createdById    String
   revokedAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User @relation("AccessRequestLinkCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy    User         @relation("AccessRequestLinkCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@map("access_request_link")
 }
 
 model AccessRequest {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   userId         String
   firstName      String
   lastName       String
   email          String
-  roleKey        String   @default("FIELD_AGENT")
-  status         String   @default("PENDING")
+  roleKey        String    @default("FIELD_AGENT")
+  status         String    @default("PENDING")
   reviewedById   String?
   reviewedAt     DateTime?
   declineReason  String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
   @@index([organizationId, status, createdAt])
@@ -256,22 +258,22 @@ model AccessRequest {
 }
 
 model OrganizationProfile {
-  id                   String   @id @default(cuid())
-  organizationId       String   @unique
-  country              String   @default("ZM")
-  timezone             String   @default("Africa/Lusaka")
-  agencyType           String   @default("BROKERAGE")
+  id                   String    @id @default(cuid())
+  organizationId       String    @unique
+  country              String    @default("ZM")
+  timezone             String    @default("Africa/Lusaka")
+  agencyType           String    @default("BROKERAGE")
   primaryOfficeAddress String?
   city                 String?
   primaryPhone         String?
   primaryEmail         String?
-  onboardingStatus     String   @default("ORGANIZATION_PROFILE_REQUIRED")
-  onboardingStep       String   @default("PROFILE")
+  onboardingStatus     String    @default("ORGANIZATION_PROFILE_REQUIRED")
+  onboardingStep       String    @default("PROFILE")
   completedAt          DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("organization_profile")
 }
@@ -288,7 +290,7 @@ model OrganizationAsset {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, kind])
   @@index([organizationId, kind])
@@ -306,9 +308,9 @@ model OrganizationRole {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  permissions    OrganizationRolePermission[]
-  assignments    MemberRoleAssignment[]
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions  OrganizationRolePermission[]
+  assignments  MemberRoleAssignment[]
 
   @@unique([organizationId, key])
   @@index([organizationId, isActive])
@@ -321,7 +323,7 @@ model OrganizationRolePermission {
   permission String
   createdAt  DateTime @default(now())
 
-  role       OrganizationRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role OrganizationRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permission])
   @@index([permission])
@@ -336,8 +338,8 @@ model MemberRoleAssignment {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  member       Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  role         OrganizationRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  member Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role   OrganizationRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, roleId])
   @@index([memberId])
@@ -354,7 +356,7 @@ model MemberPermissionOverride {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  member       Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@unique([memberId, permission])
   @@index([memberId, effect])
@@ -362,24 +364,24 @@ model MemberPermissionOverride {
 }
 
 model UploadSession {
-  id                String   @id @default(cuid())
-  organizationId    String
-  createdById       String?
-  purpose           String
-  objectKey         String   @unique
-  expectedMimeType  String
-  expectedSize      Int
-  expectedSha256    String?
-  status            String   @default("PENDING")
-  verifiedMimeType  String?
-  verifiedSize      Int?
-  verifiedSha256    String?
-  expiresAt         DateTime
-  verifiedAt        DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String    @id @default(cuid())
+  organizationId   String
+  createdById      String?
+  purpose          String
+  objectKey        String    @unique
+  expectedMimeType String
+  expectedSize     Int
+  expectedSha256   String?
+  status           String    @default("PENDING")
+  verifiedMimeType String?
+  verifiedSize     Int?
+  verifiedSha256   String?
+  expiresAt        DateTime
+  verifiedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status])
   @@index([expiresAt])
@@ -387,19 +389,19 @@ model UploadSession {
 }
 
 model ApiKey {
-  id             String       @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
-  key            String       @unique
-  status         String       @default("active") // "active" | "revoked"
-  permissions    String[]     @default(["read:properties", "write:inquiries"])
+  key            String    @unique
+  status         String    @default("active") // "active" | "revoked"
+  permissions    String[]  @default(["read:properties", "write:inquiries"])
   lastUsedAt     DateTime?
   userId         String
   organizationId String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status])
   @@map("api_key")
@@ -446,68 +448,70 @@ enum PropertyStatus {
 }
 
 model Property {
-  id                  String         @id @default(cuid())
-  organizationId      String
-  title               String
-  slug                String
-  ownershipType       OwnershipType  @default(MANAGED_ON_BEHALF)
-  propertyType        PropertyType   @default(STANDALONE_HOUSE)
-  listingType         ListingType    @default(FOR_SALE)
-  status              PropertyStatus @default(AVAILABLE)
+  id             String         @id @default(cuid())
+  organizationId String
+  title          String
+  slug           String
+  ownershipType  OwnershipType  @default(MANAGED_ON_BEHALF)
+  propertyType   PropertyType   @default(STANDALONE_HOUSE)
+  listingType    ListingType    @default(FOR_SALE)
+  status         PropertyStatus @default(AVAILABLE)
 
   // Pricing
-  askingPrice         Decimal?       @db.Decimal(14, 2)
-  rentalPrice         Decimal?       @db.Decimal(14, 2)
-  currency            Currency       @default(ZMW)
-  agencyCommissionPct Decimal        @default(5.0) @db.Decimal(5, 2) // e.g. 5% for sale, 10% for rent
+  askingPrice         Decimal? @db.Decimal(14, 2)
+  rentalPrice         Decimal? @db.Decimal(14, 2)
+  currency            Currency @default(ZMW)
+  agencyCommissionPct Decimal  @default(5.0) @db.Decimal(5, 2) // e.g. 5% for sale, 10% for rent
 
   // Physical Specs
-  bedrooms            Int?
-  bathrooms           Decimal?       @db.Decimal(3, 1)
-  plotSizeSqm         Decimal?       @db.Decimal(12, 2)
-  description         String         @db.Text
-  photos              String[]       @default([])
-  featuredPhoto       String?
+  bedrooms      Int?
+  bathrooms     Decimal? @db.Decimal(3, 1)
+  plotSizeSqm   Decimal? @db.Decimal(12, 2)
+  description   String   @db.Text
+  photos        String[] @default([])
+  featuredPhoto String?
 
   // Geospatial & Landmarks (Crucial for Lusaka/Southern Africa)
-  suburb              String         // e.g. "Kabulonga", "Leopards Hill", "Woodlands"
-  city                String         @default("Lusaka")
-  latitude            Float?
-  longitude           Float?
-  standBoundary       Json?          // Array of [lat, lng] coordinate pairs representing stand/plot boundary
-  landmarkDirections  String?        @db.Text // e.g. "150m off Leopards Hill Rd opposite AIS"
+  suburb             String // e.g. "Kabulonga", "Leopards Hill", "Woodlands"
+  city               String  @default("Lusaka")
+  latitude           Float?
+  longitude          Float?
+  standBoundary      Json? // Array of [lat, lng] coordinate pairs representing stand/plot boundary
+  landmarkDirections String? @db.Text // e.g. "150m off Leopards Hill Rd opposite AIS"
 
   // Sensitive Landlord Info (Restricted by RBAC & Seams)
-  ownerName           String?
-  ownerPhone          String?
-  ownerEmail          String?
-  ownerBankDetails    String?        @db.Text
-  titleDeedNumber     String?
+  ownerName        String?
+  ownerPhone       String?
+  ownerEmail       String?
+  ownerBankDetails String? @db.Text
+  titleDeedNumber  String?
 
   // Assignments & Metadata
-  assignedAgentId     String?
-  assignedAgentAt     DateTime?
+  assignedAgentId            String?
+  assignedAgentAt            DateTime?
   assignedAgentLockExpiresAt DateTime?
-  createdById         String
-  embedding           Unsupported("vector(1536)")?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  createdById                String
+  embedding                  Unsupported("vector(1536)")?
+  matchingMetadata           Json?
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
 
-  organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedAgent       User?          @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
-  createdBy           User           @relation("CreatedProperties", fields: [createdById], references: [id])
-  leases              Lease[]
-  maintenanceExpenses MaintenanceExpense[]
-  transactions        Transaction[]
-  visits              PropertyVisit[]
-  inquiries            Inquiry[]
-  landlordStatements  LandlordStatement[]
-  vaultDocuments      VaultDocument[]
-  documentRequests    DocumentRequest[]
-  surveyExtractionJobs SurveyExtractionJob[]
-  boundaries            PropertyBoundary[]
+  organization           Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedAgent          User?                       @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  createdBy              User                        @relation("CreatedProperties", fields: [createdById], references: [id])
+  leases                 Lease[]
+  maintenanceExpenses    MaintenanceExpense[]
+  transactions           Transaction[]
+  visits                 PropertyVisit[]
+  inquiries              Inquiry[]
+  landlordStatements     LandlordStatement[]
+  vaultDocuments         VaultDocument[]
+  documentRequests       DocumentRequest[]
+  surveyExtractionJobs   SurveyExtractionJob[]
+  boundaries             PropertyBoundary[]
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
   followUpTasks          FollowUpTask[]
+  matchNotifications     PropertyMatchNotification[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -523,6 +527,29 @@ model Property {
 // 3. Rental Management, Leases, Payments & Maintenance
 // -----------------------------------------------------------------------------
 
+model PropertyMatchNotification {
+  id             String    @id @default(cuid())
+  organizationId String
+  propertyId     String
+  inquiryId      String
+  agentId        String?
+  status         String    @default("UNREAD")
+  title          String
+  message        String    @db.Text
+  createdAt      DateTime  @default(now())
+  readAt         DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  inquiry      Inquiry      @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  agent        User?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@unique([propertyId, inquiryId])
+  @@index([organizationId, status, createdAt])
+  @@index([agentId, status, createdAt])
+  @@map("property_match_notification")
+}
+
 enum LeaseStatus {
   ACTIVE
   EXPIRING_SOON
@@ -531,28 +558,30 @@ enum LeaseStatus {
 }
 
 model Lease {
-  id                   String       @id @default(cuid())
+  id                   String      @id @default(cuid())
   organizationId       String
   propertyId           String
+  inquiryId            String?     @unique
   tenantName           String
   tenantPhone          String
   tenantEmail          String?
-  tenantIdNumber       String?      // NRC or Passport Number
-  monthlyRent          Decimal      @db.Decimal(12, 2)
-  currency             Currency     @default(ZMW)
-  depositAmount        Decimal      @db.Decimal(12, 2)
-  managementFeePercent Decimal      @default(10.0) @db.Decimal(5, 2) // Standard 10% property management fee
+  tenantIdNumber       String? // NRC or Passport Number
+  monthlyRent          Decimal     @db.Decimal(12, 2)
+  currency             Currency    @default(ZMW)
+  depositAmount        Decimal     @db.Decimal(12, 2)
+  managementFeePercent Decimal     @default(10.0) @db.Decimal(5, 2) // Standard 10% property management fee
   leaseStartDate       DateTime
   leaseEndDate         DateTime
-  paymentDayOfMonth    Int          @default(1)
-  status               LeaseStatus  @default(ACTIVE)
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  paymentDayOfMonth    Int         @default(1)
+  status               LeaseStatus @default(ACTIVE)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
 
-  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property             Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  payments             RentPayment[]
-  reminders            RentArrearsReminder[]
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  inquiry      Inquiry?              @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  payments     RentPayment[]
+  reminders    RentArrearsReminder[]
 
   @@index([organizationId, status])
   @@index([propertyId])
@@ -579,8 +608,8 @@ model RentPayment {
   leaseId         String
   amountPaid      Decimal       @db.Decimal(12, 2)
   currency        Currency      @default(ZMW)
-  periodMonth     Int           // 1 to 12
-  periodYear      Int           // e.g. 2026
+  periodMonth     Int // 1 to 12
+  periodYear      Int // e.g. 2026
   paymentDate     DateTime
   paymentMethod   PaymentMethod @default(BANK_TRANSFER)
   referenceNumber String?
@@ -592,8 +621,8 @@ model RentPayment {
   notes           String?
   createdAt       DateTime      @default(now())
 
-  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  lease           Lease         @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lease        Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, periodYear, periodMonth])
   @@map("rent_payment")
@@ -607,21 +636,21 @@ enum ExpenseStatus {
 }
 
 model MaintenanceExpense {
-  id                  String        @id @default(cuid())
-  organizationId      String
-  propertyId          String
-  description         String
-  vendorName          String?
-  amount              Decimal       @db.Decimal(12, 2)
-  currency            Currency      @default(ZMW)
-  receiptPhotoUrl     String?
-  status              ExpenseStatus @default(APPROVED)
-  periodMonth         Int           // When this is deducted from landlord rent
-  periodYear          Int
-  createdAt           DateTime      @default(now())
+  id              String        @id @default(cuid())
+  organizationId  String
+  propertyId      String
+  description     String
+  vendorName      String?
+  amount          Decimal       @db.Decimal(12, 2)
+  currency        Currency      @default(ZMW)
+  receiptPhotoUrl String?
+  status          ExpenseStatus @default(APPROVED)
+  periodMonth     Int // When this is deducted from landlord rent
+  periodYear      Int
+  createdAt       DateTime      @default(now())
 
-  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property            Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, propertyId, periodYear, periodMonth])
   @@map("maintenance_expense")
@@ -635,47 +664,51 @@ enum StatementStatus {
 }
 
 model LandlordStatement {
-  id                   String          @id @default(cuid())
-  organizationId       String
-  propertyId           String
-  landlordName         String
-  statementMonth       Int
-  statementYear        Int
-  grossRentCollected   Decimal         @db.Decimal(12, 2)
-  agencyFeeDeducted    Decimal         @db.Decimal(12, 2)
-  maintenanceDeducted  Decimal         @default(0.0) @db.Decimal(12, 2)
-  netLandlordPayout    Decimal         @db.Decimal(12, 2)
-  currency             Currency        @default(ZMW)
-  pdfUrl               String?
-  status               StatementStatus @default(DRAFT)
-  approvedById         String?
-  approvedAt           DateTime?
-  sentAt               DateTime?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  id                    String          @id @default(cuid())
+  organizationId        String
+  propertyId            String
+  landlordName          String
+  statementMonth        Int
+  statementYear         Int
+  grossRentCollected    Decimal         @db.Decimal(12, 2)
+  rentDue               Decimal         @default(0.0) @db.Decimal(12, 2)
+  arrearsBroughtForward Decimal         @default(0.0) @db.Decimal(12, 2)
+  arrearsClosing        Decimal         @default(0.0) @db.Decimal(12, 2)
+  agencyFeeDeducted     Decimal         @db.Decimal(12, 2)
+  maintenanceDeducted   Decimal         @default(0.0) @db.Decimal(12, 2)
+  netLandlordPayout     Decimal         @db.Decimal(12, 2)
+  currency              Currency        @default(ZMW)
+  pdfUrl                String?
+  status                StatementStatus @default(DRAFT)
+  approvedById          String?
+  approvedAt            DateTime?
+  sentAt                DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
-  organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property             Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  approvedBy           User?           @relation("ApprovedBy", fields: [approvedById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  approvedBy   User?        @relation("ApprovedBy", fields: [approvedById], references: [id])
 
+  @@unique([organizationId, propertyId, statementYear, statementMonth])
   @@index([organizationId, statementYear, statementMonth])
   @@index([organizationId, status])
   @@map("landlord_statement")
 }
 
 model RentArrearsReminder {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   leaseId        String
-  tier           Int          // 1 (Friendly), 2 (Urgent), 3 (Manager Escalation)
-  channel        String       @default("WHATSAPP") // "WHATSAPP", "SMS", "EMAIL"
+  tier           Int // 1 (Friendly), 2 (Urgent), 3 (Manager Escalation)
+  channel        String   @default("WHATSAPP") // "WHATSAPP", "SMS", "EMAIL"
   recipientPhone String
-  idempotencyKey String       @unique // e.g. "arrears-lease123-2026-8-tier1"
-  status         String       @default("SENT") // "SENT", "DELIVERED", "FAILED"
-  sentAt         DateTime     @default(now())
+  idempotencyKey String   @unique // e.g. "arrears-lease123-2026-8-tier1"
+  status         String   @default("SENT") // "SENT", "DELIVERED", "FAILED"
+  sentAt         DateTime @default(now())
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  lease          Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lease        Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, leaseId])
   @@map("rent_arrears_reminder")
@@ -705,7 +738,7 @@ model Transaction {
   transactionType        TransactionType  @default(PROPERTY_SALE)
   grossValue             Decimal          @db.Decimal(14, 2) // Total sale/lease value
   currency               Currency         @default(ZMW)
-  agencyCommissionPct    Decimal          @db.Decimal(5, 2)  // e.g. 5%
+  agencyCommissionPct    Decimal          @db.Decimal(5, 2) // e.g. 5%
   agencyCommissionAmount Decimal          @db.Decimal(12, 2) // e.g. K100,000
   agentSplitPct          Decimal          @default(50.0) @db.Decimal(5, 2) // e.g. 50% to closing agent
   agentSplitAmount       Decimal          @db.Decimal(12, 2) // e.g. K50,000
@@ -716,10 +749,10 @@ model Transaction {
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 
-  organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property               Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  closingAgent           User             @relation("ClosingAgent", fields: [closingAgentId], references: [id])
-  inquiry                Inquiry?         @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  closingAgent User         @relation("ClosingAgent", fields: [closingAgentId], references: [id])
+  inquiry      Inquiry?     @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
   @@index([organizationId, createdAt])
@@ -744,8 +777,6 @@ enum InquiryStatus {
   CLOSED_LOST
 }
 
-
-
 enum PipelineOutcome {
   WON
   LOST
@@ -767,52 +798,55 @@ enum LeadSource {
 }
 
 model Inquiry {
-  id                     String        @id @default(cuid())
-  organizationId         String
-  clientName             String
-  clientPhone            String
-  clientEmail            String?
-  lookingFor             ListingType   @default(FOR_SALE)
-  propertyType           PropertyType?
-  budgetMin              Decimal?      @db.Decimal(12, 2)
-  budgetMax              Decimal?      @db.Decimal(12, 2)
-  currency               Currency      @default(ZMW)
-  preferredSuburbs       String[]      @default([])
-  notes                  String?       @db.Text
-  status                 InquiryStatus @default(NEW_INQUIRY)
-  assignedAgentId        String?
-  outcome                PipelineOutcome?
-  lostReason             String?       @db.Text
-  closedAt               DateTime?
-  closedById             String?
-  managementCloseRequestedAt DateTime?
+  id                           String           @id @default(cuid())
+  organizationId               String
+  clientName                   String
+  clientPhone                  String
+  clientEmail                  String?
+  lookingFor                   ListingType      @default(FOR_SALE)
+  propertyType                 PropertyType?
+  budgetMin                    Decimal?         @db.Decimal(12, 2)
+  budgetMax                    Decimal?         @db.Decimal(12, 2)
+  currency                     Currency         @default(ZMW)
+  preferredSuburbs             String[]         @default([])
+  notes                        String?          @db.Text
+  status                       InquiryStatus    @default(NEW_INQUIRY)
+  assignedAgentId              String?
+  outcome                      PipelineOutcome?
+  lostReason                   String?          @db.Text
+  closedAt                     DateTime?
+  closedById                   String?
+  managementCloseRequestedAt   DateTime?
   managementCloseRequestedById String?
-  leadSource             LeadSource    @default(OTHER)
-  propertyId             String?
-  dealValue              Decimal?      @db.Decimal(14, 2)
-  exclusiveLockExpiresAt DateTime?     // 30-day anti-poaching lock
-  matchStatus      MatchStatus  @default(UNMATCHED)
-  unmatchedReason  String?      // NO_SUITABLE_PROPERTY, BUDGET_MISMATCH, LOCATION_UNAVAILABLE, CLIENT_TIMING, OTHER
-  failedAtStage    String?      // VIEWING, NEGOTIATION, OFFER -- only set on CLOSED/LOST
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  leadSource                   LeadSource       @default(OTHER)
+  propertyId                   String?
+  dealValue                    Decimal?         @db.Decimal(14, 2)
+  exclusiveLockExpiresAt       DateTime? // 30-day anti-poaching lock
+  matchStatus                  MatchStatus      @default(UNMATCHED)
+  unmatchedReason              String? // NO_SUITABLE_PROPERTY, BUDGET_MISMATCH, LOCATION_UNAVAILABLE, CLIENT_TIMING, OTHER
+  matchingProfile              Json?
+  failedAtStage                String? // VIEWING, NEGOTIATION, OFFER -- only set on CLOSED/LOST
+  createdAt                    DateTime         @default(now())
+  updatedAt                    DateTime         @updatedAt
 
-  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedAgent          User?         @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
-  managementCloseRequestedBy User?     @relation("ManagementCloseRequests", fields: [managementCloseRequestedById], references: [id])
-  property               Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  visits                 PropertyVisit[]
-  documentRequests       DocumentRequest[]
-  followUpTasks          FollowUpTask[]
-  transactions           Transaction[]
-  idempotencyKey         String?
+  organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedAgent              User?                       @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
+  managementCloseRequestedBy User?                       @relation("ManagementCloseRequests", fields: [managementCloseRequestedById], references: [id])
+  property                   Property?                   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  visits                     PropertyVisit[]
+  documentRequests           DocumentRequest[]
+  followUpTasks              FollowUpTask[]
+  matchNotifications         PropertyMatchNotification[]
+  lease                      Lease?
+  transactions               Transaction[]
+  idempotencyKey             String?
 
+  @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status])
   @@index([organizationId, leadSource])
   @@index([propertyId])
   @@index([organizationId, createdAt])
   @@index([assignedAgentId])
-  @@unique([organizationId, idempotencyKey])
   @@map("inquiry")
 }
 
@@ -836,15 +870,14 @@ model PropertyVisit {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  inquiry        Inquiry      @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
-  agent          User         @relation(fields: [agentId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  inquiry      Inquiry      @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  agent        User         @relation(fields: [agentId], references: [id])
 
   @@index([organizationId, scheduledAt])
   @@map("property_visit")
 }
-
 
 enum TaskPriority {
   LOW
@@ -881,50 +914,51 @@ model FollowUpTask {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedUser   User         @relation("AssignedTasks", fields: [assignedUserId], references: [id], onDelete: Cascade)
-  inquiry        Inquiry?     @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
-  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser User         @relation("AssignedTasks", fields: [assignedUserId], references: [id], onDelete: Cascade)
+  inquiry      Inquiry?     @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  property     Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status, dueDate])
   @@index([organizationId, assignedUserId, status])
   @@index([organizationId, dueDate])
   @@map("follow_up_task")
 }
+
 // -----------------------------------------------------------------------------
 // 6. Security, POPIA Audit & Token Telemetry
 // -----------------------------------------------------------------------------
 
 model AuditLog {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   userId         String?
-  action         String       // e.g. "VIEW_LANDLORD_BANK_DETAILS", "EXPORT_TENANT_DATA", "AUTHORIZE_REMITTANCE"
-  entityType     String       // "Property", "Lease", "LandlordStatement"
+  action         String // e.g. "VIEW_LANDLORD_BANK_DETAILS", "EXPORT_TENANT_DATA", "AUTHORIZE_REMITTANCE"
+  entityType     String // "Property", "Lease", "LandlordStatement"
   entityId       String?
   details        Json?
   ipAddress      String?
   userAgent      String?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
   @@map("audit_log")
 }
 
 model AiUsageLog {
-  id               String       @id @default(cuid())
+  id               String   @id @default(cuid())
   organizationId   String
   userId           String?
-  agentType        String       // "WHATSAPP_LISTING_INGESTION", "MATCHMAKER", "ARREARS_SENTRY"
+  agentType        String // "WHATSAPP_LISTING_INGESTION", "MATCHMAKER", "ARREARS_SENTRY"
   promptTokens     Int
   completionTokens Int
   totalTokens      Int
-  estimatedCostZar Decimal      @db.Decimal(8, 4)
-  createdAt        DateTime     @default(now())
+  estimatedCostZar Decimal  @db.Decimal(8, 4)
+  createdAt        DateTime @default(now())
 
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
   @@map("ai_usage_log")
@@ -977,25 +1011,25 @@ enum LencoPaymentStatus {
 }
 
 model Payment {
-  id                    String        @id @default(cuid())
+  id                    String             @id @default(cuid())
   organizationId        String
-  reference             String        @unique
-  idempotencyKey        String        @unique
-  provider              String        @default("LENCO")
+  reference             String             @unique
+  idempotencyKey        String             @unique
+  provider              String             @default("LENCO")
   providerTransactionId String?
   planId                String
   billingCycle          String
-  amount                Decimal       @db.Decimal(12, 2)
+  amount                Decimal            @db.Decimal(12, 2)
   currency              Currency
   status                LencoPaymentStatus @default(PENDING)
   failureReason         String?
   checkoutUrl           String?
   metadata              Json?
   completedAt           DateTime?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
-  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status])
   @@index([organizationId, createdAt])
@@ -1019,52 +1053,52 @@ model WebhookEvent {
 }
 
 model VaultDocument {
-  id                 String           @id @default(cuid())
-  organizationId     String
-  propertyId         String?
+  id             String  @id @default(cuid())
+  organizationId String
+  propertyId     String?
 
   // Document identity
-  title              String
-  description        String?          @db.Text
-  docType            DocumentType     @default(TITLE_DEED)
-  classification     SecurityLevel    @default(RESTRICTED_MANAGEMENT)
+  title          String
+  description    String?       @db.Text
+  docType        DocumentType  @default(TITLE_DEED)
+  classification SecurityLevel @default(RESTRICTED_MANAGEMENT)
 
   // MinIO / S3 pointer — the objectKey is the full bucket path
   // e.g. "org_contour_demo/title_deed/1721234567890_deed.pdf"
-  objectKey          String           @unique
-  originalFileName   String
-  fileSize           Int              // bytes
-  mimeType           String
-  fileType           String           // "PDF", "JPG", "PNG", etc.
+  objectKey        String @unique
+  originalFileName String
+  fileSize         Int // bytes
+  mimeType         String
+  fileType         String // "PDF", "JPG", "PNG", etc.
 
   // Zambian land registry metadata (Lands & Deeds Registry Act Cap 185)
-  registryFolio      String?
-  standPlotNumber    String?
-  nrcNumber          String?
+  registryFolio   String?
+  standPlotNumber String?
+  nrcNumber       String?
 
   // Ingestion Source & Client Request Bridge
-  uploadedBy         String           // Display name or reference
-  uploadedByType     String           @default("STAFF") // "STAFF" | "CLIENT" | "SYSTEM"
-  uploadedById       String?          // User ID if STAFF
-  documentRequestId  String?          // Linked DocumentRequest if CLIENT
+  uploadedBy        String // Display name or reference
+  uploadedByType    String  @default("STAFF") // "STAFF" | "CLIENT" | "SYSTEM"
+  uploadedById      String? // User ID if STAFF
+  documentRequestId String? // Linked DocumentRequest if CLIENT
 
   // Audit & Verification
-  isVerified         Boolean          @default(false)
-  verifiedAt         DateTime?
-  verifiedById       String?
-  sha256Checksum     String?
+  isVerified     Boolean   @default(false)
+  verifiedAt     DateTime?
+  verifiedById   String?
+  sha256Checksum String?
 
   // Soft-Delete / Archival Guardrail
-  isDeleted          Boolean          @default(false)
-  deletedAt          DateTime?
-  deletedById        String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  deletedById String?
 
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property           Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  documentRequest    DocumentRequest? @relation(fields: [documentRequestId], references: [id], onDelete: SetNull)
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property             Property?             @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  documentRequest      DocumentRequest?      @relation(fields: [documentRequestId], references: [id], onDelete: SetNull)
   surveyExtractionJobs SurveyExtractionJob[]
   boundaries           PropertyBoundary[]
 
@@ -1076,34 +1110,34 @@ model VaultDocument {
 }
 
 model SurveyExtractionJob {
-  id                String        @id @default(cuid())
-  organizationId    String
-  propertyId        String
-  sourceDocumentId  String
-  idempotencyKey    String?
-  status            String        @default("QUEUED")
-  engine            String?
-  engineVersion     String?
-  pageCount         Int?
-  processedPages    Int           @default(0)
-  rawOcrObjectKey   String?
-  extractionJson    Json?
-  errorCode         String?
-  errorMessage      String?
-  createdById       String
-  reviewedById      String?
-  reviewedAt        DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id               String    @id @default(cuid())
+  organizationId   String
+  propertyId       String
+  sourceDocumentId String
+  idempotencyKey   String?
+  status           String    @default("QUEUED")
+  engine           String?
+  engineVersion    String?
+  pageCount        Int?
+  processedPages   Int       @default(0)
+  rawOcrObjectKey  String?
+  extractionJson   Json?
+  errorCode        String?
+  errorMessage     String?
+  createdById      String
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property          Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  sourceDocument    VaultDocument @relation(fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property       Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  sourceDocument VaultDocument @relation(fields: [sourceDocumentId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status])
   @@index([organizationId, propertyId])
   @@index([sourceDocumentId])
-  @@unique([organizationId, idempotencyKey])
   @@map("survey_extraction_job")
 }
 
@@ -1125,41 +1159,41 @@ enum PropertyBoundaryStatus {
 }
 
 model PropertyBoundary {
-  id                    String                    @id @default(cuid())
-  organizationId        String
-  propertyId            String
-  sourceType            PropertyBoundarySourceType
-  status                PropertyBoundaryStatus   @default(PENDING)
-  geometryGeoJson       Json
-  sourceCrs             String?
-  targetCrs             String                    @default("EPSG:4326")
-  plotId                String?
-  surveyReference       String?
-  diagramNumber         String?
-  planNumber            String?
-  statedAreaSqm         Decimal?                  @db.Decimal(14, 3)
-  calculatedAreaSqm     Decimal?                  @db.Decimal(14, 3)
-  areaDifferencePct     Decimal?                  @db.Decimal(8, 3)
-  sourceDocumentId      String?
-  governmentSourceUrl   String?
-  governmentLayer       String?
-  governmentRecordId    String?
-  governmentFetchedAt   DateTime?
-  confidenceScore       Decimal?                  @db.Decimal(5, 4)
-  validationFlags       Json                      @default("[]")
-  createdById           String
-  verifiedById          String?
-  verifiedAt            DateTime?
-  rejectionReason       String?
-  createdAt             DateTime                  @default(now())
-  updatedAt             DateTime                  @updatedAt
+  id                  String                     @id @default(cuid())
+  organizationId      String
+  propertyId          String
+  sourceType          PropertyBoundarySourceType
+  status              PropertyBoundaryStatus     @default(PENDING)
+  geometryGeoJson     Json
+  sourceCrs           String?
+  targetCrs           String                     @default("EPSG:4326")
+  plotId              String?
+  surveyReference     String?
+  diagramNumber       String?
+  planNumber          String?
+  statedAreaSqm       Decimal?                   @db.Decimal(14, 3)
+  calculatedAreaSqm   Decimal?                   @db.Decimal(14, 3)
+  areaDifferencePct   Decimal?                   @db.Decimal(8, 3)
+  sourceDocumentId    String?
+  governmentSourceUrl String?
+  governmentLayer     String?
+  governmentRecordId  String?
+  governmentFetchedAt DateTime?
+  confidenceScore     Decimal?                   @db.Decimal(5, 4)
+  validationFlags     Json                       @default("[]")
+  createdById         String
+  verifiedById        String?
+  verifiedAt          DateTime?
+  rejectionReason     String?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
 
-  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property              Property                  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  sourceDocument        VaultDocument?            @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
-  createdBy             User                       @relation("BoundaryCreatedBy", fields: [createdById], references: [id])
-  verifiedBy            User?                      @relation("BoundaryVerifiedBy", fields: [verifiedById], references: [id])
-  evidenceEvents        BoundaryEvidenceEvent[]
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property       Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  sourceDocument VaultDocument?          @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  createdBy      User                    @relation("BoundaryCreatedBy", fields: [createdById], references: [id])
+  verifiedBy     User?                   @relation("BoundaryVerifiedBy", fields: [verifiedById], references: [id])
+  evidenceEvents BoundaryEvidenceEvent[]
 
   @@index([organizationId, propertyId, status])
   @@index([sourceDocumentId])
@@ -1167,7 +1201,7 @@ model PropertyBoundary {
 }
 
 model BoundaryEvidenceEvent {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   propertyId     String
   boundaryId     String?
@@ -1175,11 +1209,11 @@ model BoundaryEvidenceEvent {
   actorId        String?
   details        Json?
   sourceHash     String?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  boundary      PropertyBoundary? @relation(fields: [boundaryId], references: [id], onDelete: SetNull)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  boundary     PropertyBoundary? @relation(fields: [boundaryId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, propertyId, createdAt])
   @@index([boundaryId, createdAt])
@@ -1198,49 +1232,49 @@ model VaultAccessGrant {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User             @relation("VaultGrants", fields: [userId], references: [id], onDelete: Cascade)
-  grantedBy      User             @relation("GrantedVaultAccess", fields: [grantedById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation("VaultGrants", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy    User         @relation("GrantedVaultAccess", fields: [grantedById], references: [id])
 
   @@unique([organizationId, userId])
   @@map("vault_access_grant")
 }
 
 model DocumentRequest {
-  id               String                @id @default(cuid())
-  organizationId   String
-  propertyId       String?
-  inquiryId        String?
-  requestedById    String
+  id             String  @id @default(cuid())
+  organizationId String
+  propertyId     String?
+  inquiryId      String?
+  requestedById  String
 
   title            String
-  message          String?               @db.Text
-  requiredTypes    DocumentType[]        @default([NRC_PASSPORT_ID])
-  maxFiles         Int                   @default(5)
-  maxSizeMbPerFile Int                   @default(15)
+  message          String?        @db.Text
+  requiredTypes    DocumentType[] @default([NRC_PASSPORT_ID])
+  maxFiles         Int            @default(5)
+  maxSizeMbPerFile Int            @default(15)
 
-  token            String                @unique
-  pinHash          String?
-  expiresAt        DateTime
-  status           DocumentRequestStatus @default(PENDING)
+  token     String                @unique
+  pinHash   String?
+  expiresAt DateTime
+  status    DocumentRequestStatus @default(PENDING)
 
   // Zambia DPA Art. 21 Explicit Consent Record
   clientName       String?
   clientPhone      String?
   clientEmail      String?
-  consentGiven     Boolean               @default(false)
+  consentGiven     Boolean   @default(false)
   consentTimestamp DateTime?
   consentIp        String?
   consentUserAgent String?
 
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization     Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  property         Property?             @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  inquiry          Inquiry?              @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
-  requestedBy      User                  @relation(fields: [requestedById], references: [id])
-  documents        VaultDocument[]
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  inquiry      Inquiry?        @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  requestedBy  User            @relation(fields: [requestedById], references: [id])
+  documents    VaultDocument[]
 
   @@index([token])
   @@index([organizationId, status])

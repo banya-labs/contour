@@ -15,8 +15,8 @@ const confirmationFor = (action: "RESET" | "DELETE", slug: string) =>
 export const POST = createApiHandler({
   requireAuth: true,
   bodySchema: requestSchema,
-  handler: async (_req, { body, organizationId, userId, userRole, contourRole }) => {
-    if (!organizationId || !userId || (!["SUPER_ADMIN", "OWNER"].includes(userRole || "") && !["SUPER_ADMIN", "OWNER"].includes(contourRole || ""))) {
+  handler: async (_req, { body, organizationId, userId, contourRole }) => {
+    if (!organizationId || !userId || contourRole !== "OWNER") {
       return NextResponse.json({ success: false, error: "Only the workspace owner can perform this action." }, { status: 403 });
     }
 

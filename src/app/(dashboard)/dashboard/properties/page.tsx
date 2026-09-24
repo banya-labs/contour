@@ -451,7 +451,10 @@ function PropertiesCatalogContent() {
           {filteredProperties.map((p) => {
             const isSale = p.listingType === "FOR_SALE";
             const price = isSale ? p.askingPrice : p.rentalPrice;
-            const cardMatches = evaluatePropertyAgainstAlerts(p);
+            const cardMatches = evaluatePropertyAgainstAlerts({
+              ...p,
+              assignedAgentName: p.assignedAgent?.name || undefined,
+            });
             const photoCount = p.photos ? p.photos.length : 1;
 
             return (
@@ -1111,7 +1114,10 @@ function PropertiesCatalogContent() {
           setMatchSummaryState({
             isOpen: true,
             property: p,
-            matches: evaluatePropertyAgainstAlerts(p),
+                            matches: evaluatePropertyAgainstAlerts({
+                              ...p,
+                              assignedAgentName: p.assignedAgent?.name || undefined,
+                            }),
           })
         }
       />

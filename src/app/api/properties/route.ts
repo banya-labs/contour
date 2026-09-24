@@ -7,6 +7,7 @@ import { isManagementRole } from "@/lib/authorization";
 import { z } from "zod";
 
 import { smartCache } from "@/lib/cache";
+import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
 import { propertySlugFromTitle, publicPropertyPath } from "@/lib/public-property";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
@@ -579,6 +580,23 @@ const postHandler = createApiHandler({
     });
 
     // Invalidate tenant cache tags for instant UI consistency across all surfaces
+    if (property.status === "AVAILABLE" || property.status === "UNDER_OFFER") {
+      const inquiries = await db.inquiry.findMany({
+        where: { organizationId: organizationId!, status: { not: "CLOSED" } },
+        select: { id: true, clientName: true, assignedAgentId: true, lookingFor: true, currency: true, budgetMax: true, preferredSuburbs: true, propertyType: true },
+      });
+      const matches = inquiries.filter((inquiry) => inquiryMatchesProperty(
+        { lookingFor: inquiry.lookingFor, currency: inquiry.currency, budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null, preferredSuburbs: inquiry.preferredSuburbs, propertyType: inquiry.propertyType },
+        { listingType: property.listingType, currency: property.currency, askingPrice: property.askingPrice ? Number(property.askingPrice) : null, rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null, suburb: property.suburb, propertyType: property.propertyType },
+      ));
+      if (matches.length) {
+        await db.propertyMatchNotification.createMany({
+          data: matches.map((inquiry) => ({ organizationId: organizationId!, propertyId: property.id, inquiryId: inquiry.id, agentId: inquiry.assignedAgentId || property.assignedAgentId || null, title: `New property match for ${inquiry.clientName}`, message: `${property.title} in ${property.suburb} matches this client’s requirements.`, })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
     smartCache.invalidateTag(organizationId!, "properties", "/dashboard/properties");
     smartCache.invalidateTag(organizationId!, "properties", "/agent");
     smartCache.invalidateTag(organizationId!, "properties", "/dashboard/map");

@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { hasRequiredRole, resolveApplicationRole, resolveContourRole, roleHasPermission } from "./authorization";
+import { applyPermissionOverrides, hasRequiredRole, isPermission, resolveApplicationRole, resolveContourRole, roleHasPermission } from "./authorization";
 
 describe("organization authorization", () => {
+  it("validates permission keys against the canonical catalogue", () => {
+    expect(isPermission("dashboard.read")).toBe(true);
+    expect(isPermission("made.up.permission")).toBe(false);
+  });
+
+  it("applies permission overrides deterministically", () => {
+    expect(applyPermissionOverrides(["dashboard.read", "properties.read"], [
+      { permission: "dashboard.read", effect: "DENY" },
+      { permission: "pipeline.read", effect: "ALLOW" },
+      { permission: "made.up.permission", effect: "ALLOW" },
+    ])).toEqual(["properties.read", "pipeline.read"]);
+  });
+
   it("allows a user whose role is explicitly required", () => {
     expect(hasRequiredRole("BROKER_MANAGER", ["SUPER_ADMIN", "BROKER_MANAGER"])).toBe(true);
   });

@@ -108,7 +108,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         }
       }
 
-      if (options.requireRoles && options.requireRoles.length > 0 && !hasRequiredRole(userRole, options.requireRoles)) {
+      if (options.requireRoles && options.requireRoles.length > 0 && !hasRequiredRole(userRole, options.requireRoles) && !hasRequiredRole(tenant?.contourRole, options.requireRoles)) {
         return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 });
       }
 

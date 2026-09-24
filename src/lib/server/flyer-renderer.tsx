@@ -60,7 +60,7 @@ export async function renderFlyerSvg(model: FlyerRenderModel, assets: FlyerRende
             { type: "div", props: { style: { display: "flex", gap: 8 }, children: [image(assets.secondaryOne, 170, 170), image(assets.secondaryTwo, 170, 170)] } },
           ] } },
         ] } },
-        { type: "div", props: { style: { height: 120, display: "flex", alignItems: "center", backgroundColor: "#000000", color: "#ffffff", padding: "16px 24px", gap: 20, fontSize: 20 }, children: [assets.qrCode ? image(assets.qrCode, 88, 88, "center") : "", `CONTACT ${model.contact.name} • WhatsApp ${model.contact.phone}`] } },
+        { type: "div", props: { style: { height: 140, display: "flex", alignItems: "center", backgroundColor: "#000000", color: "#ffffff", padding: "18px 24px", gap: 20, fontSize: 26, fontWeight: 800 }, children: [assets.qrCode ? image(assets.qrCode, 100, 100, "center") : "", `CONTACT ${model.contact.name} • WhatsApp ${model.contact.phone}`] } },
       ],
     },
   };

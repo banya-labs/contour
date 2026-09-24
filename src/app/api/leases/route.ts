@@ -47,10 +47,24 @@ const postHandler = createApiHandler({
       );
     }
 
-    const lease = await db.lease.create({
+    if (property.listingType !== "FOR_RENT" && property.listingType !== "BOTH") {
+      return NextResponse.json({ success: false, error: "Leases can only be created for rental properties." }, { status: 409 });
+    }
+
+    if (body.inquiryId) {
+      const inquiry = await db.inquiry.findFirst({
+        where: { id: body.inquiryId, organizationId, propertyId: body.propertyId, lookingFor: "FOR_RENT", status: "CLOSED", outcome: "WON" },
+        select: { id: true },
+      });
+      if (!inquiry) return NextResponse.json({ success: false, error: "The rental inquiry is not a winning closed deal for this property." }, { status: 409 });
+    }
+
+    const lease = await db.$transaction(async (tx) => {
+      const createdLease = await tx.lease.create({
       data: {
         organizationId: organizationId!,
         propertyId: body.propertyId,
+        inquiryId: body.inquiryId || undefined,
         tenantName: body.tenantName,
         tenantPhone: body.tenantPhone,
         tenantEmail: body.tenantEmail || undefined,
@@ -75,10 +89,11 @@ const postHandler = createApiHandler({
       }
     });
 
-    // Mark the property as RENTED
-    await db.property.update({
+      await tx.property.update({
       where: { id: body.propertyId },
       data: { status: "RENTED" },
+      });
+      return createdLease;
     });
 
     // Invalidate lease and property caches across all surfaces

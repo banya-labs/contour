@@ -78,6 +78,8 @@ type ExistingClient = {
 const STAGES = [
   { id: "NEW_INQUIRY", label: "New Inquiry", tag: "RAW" },
   { id: "CONTACTED", label: "Contacted", tag: "TOUCH" },
+  { id: "VIEWING_SCHEDULED", label: "Viewing Scheduled", tag: "VIEWING" },
+  { id: "NEGOTIATING", label: "Negotiating", tag: "NEGOTIATION" },
   { id: "OFFER_MADE", label: "Written Offer", tag: "OFFER" },
   { id: "MANAGEMENT_HANDOVER", label: "Management Handover", tag: "REVIEW" },
 ];
@@ -175,13 +177,7 @@ function DealPipelineContent() {
             agentName: inquiry.assignedAgent?.name || "Unassigned",
             assignedAgentId: inquiry.assignedAgent?.id || inquiry.assignedAgentId || null,
             daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),
-            // Retain visibility for legacy stages after the simplified workflow:
-            // viewings remain Contacted, while negotiation records become Written Offer.
-            stage: inquiry.status === "VIEWING_SCHEDULED"
-              ? "CONTACTED"
-              : inquiry.status === "NEGOTIATING"
-                ? "OFFER_MADE"
-                : inquiry.status,
+            stage: inquiry.status,
             outcome: inquiry.outcome,
             lostReason: inquiry.lostReason,
             closedAt: inquiry.closedAt,
@@ -467,6 +463,7 @@ function DealPipelineContent() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        idempotencyKey: `deal-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         clientName,
         clientPhone,
         clientEmail: clientEmail || undefined,
@@ -896,7 +893,7 @@ function DealPipelineContent() {
 
       {/* Visual Kanban Columns Grid (Desktop & Tablet) */}
       <div className="hidden md:block overflow-x-auto pb-4">
-        <div className="grid grid-cols-4 gap-3.5 items-start min-w-[860px]">
+        <div className="grid grid-cols-6 gap-3.5 items-start min-w-[1320px]">
           {STAGES.map((stage) => {
             const stageDeals = deals.filter((d) => d.stage === stage.id);
 

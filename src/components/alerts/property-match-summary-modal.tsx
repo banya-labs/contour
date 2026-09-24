@@ -120,7 +120,9 @@ export default function PropertyMatchSummaryModal({
 
             <div className="text-right text-xs">
               <div className="text-[9px] font-mono text-[#6b6b6b] uppercase">Assigned Closing Agent</div>
-              <div className="font-heading font-bold text-[#282828] uppercase">{property.assignedAgentName || "Tembo Mwape"}</div>
+              <div className="font-heading font-bold text-[#282828] uppercase">
+                {property.assignedAgent?.name || property.assignedAgentName || "Unassigned"}
+              </div>
             </div>
           </div>
 

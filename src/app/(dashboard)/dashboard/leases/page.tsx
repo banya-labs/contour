@@ -34,10 +34,11 @@ function LeasesManagementContent() {
     const rawPrefill = searchParams?.get("prefill");
     if (rawPrefill) {
       try {
-        const prefill = JSON.parse(rawPrefill) as { propertyId?: string; tenantName?: string; tenantPhone?: string; tenantEmail?: string; monthlyRent?: number; currency?: string };
+        const prefill = JSON.parse(rawPrefill) as { propertyId?: string; inquiryId?: string; tenantName?: string; tenantPhone?: string; tenantEmail?: string; monthlyRent?: number; currency?: string };
         setFormData((prev) => ({
           ...prev,
           propertyId: prefill.propertyId || prev.propertyId,
+          inquiryId: prefill.inquiryId || prev.inquiryId,
           tenantName: prefill.tenantName || prev.tenantName,
           tenantPhone: prefill.tenantPhone || prev.tenantPhone,
           monthlyRent: prefill.monthlyRent ? String(prefill.monthlyRent) : prev.monthlyRent,
@@ -52,6 +53,7 @@ function LeasesManagementContent() {
   // Form State
   const [formData, setFormData] = useState({
     propertyId: "",
+    inquiryId: "",
     tenantName: "",
     tenantPhone: "",
     monthlyRent: "2200",
@@ -124,6 +126,7 @@ function LeasesManagementContent() {
 
     const leasePayload = {
       propertyId: formData.propertyId,
+      inquiryId: formData.inquiryId || undefined,
       tenantName: formData.tenantName,
       tenantPhone: formData.tenantPhone,
       monthlyRent: rentNum,
@@ -148,6 +151,7 @@ function LeasesManagementContent() {
           setIsModalOpen(false);
           setFormData({
             propertyId: properties[0]?.id || "",
+            inquiryId: "",
             tenantName: "",
             tenantPhone: "",
             monthlyRent: "2200",

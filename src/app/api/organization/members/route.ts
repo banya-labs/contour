@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
-import { CONTOUR_ROLE_KEYS, ROLE_DESCRIPTIONS, ROLE_PRESETS } from "@/lib/authorization";
+import { CONTOUR_ROLE_KEYS, PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_PRESETS } from "@/lib/authorization";
 import { normalizeWhatsAppPhone } from "@/lib/phone-input";
+import { smartCache } from "@/lib/cache";
 
 const memberUpdateSchema = z.object({
   memberId: z.string().min(1),
   roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).optional(),
   status: z.enum(["active", "suspended"]).optional(),
-  permissions: z.array(z.string()).optional(),
+  permissions: z.array(z.enum(PERMISSIONS)).optional(),
   phone: z.string().nullable().optional(),
 });
 
@@ -98,6 +99,9 @@ export const PATCH = createApiHandler({
       await db.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });
       await db.memberRoleAssignment.create({ data: { memberId: member.id, roleId: role.id, assignedById: userId } });
       await db.member.update({ where: { id: member.id }, data: { lastRoleChangedAt: new Date() } });
+      if (body.permissions === undefined) {
+        await db.memberPermissionOverride.deleteMany({ where: { memberId: member.id } });
+      }
     }
 
     if (body.permissions) {
@@ -106,6 +110,9 @@ export const PATCH = createApiHandler({
         await db.memberPermissionOverride.createMany({ data: body.permissions.map((permission) => ({ memberId: member.id, permission, effect: "ALLOW", assignedById: userId })) });
       }
     }
+
+    smartCache.invalidateTag(organizationId!, "organization-members", "/dashboard/settings");
+    smartCache.invalidateTag(organizationId!, "dashboard-access", "/dashboard");
 
     return NextResponse.json({ success: true });
   },

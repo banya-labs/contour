@@ -5,12 +5,13 @@ import { Prisma } from "@prisma/client";
 import { updateInquirySchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { normalizePhoneNumber } from "@/lib/phone-utils";
-import { hasRequiredRole } from "@/lib/authorization";
+import { isManagementRole } from "@/lib/authorization";
+import { canAdvancePipelineStage } from "@/lib/pipeline-transition";
 
 export const PATCH = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
   bodySchema: updateInquirySchema,
-  handler: async (_req, { body, params, organizationId, userId, userRole }) => {
+  handler: async (_req, { body, params, organizationId, userId, contourRole }) => {
     const inquiryId = typeof params?.id === "string" ? params.id : undefined;
     if (!inquiryId) return NextResponse.json({ success: false, error: "Inquiry id is required." }, { status: 400 });
 
@@ -20,7 +21,7 @@ export const PATCH = createApiHandler({
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
 
-    if (body.status === "CLOSED" && !hasRequiredRole(userRole || "FIELD_AGENT", ["SUPER_ADMIN", "BROKER_MANAGER", "OWNER"])) {
+    if (body.status === "CLOSED" && !isManagementRole(contourRole)) {
       return NextResponse.json({ success: false, error: "Only management can close deals." }, { status: 403 });
     }
 
@@ -44,6 +45,12 @@ export const PATCH = createApiHandler({
     }
 
     const targetPropertyId = body.propertyId !== undefined ? body.propertyId : inquiry.propertyId;
+    if (body.status && body.status !== "CLOSED" && body.status !== inquiry.status) {
+      const currentValue = body.dealValue ?? null;
+      if (!canAdvancePipelineStage(inquiry.status, body.status, currentValue)) {
+        return NextResponse.json({ success: false, error: "Deals must progress through each stage in order, and an offer must have a positive value." }, { status: 409 });
+      }
+    }
     if (body.status !== "CLOSED" && body.propertyId !== undefined && targetPropertyId) {
       const property = await db.property.findFirst({ where: { id: targetPropertyId, organizationId: organizationId! }, select: { status: true } });
       if (property?.status === "SOLD") return NextResponse.json({ success: false, error: "This property has already been sold and cannot be reopened in the pipeline." }, { status: 409 });
@@ -168,6 +175,7 @@ export const PATCH = createApiHandler({
       leasePrefill: updated.outcome === "WON" && updated.lookingFor === "FOR_RENT" && updated.property
         ? {
             propertyId: updated.property.id,
+            inquiryId: updated.id,
             propertyTitle: updated.property.title,
             tenantName: updated.clientName,
             tenantPhone: updated.clientPhone,

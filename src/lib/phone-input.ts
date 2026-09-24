@@ -6,9 +6,9 @@ export type PhoneCountry = {
 };
 
 export const PHONE_COUNTRIES: readonly PhoneCountry[] = [
-  { code: "260", name: "Zambia", dialLabel: "+260", subscriberDigits: 9 },
-  { code: "27", name: "South Africa", dialLabel: "+27", subscriberDigits: 9 },
-  { code: "263", name: "Zimbabwe", dialLabel: "+263", subscriberDigits: 9 },
+  { code: "260", name: "ZM", dialLabel: "+260", subscriberDigits: 9 },
+  { code: "27", name: "ZA", dialLabel: "+27", subscriberDigits: 9 },
+  { code: "263", name: "ZW", dialLabel: "+263", subscriberDigits: 9 },
   { code: "254", name: "Kenya", dialLabel: "+254", subscriberDigits: 9 },
   { code: "234", name: "Nigeria", dialLabel: "+234", subscriberDigits: 10 },
   { code: "255", name: "Tanzania", dialLabel: "+255", subscriberDigits: 9 },

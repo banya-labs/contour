@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
+import { isManagementRole } from "@/lib/authorization";
 
 // ── GET /api/vault/documents ─────────────────────────────────────────────────
 export const GET = createApiHandler({
   requireAuth: true,
   requirePermissions: ["vault.read"],
-  handler: async (_req, { organizationId, userId, userRole }) => {
+  handler: async (_req, { organizationId, userId, contourRole }) => {
     const orgId = organizationId!;
 
     // 1. Determine user access grant
     let accessLevel = "FULL_VAULT";
     let whitelistedPropertyIds: string[] = [];
 
-    if (userRole !== "SUPER_ADMIN" && userRole !== "BROKER_MANAGER") {
+    if (!isManagementRole(contourRole)) {
       const grant = await db.vaultAccessGrant.findUnique({
         where: {
           organizationId_userId: {
@@ -33,7 +35,7 @@ export const GET = createApiHandler({
     }
 
     // 2. Build property filter based on 3-tier access control
-    let propertyFilter: any = undefined;
+    let propertyFilter: Prisma.VaultDocumentWhereInput | undefined;
 
     if (accessLevel === "ASSIGNED_ONLY") {
       const assignedProps = await db.property.findMany({

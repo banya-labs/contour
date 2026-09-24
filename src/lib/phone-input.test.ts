@@ -27,4 +27,10 @@ describe("phone input contract", () => {
   it("falls back to Zambia for an unknown country code", () => {
     expect(getPhoneCountry("999").code).toBe("260");
   });
+
+  it("uses regional abbreviations for Southern African country labels", () => {
+    expect(getPhoneCountry("260").name).toBe("ZM");
+    expect(getPhoneCountry("27").name).toBe("ZA");
+    expect(getPhoneCountry("263").name).toBe("ZW");
+  });
 });

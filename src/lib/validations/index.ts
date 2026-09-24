@@ -111,6 +111,7 @@ export const updatePropertySchema = z.object({
 
 export const createLeaseSchema = z.object({
   propertyId: z.string(),
+  inquiryId: z.string().optional(),
   tenantName: z.string().min(2).max(100),
   tenantPhone: z.string().min(6).max(30),
   tenantEmail: z.string().email().optional(),
@@ -152,9 +153,6 @@ export const generateLandlordStatementSchema = z.object({
   propertyId: z.string(),
   statementMonth: z.number().int().min(1).max(12),
   statementYear: z.number().int().min(2020).max(2035),
-  grossRentCollected: z.number().nonnegative(),
-  agencyFeeDeducted: z.number().nonnegative(),
-  maintenanceDeducted: z.number().nonnegative().default(0),
   currency: CurrencyEnum.default("ZMW"),
 });
 
@@ -237,6 +235,7 @@ export const publicInquirySchema = z.object({
   clientEmail: z.string().email().optional().or(z.literal("")),
   propertyId: z.string().optional(),
   notes: z.string().max(1000).optional(),
+  idempotencyKey: z.string().min(8).max(120).optional(),
 });
 
 export const createFollowUpTaskSchema = z.object({

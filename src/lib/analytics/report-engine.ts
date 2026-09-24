@@ -21,6 +21,7 @@ import {
   DocumentActivitySnapshot,
   KpiComparison,
 } from "./types";
+import { calculatePipelineStageValues } from "./pipeline-values";
 
 type ReportOrganization = {
   name: string;
@@ -215,7 +216,7 @@ export class ContourReportEngine {
         },
         include: {
           assignedAgent: { select: { id: true, name: true } },
-          property: { select: { id: true, title: true, suburb: true } },
+          property: { select: { id: true, title: true, suburb: true, askingPrice: true, rentalPrice: true } },
           visits: { select: { id: true, status: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -803,40 +804,47 @@ export class ContourReportEngine {
     // -------------------------------------------------------------------------
     // BATCH 12: Pipeline Funnel Snapshot
     // -------------------------------------------------------------------------
+    const pipelineValueByStage = calculatePipelineStageValues(inquiriesInPeriod.map((inquiry) => ({
+      status: inquiry.status,
+      outcome: inquiry.outcome,
+      dealValue: inquiry.dealValue ? Number(inquiry.dealValue) : null,
+      propertyValue: inquiry.property ? Number(inquiry.property.askingPrice || inquiry.property.rentalPrice || 0) : null,
+    })));
+
     const pipelineStages: PipelineStageSnapshot[] = [
       {
         stage: "NEW_INQUIRY",
         label: "New Inquiry",
         opportunities: newInquiryCount,
-        potentialValue: Math.round(newInquiryCount * 380000),
+        potentialValue: pipelineValueByStage.NEW_INQUIRY || 0,
         currency,
       },
       {
         stage: "CONTACTED",
         label: "Contacted",
         opportunities: contactedCount,
-        potentialValue: Math.round(contactedCount * 440000),
+        potentialValue: pipelineValueByStage.CONTACTED || 0,
         currency,
       },
       {
         stage: "VIEWING_SCHEDULED",
         label: "Viewing",
         opportunities: viewingStageCount,
-        potentialValue: Math.round(viewingStageCount * 465000),
+        potentialValue: pipelineValueByStage.VIEWING_SCHEDULED || 0,
         currency,
       },
       {
         stage: "NEGOTIATING",
         label: "Negotiation",
         opportunities: negotiatingCount,
-        potentialValue: Math.round(negotiatingCount * 670000),
+        potentialValue: pipelineValueByStage.NEGOTIATING || 0,
         currency,
       },
       {
         stage: "OFFER_MADE",
         label: "Offer",
         opportunities: offerCount,
-        potentialValue: Math.round(offerCount * 650000),
+        potentialValue: pipelineValueByStage.OFFER_MADE || 0,
         currency,
       },
       {

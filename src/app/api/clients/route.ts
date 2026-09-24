@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
 import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
+import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -66,6 +67,10 @@ const postHandler = createApiHandler({
   bodySchema: createInquirySchema,
   handler: async (req, ctx) => {
     const { organizationId, body, userId } = ctx;
+
+    if (body.status && body.status !== "NEW_INQUIRY") {
+      return NextResponse.json({ success: false, error: "New opportunities must start at New Inquiry and progress through the pipeline." }, { status: 409 });
+    }
 
     if (body.idempotencyKey) {
       const existing = await db.inquiry.findFirst({ where: { organizationId: organizationId!, idempotencyKey: body.idempotencyKey }, include: { property: true, assignedAgent: true } });
@@ -138,6 +143,11 @@ const postHandler = createApiHandler({
     exclusiveLockExpiresAt.setDate(exclusiveLockExpiresAt.getDate() + lockDurationDays);
 
     const clientPhone = normalizePhoneNumber(body.clientPhone);
+
+    if (!body.existingInquiryId) {
+      const openClient = await db.inquiry.findFirst({ where: { organizationId: organizationId!, clientPhone, status: { not: "CLOSED" } }, orderBy: { updatedAt: "desc" } });
+      if (openClient) return NextResponse.json({ success: true, client: openClient, deduplicated: true });
+    }
 
     // Reuse an existing open opportunity selected from the pipeline instead of
     // creating a second deal for the same tenant-scoped client record.
@@ -233,6 +243,7 @@ const postHandler = createApiHandler({
         },
       },
     });
+    await createInquiryMatchNotifications(organizationId!, client.id);
 
     // Invalidate client, pipeline, and dashboard caches across all surfaces
     if (organizationId) {

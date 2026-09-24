@@ -308,6 +308,7 @@ function ClientsCRMContent() {
     const currency = formData.budgetMax.includes("$") ? "USD" : "ZMW";
 
     const clientPayload = {
+      idempotencyKey: `client-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       clientName: formData.name,
       clientPhone: formData.phone,
       clientEmail: formData.email || undefined,

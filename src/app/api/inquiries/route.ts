@@ -4,6 +4,8 @@ import { publicInquirySchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { smartCache } from "@/lib/cache";
 import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
+import { normalizePhoneNumber } from "@/lib/phone-utils";
+import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +63,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const clientPhone = normalizePhoneNumber(parsed.clientPhone);
+    if (parsed.idempotencyKey) {
+      const existing = await db.inquiry.findFirst({ where: { organizationId: organization.id, idempotencyKey: parsed.idempotencyKey } });
+      if (existing) return NextResponse.json({ success: true, message: "Inquiry already received.", inquiryId: existing.id }, { headers: CORS_HEADERS });
+    }
+    const duplicate = await db.inquiry.findFirst({ where: { organizationId: organization.id, clientPhone, propertyId: parsed.propertyId || null, status: { not: "CLOSED" }, createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) } } });
+    if (duplicate) return NextResponse.json({ success: true, message: "Inquiry already received.", inquiryId: duplicate.id }, { headers: CORS_HEADERS });
+
     // 4. Resolve the property if provided and find its assigned agent
     let assignedAgentId: string | null = null;
     let enrichedNotes = parsed.notes || "";
@@ -90,7 +100,7 @@ export async function POST(req: NextRequest) {
       data: {
         organizationId: organization.id,
         clientName: parsed.clientName,
-        clientPhone: parsed.clientPhone,
+        clientPhone,
         clientEmail: parsed.clientEmail || null,
         lookingFor: "FOR_SALE",
         notes: enrichedNotes,
@@ -99,8 +109,10 @@ export async function POST(req: NextRequest) {
         status: "NEW_INQUIRY",
         // Enforce the 30-day anti-poaching lock
         exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        idempotencyKey: parsed.idempotencyKey,
       },
     });
+    await createInquiryMatchNotifications(organization.id, inquiry.id);
 
     // Invalidate caches across agency dashboard, pipeline, and field agent kiosks
     smartCache.invalidateTag(organization.id, "clients", "/dashboard/clients");

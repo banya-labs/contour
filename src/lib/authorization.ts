@@ -15,6 +15,25 @@ export const PERMISSIONS = [
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
+const PERMISSION_SET = new Set<string>(PERMISSIONS);
+
+export function isPermission(value: string): value is Permission {
+  return PERMISSION_SET.has(value);
+}
+
+export function applyPermissionOverrides(
+  basePermissions: readonly Permission[],
+  overrides: readonly { permission: string; effect: string }[],
+): readonly Permission[] {
+  const effective = new Set<Permission>(basePermissions);
+  for (const override of overrides) {
+    if (!isPermission(override.permission)) continue;
+    if (override.effect === "DENY") effective.delete(override.permission);
+    if (override.effect === "ALLOW") effective.add(override.permission);
+  }
+  return PERMISSIONS.filter((permission) => effective.has(permission));
+}
+
 const ALL: readonly Permission[] = PERMISSIONS;
 export const ROLE_PRESETS: Readonly<Record<ContourRoleKey, readonly Permission[]>> = {
   OWNER: ALL,
@@ -74,8 +93,9 @@ export function isManagementRole(role: ContourRoleKey | string | undefined | nul
 
 export function canManagePropertyPhotos(
   user: { id: string; role?: string | null; contourRole?: ContourRoleKey },
-  property?: { assignedAgentId?: string | null; createdById?: string | null }
+  _property?: { assignedAgentId?: string | null; createdById?: string | null }
 ): boolean {
+  void _property;
   if (!user || !user.id) return false;
   const role = (user.contourRole || user.role || "").toUpperCase();
   // External clients (Landlords / Tenants) cannot upload or delete agency property photos

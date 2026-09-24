@@ -36,6 +36,7 @@ export type AlertMatchResult = {
 
 export type MatchedProperty = {
   organizationId?: string | null;
+  status?: string | null;
   title: string;
   slug: string;
   suburb: string;
@@ -135,6 +136,7 @@ export function registerPropertyAlert(
  * Event-Driven Matchmaker: Evaluates a property against all active alerts
  */
 export function evaluatePropertyAgainstAlerts(newProperty: MatchedProperty): AlertMatchResult[] {
+  if (newProperty.status === "SOLD" || newProperty.status === "RENTED") return [];
   const activeAlerts = getActiveAlerts();
   const matches: AlertMatchResult[] = [];
   const propertyPrice = newProperty.listingType === "FOR_SALE"
@@ -182,7 +184,7 @@ export function evaluatePropertyAgainstAlerts(newProperty: MatchedProperty): Ale
         `💰 *Price:* ${priceFormatted}${newProperty.listingType === "FOR_RENT" ? " / mo" : ""}\n` +
         `🛏️ *Specs:* ${newProperty.bedrooms ? `${newProperty.bedrooms} Bedrooms` : "Development Plot"}\n\n` +
         `👉 *View Full Photos & Map:* ${publicLink}\n\n` +
-        `_Your assigned agent, ${alert.assignedAgentName || "Contour Broker"}, is available for an exclusive viewing today._`;
+        `_Your assigned agent, ${newProperty.assignedAgentName || "Unassigned"}, is available for an exclusive viewing today._`;
 
       // Pre-formatted personalized manual offer message for direct broker outreach
       const customOfferText =
