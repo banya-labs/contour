@@ -35,7 +35,7 @@ export function PricingMatrix() {
         "1-Click WhatsApp listing flyer generator",
         "30-Day anti-poaching client registration",
         "Public shareable property cards (/p/[slug])",
-        "Lenco Zambia Mobile Money & Card billing",
+        "Lenco Zambia Mobile Money billing",
       ],
       ctaText: "Start 14-Day Free Pilot",
       popular: false,
@@ -101,7 +101,7 @@ export function PricingMatrix() {
         </h2>
         
         <p className="text-sm sm:text-base text-stone-600 leading-relaxed">
-          Priced for Southern African brokerages with seamless Lenco Zambia checkout (<a href="https://lenco.co/zm" target="_blank" rel="noreferrer" className="underline text-[#16382B] font-medium">lenco.co/zm</a>). Pay in Zambian Kwacha (ZMW) or US Dollars (USD) via MTN MoMo, Airtel Money, Zamtel, or Visa/Mastercard.
+          Priced for Southern African brokerages with seamless Lenco Zambia checkout (<a href="https://lenco.co/zm" target="_blank" rel="noreferrer" className="underline text-[#16382B] font-medium">lenco.co/zm</a>). Pay in Zambian Kwacha (ZMW) or US Dollars (USD) via MTN MoMo, Airtel Money, or Zamtel.
         </p>
 
         {/* Billing & Currency Toggles */}
@@ -316,7 +316,7 @@ export function PricingMatrix() {
             Local & Regional Payment Methods Supported via Lenco Zambia
           </p>
           <p className="text-xs text-stone-500">
-            MTN Mobile Money, Airtel Money, Zamtel Kwacha, Visa, Mastercard, and Bank Wire.
+            MTN Mobile Money, Airtel Money, and Zamtel Kwacha.
           </p>
         </div>
 
@@ -329,9 +329,6 @@ export function PricingMatrix() {
           </span>
           <span className="px-3 py-1.5 rounded-xl bg-[#FAF8F5] border border-[#E6E0D4]">
             🟢 Zamtel
-          </span>
-          <span className="px-3 py-1.5 rounded-xl bg-[#FAF8F5] border border-[#E6E0D4]">
-            💳 Visa / Mastercard
           </span>
         </div>
       </div>
