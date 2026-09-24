@@ -1,6 +1,7 @@
 import { createAuthClient } from "better-auth/react";
 import { organizationClient, twoFactorClient } from "better-auth/client/plugins";
 import { clearLocalOfflineCache } from "./powersync";
+import { emitWorkspaceMutation } from "./workspace-events";
 
 export const authClient = createAuthClient({
   baseURL: typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
@@ -16,6 +17,7 @@ export async function contourSignOut(
   ...args: Parameters<typeof authClient.signOut>
 ) {
   clearLocalOfflineCache();
+  emitWorkspaceMutation(["tenant-reset"]);
   if (typeof document !== "undefined") {
     document.cookie =
       "contour_last_page=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";

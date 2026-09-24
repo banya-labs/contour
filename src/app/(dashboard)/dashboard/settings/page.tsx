@@ -476,10 +476,14 @@ function SettingsContent() {
         return;
       }
       if (destructiveAction === "DELETE") {
+        const { emitWorkspaceMutation } = await import("@/lib/workspace-events");
+        emitWorkspaceMutation(["tenant-reset"]);
         await authClient.organization.setActive({ organizationId: null });
         router.replace("/onboarding");
         return;
       }
+      const { emitWorkspaceMutation } = await import("@/lib/workspace-events");
+      emitWorkspaceMutation(["tenant-reset"]);
       setDestructiveAction(null);
       setDestructiveConfirmation("");
       setSettingsMessage("Workspace data reset. Your workspace is ready to start afresh.");

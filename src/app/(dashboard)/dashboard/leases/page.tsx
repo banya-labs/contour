@@ -18,6 +18,7 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import StatementsPage from "@/app/(dashboard)/dashboard/statements/page";
+import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
@@ -27,6 +28,7 @@ function LeasesManagementContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreatingLease, setIsCreatingLease] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const searchParams = useSearchParams();
   const activeTab = searchParams?.get("tab") === "statements" ? "statements" : "leases";
@@ -95,6 +97,14 @@ function LeasesManagementContent() {
       }
     }
     loadData();
+  }, [refreshNonce]);
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "leases")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handle);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
   }, []);
 
   const handleSendReminder = (leaseId: string) => {
@@ -150,6 +160,7 @@ function LeasesManagementContent() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.lease) {
+          window.dispatchEvent(new CustomEvent(WORKSPACE_MUTATION_EVENT, { detail: { scopes: ["leases", "properties", "dashboard"], entityId: data.lease.id } }));
           setLeases([data.lease, ...leases]);
           setIsModalOpen(false);
           setFormData({

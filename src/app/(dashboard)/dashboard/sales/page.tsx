@@ -19,6 +19,7 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import CommissionsPage from "@/app/(dashboard)/dashboard/commissions/page";
+import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
@@ -31,6 +32,7 @@ function PropertySalesContent() {
   const [canOverrideCommission, setCanOverrideCommission] = useState(false);
   const [isRecordingSale, setIsRecordingSale] = useState(false);
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const searchParams = useSearchParams();
   const activeTab = searchParams?.get("tab") === "commissions" ? "commissions" : "sales";
@@ -129,6 +131,14 @@ function PropertySalesContent() {
       }
     }
     loadData();
+  }, [refreshNonce]);
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "sales")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handle);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
   }, []);
 
   const handleRecordSale = (e: React.FormEvent) => {
@@ -193,6 +203,7 @@ function PropertySalesContent() {
       .then((data) => {
         if (data.success && data.transaction) {
           const t = data.transaction;
+          emitWorkspaceMutation(["sales", "properties", "commissions", "dashboard"], t.id);
           const ministryRef = formData.ministryReference;
 
           const newSale = {

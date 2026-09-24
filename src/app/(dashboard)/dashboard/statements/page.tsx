@@ -18,6 +18,7 @@ import { ContourLogo } from "@/components/brand/contour-logo";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
+import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 type Statement = {
   id: string;
@@ -41,6 +42,7 @@ function LandlordStatementsContent() {
   const [statements, setStatements] = useState<Statement[]>([]);
   const [properties, setProperties] = useState<RentalProperty[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formError, setFormError] = useState("");
   const [isCreatingStatement, setIsCreatingStatement] = useState(false);
@@ -89,6 +91,14 @@ function LandlordStatementsContent() {
       }
     }
     loadData();
+  }, [refreshNonce]);
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "leases")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handle);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
   }, []);
 
   const handleCreateStatement = async (e: React.FormEvent) => {

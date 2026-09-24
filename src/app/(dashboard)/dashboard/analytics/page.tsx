@@ -36,6 +36,7 @@ import { ContourReportPayload } from "@/lib/analytics/types";
 import { formatCurrency } from "@/lib/utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
+import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 export default function AnalyticsDashboardPage() {
   const [preset, setPreset] = useState<string>("this_month");
@@ -46,6 +47,7 @@ export default function AnalyticsDashboardPage() {
   const [report, setReport] = useState<ContourReportPayload | null>(null);
   const [aiNarrative, setAiNarrative] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   // PDF Generation Wizard Modal State
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
@@ -80,7 +82,15 @@ export default function AnalyticsDashboardPage() {
 
   useEffect(() => {
     fetchReport(preset);
-  }, [preset]);
+  }, [preset, refreshNonce]);
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "dashboard")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handle);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
+  }, []);
 
   const handleRefreshAi = async () => {
     if (!report) return;

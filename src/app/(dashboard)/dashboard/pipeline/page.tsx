@@ -26,6 +26,12 @@ import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { mapLegacyPipelineState } from "@/lib/deal-workflow";
+import {
+  emitWorkspaceMutation,
+  mutationTouchesScope,
+  WORKSPACE_MUTATION_EVENT,
+  type WorkspaceMutationEventDetail,
+} from "@/lib/workspace-events";
 
 type Deal = {
   id: string;
@@ -235,6 +241,18 @@ function DealPipelineContent() {
     loadAllPipelineData();
   }, []);
 
+  useEffect(() => {
+    const handleWorkspaceMutation = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "pipeline")) {
+        loadAllPipelineData();
+      }
+    };
+
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
+  }, []);
+
   const stats = useMemo(() => {
     const totalsByCurrency: Record<string, number> = {};
     const commByCurrency: Record<string, number> = {};
@@ -321,6 +339,7 @@ function DealPipelineContent() {
       setDeals((prev) =>
         prev.map((d) => (d.id === deal.id ? { ...d, stage: targetStage } : d)),
       );
+      emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], deal.id);
       setPendingTransition(null);
     } finally {
       setPendingDealActions((state) => setKeyPending(state, actionKey, false));
@@ -357,6 +376,7 @@ function DealPipelineContent() {
             : deal,
         ),
       );
+      emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent", "sales", "leases"], closeTarget.id);
       setCloseTarget(null);
       if (closeOutcome === "WON" && result?.leasePrefill) {
         const encoded = encodeURIComponent(JSON.stringify(result.leasePrefill));
@@ -424,6 +444,7 @@ function DealPipelineContent() {
           };
         })
       );
+      emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], editingDeal.id);
 
       setEditingDeal(null);
     } catch {
@@ -528,6 +549,7 @@ function DealPipelineContent() {
     };
 
     setDeals((current) => [newDeal, ...current.filter((deal) => deal.id !== newDeal.id)]);
+    emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], newDeal.id);
 
     // Keep existing clients list refreshed
     setExistingClients((prev) => {
@@ -571,6 +593,7 @@ function DealPipelineContent() {
         return;
       }
       setDeals((current) => current.filter((deal) => deal.id !== deleteTarget.id));
+      emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], deleteTarget.id);
       setExistingClients((current) => current.filter((client) => client.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch {

@@ -28,11 +28,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
+import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 export default function DocumentVaultPage() {
   const [documents, setDocuments] = useState<VaultDoc[]>([]);
   const [properties, setProperties] = useState<PropertyItem[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [accessLevel, setAccessLevel] = useState<string>("FULL_VAULT");
   const [loading, setLoading] = useState(true);
 
@@ -80,6 +82,14 @@ export default function DocumentVaultPage() {
 
   useEffect(() => {
     loadVaultData();
+  }, [refreshNonce]);
+  useEffect(() => {
+    const handle = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceMutationEventDetail>).detail;
+      if (detail && mutationTouchesScope(detail, "documents")) setRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener(WORKSPACE_MUTATION_EVENT, handle);
+    return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
   }, []);
 
   const totalFiles = documents.length;
