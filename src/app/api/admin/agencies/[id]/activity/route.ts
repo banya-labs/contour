@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { page, pageSize } = parsed.data;
   const [total, entries] = await Promise.all([
     db.auditLog.count({ where: { organizationId: id } }),
-    db.auditLog.findMany({ where: { organizationId: id }, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, action: true, entityType: true, entityId: true, details: true, createdAt: true, user: { select: { name: true, email: true } } } }),
+    db.auditLog.findMany({ where: { organizationId: id }, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, action: true, entityType: true, entityId: true, details: true, createdAt: true, userId: true } }),
   ]);
-  return NextResponse.json({ success: true, activity: entries.map((entry) => ({ ...entry, actor: entry.user?.name || entry.user?.email || "System" })), pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
+  return NextResponse.json({ success: true, activity: entries.map((entry) => ({ ...entry, actor: entry.userId || "System" })), pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
 }
