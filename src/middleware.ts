@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/request-access/",
   "/privacy",
   "/terms",
+  "/account-locked",
   "/cookies",
   "/sitemap.xml",
   "/robots.txt",
@@ -179,8 +180,13 @@ export async function middleware(request: NextRequest) {
     if (!pathname.startsWith("/dashboard/billing")) {
       const organization = await db.organization.findUnique({
         where: { id: tenant.organizationId },
-        select: { createdAt: true, trialEndsAt: true, subscriptionStatus: true, lencoSubscriptionId: true },
+        select: { createdAt: true, trialEndsAt: true, subscriptionStatus: true, lencoSubscriptionId: true, accountStatus: true },
       });
+      if (organization?.accountStatus && organization.accountStatus !== "ACTIVE") {
+        const response = NextResponse.redirect(new URL(`/account-locked?status=${organization.accountStatus}`, request.url));
+        response.headers.set(CORRELATION_HEADER, correlationId);
+        return response;
+      }
       const successfulPayment = await db.payment.findFirst({
         where: { organizationId: tenant.organizationId, status: "SUCCESS" },
         select: { id: true },

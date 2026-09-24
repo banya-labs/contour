@@ -93,8 +93,11 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       if (options.requireAuth !== false && tenant && tenant !== demoTenant && !billingExemptPath) {
         const organization = await db.organization.findUnique({
           where: { id: organizationId! },
-          select: { createdAt: true, trialEndsAt: true, subscriptionStatus: true, lencoSubscriptionId: true },
+          select: { createdAt: true, trialEndsAt: true, subscriptionStatus: true, lencoSubscriptionId: true, accountStatus: true },
         });
+        if (organization?.accountStatus && organization.accountStatus !== "ACTIVE") {
+          return NextResponse.json({ error: "Workspace is not currently available.", code: "WORKSPACE_ACCOUNT_RESTRICTED", accountStatus: organization.accountStatus }, { status: 423 });
+        }
         const successfulPayment = await db.payment.findFirst({
           where: { organizationId: organizationId!, status: "SUCCESS" },
           select: { id: true },
