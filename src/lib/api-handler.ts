@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getTrialEnd, hasPaidSubscription, isTrialActive } from "./billing-access";
+import { getBillingAccessState, getTrialEnd } from "./billing-access";
 import { logger } from "./logger";
 import { getTenantContext, type TenantContext } from "./tenant-context";
 import { hasRequiredRole, roleHasPermission, resolveContourRole, type Permission } from "./authorization";
@@ -104,8 +104,8 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
           select: { id: true },
         });
         const trialEndsAt = organization?.trialEndsAt || (organization ? getTrialEnd(organization.createdAt) : null);
-        const paid = hasPaidSubscription(organization?.subscriptionStatus, Boolean(successfulPayment) || Boolean(organization?.lencoSubscriptionId));
-        if (!paid && !isTrialActive(trialEndsAt)) {
+        const accessState = getBillingAccessState({ subscriptionStatus: organization?.subscriptionStatus, trialEndsAt, hasSuccessfulPayment: Boolean(successfulPayment) || Boolean(organization?.lencoSubscriptionId) });
+        if (accessState === "TRIAL_EXPIRED") {
           return NextResponse.json(
             { error: "Trial ended. Choose a paid tier to continue.", code: "SUBSCRIPTION_REQUIRED" },
             { status: 402 },

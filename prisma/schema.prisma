@@ -142,7 +142,7 @@ model Organization {
   paystackCustomerId    String?
   paystackSubCode       String?
   subscriptionTier      String                    @default("STARTER") // STARTER, GROWTH, ENTERPRISE
-  subscriptionStatus    String                    @default("active") // active, past_due, trialing
+  subscriptionStatus    String                    @default("trialing") // active, past_due, trialing
   trialEndsAt           DateTime?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt

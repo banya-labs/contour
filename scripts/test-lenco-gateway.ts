@@ -2,7 +2,7 @@
  * Comprehensive Automated Verification Suite for Lenco Zambia Payment Gateway
  * Tests:
  * 1. Plan pricing calculations (ZMW Kwacha, USD, ZAR) across all tiers and cycles
- * 2. Lenco HMAC SHA-256 Webhook Signature Verification (Positive & Negative security cases)
+ * 2. Lenco HMAC-SHA512 Webhook Signature Verification (Positive & Negative security cases)
  * 3. Lenco Collections client initialization & fallback handling
  */
 
@@ -59,10 +59,10 @@ async function main() {
   // ---------------------------------------------------------------------------
   // 2. Lenco HMAC SHA-256 Webhook Signature Verification
   // ---------------------------------------------------------------------------
-  console.log("\n--- 2. Testing Lenco Webhook HMAC SHA-256 Verification ---");
+  console.log("\n--- 2. Testing Lenco Webhook HMAC-SHA512 Verification ---");
 
-  const testSecret = "test_lenco_webhook_secret_12345";
-  process.env.LENCO_WEBHOOK_SECRET = testSecret;
+  const testApiToken = "test_lenco_api_token_12345";
+  process.env.LENCO_API_KEY = testApiToken;
 
   const validPayload = JSON.stringify({
     event: "transaction.successful",
@@ -78,15 +78,16 @@ async function main() {
     },
   });
 
+  const webhookHashKey = crypto.createHash("sha256").update(testApiToken).digest("hex");
   const validSignature = crypto
-    .createHmac("sha256", testSecret)
+    .createHmac("sha512", webhookHashKey)
     .update(validPayload)
     .digest("hex");
 
   // Positive Case: Valid signature
   assert(
     verifyLencoSignature(validPayload, validSignature),
-    "Valid Lenco SHA-256 signature passes verification"
+    "Valid Lenco HMAC-SHA512 signature passes verification"
   );
 
   // Negative Case 1: Tampered payload

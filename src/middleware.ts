@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { getTrialEnd, hasPaidSubscription, isTrialActive } from "@/lib/billing-access";
+import { getBillingAccessState, getTrialEnd } from "@/lib/billing-access";
 import { CORRELATION_HEADER, getOrCreateCorrelationId } from "@/lib/correlation";
 import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
@@ -193,9 +193,8 @@ export async function middleware(request: NextRequest) {
         select: { id: true },
       });
       const trialEndsAt = organization?.trialEndsAt || (organization ? getTrialEnd(organization.createdAt) : null);
-      const paid = hasPaidSubscription(organization?.subscriptionStatus, Boolean(successfulPayment) || Boolean(organization?.lencoSubscriptionId));
-      const trialActive = !paid && isTrialActive(trialEndsAt);
-      if (!paid && !trialActive) {
+      const accessState = getBillingAccessState({ subscriptionStatus: organization?.subscriptionStatus, trialEndsAt, hasSuccessfulPayment: Boolean(successfulPayment) || Boolean(organization?.lencoSubscriptionId) });
+      if (accessState === "TRIAL_EXPIRED") {
         const response = NextResponse.redirect(new URL("/dashboard/billing?required=1", request.url));
         response.headers.set(CORRELATION_HEADER, correlationId);
         return response;
