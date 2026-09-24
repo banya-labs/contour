@@ -58,6 +58,7 @@ model User {
   matchNotifications        PropertyMatchNotification[]
   platformStaff             PlatformStaff?
   platformAuditEvents       PlatformAuditEvent[]        @relation("PlatformAuditActor")
+  supportAccessSessions     SupportAccessSession[]      @relation("SupportAccessActor")
 
   @@map("user")
 }
@@ -174,6 +175,7 @@ model Organization {
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
   followUpTasks          FollowUpTask[]
   matchNotifications     PropertyMatchNotification[]
+  supportAccessSessions  SupportAccessSession[]      @relation("SupportAccessOrganization")
 
   @@map("organization")
 }
@@ -248,6 +250,24 @@ model PlatformAuditEvent {
   @@index([createdAt])
   @@index([targetType, targetId, createdAt])
   @@map("platform_audit_event")
+}
+
+model SupportAccessSession {
+  id              String    @id @default(cuid())
+  organizationId  String
+  startedByUserId String
+  reason          String
+  mode            String    @default("VIEW_ONLY")
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  organization Organization @relation("SupportAccessOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+  startedBy    User         @relation("SupportAccessActor", fields: [startedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, expiresAt])
+  @@index([startedByUserId, createdAt])
+  @@map("support_access_session")
 }
 
 model Invitation {
