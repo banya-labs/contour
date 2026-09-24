@@ -95,10 +95,10 @@ Run focused tests, typecheck, build, migration validation, readiness checks, bro
 - First completed profile starts one 14-day trial on the persisted organization.
 - Repeated profile completion preserves the original trial and paid state.
 
-- [ ] Add failing route tests for first completion, repeat completion, and paid organization protection.
-- [ ] Run them and confirm the missing behavior.
-- [ ] Implement the minimal transaction-safe correction.
-- [ ] Run focused onboarding, billing, and webhook tests.
+- [x] Add route tests for first completion, repeat completion, and paid organization protection.
+- [x] Run them against the current route and confirm all three lifecycle behaviors.
+- [x] No production correction was required; the existing guard is idempotent for these cases.
+- [x] Run focused onboarding, billing, and webhook tests.
 - [ ] Commit with `test(billing): cover onboarding trial initialization`.
 
 ### Task 4: Operational expiry and durable billing records
