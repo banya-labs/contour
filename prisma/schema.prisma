@@ -306,15 +306,17 @@ model PlatformOffer {
 }
 
 model OrganizationOffer {
-  id              String    @id @default(cuid())
-  organizationId  String
-  offerId         String
-  grantedByUserId String
-  reason          String
-  status          String    @default("ACTIVE")
-  expiresAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  organizationId    String
+  offerId           String
+  grantedByUserId   String
+  reason            String
+  status            String    @default("ACTIVE")
+  expiresAt         DateTime?
+  reservedPaymentId String?   @unique
+  reservedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   offer        PlatformOffer @relation(fields: [offerId], references: [id], onDelete: Restrict)
