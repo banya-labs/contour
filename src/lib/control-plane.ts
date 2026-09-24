@@ -26,3 +26,11 @@ export async function hasPersistedControlPlaneAccess(userId: string | null | und
   });
   return staff?.status === "ACTIVE";
 }
+
+export async function getPlatformActor(userId: string | null | undefined, email: string | null | undefined) {
+  if (!userId || !email) return null;
+  if (isControlPlaneBootstrapOwner(email)) return { userId, staffId: null, role: "OWNER" as const };
+  const staff = await db.platformStaff.findUnique({ where: { userId }, select: { id: true, role: true, status: true } });
+  if (!staff || staff.status !== "ACTIVE") return null;
+  return { userId, staffId: staff.id, role: staff.role };
+}
