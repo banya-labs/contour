@@ -1,0 +1,12 @@
+import { db } from "@/lib/db";
+
+export async function redeemOrganizationOffer(input: { organizationId: string; offerId: string; paymentId: string }) {
+  return db.$transaction(async (tx) => {
+    const grant = await tx.organizationOffer.findFirst({ where: { organizationId: input.organizationId, offerId: input.offerId, status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, include: { offer: true }, orderBy: { createdAt: "asc" } });
+    if (!grant || grant.offer.status !== "ACTIVE" || (grant.offer.startsAt && grant.offer.startsAt > new Date()) || (grant.offer.endsAt && grant.offer.endsAt <= new Date())) return null;
+    const redemption = await tx.platformOffer.updateMany({ where: { id: grant.offerId, status: "ACTIVE", OR: [{ maxRedemptions: null }, { maxRedemptions: { gt: grant.offer.redeemedCount } }] }, data: { redeemedCount: { increment: 1 } } });
+    if (redemption.count !== 1) return null;
+    await tx.organizationOffer.update({ where: { id: grant.id }, data: { status: "REDEEMED" } });
+    return { grantId: grant.id, offerId: grant.offerId, paymentId: input.paymentId, kind: grant.offer.kind, value: Number(grant.offer.value), currency: grant.offer.currency };
+  });
+}
