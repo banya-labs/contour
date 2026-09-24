@@ -56,6 +56,8 @@ model User {
   verifiedBoundaries        PropertyBoundary[]          @relation("BoundaryVerifiedBy")
   assignedTasks             FollowUpTask[]              @relation("AssignedTasks")
   matchNotifications        PropertyMatchNotification[]
+  platformStaff             PlatformStaff?
+  platformAuditEvents       PlatformAuditEvent[]        @relation("PlatformAuditActor")
 
   @@map("user")
 }
@@ -195,6 +197,57 @@ model Member {
   @@unique([organizationId, userId])
   @@index([userId])
   @@map("member")
+}
+
+enum PlatformStaffRole {
+  OWNER
+  OPERATIONS
+  SUPPORT
+  FINANCE
+  COMPLIANCE
+  READ_ONLY
+}
+
+enum PlatformStaffStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model PlatformStaff {
+  id          String              @id @default(cuid())
+  userId      String              @unique
+  role        PlatformStaffRole   @default(READ_ONLY)
+  status      PlatformStaffStatus @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  suspendedAt DateTime?
+
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditEvents PlatformAuditEvent[] @relation("PlatformStaffActor")
+
+  @@index([status, role])
+  @@map("platform_staff")
+}
+
+model PlatformAuditEvent {
+  id           String   @id @default(cuid())
+  actorStaffId String?
+  targetType   String
+  targetId     String?
+  capability   String
+  reason       String?
+  details      Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  actorStaff  PlatformStaff? @relation("PlatformStaffActor", fields: [actorStaffId], references: [id], onDelete: SetNull)
+  actorUser   User?          @relation("PlatformAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorUserId String?
+
+  @@index([createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@map("platform_audit_event")
 }
 
 model Invitation {
