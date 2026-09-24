@@ -1216,6 +1216,7 @@ model Payment {
   updatedAt             DateTime           @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices     Invoice[]
 
   @@index([organizationId, status])
   @@index([organizationId, createdAt])
