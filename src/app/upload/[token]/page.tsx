@@ -34,6 +34,16 @@ interface RequestDetails {
   propertyTitle?: string | null;
   propertySuburb?: string | null;
   clientName?: string | null;
+  accessMessage?: string | null;
+}
+
+interface UploadedFileRecord {
+  objectKey: string;
+  originalFileName: string;
+  fileSize: number;
+  mimeType: string;
+  fileType: string;
+  docType: string;
 }
 
 export default function ClientUploadPortalPage() {
@@ -60,6 +70,8 @@ export default function ClientUploadPortalPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [uploadedFileRecords, setUploadedFileRecords] = useState<UploadedFileRecord[]>([]);
+  const [awaitingMoreFilesDecision, setAwaitingMoreFilesDecision] = useState(false);
 
   // Fetch request metadata
   useEffect(() => {
@@ -122,7 +134,8 @@ export default function ClientUploadPortalPage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Submit Files directly to MinIO and complete ingestion
+  // Upload the selected batch directly to MinIO. Final submission happens only
+  // after the client confirms that they do not need to add another file.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedFiles.length === 0) {
@@ -138,7 +151,7 @@ export default function ClientUploadPortalPage() {
     setError(null);
 
     try {
-      const uploadedFileRecords = [];
+      const newUploadedFileRecords: UploadedFileRecord[] = [];
 
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
@@ -172,7 +185,7 @@ export default function ClientUploadPortalPage() {
           throw new Error(`Secure storage rejected ${file.name} (${storageRes.status})`);
         }
 
-        uploadedFileRecords.push({
+        newUploadedFileRecords.push({
           objectKey: presignData.objectKey,
           originalFileName: file.name,
           fileSize: file.size,
@@ -182,8 +195,23 @@ export default function ClientUploadPortalPage() {
         });
       }
 
-      // 3. Finalize upload & capture statutory consent
-      setUploadProgress("Recording legal custody & attaching to deal...");
+      setUploadedFileRecords((prev) => [...prev, ...newUploadedFileRecords]);
+      setSelectedFiles([]);
+      setAwaitingMoreFilesDecision(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to upload documents");
+    } finally {
+      setUploading(false);
+      setUploadProgress("");
+    }
+  };
+
+  const handleComplete = async () => {
+    if (uploadedFileRecords.length === 0) return;
+    setUploading(true);
+    setError(null);
+    setUploadProgress("Recording legal custody & attaching to deal...");
+    try {
       const completeRes = await fetch(`/api/upload/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -205,7 +233,7 @@ export default function ClientUploadPortalPage() {
 
       setSubmitted(true);
     } catch (err: any) {
-      setError(err.message || "Failed to upload documents");
+      setError(err.message || "Failed to finalize document receipt");
     } finally {
       setUploading(false);
       setUploadProgress("");
@@ -234,6 +262,22 @@ export default function ClientUploadPortalPage() {
           <div className="pt-2">
             <span className="text-[11px] font-mono text-stone-400">Contour Document Vault · Zambia DPA 2021</span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (request.status === "FULFILLED") {
+    return (
+      <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full p-6 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-md text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100">Upload Link Already Used</h2>
+          <p className="text-xs text-stone-600 dark:text-stone-400">
+            {request.accessMessage || "This upload link has already been used. Please request a new upload form from the agency if you need to re-upload a document or add another file."}
+          </p>
         </div>
       </div>
     );
@@ -445,6 +489,35 @@ export default function ClientUploadPortalPage() {
             </div>
 
             {/* Zambia DPA Statutory Consent Checkbox */}
+            {awaitingMoreFilesDecision && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/60 space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  Do you need to upload more files?
+                </h3>
+                <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                  {uploadedFileRecords.length} file{uploadedFileRecords.length === 1 ? " has" : "s have"} been uploaded securely. Choose “Yes” to add more, or “No” when you are ready to submit. This link will close after final submission.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAwaitingMoreFilesDecision(false)}
+                    className="w-full py-2.5 text-xs font-semibold border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-950/60"
+                  >
+                    Yes, upload more
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleComplete}
+                    disabled={uploading}
+                    className="w-full py-2.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50"
+                  >
+                    {uploading ? "Submitting…" : "No, I’m ready to submit"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Zambia DPA Statutory Consent Checkbox */}
             <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-900/60 space-y-2">
               <div className="flex items-start gap-2.5">
                 <input
@@ -464,10 +537,10 @@ export default function ClientUploadPortalPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={uploading || selectedFiles.length === 0 || !consentAgreed}
+              disabled={uploading || selectedFiles.length === 0 || !consentAgreed || awaitingMoreFilesDecision}
               className="w-full py-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <PendingButtonContent pending={uploading} pendingLabel={uploadProgress || `Uploading ${selectedFiles[0]?.name || "document"}…`}>Upload Documents Safely</PendingButtonContent>
+              <PendingButtonContent pending={uploading} pendingLabel={uploadProgress || `Uploading ${selectedFiles[0]?.name || "document"}…`}>{uploadedFileRecords.length > 0 ? "Upload These Files" : "Upload Documents Safely"}</PendingButtonContent>
             </button>
           </form>
         )}
