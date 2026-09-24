@@ -3,10 +3,28 @@ import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { formatCurrency } from "@/lib/utils";
 
+const earningsPeriods = ["today", "week", "month", "all"] as const;
+type EarningsPeriod = (typeof earningsPeriods)[number];
+
+function getEarningsStart(period: EarningsPeriod, now = new Date()) {
+  if (period === "all") return undefined;
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  if (period === "week") {
+    const day = start.getDay();
+    start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
+  }
+  if (period === "month") start.setDate(1);
+  return start;
+}
+
 const getHandler = createApiHandler({
   requirePermissions: ["pwa.access"],
   handler: async (req, ctx) => {
     const { organizationId, userId, userRole, contourRole } = ctx;
+    const requestedPeriod = req.nextUrl.searchParams.get("earningsPeriod") || "all";
+    const earningsPeriod: EarningsPeriod = earningsPeriods.includes(requestedPeriod as EarningsPeriod) ? requestedPeriod as EarningsPeriod : "all";
+    const earningsStart = getEarningsStart(earningsPeriod);
 
     const [user, org] = await Promise.all([
       db.user.findUnique({
@@ -151,7 +169,11 @@ const getHandler = createApiHandler({
 
     // 7. Real Transactions & Commission Splits
     const transactions = await db.transaction.findMany({
-      where: { organizationId, closingAgentId: userId },
+      where: {
+        organizationId,
+        closingAgentId: userId,
+        ...(earningsStart ? { OR: [{ closedAt: { gte: earningsStart } }, { closedAt: null, createdAt: { gte: earningsStart } }] } : {}),
+      },
       include: {
         property: { select: { title: true, suburb: true } },
         inquiry: { select: { clientName: true, clientPhone: true, clientEmail: true } },
@@ -218,6 +240,7 @@ const getHandler = createApiHandler({
       queue: queueItems,
       deals: activeDeals,
       earnings: {
+        period: earningsPeriod,
         earnedSplitUsd,
         earnedSplitZmw,
         pendingSplitUsd,

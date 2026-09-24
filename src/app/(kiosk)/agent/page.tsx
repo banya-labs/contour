@@ -92,6 +92,7 @@ export default function FieldAgentPwaPage() {
 }
 
 type TabType = "QUEUE" | "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
+type EarningsPeriod = "today" | "week" | "month" | "all";
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
 
 function AgentKioskContent() {
@@ -129,6 +130,7 @@ function AgentKioskContent() {
   const [pendingCapture, setPendingCapture] = useState<Exclude<IntakeType, "NONE"> | null>(null);
   const [fieldSyncStatus, setFieldSyncStatus] = useState<FieldSyncStatus | null>(null);
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
+  const [earningsPeriod, setEarningsPeriod] = useState<EarningsPeriod>("all");
   const [flyerModalProperty, setFlyerModalProperty] = useState<any | null>(null);
 
   useEffect(() => {
@@ -302,7 +304,7 @@ function AgentKioskContent() {
   useEffect(() => {
     async function loadSummary() {
       try {
-        const res = await fetch("/api/agent/summary");
+        const res = await fetch(`/api/agent/summary?earningsPeriod=${earningsPeriod}`);
         const data = await res.json();
         if (data.success) {
           setAgentSummary(data);
@@ -342,7 +344,7 @@ function AgentKioskContent() {
       const summaryRefresh = window.setInterval(loadSummary, 60_000);
       return () => window.clearInterval(summaryRefresh);
     }
-  }, [session, syncData]);
+  }, [earningsPeriod, session, syncData]);
 
   useEffect(() => {
     const handleFocus = () => {
@@ -2506,6 +2508,21 @@ function AgentKioskContent() {
                 <div className="p-2.5 bg-neutral-100 border border-editorial-border text-contour-red">
                   <Wallet className="w-5 h-5" />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 border-y border-editorial-border py-3">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-muted">Show earnings for</span>
+                <select
+                  aria-label="Earnings duration"
+                  value={earningsPeriod}
+                  onChange={(event) => setEarningsPeriod(event.target.value as EarningsPeriod)}
+                  className="border border-editorial-border bg-white px-2.5 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-black outline-none focus:border-contour-red"
+                >
+                  <option value="today">Today</option>
+                  <option value="week">This week</option>
+                  <option value="month">This month</option>
+                  <option value="all">All time</option>
+                </select>
               </div>
 
               {/* Earnings Grid */}
