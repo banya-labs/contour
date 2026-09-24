@@ -14,7 +14,6 @@ import {
   LogOut,
   FolderArchive,
   Smartphone,
-  ShieldCheck,
   ChevronDown,
   ChevronRight,
   Building,
@@ -48,12 +47,21 @@ export default function WorkspaceSidebar() {
   const isPrincipalBroker = role === "SUPER_ADMIN" || role === "BROKER_MANAGER" || role === "OWNER";
   const isManagement = isManagementRole(role);
   const [managementActionCount, setManagementActionCount] = useState(0);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const permissionForHref = (href: string) => href.startsWith("/dashboard/properties") || href.startsWith("/dashboard/map") ? "properties.read" : href.startsWith("/dashboard/sales") || href.startsWith("/dashboard/commissions") ? "finance.read" : href.startsWith("/dashboard/leases") ? "leases.read" : href.startsWith("/dashboard/pipeline") ? "pipeline.read" : href.startsWith("/dashboard/clients") ? "leads.read" : href.startsWith("/dashboard/statements") ? "statements.read" : href.startsWith("/dashboard/billing") ? "org.billing.read" : href.startsWith("/dashboard/documents") ? "vault.read" : href.startsWith("/dashboard/settings") ? "org.read" : "dashboard.read";
+  const hasPermission = (href: string) => permissions.includes(permissionForHref(href));
   const roleLabel =
     role === "SUPER_ADMIN" || role === "OWNER"
       ? "Principal Broker"
       : role === "BROKER_MANAGER"
       ? "Branch Manager"
       : "Field Agent";
+
+  useEffect(() => {
+    void fetch("/api/dashboard/access", { cache: "no-store" }).then((response) => response.json()).then((data) => {
+      if (data.success) setPermissions(Array.isArray(data.permissions) ? data.permissions : []);
+    }).catch(() => undefined);
+  }, []);
 
   // Track expanded submenu states
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -273,7 +281,7 @@ export default function WorkspaceSidebar() {
                 {isOpen && (
                   <div className="space-y-0.5 border-l-0 lg:border-l border-editorial-border ml-0 lg:ml-3 pl-0 lg:pl-2">
                     {group.items.map((item) => {
-                      if (item.adminOnly && !isPrincipalBroker) return null;
+                      if ((item.adminOnly && !isPrincipalBroker) || !hasPermission(item.href)) return null;
 
                       const isActive =
                         pathname === item.href ||
@@ -308,7 +316,7 @@ export default function WorkspaceSidebar() {
           })}
 
           {/* 3. Direct Documents Vault Link */}
-          <Link
+          {hasPermission("/dashboard/documents") && <Link
             href="/dashboard/documents"
             title="Documents Vault"
             className={`flex items-center justify-center lg:justify-between px-2 lg:px-3 py-2 text-xs font-heading font-medium transition-colors border ${
@@ -324,10 +332,10 @@ export default function WorkspaceSidebar() {
               <span className="hidden lg:inline">Documents Vault</span>
             </div>
             {isDocumentsActive && <span className="hidden lg:inline-block w-1.5 h-1.5 bg-contour-red" />}
-          </Link>
+          </Link>}
 
           {/* 4. Analytics & BI Reports Link */}
-          <Link
+          {hasPermission("/dashboard/analytics") && <Link
             href="/dashboard/analytics"
             title="Analytics & Reports"
             className={`flex items-center justify-center lg:justify-between px-2 lg:px-3 py-2 text-xs font-heading font-medium transition-colors border ${
@@ -343,7 +351,7 @@ export default function WorkspaceSidebar() {
               <span className="hidden lg:inline">Analytics & Reports</span>
             </div>
             {isAnalyticsActive && <span className="hidden lg:inline-block w-1.5 h-1.5 bg-contour-red" />}
-          </Link>
+          </Link>}
         </nav>
       </div>
 
@@ -368,14 +376,6 @@ export default function WorkspaceSidebar() {
         >
           <Smartphone className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
           <span className="hidden lg:inline">Field Agent PWA</span>
-        </Link>
-        <Link
-          href="/admin"
-          title="Admin Control"
-          className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors"
-        >
-          <ShieldCheck className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
-          <span className="hidden lg:inline">Admin Control</span>
         </Link>
         <button
           type="button"

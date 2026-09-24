@@ -8,7 +8,7 @@ import { smartCache } from "@/lib/cache";
 
 const memberUpdateSchema = z.object({
   memberId: z.string().min(1),
-  roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).optional(),
+  roleKey: z.enum([...CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER"), "NONE"] as unknown as [string, ...string[]]).optional(),
   status: z.enum(["active", "suspended"]).optional(),
   permissions: z.array(z.enum(PERMISSIONS)).optional(),
   phone: z.string().nullable().optional(),
@@ -31,10 +31,20 @@ export const GET = createApiHandler({
       },
       orderBy: { createdAt: "asc" },
     });
+    const membersWithEffectivePermissions = members.map((member) => {
+      const isOwner = member.role === "owner";
+      const assignedRoleKey = member.roleAssignments[0]?.role.key as keyof typeof ROLE_PRESETS | undefined;
+      const effectivePermissions = isOwner
+        ? ROLE_PRESETS.OWNER
+        : assignedRoleKey
+          ? ROLE_PRESETS[assignedRoleKey] || []
+          : member.permissionOverrides.filter((override) => override.effect === "ALLOW").map((override) => override.permission);
+      return { ...member, effectivePermissions };
+    });
     return NextResponse.json({
       success: true,
       roles: Object.entries(ROLE_DESCRIPTIONS).filter(([key]) => key !== "OWNER").map(([key, value]) => ({ key, ...value, permissions: ROLE_PRESETS[key as keyof typeof ROLE_PRESETS] })),
-      members,
+      members: membersWithEffectivePermissions,
     });
   },
 });
@@ -89,6 +99,13 @@ export const PATCH = createApiHandler({
     }
 
     const roleKey = body.roleKey;
+    if (roleKey === "NONE") {
+      await db.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });
+      await db.memberPermissionOverride.deleteMany({ where: { memberId: member.id } });
+      smartCache.invalidateTag(organizationId!, "organization-members", "/dashboard/settings");
+      smartCache.invalidateTag(organizationId!, "dashboard-access", "/dashboard");
+      return NextResponse.json({ success: true });
+    }
     if (roleKey) {
       const roleInfo = ROLE_DESCRIPTIONS[roleKey as keyof typeof ROLE_DESCRIPTIONS];
       const role = await db.organizationRole.upsert({

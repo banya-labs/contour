@@ -54,10 +54,12 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
   }
 
   // If organizationId was unset or membership is not active in that organization,
-  // resolve the user's latest active organization membership
+  // never silently switch tenants. Only infer an organization when the user
+  // has exactly one active membership and no active organization is set.
   if (!membership || membership.status !== "active") {
+    if (organizationId) return null;
     try {
-      const latestMember = await db.member.findFirst({
+      const activeMembers = await db.member.findMany({
         where: { userId, status: "active" },
         select: {
           id: true,
@@ -67,11 +69,13 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
           roleAssignments: { include: { role: { include: { permissions: true } } } },
           permissionOverrides: true,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "asc" },
+        take: 2,
       });
-      if (latestMember) {
-        organizationId = latestMember.organizationId;
-        membership = latestMember as Membership;
+      if (activeMembers.length === 1) {
+        const onlyMember = activeMembers[0];
+        organizationId = onlyMember.organizationId;
+        membership = onlyMember as Membership;
 
         // Persist activeOrganizationId into the active session record
         if (session.session?.id) {
@@ -97,10 +101,8 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
   const assignedRole = roleAssignments[0]?.role.key;
   const contourRole = resolveContourRole(session.user.role ?? undefined, membership.role, assignedRole);
   const assignedRoleKey = assignedRole ? normalizeContourRole(assignedRole) : null;
-  const presetPermissions = assignedRoleKey ? permissionsForRole(assignedRoleKey) : permissionsForRole(contourRole);
-  const rolePermissions = assignedRoleKey
-    ? presetPermissions
-    : roleAssignments.flatMap((assignment) => assignment.role.permissions.map((permission) => permission.permission as Permission));
+  const presetPermissions = assignedRoleKey ? permissionsForRole(assignedRoleKey) : membership.role === "owner" ? permissionsForRole("OWNER") : membership.role === "admin" ? permissionsForRole("BROKER_MANAGER") : [];
+  const rolePermissions = assignedRoleKey ? presetPermissions : roleAssignments.flatMap((assignment) => assignment.role.permissions.map((permission) => permission.permission as Permission));
   const permissions = applyPermissionOverrides(rolePermissions, permissionOverrides);
 
   return {

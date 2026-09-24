@@ -121,8 +121,6 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const parsed = claimSchema.safeParse(body);
-  const userEmail = session.user.email.toLowerCase().trim();
-
   const explicitInvite = parseInviteInput(parsed.success ? parsed.data.inviteInput : undefined);
   const targetInvitationId = (parsed.success && parsed.data.invitationId) || explicitInvite.invitationId;
   const targetToken = (parsed.success && parsed.data.token) || explicitInvite.token;
@@ -151,17 +149,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (!invitation && !hasExplicitTarget) {
-    invitation = await db.invitation.findFirst({
-      where: {
-        email: userEmail,
-        status: "pending",
-        expiresAt: { gt: new Date() },
-      },
-      include: { organization: true },
-      orderBy: { createdAt: "desc" },
-    });
-  }
+  // Ordinary sign-in must never auto-claim a pending invitation by email.
+  // Accounts can belong to multiple organizations; claiming by email alone
+  // silently changes the active tenant.
 
   // 1b. Check if targetToken matches an active Public Access Link (AccessRequestLink)
   if (!invitation && targetToken) {
@@ -261,13 +251,15 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    const activeMember = await db.member.findFirst({
-      where: { userId: session.user.id, status: "active" },
+    const activeMember = session.session?.activeOrganizationId
+      ? await db.member.findFirst({
+      where: { userId: session.user.id, organizationId: session.session.activeOrganizationId, status: "active" },
       include: {
         organization: true,
         roleAssignments: { include: { role: true } },
       },
-    });
+    })
+      : null;
 
     if (activeMember) {
       const assignedRole = activeMember.roleAssignments[0]?.role.key;
@@ -373,8 +365,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Ensure OrganizationRole exists with default permissions
-    const orgRole = await tx.organizationRole.upsert({
+    // Explicitly role-tagged invitations may assign a role template. Untagged
+    // invitations intentionally join with zero permissions.
+    const orgRole = invitation.roleKey ? await tx.organizationRole.upsert({
       where: {
         organizationId_key: {
           organizationId: invitation.organizationId,
@@ -392,17 +385,15 @@ export async function POST(req: NextRequest) {
           : undefined,
       },
       update: {},
-    });
+    }) : null;
 
     // Assign Role to Member
     await tx.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });
-    await tx.memberRoleAssignment.create({
-      data: {
-        memberId: member.id,
-        roleId: orgRole.id,
-        assignedById: invitation.inviterId,
-      },
-    });
+    if (orgRole) {
+      await tx.memberRoleAssignment.create({
+        data: { memberId: member.id, roleId: orgRole.id, assignedById: invitation.inviterId },
+      });
+    }
 
     // Mark Invitation as accepted
     await tx.invitation.update({

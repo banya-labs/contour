@@ -14,6 +14,7 @@ export type ApiContext = {
   userId?: string;
   userRole?: string;
   contourRole?: import("./authorization").ContourRoleKey;
+  permissions?: readonly Permission[];
 };
 
 export type ApiHandlerOptions<TBody, TQuery> = {
@@ -149,6 +150,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         userId,
         userRole,
         contourRole: tenant?.contourRole,
+        permissions: tenant?.permissions,
         body,
         query,
       });

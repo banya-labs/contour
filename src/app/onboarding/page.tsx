@@ -86,39 +86,22 @@ function OnboardingContent() {
     }
 
     try {
-      // 1. Check if user has a pending invitation to claim or active membership
-      const claimRes = await fetch("/api/organization/invitations/claim", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const claimData = await claimRes.json().catch(() => null);
-
-      if (claimData?.success && (claimData.claimed || claimData.hasMembership || claimData.isAlreadyMember) && claimData.organizationId) {
-        setTransitionStage("ACTIVATING_ORGANIZATION");
-        await authClient.organization.setActive({
-          organizationId: claimData.organizationId,
-        });
-        const target = claimData.destination || (claimData.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
-        setTransitionStage("NAVIGATING");
-        router.replace(target);
-        router.refresh();
-        return;
-      }
-
-      // 2. Check existing organizations from Better Auth client
+      // Do not claim invitations during ordinary onboarding/sign-in. An
+      // invitation must be supplied explicitly from its invite URL/code.
+      // Otherwise preserve the active organization for multi-tenant accounts.
       const result = await authClient.organization.list();
       if (result.data && result.data.length > 0) {
-        const firstOrganization = result.data[0];
-        setTransitionStage("ACTIVATING_ORGANIZATION");
-        const activeResult = await authClient.organization.setActive({
-          organizationId: firstOrganization.id,
-        });
-        if (!activeResult.error) {
+        const activeOrganizationId = session?.session?.activeOrganizationId;
+        const activeOrganization = result.data.find((organization) => organization.id === activeOrganizationId) || (result.data.length === 1 ? result.data[0] : null);
+        if (activeOrganization) {
+          setTransitionStage("ACTIVATING_ORGANIZATION");
+          const activeResult = activeOrganization.id === activeOrganizationId ? { error: null } : await authClient.organization.setActive({ organizationId: activeOrganization.id });
+          if (!activeResult.error) {
           setTransitionStage("NAVIGATING");
           router.replace(redirectUrl);
           router.refresh();
           return;
+          }
         }
         setTransitionStage("ERROR");
       }

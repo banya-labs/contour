@@ -1,9 +1,8 @@
 import React from "react";
 import { headers } from "next/headers";
+import { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { roleHasPermission, type ContourRoleKey } from "@/lib/authorization";
+import { getTenantContext } from "@/lib/tenant-context";
 import WorkspaceSidebar from "@/components/workspace-sidebar";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import { MobileTopHeader } from "@/components/mobile-top-header";
@@ -14,20 +13,9 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const headerList = await headers();
-  const session = await auth.api.getSession({ headers: headerList });
-
-  if (session?.user) {
-    const activeMember = await db.member.findFirst({
-      where: { userId: session.user.id, status: "active" },
-      include: { roleAssignments: { include: { role: true } } },
-    });
-
-    const assignedRoleKey = (activeMember?.roleAssignments[0]?.role.key ||
-      (activeMember?.role === "owner" ? "OWNER" : session.user.role || "FIELD_AGENT")) as ContourRoleKey;
-
-    if (!roleHasPermission(assignedRoleKey, "dashboard.read")) {
-      redirect("/agent");
-    }
+  const tenant = await getTenantContext(new NextRequest("http://contour.internal/dashboard", { headers: headerList }));
+  if (tenant && !tenant.permissions.includes("dashboard.read")) {
+    redirect("/agent");
   }
   return (
     <div className="flex h-dvh max-h-dvh w-full overflow-hidden bg-white text-editorial-black font-geist">

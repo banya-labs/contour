@@ -61,6 +61,7 @@ type WorkspaceMember = {
   status: string;
   user: { id: string; name: string; email: string; phone?: string | null; image?: string | null };
   roleAssignments: Array<{ role: { key: string; displayName: string } }>;
+  effectivePermissions: string[];
 };
 
 type AccessRequest = { id: string; firstName: string; lastName: string; email: string; roleKey: string; createdAt: string };
@@ -101,11 +102,11 @@ function SettingsContent() {
   const [workspace, setWorkspace] = useState<{ id?: string; slug?: string; name: string; subscriptionTier: string; subscriptionStatus: string; trialEndsAt: string } | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [memberPhoneDrafts, setMemberPhoneDrafts] = useState<Record<string, string>>({});
-  const [roles, setRoles] = useState<Array<{ key: string; displayName: string }>>([]);
+  const [roles, setRoles] = useState<Array<{ key: string; displayName: string; permissions: string[] }>>([]);
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
-  const [inviteRoleKey, setInviteRoleKey] = useState("FIELD_AGENT");
+  const [inviteRoleKey, setInviteRoleKey] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteNote, setInviteNote] = useState("");
   const [isInviting, setIsInviting] = useState(false);
@@ -274,6 +275,19 @@ function SettingsContent() {
       if (refreshed.success) setMembers(refreshed.members || []);
     }
     } finally { setSettingsActionPending(key, false); }
+  };
+
+  const handlePermissionToggle = async (member: WorkspaceMember, permission: string) => {
+    const permissions = member.effectivePermissions.includes(permission)
+      ? member.effectivePermissions.filter((item) => item !== permission)
+      : [...member.effectivePermissions, permission];
+    const response = await fetch("/api/organization/members", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId: member.id, permissions }) });
+    const data = await response.json();
+    setSettingsMessage(response.ok ? "Member permission tags updated." : data.error || "Unable to update permission tags.");
+    if (response.ok) {
+      const refreshed = await fetch("/api/organization/members").then((res) => res.json());
+      if (refreshed.success) setMembers(refreshed.members || []);
+    }
   };
 
   const handlePhoneChange = async (member: WorkspaceMember) => {
@@ -825,7 +839,7 @@ function SettingsContent() {
                 </h4>
               </div>
               <p className="text-xs text-editorial-muted">
-                Pre-authorize team members by email for seamless one-click sign-in, or generate an open signup link with pre-assigned role permissions. Anyone invited can sign in with Google or email to join <strong>{settings.agencyName || "this agency"}</strong> without creating a separate workspace.
+                New members join with no permissions. Add access one permission tag at a time after they join. Anyone invited can sign in with Google or email to join <strong>{settings.agencyName || "this agency"}</strong> without creating a separate workspace.
               </p>
 
               <form onSubmit={handleGenerateInviteLink} className="space-y-4">
@@ -852,7 +866,8 @@ function SettingsContent() {
                       onChange={(e) => setInviteRoleKey(e.target.value)}
                       className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black bg-white"
                     >
-                      <option value="FIELD_AGENT">Field Agent (Field App Only)</option>
+                      <option value="">No permissions assigned</option>
+                      <option value="FIELD_AGENT">Field Agent template</option>
                       <option value="BROKER_MANAGER">Broker Manager (Operations & Invites)</option>
                       <option value="ADMIN_STAFF">Admin Staff (Read Access)</option>
                       <option value="FINANCE_OFFICER">Finance Officer (Ledger & Payouts)</option>
@@ -877,8 +892,8 @@ function SettingsContent() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
                   <p className="text-[11px] text-editorial-muted">
                     {inviteEmail.trim()
-                      ? `Pre-authorizing ${inviteEmail.trim()}: they will automatically join ${settings.agencyName || "this agency"} when they sign in with this email.`
-                      : "Leave email blank to create an open link anyone can use to join this agency."}
+                      ? `Pre-authorizing ${inviteEmail.trim()}: they will join with no access until permissions are granted.`
+                      : "Leave email blank to create an open link; new members start with no permissions."}
                   </p>
 
                   <button
@@ -1040,7 +1055,7 @@ function SettingsContent() {
                 {members.map((member) => {
                   const isSelf = member.user.id === session?.user?.id;
                   const isOwner = member.role === "owner";
-                  const currentRoleKey = member.roleAssignments[0]?.role.key || (isOwner ? "OWNER" : "FIELD_AGENT");
+                  const currentRoleKey = member.roleAssignments[0]?.role.key || (isOwner ? "OWNER" : "NONE");
                   const isSuspended = member.status === "suspended";
 
                   return (
@@ -1108,6 +1123,7 @@ function SettingsContent() {
                             title={isSelf ? "You cannot reassign your own role" : isOwner ? "Workspace owner role cannot be changed" : "Change member role"}
                           >
                             {isOwner && <option value="OWNER">Owner</option>}
+                            {!isOwner && <option value="NONE">No role template</option>}
                             {roles
                               .filter((role) => role.key !== "OWNER")
                               .map((role) => (
@@ -1116,6 +1132,17 @@ function SettingsContent() {
                                 </option>
                               ))}
                           </select>
+                        </div>
+
+                        <div className="w-full lg:max-w-xl">
+                          <span className="text-[10px] font-mono uppercase text-editorial-muted">Permission tags</span>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {(roles.flatMap((role) => role.permissions || []).filter((permission, index, all) => all.indexOf(permission) === index)).map((permission) => {
+                              const active = member.effectivePermissions.includes(permission);
+                              return <button key={permission} type="button" disabled={isOwner || isSelf} onClick={() => void handlePermissionToggle(member, permission)} className={`border px-1.5 py-1 text-[9px] font-mono ${active ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-editorial-border bg-white text-editorial-muted"}`}>{permission}</button>;
+                            })}
+                            {!member.effectivePermissions.length && <span className="text-[10px] text-editorial-muted">No permissions</span>}
+                          </div>
                         </div>
 
                         {/* Suspend / Reactivate Button */}

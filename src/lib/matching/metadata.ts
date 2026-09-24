@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { Currency, ListingType, PropertyType } from "@prisma/client";
 import type { InquiryMatchingProfile, MatchingMetadata } from "./types";
 
 const metadataSchema = z.object({
-  propertyType: z.string().optional(), listingType: z.string().optional(), currency: z.string().optional(),
+  propertyType: z.nativeEnum(PropertyType).optional(), listingType: z.nativeEnum(ListingType).optional(), currency: z.nativeEnum(Currency).optional(),
   suburb: z.string().optional(), nearbyAreas: z.array(z.string()).default([]), bedroomsMin: z.number().optional(),
   bathroomsMin: z.number().optional(), price: z.number().optional(), features: z.array(z.string()).default([]), keywords: z.array(z.string()).default([]),
 });

@@ -3,5 +3,5 @@ import { createApiHandler } from "@/lib/api-handler";
 
 export const GET = createApiHandler({
   requirePermissions: ["dashboard.read"],
-  handler: async () => NextResponse.json({ success: true, canAccessDashboard: true }),
+  handler: async (_req, ctx) => NextResponse.json({ success: true, canAccessDashboard: true, permissions: ctx.permissions || [] }),
 });

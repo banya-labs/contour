@@ -15,7 +15,6 @@ import {
   FolderArchive,
   Settings,
   Smartphone,
-  ShieldCheck,
   LogOut,
   Building,
   CreditCard,
@@ -28,8 +27,17 @@ import { ContourLogo } from "@/components/brand/contour-logo";
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const { data: session } = authClient.useSession();
   const user = session?.user;
+  const permissionForHref = (href: string) => href === "/dashboard" ? "dashboard.read" : href.startsWith("/dashboard/properties") || href.startsWith("/dashboard/map") ? "properties.read" : href.startsWith("/dashboard/sales") || href.startsWith("/dashboard/commissions") ? "finance.read" : href.startsWith("/dashboard/leases") ? "leases.read" : href.startsWith("/dashboard/pipeline") ? "pipeline.read" : href.startsWith("/dashboard/clients") ? "leads.read" : href.startsWith("/dashboard/statements") ? "statements.read" : href.startsWith("/dashboard/billing") ? "org.billing.read" : href.startsWith("/dashboard/documents") ? "vault.read" : "org.read";
+  const hasPermission = (href: string) => permissions.includes(permissionForHref(href));
+
+  useEffect(() => {
+    void fetch("/api/dashboard/access", { cache: "no-store" }).then((response) => response.json()).then((data) => {
+      if (data.success) setPermissions(Array.isArray(data.permissions) ? data.permissions : []);
+    }).catch(() => undefined);
+  }, []);
 
   const [workspaceTitle, setWorkspaceTitle] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -107,7 +115,6 @@ export default function MobileBottomNav() {
         { label: "Documents Vault", href: "/dashboard/documents", icon: FolderArchive },
         { label: "Agency Settings", href: "/dashboard/settings", icon: Settings },
         { label: "Field Agent PWA", href: "/agent", icon: Smartphone },
-        { label: "Admin Control", href: "/admin", icon: ShieldCheck },
       ],
     },
   ];
@@ -120,7 +127,7 @@ export default function MobileBottomNav() {
         className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-editorial-border md:hidden pb-safe select-none shadow-[0_-4px_16px_rgba(0,0,0,0.04)]"
       >
         <div className="grid grid-cols-5 h-14 items-center">
-          {primaryTabs.map((tab) => {
+          {primaryTabs.filter((tab) => hasPermission(tab.href)).map((tab) => {
             const Icon = tab.icon;
             return (
               <Link
@@ -193,7 +200,7 @@ export default function MobileBottomNav() {
                 {group.category}
               </span>
               <div className="grid grid-cols-1 gap-1">
-                {group.items.map((item) => {
+                {group.items.filter((item) => hasPermission(item.href)).map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
 

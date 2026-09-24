@@ -79,9 +79,9 @@ const postHandler = createApiHandler({
       select: { amount: true },
     });
     const currencies = new Set(payments.map((payment) => payment.currency));
-    currencies.add(body.currency);
+    currencies.add(body.currency ?? "ZMW");
     if (currencies.size > 1) return NextResponse.json({ success: false, error: "Payments and statement must use the same currency." }, { status: 400 });
-    const leases = await db.lease.findMany({ where: { organizationId, propertyId: body.propertyId, status: { in: ["ACTIVE", "IN_ARREARS", "EXPIRING_SOON"] } }, select: { monthlyRent: true, currency: true } });
+    const leases = await db.lease.findMany({ where: { organizationId, propertyId: body.propertyId, status: { in: ["ACTIVE", "IN_ARREARS", "EXPIRING_SOON"] } }, select: { monthlyRent: true, currency: true, status: true } });
     const rentDue = leases.filter((lease) => lease.currency === body.currency).reduce((sum, lease) => sum + Number(lease.monthlyRent), 0);
     const arrearsBroughtForward = leases.filter((lease) => lease.status === "IN_ARREARS" && lease.currency === body.currency).reduce((sum, lease) => sum + Number(lease.monthlyRent), 0);
     const grossRentCollected = payments.reduce((sum, payment) => sum + Number(payment.amountPaid), 0);

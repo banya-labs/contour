@@ -7,7 +7,7 @@ import { createAccessToken, hashAccessToken } from "@/lib/access-request";
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
-  roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).default("FIELD_AGENT"),
+  roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).optional(),
   note: z.string().trim().max(200).optional(),
 });
 
@@ -155,7 +155,7 @@ export const POST = createApiHandler({
         inviterId: userId!,
         email: normalizedEmail,
         role: body.roleKey === "BROKER_MANAGER" ? "admin" : "member",
-        roleKey: body.roleKey,
+        roleKey: body.roleKey || null,
         status: "pending",
         tokenHash,
         expiresAt,
