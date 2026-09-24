@@ -12,7 +12,7 @@ export const env = createEnv({
     // Separate secret for Dify agent-to-app bearer auth. Must NOT be the same as BETTER_AUTH_SECRET.
     DIFY_MASTER_SECRET: z.string().min(32).optional(),
     LENCO_API_KEY: z.string().optional(),
-    LENCO_API_URL: z.string().url().default("https://api.lenco.co"),
+    LENCO_API_URL: z.string().url().default("https://api.lenco.co/access/v2"),
     LENCO_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
     REDIS_URL: z.string().optional(),
     POWERSYNC_URL: z.string().url().optional(),
