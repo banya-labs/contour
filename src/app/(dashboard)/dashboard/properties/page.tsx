@@ -70,6 +70,7 @@ function PropertiesCatalogContent() {
   const [canOverrideCommission, setCanOverrideCommission] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null);
+  const [propertyToDelete, setPropertyToDelete] = useState<any | null>(null);
   const [organizationSlug, setOrganizationSlug] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
@@ -180,7 +181,10 @@ function PropertiesCatalogContent() {
 
   const handleDeleteProperty = async (property: any, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!property.__confirmedDelete && !window.confirm(`Delete “${property.title}”? This removes the listing and its associated records.`)) return;
+    if (!property.__confirmedDelete) {
+      setPropertyToDelete(property);
+      return;
+    }
     setDeletingPropertyId(property.id);
     try {
       const response = await fetch(`/api/properties?id=${encodeURIComponent(property.id)}`, { method: "DELETE" });
@@ -188,6 +192,7 @@ function PropertiesCatalogContent() {
       if (!response.ok || !data.success) throw new Error(data.error || "Unable to delete listing.");
       setProperties((current) => current.filter((item) => item.id !== property.id));
       setDetailModalState({ isOpen: false, property: null });
+      setPropertyToDelete(null);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Unable to delete listing.");
     } finally {
@@ -1092,6 +1097,28 @@ function PropertiesCatalogContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 360 Detail Modal */}
+      {propertyToDelete && (
+        <div className="fixed inset-0 z-[2400] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="catalog-delete-title">
+          <div className="w-full max-w-md border border-editorial-border bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start gap-3 border-b border-editorial-border pb-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-red-50 text-red-700">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 id="catalog-delete-title" className="font-heading text-sm font-bold uppercase tracking-wider text-editorial-black">Delete listing?</h2>
+                <p className="mt-1 text-xs leading-relaxed text-editorial-muted">This permanently removes the listing and its associated records.</p>
+              </div>
+            </div>
+            <p className="text-sm leading-relaxed text-editorial-black">Are you sure you want to delete <strong>{propertyToDelete.title}</strong>? This action cannot be undone.</p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setPropertyToDelete(null)} disabled={deletingPropertyId === propertyToDelete.id} className="border border-editorial-border px-4 py-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={() => void handleDeleteProperty({ ...propertyToDelete, __confirmedDelete: true })} disabled={deletingPropertyId === propertyToDelete.id} className="bg-red-700 px-4 py-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-white hover:bg-red-800 disabled:opacity-50">{deletingPropertyId === propertyToDelete.id ? "Deleting…" : "Confirm Delete"}</button>
+            </div>
           </div>
         </div>
       )}

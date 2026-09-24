@@ -161,20 +161,19 @@ export function VaultTree({
     setDownloadingId(docId);
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/vault/documents/${docId}/download`);
-      const data = await res.json();
+      const res = await fetch(`/api/vault/documents/${docId}/download?direct=true`);
       if (!res.ok) {
-        throw new Error(data.error || "Failed to generate download link");
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to download document");
       }
-      // Trigger native download via direct attachment link (bypasses browser popup blockers)
+      const objectUrl = URL.createObjectURL(await res.blob());
       const link = document.createElement("a");
-      link.href = data.directDownloadUrl || data.downloadUrl || `/api/vault/documents/${docId}/download?direct=true`;
+      link.href = objectUrl;
       link.download = title || "document";
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (err: any) {
       setErrorMsg(`Download error: ${err.message}`);
     } finally {

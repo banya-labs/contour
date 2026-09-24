@@ -152,14 +152,19 @@ export function DocumentDetailsModal({
     setDownloading(true);
     setActionError(null);
     try {
+      const response = await fetch(`/api/vault/documents/${currentDoc.id}/download?direct=true`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Unable to download document");
+      }
+      const objectUrl = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
-      link.href = `/api/vault/documents/${currentDoc.id}/download?direct=true`;
+      link.href = objectUrl;
       link.download = currentDoc.originalFileName || currentDoc.title || "document";
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (err: any) {
       setActionError(`Download failed: ${err.message}`);
     } finally {
