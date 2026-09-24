@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPlatformActor } from "@/lib/control-plane";
 import { canPlatformRole } from "@/lib/platform-authorization";
+import { toAuthHeaders } from "@/lib/auth-headers";
 
 const schema = z.object({
   organizationId: z.string().min(1),
@@ -13,7 +14,7 @@ const schema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
   if (!actor || actor.role !== "OWNER" || !canPlatformRole(actor.role, "support.act_as")) {
     return NextResponse.json({ error: "Only platform owners can request act-as sessions." }, { status: 403 });

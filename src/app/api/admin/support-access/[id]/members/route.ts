@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPlatformActor } from "@/lib/control-plane";
 import { canPlatformRole } from "@/lib/platform-authorization";
+import { toAuthHeaders } from "@/lib/auth-headers";
 import { canMutateThroughSupportAccess } from "@/lib/support-access";
 import { CONTOUR_ROLE_KEYS, ROLE_DESCRIPTIONS } from "@/lib/authorization";
 
@@ -11,7 +12,7 @@ const agencyRoleKeys = CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [st
 const updateSchema = z.object({ memberId: z.string().min(1), status: z.enum(["active", "suspended"]).optional(), roleKey: z.enum(agencyRoleKeys as ["BROKER_MANAGER", ...string[]]).optional(), reason: z.string().trim().min(20).max(500) }).refine((value) => Boolean(value.status || value.roleKey), { message: "status or roleKey is required" });
 
 async function getActor(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
   return { actor, session };
 }

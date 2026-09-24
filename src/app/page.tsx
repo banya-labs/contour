@@ -1,6 +1,7 @@
 import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { toAuthHeaders } from "@/lib/auth-headers";
 
 /**
  * Root route — always routes users to the appropriate destination.
@@ -18,7 +19,7 @@ export default async function RootPage({
   const headerList = await headers();
   const cookieStore = await cookies();
 
-  const session = await auth.api.getSession({ headers: headerList });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(headerList) });
 
   if (session?.user) {
     const lastPage = cookieStore.get("contour_last_page")?.value;

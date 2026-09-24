@@ -8,6 +8,7 @@ import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { getControlPlaneAccessDestination, hasControlPlaneAccess, hasPersistedControlPlaneAccess } from "@/lib/control-plane";
+import { toAuthHeaders } from "@/lib/auth-headers";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -92,7 +93,7 @@ export async function middleware(request: NextRequest) {
   // Intercept root "/" to handle authenticated session restoration
   if (request.nextUrl.pathname === "/") {
     const session = await auth.api.getSession({
-      headers: request.headers,
+      headers: toAuthHeaders(request.headers),
     });
 
     if (session?.user) {
@@ -134,7 +135,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const session = await auth.api.getSession({
-    headers: request.headers,
+    headers: toAuthHeaders(request.headers),
   });
 
   if (!session) {

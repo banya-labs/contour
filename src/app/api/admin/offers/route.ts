@@ -4,11 +4,12 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPlatformActor } from "@/lib/control-plane";
 import { canPlatformRole } from "@/lib/platform-authorization";
+import { toAuthHeaders } from "@/lib/auth-headers";
 
 const offerSchema = z.object({ name: z.string().trim().min(2).max(120), code: z.string().trim().regex(/^[A-Z0-9_-]{3,40}$/), kind: z.enum(["PERCENTAGE", "FIXED_AMOUNT"]), value: z.number().positive(), currency: z.enum(["ZMW", "ZAR", "USD"]).optional(), status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "EXPIRED"]).default("DRAFT"), startsAt: z.coerce.date().optional(), endsAt: z.coerce.date().optional(), maxRedemptions: z.number().int().positive().optional(), reason: z.string().trim().min(20).max(500) });
 
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
   if (!actor || !canPlatformRole(actor.role, "billing.read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const offers = await db.platformOffer.findMany({ include: { _count: { select: { grants: true } } }, orderBy: { createdAt: "desc" }, take: 100 });
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
   if (!actor || !canPlatformRole(actor.role, "billing.adjust")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = offerSchema.safeParse(await request.json().catch(() => null));

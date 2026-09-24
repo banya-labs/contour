@@ -155,7 +155,7 @@ export const POST = createApiHandler({
           status: targetStage,
           outcome: body.outcome ?? null,
           reason: body.reason ?? null,
-          override: body.overrideMissingRequirements,
+          override: Boolean(body.overrideMissingRequirements),
           missingRequirements: decision.missingRequirements,
           competingInquiriesClosed,
         }),
