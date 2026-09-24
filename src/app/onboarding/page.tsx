@@ -27,6 +27,7 @@ import {
   HelpCircle,
   ArrowLeft,
 } from "lucide-react";
+import { shouldCreateWorkspace } from "@/lib/onboarding-workspace";
 
 function slugify(value: string): string {
   return value
@@ -103,7 +104,11 @@ function OnboardingContent() {
           return;
           }
         }
-        setTransitionStage("ERROR");
+        // Never show the new-workspace form when this account already has
+        // memberships. A stale `flow=new_agency` URL must not create another
+        // organization on every sign-in.
+        setView("NO_ORGANIZATION_DECISION");
+        return;
       }
 
       // 3. User is authenticated, but no active agency membership was found
@@ -217,6 +222,23 @@ function OnboardingContent() {
     }
 
     setTransitionStage("CREATING_WORKSPACE");
+
+    // Re-check immediately before the mutation so a stale onboarding tab or
+    // repeated callback cannot create a second workspace for an existing user.
+    const memberships = await authClient.organization.list();
+    if (!shouldCreateWorkspace(memberships.data?.length || 0)) {
+      const activeOrganizationId = session?.session?.activeOrganizationId;
+      const organization = memberships.data?.find((item) => item.id === activeOrganizationId) || (memberships.data?.length === 1 ? memberships.data[0] : null);
+      if (organization) {
+        await authClient.organization.setActive({ organizationId: organization.id });
+        router.replace(redirectUrl);
+        router.refresh();
+        return;
+      }
+      setError("This account already belongs to an agency. Select that workspace or ask an owner for an invitation.");
+      setTransitionStage("ERROR");
+      return;
+    }
 
     const result = await authClient.organization.create({
       name: organizationName.trim(),
