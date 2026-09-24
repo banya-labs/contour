@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, LogOut, ArrowLeft, LayoutDashboard, Building2, Users, CreditCard, Gift, Headset, BarChart3, ScrollText, Settings } from "lucide-react";
+import { Menu, X, LogOut, ArrowLeft, LayoutDashboard, Building2, Users, CreditCard, Gift, ScrollText } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import type { PlatformPermission, PlatformRole } from "@/lib/platform-authorization";
 import { canPlatformRole } from "@/lib/platform-authorization";
@@ -17,10 +17,7 @@ const navigation: NavItem[] = [
   { label: "People", href: "/admin/staff", icon: Users, permission: "staff.manage" },
   { label: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard, permission: "billing.read" },
   { label: "Offers", href: "/admin/offers", icon: Gift, permission: "billing.read" },
-  { label: "Support access", href: "/admin/support-access", icon: Headset, permission: "support.impersonate" },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart3, permission: "platform.read" },
   { label: "Audit log", href: "/admin/audit", icon: ScrollText, permission: "audit.read" },
-  { label: "Settings", href: "/admin/settings", icon: Settings, permission: "system.read" },
 ];
 
 export function ControlPlaneShell({ actor, children }: { actor: Actor; children: React.ReactNode }) {
