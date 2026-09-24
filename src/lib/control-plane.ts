@@ -3,6 +3,12 @@ import { db } from "@/lib/db";
 
 export const CONTROL_PLANE_PATH = "/admin";
 
+export function getControlPlaneAccessDestination(hasSession: boolean, hasAccess: boolean): string | null {
+  if (!hasSession) return "/sign-in?redirect_url=%2Fadmin";
+  if (!hasAccess) return "/admin/access-denied";
+  return null;
+}
+
 export function getControlPlaneOwnerEmails(): string[] {
   return env.CONTOUR_CONTROL_PLANE_OWNER_EMAILS.split(",")
     .map((email) => email.trim().toLowerCase())
