@@ -115,7 +115,9 @@ Run focused tests, typecheck, build, migration validation, readiness checks, bro
 - [x] Add an owner-controlled admin bulk expiry operation with an audit event.
 - [x] Add durable `Subscription` and `Invoice` records plus calendar-period tests.
 - [x] Wire successful checkout and verified webhook settlement into the subscription/invoice ledger.
-- [ ] Add renewal, cancellation, past-due, and reconciliation behavior.
+- [x] Add local past-due transition and audited reconciliation endpoint.
+- [x] Add cancellation primitive for active and past-due subscriptions.
+- [ ] Add provider-side renewal/cancellation reconciliation after Lenco recurring API capability is verified.
 
 ### Task 5: Real Lenco evidence and release gate
 
