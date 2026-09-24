@@ -36,7 +36,7 @@ WITH legacy_contacts AS (
   ORDER BY i."organizationId", identity_key, i."createdAt", i.id
 )
 INSERT INTO "contact" ("id", "organizationId", "identityKey", "name", "phone", "email", "createdAt", "updatedAt")
-SELECT 'legacy_contact_' || md5("organizationId" || ':' || identity_key), "organizationId", identity_key, name, phone, email, createdAt, CURRENT_TIMESTAMP
+SELECT 'legacy_contact_' || md5("organizationId" || ':' || identity_key), "organizationId", identity_key, name, phone, email, "createdAt", CURRENT_TIMESTAMP
 FROM legacy_contacts;
 
 UPDATE "inquiry" i
