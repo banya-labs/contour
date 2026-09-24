@@ -9,6 +9,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import sharp from "sharp";
+import { getPublicPropertyImageUrl } from "@/lib/property-image-url";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024; // 25MB to accommodate high-res camera photos
 async function processAndSaveImage(
@@ -253,16 +254,27 @@ export async function POST(req: NextRequest) {
         try {
           const objectKey = s3Storage.generateObjectKey(organizationId, "PROPERTY_PHOTO", processed.sanitizedName);
           await s3Storage.putObject(objectKey, processed.buffer, processed.mimeType);
-          
-          // Only use S3 public domain if explicitly configured and non-empty
-          const publicDomain = (process.env.S3_PUBLIC_DOMAIN || "").trim();
+
           const bucketName = process.env.S3_BUCKET_NAME || "contour-vault";
-          if (publicDomain && !publicDomain.includes("cdn.banyalabs.com")) {
-            photoUrl = `${publicDomain.replace(/\/$/, "")}/${bucketName}/${objectKey}`;
+          const publicUrl = getPublicPropertyImageUrl(process.env.S3_PUBLIC_DOMAIN, bucketName, objectKey);
+          if (!publicUrl) {
+            throw new Error("S3_PUBLIC_DOMAIN is required for public property photos");
           }
+          photoUrl = publicUrl;
         } catch (s3Error: unknown) {
-          console.warn("S3 background archive notice (using local storage):", s3Error instanceof Error ? s3Error.message : "unknown error");
+          console.error("Property image storage failed:", s3Error instanceof Error ? s3Error.message : "unknown error");
+          return NextResponse.json(
+            { success: false, error: "Property image storage is not configured for public access." },
+            { status: 503 },
+          );
         }
+      } else {
+        // A local filesystem or data URI is not a valid property image URL:
+        // it will not be available to public viewers on another device.
+        return NextResponse.json(
+          { success: false, error: "Property image storage is not configured for public access." },
+          { status: 503 },
+        );
       }
 
       uploadedUrls.push(photoUrl);

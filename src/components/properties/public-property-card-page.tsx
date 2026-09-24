@@ -16,7 +16,6 @@ import {
   Building2,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { MOCK_PROPERTIES } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 import PublicPropertyGallery from "@/components/properties/public-property-gallery";
 import { PublicPropertyNavbar } from "@/components/properties/public-property-navbar";
@@ -98,18 +97,9 @@ async function getPropertyBySlug(slug: string) {
       };
     }
   } catch (err) {
-    console.warn("Database lookup for property slug failed, falling back to mock data:", err);
+    console.error("Database lookup for public property failed:", err);
+    return null;
   }
-
-  // Fallback to MOCK_PROPERTIES
-  const mock = MOCK_PROPERTIES.find((p) => p.slug === propertySlug || p.id === propertySlug);
-  if (!mock) return null;
-  return {
-    ...mock,
-    organizationId: "demo-banya-org",
-    organizationName: "Contour Real Estate",
-    organizationSlug: "demo-banya-org",
-  };
 }
 
 async function getOrganizationOtherProperties(organizationId?: string, currentPropertyId?: string) {
