@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, LogOut, ArrowLeft, LayoutDashboard, Building2, Users, CreditCard, Gift, ScrollText } from "lucide-react";
+import { Menu, X, LogOut, ArrowLeft, LayoutDashboard, Building2, Users, CreditCard, Gift, BarChart3, ScrollText } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import type { PlatformPermission, PlatformRole } from "@/lib/platform-authorization";
 import { canPlatformRole } from "@/lib/platform-authorization";
@@ -17,6 +17,7 @@ const navigation: NavItem[] = [
   { label: "People", href: "/admin/staff", icon: Users, permission: "staff.manage" },
   { label: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard, permission: "billing.read" },
   { label: "Offers", href: "/admin/offers", icon: Gift, permission: "billing.read" },
+  { label: "Analytics", href: "/admin/analytics", icon: BarChart3, permission: "platform.read" },
   { label: "Audit log", href: "/admin/audit", icon: ScrollText, permission: "audit.read" },
 ];
 
