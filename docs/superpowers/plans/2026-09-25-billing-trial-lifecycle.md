@@ -112,7 +112,8 @@ Run focused tests, typecheck, build, migration validation, readiness checks, bro
 - [x] Define the lifecycle transition as `trialing` plus due `trialEndsAt` to `trial_expired`; paid evidence remains authoritative.
 - [x] Add tests for expiry transition and replay safety.
 - [x] Implement an explicit conditional transition used by the billing summary path.
-- [ ] Add scheduled/admin bulk expiry and durable subscription/invoice records in the next slice.
+- [x] Add an owner-controlled admin bulk expiry operation with an audit event.
+- [ ] Add scheduled automation and durable subscription/invoice records in the next slice.
 
 ### Task 5: Real Lenco evidence and release gate
 

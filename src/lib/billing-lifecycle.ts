@@ -8,3 +8,11 @@ export async function expireDueTrial(organizationId: string, now = new Date()): 
   });
   return result.count > 0;
 }
+
+export async function expireDueTrials(now = new Date()): Promise<number> {
+  const result = await db.organization.updateMany({
+    where: { subscriptionStatus: "trialing", trialEndsAt: { lte: now } },
+    data: { subscriptionStatus: "trial_expired" },
+  });
+  return result.count;
+}
