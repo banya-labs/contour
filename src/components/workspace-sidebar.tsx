@@ -154,7 +154,6 @@ export default function WorkspaceSidebar() {
       icon: Home,
       items: [
         { name: "Catalog & Vault", href: "/dashboard/properties" },
-        { name: "Live Map Hub", href: "/dashboard/map", highlight: true },
         { name: "Property Sales", href: "/dashboard/sales" },
         { name: "Rentals & Leases", href: "/dashboard/leases" },
       ],
