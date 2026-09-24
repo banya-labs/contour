@@ -387,6 +387,13 @@ function PropertiesCatalogContent() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/map"
+            className="px-3 sm:px-4 py-2 border border-editorial-border bg-white hover:border-editorial-black text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
+          >
+            <MapPin className="w-4 h-4" />
+            <span>View Map</span>
+          </Link>
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-3 sm:px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
@@ -397,14 +404,14 @@ function PropertiesCatalogContent() {
         </div>
       </div>
 
+      <UnassignedMatchPanel compact />
+
       {/* Type Filter Sliding Tabs */}
       <PageTabs
         tabs={typeTabs}
         activeTab={filterType}
         onChange={(tabId) => setFilterType(tabId)}
       />
-
-      <UnassignedMatchPanel compact />
 
       {/* Filter Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-3 border border-editorial-border">
