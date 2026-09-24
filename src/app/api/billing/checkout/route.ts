@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { createApiHandler, type ApiRouteContext } from "@/lib/api-handler";
 import {
   initiateLencoCollection,
-  getPlanPrice,
   CONTOUR_PLANS,
   BillingCycle,
   SupportedCurrency,
@@ -15,6 +14,7 @@ import {
 import { z } from "zod";
 import { calculateOfferDiscount } from "@/lib/billing-offers";
 import { commitOrganizationOffer, releaseOrganizationOffer, reserveOrganizationOffer } from "@/lib/billing-offer-reservation";
+import { getCatalogPlanName, getCatalogPlanPrice } from "@/lib/subscriptions/tier-catalog";
 
 const checkoutSchema = z.object({
   planId: z.enum(["starter", "growth", "enterprise"]),
@@ -88,7 +88,8 @@ const postHandler = createApiHandler({
       return NextResponse.json({ success: false, error: "This payment combination is not supported." }, { status: 400 });
     }
 
-    const priceInfo = getPlanPrice(body.planId, billingCycle, currency);
+    const priceInfo = await getCatalogPlanPrice(body.planId, billingCycle, currency);
+    const planName = await getCatalogPlanName(body.planId);
     const reference = `contour_${targetOrgId}_${Date.now()}_${crypto.randomUUID()}`;
     let payment: Awaited<ReturnType<typeof db.payment.create>>;
     try {
@@ -131,7 +132,7 @@ const postHandler = createApiHandler({
       amount: chargedAmount,
       currency,
       reference,
-      narration: `Contour ${plan.name} (${billingCycle}) - ${targetOrgId}`,
+      narration: `Contour ${planName} (${billingCycle}) - ${targetOrgId}`,
       customer: {
         name: body.customerName || session?.user.name || "Contour Broker",
         email: body.customerEmail || session?.user.email || "billing@contour.banyalabs.com",
