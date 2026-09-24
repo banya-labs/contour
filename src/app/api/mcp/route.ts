@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { z } from "zod";
 import { aiToolSchemas, type AiToolName } from "@/lib/ai-tool-schemas";
 import { getOrCreateCorrelationId } from "@/lib/correlation";
+import { getOrCreateContact } from "@/lib/crm/contact-service";
 
 const jsonRpcRequestSchema = z.object({
   jsonrpc: z.literal("2.0"),
@@ -525,9 +526,16 @@ export async function POST(req: NextRequest) {
 
         const antiPoachingExpiry = new Date();
         antiPoachingExpiry.setDate(antiPoachingExpiry.getDate() + 30);
+        const contact = await getOrCreateContact(db, {
+          organizationId: tenantOrgId,
+          name: parsedInquiry.data.clientName,
+          phone: parsedInquiry.data.clientPhone,
+          email: parsedInquiry.data.clientEmail,
+        });
         const createdInquiry = await db.inquiry.create({
           data: {
             organizationId: tenantOrgId,
+            contactId: contact.id,
             clientName: parsedInquiry.data.clientName,
             clientPhone: parsedInquiry.data.clientPhone,
             clientEmail: parsedInquiry.data.clientEmail || null,

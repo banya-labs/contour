@@ -33,6 +33,7 @@ import { filterContacts, normalizeInquiryContact, sortContactsAlphabetically, ty
 function ClientsCRMContent() {
   const { data: session } = useSession();
   const [clients, setClients] = useState<ContactRow[]>([]);
+  const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string; email?: string | null }>>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; roleKey?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -84,8 +85,11 @@ function ClientsCRMContent() {
           fetch("/api/clients"),
           fetch("/api/organization/agents"),
         ]);
+        const contactsRes = await fetch("/api/contacts");
         const data = await clientsRes.json();
         const agentsData = await agentsRes.json();
+        const contactsData = await contactsRes.json();
+        if (contactsData.success) setContacts(contactsData.contacts || []);
 
         if (agentsData.success && agentsData.agents) {
           setAgents(agentsData.agents);
@@ -282,6 +286,7 @@ function ClientsCRMContent() {
 
   // Form State
   const [formData, setFormData] = useState({
+    contactId: "",
     name: "",
     phone: "",
     email: "",
@@ -310,6 +315,10 @@ function ClientsCRMContent() {
       setFormError("Client name is required (at least 3 characters).");
       return;
     }
+    if (!formData.contactId) {
+      setFormError("Select a contact before creating an inquiry.");
+      return;
+    }
     if (!formData.phone.trim() || formData.phone.length < 7) {
       setFormError("Valid phone number is required.");
       return;
@@ -327,6 +336,7 @@ function ClientsCRMContent() {
     const clientPayload = {
       idempotencyKey: `client-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       clientName: formData.name,
+      contactId: formData.contactId,
       clientPhone: formData.phone,
       clientEmail: formData.email || undefined,
       lookingFor: lookingForType,
@@ -355,6 +365,7 @@ function ClientsCRMContent() {
           setClients([newClient, ...clients]);
           setIsModalOpen(false);
           setFormData({
+            contactId: "",
             name: "",
             phone: "",
             email: "",
@@ -560,6 +571,22 @@ function ClientsCRMContent() {
             )}
 
             <form onSubmit={handleCreateClient} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Contact *</label>
+                <select
+                  value={formData.contactId}
+                  onChange={(e) => {
+                    const contact = contacts.find((item) => item.id === e.target.value);
+                    setFormData({ ...formData, contactId: e.target.value, name: contact?.name || "", phone: contact?.phone || "", email: contact?.email || "" });
+                  }}
+                  className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none"
+                  required
+                >
+                  <option value="">Select an existing contact...</option>
+                  {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} ({contact.phone})</option>)}
+                </select>
+                {contacts.length === 0 && <p className="mt-1 text-[10px] text-editorial-red">Create a contact first from the Contacts page.</p>}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Client Full Name *</label>

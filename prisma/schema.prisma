@@ -160,6 +160,7 @@ model Organization {
   landlordStatements     LandlordStatement[]
   arrearsReminders       RentArrearsReminder[]
   transactions           Transaction[]
+  contacts               Contact[]
   inquiries              Inquiry[]
   visits                 PropertyVisit[]
   auditLogs              AuditLog[]
@@ -940,9 +941,29 @@ enum LeadSource {
   OTHER
 }
 
+model Contact {
+  id             String    @id @default(cuid())
+  organizationId String
+  identityKey    String
+  name           String
+  phone          String
+  email          String?
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inquiries    Inquiry[]
+
+  @@unique([organizationId, identityKey])
+  @@index([organizationId, name])
+  @@map("contact")
+}
+
 model Inquiry {
   id                           String           @id @default(cuid())
   organizationId               String
+  contactId                    String
   clientName                   String
   clientPhone                  String
   clientEmail                  String?
@@ -973,6 +994,7 @@ model Inquiry {
   updatedAt                    DateTime         @updatedAt
 
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact                    Contact                      @relation(fields: [contactId], references: [id], onDelete: Restrict)
   assignedAgent              User?                       @relation("AssignedInquiries", fields: [assignedAgentId], references: [id])
   managementCloseRequestedBy User?                       @relation("ManagementCloseRequests", fields: [managementCloseRequestedById], references: [id])
   property                   Property?                   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
@@ -990,6 +1012,7 @@ model Inquiry {
   @@index([propertyId])
   @@index([organizationId, createdAt])
   @@index([assignedAgentId])
+  @@index([contactId])
   @@map("inquiry")
 }
 

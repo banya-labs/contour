@@ -1389,7 +1389,7 @@ function SettingsContent() {
       {destructivePending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-editorial-black/55 p-6" role="status" aria-live="polite" aria-label={`${destructiveAction === "DELETE" ? "Deleting" : "Resetting"} workspace`}>
           <div className="flex w-full max-w-sm flex-col items-center gap-4 border border-editorial-border bg-white px-8 py-10 text-center shadow-2xl">
-            <ContourSunLoader />
+            <ContourSunLoader label="Updating workspace" />
             <div>
               <p className="font-heading text-sm font-bold uppercase tracking-wider text-editorial-black">{destructiveAction === "DELETE" ? "Deleting workspace" : "Resetting workspace"}</p>
               <p className="mt-1 text-xs text-editorial-muted">Please keep this page open while we update your workspace.</p>

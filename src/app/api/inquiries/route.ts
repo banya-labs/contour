@@ -6,6 +6,7 @@ import { smartCache } from "@/lib/cache";
 import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
 import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
+import { getOrCreateContact } from "@/lib/crm/contact-service";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     const clientPhone = normalizePhoneNumber(parsed.clientPhone);
+    const contact = await getOrCreateContact(db, { organizationId: organization.id, name: parsed.clientName, phone: clientPhone, email: parsed.clientEmail });
     if (parsed.idempotencyKey) {
       const existing = await db.inquiry.findFirst({ where: { organizationId: organization.id, idempotencyKey: parsed.idempotencyKey } });
       if (existing) return NextResponse.json({ success: true, message: "Inquiry already received.", inquiryId: existing.id }, { headers: CORS_HEADERS });
@@ -99,6 +101,7 @@ export async function POST(req: NextRequest) {
     const inquiry = await db.inquiry.create({
       data: {
         organizationId: organization.id,
+        contactId: contact.id,
         clientName: parsed.clientName,
         clientPhone,
         clientEmail: parsed.clientEmail || null,
