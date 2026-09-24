@@ -1,0 +1,11 @@
+CREATE TYPE "PlatformOfferKind" AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT');
+CREATE TYPE "PlatformOfferStatus" AS ENUM ('DRAFT', 'ACTIVE', 'PAUSED', 'EXPIRED');
+CREATE TABLE "platform_offer" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "code" TEXT NOT NULL, "kind" "PlatformOfferKind" NOT NULL, "value" DECIMAL(12,2) NOT NULL, "currency" "Currency", "status" "PlatformOfferStatus" NOT NULL DEFAULT 'DRAFT', "startsAt" TIMESTAMP(3), "endsAt" TIMESTAMP(3), "maxRedemptions" INTEGER, "redeemedCount" INTEGER NOT NULL DEFAULT 0, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "platform_offer_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "organization_offer" ("id" TEXT NOT NULL, "organizationId" TEXT NOT NULL, "offerId" TEXT NOT NULL, "grantedByUserId" TEXT NOT NULL, "reason" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT 'ACTIVE', "expiresAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "organization_offer_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "platform_offer_code_key" ON "platform_offer"("code");
+CREATE INDEX "platform_offer_status_startsAt_endsAt_idx" ON "platform_offer"("status", "startsAt", "endsAt");
+CREATE INDEX "organization_offer_organizationId_status_idx" ON "organization_offer"("organizationId", "status");
+CREATE INDEX "organization_offer_offerId_status_idx" ON "organization_offer"("offerId", "status");
+ALTER TABLE "organization_offer" ADD CONSTRAINT "organization_offer_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "organization_offer" ADD CONSTRAINT "organization_offer_offerId_fkey" FOREIGN KEY ("offerId") REFERENCES "platform_offer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "organization_offer" ADD CONSTRAINT "organization_offer_grantedByUserId_fkey" FOREIGN KEY ("grantedByUserId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { hasControlPlaneAccess, hasPersistedControlPlaneAccess } from "@/lib/control-plane";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -17,6 +18,7 @@ const PUBLIC_PATHS = [
   "/request-access/",
   "/privacy",
   "/terms",
+  "/account-locked",
   "/cookies",
   "/sitemap.xml",
   "/robots.txt",
@@ -150,6 +152,12 @@ export async function middleware(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname;
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    const persistedStaff = await hasPersistedControlPlaneAccess(session.user.id);
+    if (!hasControlPlaneAccess(session.user.email, persistedStaff)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
   if (pathname.startsWith("/agent") || pathname.startsWith("/kiosk") || pathname.startsWith("/dashboard")) {
     const tenant = await getTenantContext(request);
     const role = tenant?.contourRole || resolveContourRole(session.user.role ?? undefined, "member", tenant?.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
@@ -172,8 +180,13 @@ export async function middleware(request: NextRequest) {
     if (!pathname.startsWith("/dashboard/billing")) {
       const organization = await db.organization.findUnique({
         where: { id: tenant.organizationId },
-        select: { createdAt: true, trialEndsAt: true, subscriptionStatus: true, lencoSubscriptionId: true },
+        select: { createdAt: true, trialEndsAt: true, subscriptionStatus: true, lencoSubscriptionId: true, accountStatus: true },
       });
+      if (organization?.accountStatus && organization.accountStatus !== "ACTIVE") {
+        const response = NextResponse.redirect(new URL(`/account-locked?status=${organization.accountStatus}`, request.url));
+        response.headers.set(CORRELATION_HEADER, correlationId);
+        return response;
+      }
       const successfulPayment = await db.payment.findFirst({
         where: { organizationId: tenant.organizationId, status: "SUCCESS" },
         select: { id: true },
