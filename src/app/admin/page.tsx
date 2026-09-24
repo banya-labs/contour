@@ -3,9 +3,9 @@ import { Activity, ArrowUpRight, Building2, CreditCard, ShieldCheck, Users } fro
 import { ContourLogo } from "@/components/brand/contour-logo";
 
 const modules = [
-  { label: "Agencies", description: "Tenant directory and controlled agency access.", icon: Building2, status: "Planned" },
+  { label: "Agencies", description: "Tenant directory and controlled agency access.", icon: Building2, status: "Available", href: "/admin/agencies" },
   { label: "People", description: "Platform staff and agency membership oversight.", icon: Users, status: "Available", href: "/admin/staff" },
-  { label: "Subscriptions", description: "Plans, trials, payments, discounts, and offers.", icon: CreditCard, status: "Planned" },
+  { label: "Subscriptions", description: "Plans, trials, payments, discounts, and offers.", icon: CreditCard, status: "Planned", href: undefined },
   { label: "Audit trail", description: "Administrative actions with actor and reason.", icon: ShieldCheck, status: "Foundation active", href: undefined },
 ];
 

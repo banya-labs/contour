@@ -1,0 +1,27 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, Search } from "lucide-react";
+
+type Agency = { id: string; name: string; slug: string; subscriptionTier: string; subscriptionStatus: string; trialEndsAt: string | null; createdAt: string; _count: { members: number; properties: number; inquiries: number } };
+
+export default function AdminAgenciesPage() {
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [message, setMessage] = useState("Loading agencies…");
+
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({ page: "1", pageSize: "50" });
+    if (query.trim()) params.set("q", query.trim());
+    if (status) params.set("status", status);
+    const response = await fetch(`/api/admin/agencies?${params}`);
+    const data = await response.json();
+    setAgencies(data.agencies || []);
+    setMessage(response.ok ? "" : data.error || "Unable to load agencies.");
+  }, [query, status]);
+  useEffect(() => { void load(); }, [load]);
+
+  return <main className="min-h-screen bg-editorial-bg px-4 py-6 font-geist text-editorial-black sm:px-8"><div className="mx-auto max-w-7xl space-y-7"><Link href="/admin" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-editorial-muted hover:text-editorial-red"><ArrowLeft className="h-4 w-4" /> Control Plane</Link><header className="border-b border-editorial-border pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-editorial-red">Platform operations // tenants</p><h1 className="mt-2 font-heading text-4xl font-bold uppercase">Agency directory</h1><p className="mt-2 text-sm text-editorial-muted">Bounded operational visibility across Contour agencies. Sensitive vault and identity data remains outside this read-only view.</p></header><div className="flex flex-col gap-3 border border-editorial-border bg-white p-4 sm:flex-row"><div className="flex flex-1 items-center gap-2 border border-editorial-border px-3"><Search className="h-4 w-4 text-editorial-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void load()} placeholder="Search agency name or slug" className="h-10 flex-1 text-sm outline-none" /></div><select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 border border-editorial-border px-3 text-sm"><option value="">All subscription states</option><option value="active">Active</option><option value="trialing">Trialing</option><option value="past_due">Past due</option><option value="suspended">Suspended</option></select><button onClick={() => void load()} className="h-10 bg-editorial-black px-5 text-xs font-bold uppercase tracking-wider text-white hover:bg-editorial-red">Search</button></div>{message && <p className="text-sm text-editorial-muted">{message}</p>}<section className="overflow-x-auto border border-editorial-border bg-white"><table className="w-full min-w-[760px] text-left"><thead className="border-b border-editorial-border bg-editorial-paper"><tr className="text-[10px] font-bold uppercase tracking-widest text-editorial-muted"><th className="px-5 py-4">Agency</th><th className="px-5 py-4">Plan</th><th className="px-5 py-4">Members</th><th className="px-5 py-4">Properties</th><th className="px-5 py-4">Inquiries</th><th className="px-5 py-4">Created</th></tr></thead><tbody className="divide-y divide-editorial-border">{agencies.map((agency) => <tr key={agency.id} className="hover:bg-editorial-hover"><td className="px-5 py-4"><div className="font-bold">{agency.name}</div><div className="font-mono text-[10px] text-editorial-muted">/{agency.slug}</div></td><td className="px-5 py-4"><div className="font-mono text-xs">{agency.subscriptionTier}</div><div className="text-[10px] uppercase text-editorial-muted">{agency.subscriptionStatus}</div></td><td className="px-5 py-4 font-mono text-sm">{agency._count.members}</td><td className="px-5 py-4 font-mono text-sm">{agency._count.properties}</td><td className="px-5 py-4 font-mono text-sm">{agency._count.inquiries}</td><td className="px-5 py-4 text-xs text-editorial-muted">{new Date(agency.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>{agencies.length === 0 && !message && <p className="p-8 text-center text-sm text-editorial-muted">No agencies match this filter.</p>}</section></div></main>;
+}
