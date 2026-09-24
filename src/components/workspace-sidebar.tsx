@@ -18,6 +18,7 @@ import {
   Building,
   BarChart3,
   Download,
+  UserRound,
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { triggerPwaInstallModal } from "@/components/pwa/pwa-install-banner";
@@ -67,6 +68,7 @@ export default function WorkspaceSidebar() {
     Properties: true,
     "CRM & Deals": true,
   });
+  const [isWorkspaceToolsOpen, setIsWorkspaceToolsOpen] = useState(false);
 
   // Real-time dynamic workspace title pulled from agency settings
   const [workspaceTitle, setWorkspaceTitle] = useState<string>(() => {
@@ -346,35 +348,71 @@ export default function WorkspaceSidebar() {
 
       {/* Bottom Profile / Surface Switches */}
       <div className="space-y-1 pt-2 lg:pt-3 border-t border-editorial-border shrink-0">
-        <Link
-          href="/dashboard/settings"
-          title="Agency Settings"
-          className={`flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium transition-colors ${
-            pathname === "/dashboard/settings"
-              ? "bg-editorial-black text-white font-semibold"
-              : "text-editorial-black hover:bg-neutral-50"
-          }`}
-        >
-          <Settings className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
-          <span className="hidden lg:inline">Agency Settings</span>
-        </Link>
-        <Link
-          href="/agent"
-          title="Field Agent PWA"
-          className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors"
-        >
-          <Smartphone className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
-          <span className="hidden lg:inline">Field Agent PWA</span>
-        </Link>
-        <button
-          type="button"
-          onClick={triggerPwaInstallModal}
-          title="Install App"
-          className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-contour-red hover:bg-red-50/60 transition-colors w-full text-left"
-        >
-          <Download className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
-          <span className="hidden lg:inline">Install App</span>
-        </button>
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() => setIsWorkspaceToolsOpen((isOpen) => !isOpen)}
+            aria-expanded={isWorkspaceToolsOpen}
+            aria-controls="workspace-tools-menu"
+            title="Workspace tools"
+            className="w-full flex items-center justify-center lg:justify-between gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black hover:bg-neutral-50 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <UserRound className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
+              <span className="hidden lg:inline">Workspace tools</span>
+            </span>
+            <span className="hidden lg:inline-flex" aria-hidden="true">
+              {isWorkspaceToolsOpen ? (
+                <ChevronDown className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5" />
+              )}
+            </span>
+          </button>
+
+          {isWorkspaceToolsOpen && (
+            <div id="workspace-tools-menu" className="space-y-0.5 border-l border-editorial-border ml-3 pl-2">
+              <Link
+                href="/dashboard/settings"
+                title="Agency Settings"
+                className={`flex items-center gap-2 px-2.5 py-1.5 text-xs font-heading font-medium transition-colors ${
+                  pathname === "/dashboard/settings"
+                    ? "bg-editorial-black text-white font-semibold"
+                    : "text-editorial-black hover:bg-neutral-50"
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
+                <span className="hidden lg:inline">Agency Settings</span>
+              </Link>
+              <Link
+                href="/agent"
+                title="Field Agent PWA"
+                className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
+                <span className="hidden lg:inline">Field Agent PWA</span>
+              </Link>
+              <button
+                type="button"
+                onClick={triggerPwaInstallModal}
+                title="Install App"
+                className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-heading font-medium text-contour-red hover:bg-red-50/60 transition-colors w-full text-left"
+              >
+                <Download className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Install App</span>
+              </button>
+              <button
+                type="button"
+                title="Sign Out"
+                onClick={() => contourSignOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
+                className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-muted hover:bg-neutral-50 hover:text-contour-red transition-colors w-full text-left"
+              >
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Sign Out</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Live Better Auth User Profile Card */}
         <div className="flex items-center justify-center lg:justify-between p-1.5 lg:p-2 border border-editorial-border bg-neutral-50/70 mt-1">
@@ -403,16 +441,6 @@ export default function WorkspaceSidebar() {
               </div>
             </div>
           </Link>
-          <div className="hidden lg:block">
-            <button
-              type="button"
-              title="Sign Out"
-              onClick={() => contourSignOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
-              className="text-editorial-muted hover:text-contour-red p-1 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
         </div>
       </div>
     </aside>

@@ -90,7 +90,8 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       const billingExemptPath =
         req.nextUrl.pathname.startsWith("/api/billing/") ||
         req.nextUrl.pathname.startsWith("/api/onboarding/profile") ||
-        req.nextUrl.pathname.startsWith("/api/organization/profile");
+        req.nextUrl.pathname.startsWith("/api/organization/profile") ||
+        req.nextUrl.pathname.startsWith("/api/organization/data");
       if (options.requireAuth !== false && tenant && tenant !== demoTenant && !billingExemptPath) {
         const organization = await db.organization.findUnique({
           where: { id: organizationId! },

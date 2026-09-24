@@ -31,6 +31,7 @@ import {
   RefreshCw,
   Lock,
   CreditCard,
+  X,
 } from "lucide-react";
 import {
   getAgencySettings,
@@ -477,7 +478,7 @@ function SettingsContent() {
       }
       if (destructiveAction === "DELETE") {
         await authClient.organization.setActive({ organizationId: null });
-        router.replace("/onboarding");
+        window.location.assign("/onboarding");
         return;
       }
       setDestructiveAction(null);
@@ -492,9 +493,10 @@ function SettingsContent() {
   };
 
   const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText(label);
-    setTimeout(() => setCopiedText(null), 2000);
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopiedText(label);
+      setTimeout(() => setCopiedText(null), 2000);
+    }).catch(() => setSettingsMessage("Unable to copy confirmation text. Select and copy it manually."));
   };
 
   const tabs = [
@@ -1363,7 +1365,17 @@ function SettingsContent() {
 
           {destructiveAction && (
             <div className="border-2 border-red-400 bg-white p-4 space-y-3">
-              <p className="text-xs font-semibold text-red-900">This cannot be undone. Type <span className="font-mono">{destructiveAction} {workspace?.slug || "your-workspace-slug"}</span> to continue.</p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <p className="text-xs font-semibold text-red-900">This cannot be undone. Type <span className="font-mono">{destructiveAction} {workspace?.slug || "your-workspace-slug"}</span> to continue.</p>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(`${destructiveAction} ${workspace?.slug || "your-workspace-slug"}`, "destructive_confirmation")}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 border border-editorial-border px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-editorial-black hover:bg-neutral-50"
+                >
+                  {copiedText === "destructive_confirmation" ? <Check className="h-3.5 w-3.5 text-emerald-700" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedText === "destructive_confirmation" ? "Copied" : "Copy text"}
+                </button>
+              </div>
               <input value={destructiveConfirmation} onChange={(event) => setDestructiveConfirmation(event.target.value)} placeholder={`${destructiveAction} ${workspace?.slug || "workspace-slug"}`} className="w-full max-w-lg border border-red-300 px-3 py-2 text-xs font-mono focus:outline-none focus:border-red-600" autoComplete="off" />
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => void handleDestructiveAction()} disabled={destructivePending} className="px-4 py-2 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"><PendingButtonContent pending={destructivePending} pendingLabel="Working…">Confirm {destructiveAction === "DELETE" ? "deletion" : "reset"}</PendingButtonContent></button>
@@ -1371,6 +1383,35 @@ function SettingsContent() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {destructivePending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-editorial-black/55 p-6" role="status" aria-live="polite" aria-label={`${destructiveAction === "DELETE" ? "Deleting" : "Resetting"} workspace`}>
+          <div className="flex w-full max-w-sm flex-col items-center gap-4 border border-editorial-border bg-white px-8 py-10 text-center shadow-2xl">
+            <ContourSunLoader />
+            <div>
+              <p className="font-heading text-sm font-bold uppercase tracking-wider text-editorial-black">{destructiveAction === "DELETE" ? "Deleting workspace" : "Resetting workspace"}</p>
+              <p className="mt-1 text-xs text-editorial-muted">Please keep this page open while we update your workspace.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {settingsMessage && (
+        <div className="fixed inset-x-4 top-4 z-[60] flex justify-center sm:inset-x-6" role="alert" aria-live="assertive">
+          <div className="flex w-full max-w-xl items-start gap-3 border border-editorial-black bg-white p-4 shadow-2xl">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-contour-red" />
+            <p className="flex-1 text-xs font-medium leading-5 text-editorial-black">{settingsMessage}</p>
+            <button
+              type="button"
+              onClick={() => setSettingsMessage(null)}
+              className="shrink-0 p-1 text-editorial-muted hover:text-editorial-black"
+              aria-label="Dismiss message"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
 
