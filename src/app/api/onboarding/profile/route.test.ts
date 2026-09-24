@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/api-handler", () => ({
   createApiHandler: (options: { handler: typeof mocks.handler }) => {
     mocks.handler = options.handler;
-    return async (request: NextRequest) => options.handler(request, {
+    return async (request: NextRequest) => options.handler!(request, {
       body: {
         name: "MAL Property",
         slug: "mal-property",
