@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPermissionOverrides, hasRequiredRole, isPermission, resolveApplicationRole, resolveContourRole, roleHasPermission } from "./authorization";
+import { applyPermissionOverrides, hasRequiredRole, isPermission, permissionOverridesForSelection, resolveApplicationRole, resolveContourRole, roleHasPermission } from "./authorization";
 
 describe("organization authorization", () => {
   it("validates permission keys against the canonical catalogue", () => {
@@ -13,6 +13,13 @@ describe("organization authorization", () => {
       { permission: "pipeline.read", effect: "ALLOW" },
       { permission: "made.up.permission", effect: "ALLOW" },
     ])).toEqual(["properties.read", "pipeline.read"]);
+  });
+
+  it("creates allow and deny overrides when tags differ from a role template", () => {
+    expect(permissionOverridesForSelection(["dashboard.read", "properties.read"], ["dashboard.read", "pipeline.read"])).toEqual([
+      { permission: "properties.read", effect: "DENY" },
+      { permission: "pipeline.read", effect: "ALLOW" },
+    ]);
   });
 
   it("allows a user whose role is explicitly required", () => {

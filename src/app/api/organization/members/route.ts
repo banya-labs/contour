@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
-import { CONTOUR_ROLE_KEYS, PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_PRESETS } from "@/lib/authorization";
+import { applyPermissionOverrides, CONTOUR_ROLE_KEYS, PERMISSIONS, permissionOverridesForSelection, ROLE_DESCRIPTIONS, ROLE_PRESETS, type Permission } from "@/lib/authorization";
 import { normalizeWhatsAppPhone } from "@/lib/phone-input";
 import { smartCache } from "@/lib/cache";
 
@@ -34,16 +34,19 @@ export const GET = createApiHandler({
     const membersWithEffectivePermissions = members.map((member) => {
       const isOwner = member.role === "owner";
       const assignedRoleKey = member.roleAssignments[0]?.role.key as keyof typeof ROLE_PRESETS | undefined;
-      const effectivePermissions = isOwner
+      const basePermissions = isOwner
         ? ROLE_PRESETS.OWNER
         : assignedRoleKey
           ? ROLE_PRESETS[assignedRoleKey] || []
-          : member.permissionOverrides.filter((override) => override.effect === "ALLOW").map((override) => override.permission);
+          : [];
+      const effectivePermissions = isOwner
+        ? ROLE_PRESETS.OWNER
+        : applyPermissionOverrides(basePermissions, member.permissionOverrides);
       return { ...member, effectivePermissions };
     });
     return NextResponse.json({
       success: true,
-      roles: Object.entries(ROLE_DESCRIPTIONS).filter(([key]) => key !== "OWNER").map(([key, value]) => ({ key, ...value, permissions: ROLE_PRESETS[key as keyof typeof ROLE_PRESETS] })),
+      roles: Object.entries(ROLE_DESCRIPTIONS).map(([key, value]) => ({ key, ...value, permissions: ROLE_PRESETS[key as keyof typeof ROLE_PRESETS] })),
       members: membersWithEffectivePermissions,
     });
   },
@@ -122,9 +125,17 @@ export const PATCH = createApiHandler({
     }
 
     if (body.permissions) {
+      if (member.role === "owner") {
+        return NextResponse.json({ success: false, error: "The workspace owner always has full permissions." }, { status: 400 });
+      }
+      const nextRoleKey = roleKey && roleKey !== "NONE" ? roleKey : member.roleAssignments[0]?.role.key;
+      const basePermissions = nextRoleKey && nextRoleKey in ROLE_PRESETS
+        ? ROLE_PRESETS[nextRoleKey as keyof typeof ROLE_PRESETS]
+        : [];
+      const overrides = permissionOverridesForSelection(basePermissions, body.permissions as Permission[]);
       await db.memberPermissionOverride.deleteMany({ where: { memberId: member.id } });
-      if (body.permissions.length > 0) {
-        await db.memberPermissionOverride.createMany({ data: body.permissions.map((permission) => ({ memberId: member.id, permission, effect: "ALLOW", assignedById: userId })) });
+      if (overrides.length > 0) {
+        await db.memberPermissionOverride.createMany({ data: overrides.map((override) => ({ memberId: member.id, permission: override.permission, effect: override.effect, assignedById: userId })) });
       }
     }
 

@@ -88,6 +88,20 @@ export function permissionsForRole(role: ContourRoleKey): readonly Permission[] 
   return ROLE_PRESETS[role];
 }
 
+export function permissionOverridesForSelection(
+  basePermissions: readonly Permission[],
+  selectedPermissions: readonly Permission[],
+): Array<{ permission: Permission; effect: "ALLOW" | "DENY" }> {
+  const base = new Set(basePermissions);
+  const selected = new Set(selectedPermissions.filter(isPermission));
+  return PERMISSIONS.flatMap((permission) => {
+    const shouldBeEnabled = selected.has(permission);
+    const isEnabledByBase = base.has(permission);
+    if (shouldBeEnabled === isEnabledByBase) return [];
+    return [{ permission, effect: shouldBeEnabled ? "ALLOW" as const : "DENY" as const }];
+  });
+}
+
 export function isManagementRole(role: ContourRoleKey | string | undefined | null): boolean {
   if (!role) return false;
   const normalized = role.toUpperCase();

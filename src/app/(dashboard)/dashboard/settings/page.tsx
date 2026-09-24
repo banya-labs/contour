@@ -1139,7 +1139,7 @@ function SettingsContent() {
                           <div className="mt-1 flex flex-wrap gap-1">
                             {(roles.flatMap((role) => role.permissions || []).filter((permission, index, all) => all.indexOf(permission) === index)).map((permission) => {
                               const active = member.effectivePermissions.includes(permission);
-                              return <button key={permission} type="button" disabled={isOwner || isSelf} onClick={() => void handlePermissionToggle(member, permission)} className={`border px-1.5 py-1 text-[9px] font-mono ${active ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-editorial-border bg-white text-editorial-muted"}`}>{permission}</button>;
+                              return <button key={permission} type="button" aria-pressed={active} disabled={isOwner || isSelf} onClick={() => void handlePermissionToggle(member, permission)} className={`border px-1.5 py-1 text-[9px] font-mono transition-colors ${active ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-editorial-border bg-white text-editorial-muted hover:border-editorial-black hover:text-editorial-black"}`}>{active ? "✓ " : "＋ "}{permission}</button>;
                             })}
                             {!member.effectivePermissions.length && <span className="text-[10px] text-editorial-muted">No permissions</span>}
                           </div>
