@@ -25,6 +25,7 @@ import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
+import { mapLegacyPipelineState } from "@/lib/deal-workflow";
 
 type Deal = {
   id: string;
@@ -41,7 +42,7 @@ type Deal = {
   agentName: string;
   assignedAgentId?: string | null;
   daysInStage: number;
-  stage: "NEW_INQUIRY" | "CONTACTED" | "VIEWING_SCHEDULED" | "NEGOTIATING" | "OFFER_MADE" | "MANAGEMENT_HANDOVER" | "CLOSED";
+  stage: "NEW_INQUIRY" | "QUALIFIED" | "VIEWING_OR_OFFER" | "NEGOTIATING" | "VERIFICATION_CLOSING" | "CLOSED";
   outcome?: "WON" | "LOST" | null;
   lostReason?: string | null;
   closedAt?: string | null;
@@ -77,11 +78,10 @@ type ExistingClient = {
 
 const STAGES = [
   { id: "NEW_INQUIRY", label: "New Inquiry", tag: "RAW" },
-  { id: "CONTACTED", label: "Contacted", tag: "TOUCH" },
-  { id: "VIEWING_SCHEDULED", label: "Viewing Scheduled", tag: "VIEWING" },
+  { id: "QUALIFIED", label: "Qualified", tag: "FIT" },
+  { id: "VIEWING_OR_OFFER", label: "Viewing / Offer", tag: "VIEWING" },
   { id: "NEGOTIATING", label: "Negotiating", tag: "NEGOTIATION" },
-  { id: "OFFER_MADE", label: "Written Offer", tag: "OFFER" },
-  { id: "MANAGEMENT_HANDOVER", label: "Management Handover", tag: "REVIEW" },
+  { id: "VERIFICATION_CLOSING", label: "Verification & Closing", tag: "CLOSING" },
 ];
 
 function DealPipelineContent() {
@@ -139,6 +139,8 @@ function DealPipelineContent() {
   const [closeOutcome, setCloseOutcome] = useState<"WON" | "LOST">("WON");
   const [selectedClosedDeal, setSelectedClosedDeal] = useState<Deal | null>(null);
   const [lostReason, setLostReason] = useState("");
+  const [pendingTransition, setPendingTransition] = useState<{ deal: Deal; targetStage: Deal["stage"] } | null>(null);
+  const [transitionReason, setTransitionReason] = useState("");
 
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
 
@@ -177,7 +179,7 @@ function DealPipelineContent() {
             agentName: inquiry.assignedAgent?.name || "Unassigned",
             assignedAgentId: inquiry.assignedAgent?.id || inquiry.assignedAgentId || null,
             daysInStage: Math.max(0, Math.floor((Date.now() - new Date(inquiry.updatedAt).getTime()) / 86400000)),
-            stage: inquiry.status,
+            stage: mapLegacyPipelineState(inquiry.status, inquiry.outcome).status,
             outcome: inquiry.outcome,
             lostReason: inquiry.lostReason,
             closedAt: inquiry.closedAt,
@@ -240,7 +242,7 @@ function DealPipelineContent() {
     deals.filter((d) => d.stage !== "CLOSED").forEach((d) => {
       totalsByCurrency[d.currency] = (totalsByCurrency[d.currency] || 0) + d.dealValue;
       commByCurrency[d.currency] = (commByCurrency[d.currency] || 0) + d.agencyCommission;
-      if (d.stage === "OFFER_MADE") {
+      if (d.stage === "NEGOTIATING") {
         totalNegotiatingDays += d.daysInStage;
         negotiatingCount++;
       }
@@ -289,25 +291,35 @@ function DealPipelineContent() {
   const handleMoveStage = async (dealId: string, nextStage: Deal["stage"]) => {
     const deal = deals.find((item) => item.id === dealId);
     if (!deal) return;
+    if (nextStage === deal.stage) return;
     if (nextStage === "CLOSED") {
       openCloseModal(deal);
       return;
     }
-    const actionKey = `${dealId}:move`;
+    setTransitionReason("");
+    setPendingTransition({ deal, targetStage: nextStage });
+  };
+
+  const confirmTransition = async () => {
+    if (!pendingTransition) return;
+    const { deal, targetStage } = pendingTransition;
+    const actionKey = `${deal.id}:move`;
     setPendingDealActions((state) => setKeyPending(state, actionKey, true));
     try {
-      const response = await fetch(`/api/clients/${dealId}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/clients/${deal.id}/transition`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStage }),
+        body: JSON.stringify({ targetStage, reason: transitionReason.trim() || undefined }),
       });
+      const result = await response.json().catch(() => null);
       if (!response.ok) {
-        setFormError("Unable to update the pipeline stage.");
+        setFormError(result?.error || "Unable to update the pipeline stage.");
         return;
       }
       setDeals((prev) =>
-        prev.map((d) => (d.id === dealId ? { ...d, stage: nextStage } : d)),
+        prev.map((d) => (d.id === deal.id ? { ...d, stage: targetStage } : d)),
       );
+      setPendingTransition(null);
     } finally {
       setPendingDealActions((state) => setKeyPending(state, actionKey, false));
     }
@@ -317,13 +329,13 @@ function DealPipelineContent() {
     if (!closeTarget || (closeOutcome === "LOST" && lostReason.trim().length < 10)) return;
     setIsClosingDeal(true);
     try {
-      const response = await fetch(`/api/clients/${closeTarget.id}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/clients/${closeTarget.id}/transition`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "CLOSED",
+          targetStage: "CLOSED",
           outcome: closeOutcome,
-          lostReason: closeOutcome === "LOST" ? lostReason.trim() : undefined,
+          reason: closeOutcome === "LOST" ? lostReason.trim() : undefined,
         }),
       });
       const result = await response.json().catch(() => null);
@@ -374,7 +386,6 @@ function DealPipelineContent() {
           assignedAgentId: editFormData.assignedAgentId || null,
           dealValue: valNum,
           currency: editFormData.currency,
-          status: editFormData.stage,
           notes: editFormData.notes || undefined,
         }),
       });
@@ -406,7 +417,7 @@ function DealPipelineContent() {
             currency: editFormData.currency,
             agencyCommissionPct: Number(matchedProp?.agencyCommissionPct ?? 5),
             agencyCommission: valNum * (Number(matchedProp?.agencyCommissionPct ?? 5) / 100),
-            stage: editFormData.stage,
+            stage: editingDeal.stage,
             notes: editFormData.notes,
           };
         })
@@ -608,7 +619,7 @@ function DealPipelineContent() {
             Pipeline & Velocity Board
           </h1>
           <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
-            Track active transactions across four operating stages: New Inquiry → Contacted → Written Offer → Management Handover. Completed outcomes are kept in the closed deal register below.
+            Track active transactions across five simple operating stages. Each card tells the agent what is missing before it can move forward; completed outcomes are kept in the closed deal register below.
           </p>
         </div>
 
@@ -655,7 +666,7 @@ function DealPipelineContent() {
             {stats.avgVelocity}
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
-            Written offer stage age
+            Negotiation stage age
           </span>
         </MotionCard>
 
@@ -893,7 +904,7 @@ function DealPipelineContent() {
 
       {/* Visual Kanban Columns Grid (Desktop & Tablet) */}
       <div className="hidden md:block overflow-x-auto pb-4">
-        <div className="grid grid-cols-6 gap-3.5 items-start min-w-[1320px]">
+        <div className="grid grid-cols-5 gap-3.5 items-start min-w-[1180px]">
           {STAGES.map((stage) => {
             const stageDeals = deals.filter((d) => d.stage === stage.id);
 
@@ -1377,9 +1388,7 @@ function DealPipelineContent() {
                     onChange={(e) => setFormData({ ...formData, stage: e.target.value as Deal["stage"] })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                   >
-                    <option value="NEW_INQUIRY">New Inquiry</option>
-                    <option value="CONTACTED">Contacted</option>
-                    <option value="OFFER_MADE">Written Offer</option>
+                    <option value="NEW_INQUIRY">New enquiry</option>
                   </select>
                 </div>
 
@@ -1606,17 +1615,10 @@ function DealPipelineContent() {
                   <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
                     Pipeline Stage
                   </label>
-                  <select
-                    value={editFormData.stage}
-                    onChange={(e) => setEditFormData({ ...editFormData, stage: e.target.value as Deal["stage"] })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                  >
-                    {STAGES.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="w-full bg-neutral-50 px-3 py-2 border border-editorial-border text-editorial-black font-geist text-sm">
+                    {STAGES.find((stage) => stage.id === editingDeal?.stage)?.label || "Closed outcome"}
+                  </div>
+                  <p className="mt-1 text-[10px] text-editorial-muted">Stage changes use the transition action so requirements cannot be bypassed.</p>
                 </div>
 
                 <div>
@@ -1696,6 +1698,45 @@ function DealPipelineContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {pendingTransition && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-geist">
+          <div className="bg-white max-w-md w-full p-6 border border-editorial-border space-y-4">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
+              <div>
+                <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-contour-red">Pipeline transition</p>
+                <h3 className="font-heading font-bold text-base uppercase tracking-tight mt-1">Move {pendingTransition.deal.clientName}</h3>
+              </div>
+              <button type="button" onClick={() => setPendingTransition(null)} className="flex items-center justify-center w-8 h-8 border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white" aria-label="Close transition dialog">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-editorial-muted">
+              Move this inquiry to <strong className="text-editorial-black">{STAGES.find((stage) => stage.id === pendingTransition.targetStage)?.label}</strong>?
+              Contour will check the required information before saving.
+            </p>
+            <div className="border border-editorial-border bg-neutral-50 p-3 space-y-2 text-xs">
+              <p className="font-heading font-bold uppercase tracking-wider text-editorial-black">Before you move it</p>
+              <ul className="list-disc pl-4 text-editorial-muted space-y-1">
+                <li>Confirm the buyer and property details are accurate.</li>
+                <li>Record the relevant viewing, offer, or follow-up information.</li>
+                <li>If the API finds a missing requirement, it will explain it here.</li>
+              </ul>
+            </div>
+            <div>
+              <label htmlFor="pipeline-transition-reason" className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Note (optional)</label>
+              <textarea id="pipeline-transition-reason" value={transitionReason} onChange={(event) => setTransitionReason(event.target.value)} rows={3} maxLength={2000} placeholder="Add context for this movement..." className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist text-xs" />
+            </div>
+            {formError && <p role="alert" className="border border-red-200 bg-red-50 p-2 text-xs text-red-800">{formError}</p>}
+            <div className="pt-3 flex justify-end gap-2 border-t border-editorial-border">
+              <button type="button" onClick={() => setPendingTransition(null)} className="px-4 py-2 border border-editorial-border text-xs font-heading font-semibold uppercase tracking-wider">Cancel</button>
+              <button type="button" onClick={() => void confirmTransition()} disabled={isKeyPending(pendingDealActions, `${pendingTransition.deal.id}:move`)} className="px-4 py-2 bg-editorial-black disabled:opacity-40 text-white text-xs font-heading font-semibold uppercase tracking-wider">
+                {isKeyPending(pendingDealActions, `${pendingTransition.deal.id}:move`) ? "Checking…" : "Confirm move"}
+              </button>
+            </div>
           </div>
         </div>
       )}
