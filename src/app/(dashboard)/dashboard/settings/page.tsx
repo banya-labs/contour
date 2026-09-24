@@ -30,6 +30,7 @@ import {
   Ban,
   RefreshCw,
   Lock,
+  CreditCard,
 } from "lucide-react";
 import {
   getAgencySettings,
@@ -47,6 +48,7 @@ import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { ProfilePhoneEditor } from "@/components/settings/profile-phone-editor";
 import { PERMISSION_GROUPS, type PermissionGroup } from "@/lib/authorization-groups";
+import BillingPage from "@/app/(dashboard)/dashboard/billing/page";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -85,15 +87,19 @@ function SettingsContent() {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab")?.toUpperCase();
-    if (tabParam === "BILLING" || tabParam === "SUBSCRIPTION") {
-      router.replace("/dashboard/billing");
+    if (tabParam === "SUBSCRIPTION") {
+      router.replace("/dashboard/settings?tab=billing");
+      return;
+    }
+    if (tabParam && ["BRANDING", "ORGANIZATION", "BILLING", "DEVELOPER"].includes(tabParam)) {
+      setActiveTab(tabParam);
     }
   }, [searchParams, router]);
 
   const [settings, setSettings] = useState<AgencySettings>(DEFAULT_AGENCY_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(
-    ["BRANDING", "ORGANIZATION", "DEVELOPER"].includes(initialTab)
+    ["BRANDING", "ORGANIZATION", "BILLING", "DEVELOPER"].includes(initialTab)
       ? initialTab
       : "BRANDING"
   );
@@ -494,6 +500,7 @@ function SettingsContent() {
   const tabs = [
     { id: "BRANDING", label: "Agency Profile & Brand", icon: Building2 },
     { id: "ORGANIZATION", label: "Team & Permissions", icon: Users },
+    { id: "BILLING", label: "Subscription & Billing", icon: CreditCard },
     { id: "DEVELOPER", label: "Public API & Website Integration", icon: Code },
   ];
 
@@ -544,8 +551,13 @@ function SettingsContent() {
       <AnimatedTabs
         tabs={tabs}
         activeTab={activeTab}
-        onChange={(tabId) => setActiveTab(tabId)}
+        onChange={(tabId) => {
+          setActiveTab(tabId);
+          router.replace(`/dashboard/settings?tab=${tabId.toLowerCase()}`, { scroll: false });
+        }}
       />
+
+      {activeTab === "BILLING" && <BillingPage />}
 
       {/* TAB 1: AGENCY BRANDING & METADATA */}
       {activeTab === "BRANDING" && (

@@ -11,13 +11,11 @@ import {
   Menu,
   Home,
   FileText,
-  DollarSign,
   FolderArchive,
   Settings,
   Smartphone,
   LogOut,
   Building,
-  CreditCard,
 } from "lucide-react";
 import { authClient, contourSignOut } from "@/lib/auth-client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -99,14 +97,6 @@ export default function MobileBottomNav() {
         { label: "Catalog & Vault", href: "/dashboard/properties", icon: Home },
         { label: "Property Sales", href: "/dashboard/sales", icon: Building },
         { label: "Rentals & Leases", href: "/dashboard/leases", icon: FileText },
-      ],
-    },
-    {
-      category: "Finance",
-      items: [
-        { label: "Commissions Ledger", href: "/dashboard/commissions", icon: DollarSign },
-        { label: "Landlord Statements", href: "/dashboard/statements", icon: FileText },
-        { label: "Subscription & Billing", href: "/dashboard/billing", icon: CreditCard },
       ],
     },
     {
