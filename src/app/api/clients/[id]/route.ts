@@ -101,48 +101,32 @@ export const PATCH = createApiHandler({
       },
       include: {
         assignedAgent: { select: { id: true, name: true, phone: true } },
-        property: { select: { id: true, title: true, suburb: true, rentalPrice: true, agencyCommissionPct: true } },
+        property: { select: { id: true, title: true, suburb: true, rentalPrice: true, askingPrice: true, listingType: true, currency: true, agencyCommissionPct: true } },
       },
     });
       if (isClosed && body.outcome === "WON" && targetPropertyId) {
-        await tx.property.updateMany({ where: { id: targetPropertyId, organizationId: organizationId! }, data: { status: "SOLD" } });
+        await tx.property.updateMany({ where: { id: targetPropertyId, organizationId: organizationId! }, data: { status: result.lookingFor === "FOR_RENT" ? "RENTED" : "SOLD" } });
         await tx.inquiry.updateMany({ where: { organizationId: organizationId!, propertyId: targetPropertyId, id: { not: inquiry.id }, status: { not: "CLOSED" } }, data: { status: "CLOSED", outcome: "LOST", lostReason: "Property sold to another client.", closedAt: new Date(), closedById: userId } });
+
+        const property = result.property;
+        const grossValue = Number(result.dealValue || (result.lookingFor === "FOR_RENT" ? property?.rentalPrice : property?.askingPrice) || 0);
+        if (property && grossValue > 0 && userId) {
+          const commissionPct = Number(property.agencyCommissionPct);
+          const commissionAmount = grossValue * commissionPct / 100;
+          await tx.transaction.create({
+            data: {
+              organizationId: organizationId!, propertyId: targetPropertyId, inquiryId: inquiry.id,
+              transactionType: result.lookingFor === "FOR_RENT" ? "RENTAL_PLACEMENT" : "PROPERTY_SALE",
+              grossValue: new Prisma.Decimal(grossValue), currency: result.currency,
+              agencyCommissionPct: new Prisma.Decimal(commissionPct), agencyCommissionAmount: new Prisma.Decimal(commissionAmount),
+              agentSplitPct: new Prisma.Decimal(50), agentSplitAmount: new Prisma.Decimal(commissionAmount / 2),
+              status: "EARNED", closingAgentId: result.assignedAgentId || userId, closedAt: new Date(),
+            },
+          });
+        }
       }
       return result;
     });
-
-    if (isClosed && body.outcome === "WON" && targetPropertyId && updated.assignedAgentId) {
-      const property = await db.property.findFirst({
-        where: { id: targetPropertyId, organizationId: organizationId! },
-        select: { listingType: true, askingPrice: true, rentalPrice: true, currency: true, agencyCommissionPct: true },
-      });
-      const grossValue = Number(updated.dealValue || property?.askingPrice || property?.rentalPrice || 0);
-      if (property && grossValue > 0) {
-        const commissionPct = Number(property.agencyCommissionPct);
-        const commissionAmount = grossValue * commissionPct / 100;
-        try {
-          await db.transaction.create({
-            data: {
-              organizationId: organizationId!,
-              propertyId: targetPropertyId,
-              inquiryId: inquiry.id,
-              transactionType: property.listingType === "FOR_RENT" ? "RENTAL_PLACEMENT" : "PROPERTY_SALE",
-              grossValue: new Prisma.Decimal(grossValue),
-              currency: updated.currency,
-              agencyCommissionPct: new Prisma.Decimal(commissionPct),
-              agencyCommissionAmount: new Prisma.Decimal(commissionAmount),
-              agentSplitPct: new Prisma.Decimal(50),
-              agentSplitAmount: new Prisma.Decimal(commissionAmount / 2),
-              status: "EARNED",
-              closingAgentId: updated.assignedAgentId,
-              closedAt: new Date(),
-            },
-          });
-        } catch (error) {
-          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
-        }
-      }
-    }
 
     await db.auditLog.create({
       data: {

@@ -74,7 +74,7 @@ const postHandler = createApiHandler({
 
     const property = await db.property.findFirst({
       where: { id: body.propertyId, organizationId },
-      select: { id: true, agencyCommissionPct: true },
+      select: { id: true, status: true, agencyCommissionPct: true },
     });
 
     if (!property) {
@@ -82,6 +82,9 @@ const postHandler = createApiHandler({
         { success: false, error: "Property not found or access denied." },
         { status: 404 }
       );
+    }
+    if (property.status === "SOLD") {
+      return NextResponse.json({ success: false, error: "This property already has a completed sale transaction." }, { status: 409 });
     }
 
     if (body.agencyCommissionPct !== undefined && !isManagementRole(ctx.contourRole)) {
@@ -101,7 +104,8 @@ const postHandler = createApiHandler({
     const commissionAmt = (body.grossValue * commissionPct) / 100;
     const agentSplitAmt = (commissionAmt * splitPct) / 100;
 
-    const transaction = await db.transaction.create({
+    const transaction = await db.$transaction(async (tx) => {
+      const created = await tx.transaction.create({
       data: {
         organizationId: organizationId!,
         propertyId: body.propertyId,
@@ -131,12 +135,10 @@ const postHandler = createApiHandler({
           }
         }
       }
-    });
+      });
 
-    // Update property status to SOLD
-    await db.property.update({
-      where: { id: body.propertyId },
-      data: { status: "SOLD" }
+      await tx.property.update({ where: { id: body.propertyId }, data: { status: "SOLD" } });
+      return created;
     });
 
     // Invalidate sales and property caches across all surfaces

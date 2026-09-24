@@ -103,6 +103,23 @@ export default function TitleDeedOcrUploader({
         body: formData,
       });
 
+      if (res.status === 415) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = "";
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        const fileBase64 = btoa(binary);
+        const fallbackRes = await fetch("/api/properties/extract-stand-boundary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileName: file.name, mimeType: file.type, fileBase64 }),
+        });
+        const fallbackData = await fallbackRes.json();
+        if (!fallbackRes.ok || !fallbackData.success) throw new Error(fallbackData.error || "Failed to extract survey boundaries from document");
+        setExtractedResult(fallbackData);
+        onBoundaryExtracted(fallbackData);
+        return;
+      }
+
       const data = await res.json();
 
       if (!res.ok || !data.success) {

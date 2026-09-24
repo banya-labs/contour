@@ -199,57 +199,67 @@ export async function POST(req: NextRequest) {
     }
 
     const organizationId = tenant.organizationId;
-    let formData: FormData;
+    const jsonRequest = req.clone();
+    let formData: FormData | null = null;
+    let fallbackUpload: { fileName: string; mimeType: string; fileBase64: string } | null = null;
     try {
       formData = await req.formData();
     } catch {
-      return NextResponse.json({ success: false, error: "OCR upload must be sent as multipart/form-data. Please select the title deed again and retry." }, { status: 415 });
+      if (req.headers.get("content-type")?.includes("application/json")) {
+        const payload = await jsonRequest.json().catch(() => null) as { fileName?: string; mimeType?: string; fileBase64?: string } | null;
+        if (payload?.fileName && payload.mimeType && payload.fileBase64) fallbackUpload = { fileName: payload.fileName, mimeType: payload.mimeType, fileBase64: payload.fileBase64 };
+      }
+      if (!fallbackUpload) return NextResponse.json({ success: false, error: "OCR upload must be sent as multipart/form-data or the supported JSON fallback." }, { status: 415 });
     }
-    const file = formData.get("file") as File | null;
-    const isSample = formData.get("sample") === "true";
-    const rawText = formData.get("rawText") as string | null;
+    const file = formData?.get("file") as File | null;
+    const isSample = formData?.get("sample") === "true";
+    const rawText = formData?.get("rawText") as string | null;
 
     let extractedData: ExtractedDeedData | null = null;
     let vaultDoc: any = null;
 
     // Handle File Upload & MinIO S3 Vault Storage
-    if (file && file.size > 0) {
-      if (file.size > MAX_FILE_BYTES) {
+    if ((file && file.size > 0) || fallbackUpload) {
+      const uploadFileName = file?.name || fallbackUpload!.fileName;
+      const uploadMimeType = file?.type || fallbackUpload!.mimeType;
+      const uploadBuffer = file ? Buffer.from(await file.arrayBuffer()) : Buffer.from(fallbackUpload!.fileBase64, "base64");
+      const uploadSize = uploadBuffer.byteLength;
+      if (uploadSize > MAX_FILE_BYTES) {
         return NextResponse.json(
           { success: false, error: "File exceeds 15MB limit" },
           { status: 400 }
         );
       }
-      if (!ALLOWED_MIME_TYPES.has(file.type)) {
+      if (!ALLOWED_MIME_TYPES.has(uploadMimeType)) {
         return NextResponse.json(
           { success: false, error: "Unsupported file type. Please upload a PDF or image (PNG/JPG)." },
           { status: 400 }
         );
       }
 
-      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      const fileBuffer = uploadBuffer;
       const sha256Checksum = createHash("sha256").update(fileBuffer).digest("hex");
 
       // Save to MinIO Object Storage
       const objectKey = s3Storage.generateObjectKey(
         organizationId,
         "TITLE_DEED",
-        file.name
+        uploadFileName
       );
-      await s3Storage.putObject(objectKey, fileBuffer, file.type);
+      await s3Storage.putObject(objectKey, fileBuffer, uploadMimeType);
 
       // Create VaultDocument record
       vaultDoc = await db.vaultDocument.create({
         data: {
           organizationId,
-          title: `Title Deed — ${file.name}`,
+          title: `Title Deed — ${uploadFileName}`,
           docType: DocumentType.TITLE_DEED,
           classification: SecurityLevel.RESTRICTED_MANAGEMENT,
           objectKey,
-          originalFileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type,
-          fileType: file.name.split(".").pop()?.toUpperCase() || "PDF",
+          originalFileName: uploadFileName,
+          fileSize: uploadSize,
+          mimeType: uploadMimeType,
+          fileType: uploadFileName.split(".").pop()?.toUpperCase() || "PDF",
           uploadedBy: tenant.userId,
           isVerified: false,
           sha256Checksum,
@@ -257,7 +267,7 @@ export async function POST(req: NextRequest) {
       });
 
       // 1. First attempt Multimodal AI OCR via Gemini
-      extractedData = await extractViaOpenRouter(fileBuffer, file.type);
+      extractedData = await extractViaOpenRouter(fileBuffer, uploadMimeType);
 
       // 2. If AI didn't return points, check if rawText or deterministic OCR can parse
       if (!extractedData && rawText) {
@@ -297,6 +307,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!extractedData || extractedData.beacons.length < 3) {
+      if (vaultDoc) {
+        await db.vaultDocument.delete({ where: { id: vaultDoc.id } }).catch(() => undefined);
+        if (vaultDoc.objectKey) await s3Storage.deleteObject(vaultDoc.objectKey).catch(() => undefined);
+      }
       return NextResponse.json(
         {
           success: false,
