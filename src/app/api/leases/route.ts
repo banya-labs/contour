@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
 
 const getHandler = createApiHandler({
+  requirePermissions: ["leases.read"],
   handler: async (req, ctx) => {
     const { organizationId } = ctx;
 
@@ -29,6 +30,7 @@ const getHandler = createApiHandler({
 });
 
 const postHandler = createApiHandler({
+  requirePermissions: ["leases.manage"],
   bodySchema: createLeaseSchema,
   handler: async (req, ctx) => {
     const { organizationId, body } = ctx;

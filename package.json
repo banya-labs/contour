@@ -16,6 +16,7 @@
     "db:migrate:status": "prisma migrate status",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
+    "audit:rbac": "tsx scripts/audit-rbac-memberships.ts",
     "test": "vitest run"
   },
   "dependencies": {
