@@ -114,7 +114,8 @@ Run focused tests, typecheck, build, migration validation, readiness checks, bro
 - [x] Implement an explicit conditional transition used by the billing summary path.
 - [x] Add an owner-controlled admin bulk expiry operation with an audit event.
 - [x] Add durable `Subscription` and `Invoice` records plus calendar-period tests.
-- [ ] Wire settlement, renewal, cancellation, and reconciliation behavior to the ledger.
+- [x] Wire successful checkout and verified webhook settlement into the subscription/invoice ledger.
+- [ ] Add renewal, cancellation, past-due, and reconciliation behavior.
 
 ### Task 5: Real Lenco evidence and release gate
 

@@ -19,6 +19,10 @@ vi.mock("@/lib/lenco", () => ({
   getLencoTransactionStatus: mocks.getLencoTransactionStatus,
 }));
 
+vi.mock("@/lib/billing-ledger", () => ({
+  recordSettledSubscription: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({
   db: {
     webhookEvent: {

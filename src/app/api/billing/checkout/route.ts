@@ -15,6 +15,7 @@ import { z } from "zod";
 import { calculateOfferDiscount } from "@/lib/billing-offers";
 import { commitOrganizationOffer, releaseOrganizationOffer, reserveOrganizationOffer } from "@/lib/billing-offer-reservation";
 import { getCatalogPlanName, getCatalogPlanPrice } from "@/lib/subscriptions/tier-catalog";
+import { recordSettledSubscription } from "@/lib/billing-ledger";
 
 const checkoutSchema = z.object({
   planId: z.enum(["starter", "growth", "enterprise"]),
@@ -171,6 +172,7 @@ const postHandler = createApiHandler({
           lencoAccountReference: reference,
         },
       });
+      await recordSettledSubscription({ organizationId: targetOrgId, paymentId: payment.id, reference, planId: body.planId, billingCycle, amount: Number(updatedPayment.amount), currency, settledAt: updatedPayment.completedAt || new Date() });
       await db.auditLog.create({
         data: {
           organizationId: targetOrgId,
