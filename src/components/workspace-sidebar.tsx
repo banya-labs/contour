@@ -150,10 +150,10 @@ export default function WorkspaceSidebar() {
 
   const navGroups: NavGroup[] = [
     {
-      name: "Properties",
+      name: "Assets",
       icon: Home,
       items: [
-        { name: "Catalog & Vault", href: "/dashboard/properties" },
+        { name: "Properties", href: "/dashboard/properties" },
         { name: "Property Sales", href: "/dashboard/sales" },
         { name: "Rentals & Leases", href: "/dashboard/leases" },
       ],
