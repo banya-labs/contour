@@ -1238,7 +1238,6 @@ model Subscription {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invoices     Invoice[]
-  invoices     Invoice[]
 
   @@unique([organizationId, status])
   @@index([organizationId, currentPeriodEnd])
