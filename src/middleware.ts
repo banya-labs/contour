@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 import { checkRateLimit } from "@/lib/rate-limiter";
-import { hasControlPlaneAccess } from "@/lib/control-plane";
+import { hasControlPlaneAccess, hasPersistedControlPlaneAccess } from "@/lib/control-plane";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -152,7 +152,8 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    if (!hasControlPlaneAccess(session.user.email)) {
+    const persistedStaff = await hasPersistedControlPlaneAccess(session.user.id);
+    if (!hasControlPlaneAccess(session.user.email, persistedStaff)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
