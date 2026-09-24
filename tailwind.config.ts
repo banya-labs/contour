@@ -86,10 +86,10 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        serif: ["Playfair Display", "Georgia", "serif"],
+        serif: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
-        heading: ['"BT Grotesk"', "Arial", "sans-serif"],
-        geist: ['"Geist Mono"', '"JetBrains Mono"', "ui-monospace", "monospace"],
+        heading: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        geist: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
     },
   },

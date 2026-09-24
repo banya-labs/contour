@@ -5,10 +5,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-editorial-bg lg:flex">
       <ControlPlaneTabs />
-      <div className="min-w-0 flex-1">
-        <div className="border-b border-editorial-border bg-editorial-bg px-4 pt-4 sm:px-8 lg:hidden" />
-        {children}
-      </div>
+      <div className="min-w-0 flex-1 pb-16 lg:pb-0">{children}</div>
     </div>
   );
 }
