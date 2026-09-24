@@ -10,7 +10,7 @@ export function getControlPlaneAccessDestination(hasSession: boolean, hasAccess:
 }
 
 export function getControlPlaneOwnerEmails(): string[] {
-  return env.CONTOUR_CONTROL_PLANE_OWNER_EMAILS.split(",")
+  return (env.CONTOUR_CONTROL_PLANE_OWNER_EMAILS || "").split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
 }
