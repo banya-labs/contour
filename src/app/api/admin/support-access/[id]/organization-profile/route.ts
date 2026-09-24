@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPlatformActor } from "@/lib/control-plane";
 import { canPlatformRole } from "@/lib/platform-authorization";
+import { toAuthHeaders } from "@/lib/auth-headers";
 import { canMutateThroughSupportAccess } from "@/lib/support-access";
 
 const profileSchema = z.object({
@@ -19,7 +20,7 @@ const profileSchema = z.object({
 });
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
   if (!actor || !canPlatformRole(actor.role, "support.act_as")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await context.params;

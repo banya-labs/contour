@@ -5,6 +5,7 @@ import { logger } from "./logger";
 import { getTenantContext, type TenantContext } from "./tenant-context";
 import { hasRequiredRole, roleHasPermission, resolveContourRole, type Permission } from "./authorization";
 import { auth, type Session } from "./auth";
+import { toAuthHeaders } from "./auth-headers";
 import { db } from "./db";
 
 export type ApiContext = {
@@ -64,7 +65,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       // Resolve the real session first. Demo mode is only a fallback for an
       // unauthenticated local smoke test; it must never shadow a signed-in
       // user's active organization.
-      const authenticatedSession = await auth.api.getSession({ headers: req.headers });
+      const authenticatedSession = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
       const resolvedTenant = await getTenantContext(req);
       const tenant = resolvedTenant || (!authenticatedSession && isLocalDevelopment ? demoTenant : null);
 

@@ -4,11 +4,12 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPlatformActor } from "@/lib/control-plane";
 import { canPlatformRole } from "@/lib/platform-authorization";
+import { toAuthHeaders } from "@/lib/auth-headers";
 
 const grantSchema = z.object({ offerId: z.string().min(1), organizationId: z.string().min(1), expiresAt: z.coerce.date().optional(), reason: z.string().trim().min(20).max(500) });
 
 async function actorFor(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   return session?.user ? getPlatformActor(session.user.id, session.user.email) : null;
 }
 

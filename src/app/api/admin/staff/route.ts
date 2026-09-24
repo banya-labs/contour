@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPlatformActor } from "@/lib/control-plane";
 import { canPlatformRole, PLATFORM_ROLES } from "@/lib/platform-authorization";
+import { toAuthHeaders } from "@/lib/auth-headers";
 
 const mutationSchema = z.object({
   email: z.string().email().optional(),
@@ -14,7 +15,7 @@ const mutationSchema = z.object({
 }).refine((value) => Boolean(value.userId || value.email), { message: "userId or email is required" });
 
 async function actorFor(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   if (!session?.user) return null;
   return getPlatformActor(session.user.id, session.user.email);
 }

@@ -35,7 +35,7 @@ export type PipelineStageDefinition = {
 };
 
 export type TransitionDecision =
-  | { allowed: true; requiresReason: false; missingRequirements: readonly string[] }
+  | { allowed: true; requiresReason: boolean; missingRequirements: readonly string[] }
   | { allowed: false; requiresReason: boolean; missingRequirements: readonly string[]; reason: string };
 
 export const PIPELINE_STAGES: readonly PipelineStageDefinition[] = [

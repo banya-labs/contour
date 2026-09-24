@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth, type Session } from "./auth";
+import { toAuthHeaders } from "./auth-headers";
 import { db } from "./db";
 import { effectivePermissionsForMember, resolveApplicationRole, resolveContourRole, type ContourRoleKey, type Permission } from "./authorization";
 
@@ -28,7 +29,7 @@ type Membership = {
  * client for protected operations.
  */
 export async function getTenantContext(req: NextRequest): Promise<TenantContext | null> {
-  const session = await auth.api.getSession({ headers: req.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
   if (!session?.user?.id) {
     return null;
   }
