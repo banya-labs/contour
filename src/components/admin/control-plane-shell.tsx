@@ -14,7 +14,7 @@ type NavItem = { label: string; href: string; icon: typeof LayoutDashboard; perm
 const navigation: NavItem[] = [
   { label: "Overview", href: "/admin", icon: LayoutDashboard, permission: "platform.read" },
   { label: "Agencies", href: "/admin/agencies", icon: Building2, permission: "agency.read" },
-  { label: "People", href: "/admin/staff", icon: Users, permission: "staff.manage" },
+  { label: "Users", href: "/admin/staff", icon: Users, permission: "staff.manage" },
   { label: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard, permission: "billing.read" },
   { label: "Offers", href: "/admin/offers", icon: Gift, permission: "billing.read" },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3, permission: "platform.read" },
