@@ -22,6 +22,7 @@ import { PublicPropertyNavbar } from "@/components/properties/public-property-na
 import { PropertyLocationMap } from "@/components/properties/property-location-map";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { publicPropertyPath } from "@/lib/public-property";
+import { normalizePropertyImageUrl } from "@/lib/property-image-url";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.com").replace(/\/$/, "");
 
@@ -56,7 +57,7 @@ async function getPropertyBySlug(slug: string) {
 
     if (dbProperty) {
       const photos = Array.isArray(dbProperty.photos) && dbProperty.photos.length > 0
-        ? dbProperty.photos
+        ? dbProperty.photos.map((photo) => normalizePropertyImageUrl(String(photo)))
         : [dbProperty.featuredPhoto || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200"];
 
       return {
@@ -74,7 +75,7 @@ async function getPropertyBySlug(slug: string) {
         plotSizeSqm: dbProperty.plotSizeSqm ? Number(dbProperty.plotSizeSqm) : null,
         description: dbProperty.description,
         photos,
-        featuredPhoto: dbProperty.featuredPhoto || photos[0],
+        featuredPhoto: dbProperty.featuredPhoto ? normalizePropertyImageUrl(dbProperty.featuredPhoto) : photos[0],
         suburb: dbProperty.suburb,
         city: dbProperty.city || "Lusaka",
         latitude: dbProperty.latitude,
