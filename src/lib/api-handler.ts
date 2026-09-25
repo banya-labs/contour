@@ -66,7 +66,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       // unauthenticated local smoke test; it must never shadow a signed-in
       // user's active organization.
       const authenticatedSession = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
-      const resolvedTenant = await getTenantContext(req);
+      const resolvedTenant = await getTenantContext(req, authenticatedSession);
       const tenant = resolvedTenant || (!authenticatedSession && isLocalDevelopment ? demoTenant : null);
 
       // API handlers are protected by default. Public endpoints should use a
@@ -90,7 +90,8 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
       const billingExemptPath =
         req.nextUrl.pathname.startsWith("/api/billing/") ||
         req.nextUrl.pathname.startsWith("/api/onboarding/profile") ||
-        req.nextUrl.pathname.startsWith("/api/organization/profile");
+        req.nextUrl.pathname.startsWith("/api/organization/profile") ||
+        req.nextUrl.pathname.startsWith("/api/organization/data");
       if (options.requireAuth !== false && tenant && tenant !== demoTenant && !billingExemptPath) {
         const organization = await db.organization.findUnique({
           where: { id: organizationId! },

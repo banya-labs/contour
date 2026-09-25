@@ -28,19 +28,23 @@ type Membership = {
  * membership check. Callers must never accept organization IDs from the
  * client for protected operations.
  */
-export async function getTenantContext(req: NextRequest): Promise<TenantContext | null> {
-  const session = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
+export async function getTenantContext(req: NextRequest, existingSession?: Session | null): Promise<TenantContext | null> {
+  const session = existingSession === undefined
+    ? await auth.api.getSession({ headers: toAuthHeaders(req.headers) })
+    : existingSession;
   if (!session?.user?.id) {
     return null;
   }
 
   const userId = session.user.id;
-  const supportAccessId = req.cookies.get("contour_support_access")?.value;
-  if (supportAccessId) {
-    const supportAccess = await db.supportAccessSession.findUnique({ where: { id: supportAccessId }, select: { organizationId: true, startedByUserId: true, expiresAt: true, revokedAt: true, mode: true } });
-    if (supportAccess?.startedByUserId === userId && supportAccess.mode === "ACT_AS" && !supportAccess.revokedAt && supportAccess.expiresAt > new Date()) {
-      return { session, userId, organizationId: supportAccess.organizationId, userRole: "SUPER_ADMIN", contourRole: "OWNER", permissions: effectivePermissionsForMember("owner", undefined, []) };
-    }
+  const impersonationId = typeof req.cookies?.get === "function" ? req.cookies.get("contour_impersonation")?.value : undefined;
+  if (impersonationId) {
+    const impersonation = await db.supportAccessSession.findUnique({ where: { id: impersonationId }, select: { id: true, organizationId: true, startedByUserId: true, mode: true, expiresAt: true, revokedAt: true } });
+    if (!impersonation || impersonation.mode !== "ACT_AS" || impersonation.startedByUserId !== userId || impersonation.revokedAt || impersonation.expiresAt <= new Date()) return null;
+    const owner = await db.member.findFirst({ where: { organizationId: impersonation.organizationId, role: "OWNER", status: "active" }, select: { userId: true, role: true, roleAssignments: { include: { role: { include: { permissions: true } } } }, permissionOverrides: true } });
+    if (!owner) return null;
+    const assignedRole = owner.roleAssignments[0]?.role.key;
+    return { session, userId: owner.userId, organizationId: impersonation.organizationId, userRole: "OWNER", contourRole: resolveContourRole("OWNER", owner.role, assignedRole), permissions: effectivePermissionsForMember(owner.role, assignedRole, owner.permissionOverrides) };
   }
   let organizationId = session.session?.activeOrganizationId;
 

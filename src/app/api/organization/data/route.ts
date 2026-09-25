@@ -55,6 +55,7 @@ export const POST = createApiHandler({
         await tx.transaction.deleteMany({ where: { organizationId } });
         await tx.propertyVisit.deleteMany({ where: { organizationId } });
         await tx.followUpTask.deleteMany({ where: { organizationId } });
+        await tx.propertyMatchNotification.deleteMany({ where: { organizationId } });
         await tx.inquiry.deleteMany({ where: { organizationId } });
         await tx.property.deleteMany({ where: { organizationId } });
         await tx.auditLog.deleteMany({ where: { organizationId } });
@@ -68,12 +69,14 @@ export const POST = createApiHandler({
         await tx.memberPermissionOverride.deleteMany({ where: { member: { organizationId } } });
         await tx.memberRoleAssignment.deleteMany({ where: { member: { organizationId } } });
         await tx.organizationRole.deleteMany({ where: { organizationId } });
+        await tx.organizationOffer.deleteMany({ where: { organizationId } });
+        await tx.supportAccessSession.deleteMany({ where: { organizationId } });
         await tx.member.deleteMany({ where: { organizationId, userId: { not: userId } } });
         await tx.organizationAsset.deleteMany({ where: { organizationId } });
         await tx.organizationProfile.deleteMany({ where: { organizationId } });
         await tx.organization.update({ where: { id: organizationId }, data: { logo: null } });
         await tx.auditLog.create({ data: { organizationId, userId, action: "ORGANIZATION_DATA_RESET", entityType: "Organization", entityId: organizationId } });
-      });
+      }, { maxWait: 10_000, timeout: 120_000 });
     }
 
     await Promise.allSettled(objectKeys.map((objectKey) => s3Storage.deleteObject(objectKey)));

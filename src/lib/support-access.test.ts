@@ -20,4 +20,15 @@ describe("support access guards", () => {
     expect(canMutateThroughSupportAccess(access, "operator_1")).toBe(true);
     expect(canMutateThroughSupportAccess({ ...access, revokedAt: new Date() }, "operator_1")).toBe(false);
   });
+
+  it("rejects expired act-as sessions", () => {
+    const access = { startedByUserId: "operator_1", mode: "ACT_AS", expiresAt: new Date(Date.now() - 1), revokedAt: null };
+    expect(isSupportAccessActive(access, "operator_1")).toBe(false);
+    expect(canMutateThroughSupportAccess(access, "operator_1")).toBe(false);
+  });
+
+  it("rejects revoked act-as sessions", () => {
+    const access = { startedByUserId: "operator_1", mode: "ACT_AS", expiresAt: future, revokedAt: new Date() };
+    expect(isSupportAccessActive(access, "operator_1")).toBe(false);
+  });
 });

@@ -92,9 +92,9 @@ export default function MobileBottomNav() {
 
   const moreNavLinks = [
     {
-      category: "Properties",
+      category: "Assets",
       items: [
-        { label: "Catalog & Vault", href: "/dashboard/properties", icon: Home },
+        { label: "Properties", href: "/dashboard/properties", icon: Home },
         { label: "Property Sales", href: "/dashboard/sales", icon: Building },
         { label: "Rentals & Leases", href: "/dashboard/leases", icon: FileText },
       ],

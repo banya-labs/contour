@@ -50,5 +50,7 @@ describe("createApiHandler", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ contourRole: "BROKER_MANAGER" });
+    expect(mocks.getSession).toHaveBeenCalledTimes(1);
+    expect(mocks.getTenantContext).toHaveBeenCalledWith(expect.any(NextRequest), expect.objectContaining({ user: { id: "user-1", role: "FIELD_AGENT" } }));
   });
 });

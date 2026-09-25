@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { toAuthHeaders } from "@/lib/auth-headers";
 import { db } from "@/lib/db";
 import { ROLE_DESCRIPTIONS, ROLE_PRESETS, type ContourRoleKey, roleHasPermission } from "@/lib/authorization";
 import { hashAccessToken } from "@/lib/access-request";
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
   // Check if caller is already logged in and already a member of this organization
   let isAlreadyMember = false;
   let currentMember = null;
-  const session = await auth.api.getSession({ headers: req.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
 
   if (session?.user?.id) {
     const existingMember = await db.member.findFirst({
@@ -114,7 +115,7 @@ export async function GET(req: NextRequest) {
 
 // POST: Claim/accept pending invitation for authenticated user
 export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: req.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ success: false, error: "Authentication required to claim an invitation." }, { status: 401 });
   }

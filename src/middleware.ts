@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 import { checkRateLimit } from "@/lib/rate-limiter";
-import { hasControlPlaneAccess, hasPersistedControlPlaneAccess } from "@/lib/control-plane";
+import { getControlPlaneAccessDestination, hasControlPlaneAccess, hasPersistedControlPlaneAccess } from "@/lib/control-plane";
 import { toAuthHeaders } from "@/lib/auth-headers";
 
 const PUBLIC_PATHS = [
@@ -138,8 +138,25 @@ export async function middleware(request: NextRequest) {
   const session = await auth.api.getSession({
     headers: toAuthHeaders(request.headers),
   });
+  const pathname = request.nextUrl.pathname;
+  const impersonationId = request.cookies.get("contour_impersonation")?.value;
+
+  const allowedImpersonationApi = pathname === "/api/admin/support-access/current" || pathname === "/api/admin/support-access/current/exit" || /^\/api\/admin\/support-access\/[^/]+\/impersonate$/.test(pathname);
+  if (impersonationId && ((pathname === "/admin" || pathname.startsWith("/admin/")) && !pathname.startsWith("/admin/support-access/")) || (impersonationId && pathname.startsWith("/api/admin/") && !allowedImpersonationApi)) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
   if (!session) {
+    // The control plane must always authenticate, even when local demo mode
+    // bypasses tenant-scoped dashboard authentication.
+    if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+      const signInUrl = new URL("/sign-in", request.url);
+      signInUrl.searchParams.set("redirect_url", pathname);
+      const response = NextResponse.redirect(signInUrl);
+      response.headers.set(CORRELATION_HEADER, correlationId);
+      return response;
+    }
+
     // Allow unauthenticated demo bypass if dev mode is enabled and no session exists
     if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_MODE === "true") {
       return createForwardResponse();
@@ -153,11 +170,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const pathname = request.nextUrl.pathname;
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     const persistedStaff = await hasPersistedControlPlaneAccess(session.user.id);
-    if (!hasControlPlaneAccess(session.user.email, persistedStaff)) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+    const destination = getControlPlaneAccessDestination(true, hasControlPlaneAccess(session.user.email, persistedStaff));
+    if (destination) {
+      return NextResponse.redirect(new URL(destination, request.url));
     }
   }
   if (pathname.startsWith("/agent") || pathname.startsWith("/kiosk") || pathname.startsWith("/dashboard")) {

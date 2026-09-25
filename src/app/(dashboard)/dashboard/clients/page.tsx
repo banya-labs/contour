@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import ContactsPage from "../contacts/page";
 import {
   Users,
@@ -31,6 +30,7 @@ import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { PageTabs } from "@/components/ui/page-tabs";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -68,6 +68,7 @@ function ClientsCRMContent() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const activeTab = searchParams?.get("tab") === "contacts" ? "contacts" : "inquiries";
   useEffect(() => {
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
@@ -431,10 +432,14 @@ function ClientsCRMContent() {
         </button>
       </div>
 
-      <div className="flex border-b border-editorial-border">
-        <Link href="/dashboard/clients" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider border-b-2 border-contour-red">Inquiries</Link>
-        <Link href="/dashboard/clients?tab=contacts" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider text-editorial-muted">Contacts</Link>
-      </div>
+      <PageTabs
+        tabs={[
+          { id: "inquiries", label: "Inquiries", count: clients.length },
+          { id: "contacts", label: "Contacts", count: contacts.length },
+        ]}
+        activeTab={activeTab}
+        onChange={(tabId) => router.push(tabId === "contacts" ? "/dashboard/clients?tab=contacts" : "/dashboard/clients")}
+      />
 
       {/* 30-Day Anti-Poaching Rule Notice */}
       <div className="bg-editorial-paper/50 border border-editorial-border p-4 sm:p-5 rounded-none flex items-start gap-3">

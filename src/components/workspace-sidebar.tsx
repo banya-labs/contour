@@ -64,7 +64,7 @@ export default function WorkspaceSidebar() {
 
   // Track expanded submenu states
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    Properties: true,
+    Assets: true,
     "CRM & Deals": true,
   });
 
@@ -148,7 +148,7 @@ export default function WorkspaceSidebar() {
 
   const navGroups: NavGroup[] = [
     {
-      name: "Properties",
+      name: "Assets",
       icon: Home,
       items: [
         { name: "Catalog & Vault", href: "/dashboard/properties" },

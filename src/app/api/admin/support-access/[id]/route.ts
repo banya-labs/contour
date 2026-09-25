@@ -26,5 +26,6 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   await db.platformAuditEvent.create({ data: { actorStaffId: actor.staffId, actorUserId: actor.userId, targetType: "Organization", targetId: access.organizationId, capability: "support.impersonate.revoke", reason: "Support access ended by operator", details: { accessSessionId: id } } });
   const response = NextResponse.json({ success: true });
   response.cookies.set("contour_support_access", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
+  response.cookies.set("contour_impersonation", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
   return response;
 }

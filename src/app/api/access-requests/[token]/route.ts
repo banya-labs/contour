@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { toAuthHeaders } from "@/lib/auth-headers";
 import { db } from "@/lib/db";
 import { hashAccessToken } from "@/lib/access-request";
 import { CONTOUR_ROLE_KEYS } from "@/lib/authorization";
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
   const link = await getLink(token);
   if (!link) return NextResponse.json({ success: false, error: "This access link is invalid or has been revoked." }, { status: 404 });
 
-  const session = await auth.api.getSession({ headers: req.headers });
+  const session = await auth.api.getSession({ headers: toAuthHeaders(req.headers) });
   if (!session?.user.id) return NextResponse.json({ success: false, error: "Create an account or sign in before requesting access." }, { status: 401 });
   const parsed = requestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ success: false, error: "First name and last name are required.", details: parsed.error.format() }, { status: 400 });

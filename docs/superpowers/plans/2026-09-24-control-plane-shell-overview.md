@@ -210,6 +210,12 @@ git commit -m "feat(admin): add platform overview dashboard"
 
 ### Task 5: End-to-end verification and handoff
 
+## Current implementation status
+
+- Shipped on `codex/control-plane-shell-overview`: access-state gating, responsive shell, overview metrics, agency directory/detail, bounded audit log, and agency-scoped People with audited member actions.
+- Verified: changed-file ESLint, TypeScript typecheck, clean working tree, and unauthenticated `/admin` redirect to `/sign-in?redirect_url=%2Fadmin`.
+- Pending: authenticated browser verification with a real staff session, production readiness checks, and merge/push approval.
+
 **Files:**
 - Modify: `docs/CONTROL_PLANE_SPEC.md` or the current progress document with implemented routes and verification evidence.
 - Create/modify: the existing browser smoke-test script if one exists for admin routes.

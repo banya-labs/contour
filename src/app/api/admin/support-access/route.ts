@@ -9,6 +9,14 @@ import { supportAccessDuration, type SupportAccessMode } from "@/lib/support-acc
 
 const schema = z.object({ organizationId: z.string().min(1), reason: z.string().trim().min(8).max(500), mode: z.enum(["VIEW_ONLY", "ACT_AS"]).default("VIEW_ONLY"), durationMinutes: z.number().int().min(5).max(60).default(30) }).refine((value) => value.mode !== "ACT_AS" || value.reason.length >= 20, { path: ["reason"], message: "Act-as sessions require a reason of at least 20 characters." });
 
+export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
+  const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
+  if (!actor || !canPlatformRole(actor.role, "support.impersonate")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const sessions = await db.supportAccessSession.findMany({ where: { startedByUserId: actor.userId }, select: { id: true, mode: true, reason: true, expiresAt: true, revokedAt: true, createdAt: true, organization: { select: { id: true, name: true, slug: true } } }, orderBy: { createdAt: "desc" }, take: 50 });
+  return NextResponse.json({ success: true, sessions });
+}
+
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: toAuthHeaders(request.headers) });
   const actor = session?.user ? await getPlatformActor(session.user.id, session.user.email) : null;
@@ -25,5 +33,6 @@ export async function POST(request: NextRequest) {
   await db.platformAuditEvent.create({ data: { actorStaffId: actor.staffId, actorUserId: actor.userId, targetType: "Organization", targetId: organization.id, capability: mode === "ACT_AS" ? "support.act_as.requested" : "support.impersonate", reason: parsed.data.reason, details: { accessSessionId: access.id, mode, expiresAt, durationMinutes } } });
   const response = NextResponse.json({ success: true, access: { id: access.id, organization, mode: access.mode, expiresAt: access.expiresAt, redirectPath: "/dashboard" } });
   response.cookies.set("contour_support_access", access.id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: access.expiresAt });
+  response.cookies.set("contour_impersonation", access.id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: access.expiresAt });
   return response;
 }

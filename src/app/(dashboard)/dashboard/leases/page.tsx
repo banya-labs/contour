@@ -190,10 +190,6 @@ function LeasesManagementContent() {
 
   return activeTab === "statements" ? <StatementsPage /> : (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
-      <div className="flex gap-1 border-b border-editorial-border pb-2">
-        <Link href="/dashboard/leases" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Leases</Link>
-        <Link href="/dashboard/leases?tab=statements" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Statements</Link>
-      </div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
@@ -263,6 +259,12 @@ function LeasesManagementContent() {
             Up-to-date rent payments
           </span>
         </MotionCard>
+      </div>
+
+      {/* Rentals workspace tabs */}
+      <div className="flex gap-1 border-b border-editorial-border pb-2">
+        <Link href="/dashboard/leases" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Leases</Link>
+        <Link href="/dashboard/leases?tab=statements" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Statements</Link>
       </div>
 
       {/* Leases Table Card */}

@@ -1,31 +1,24 @@
 "use client";
-
-import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, UserRound } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Building2, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, Settings, Users, X } from "lucide-react";
+import { useState } from "react";
+import { ContourLogo } from "@/components/brand/contour-logo";
 import { signOut, useSession } from "@/lib/auth-client";
 
-const tabs = [
-  { id: "overview", label: "Overview", href: "/admin" },
-  { id: "agencies", label: "Agencies", href: "/admin/agencies" },
-  { id: "subscriptions", label: "Subscriptions", href: "/admin/subscriptions" },
-  { id: "staff", label: "Users", href: "/admin/staff" },
-  { id: "mcp", label: "MCP Studio · Coming soon" },
-  { id: "lenco", label: "Lenco Zambia login", href: "https://app.lenco.co" },
-];
+const primary = [{ label: "Overview", href: "/admin", icon: LayoutDashboard }, { label: "Agencies", href: "/admin/agencies", icon: Building2 }, { label: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard }];
+const settings = [{ label: "Users", href: "/admin/staff", icon: Users }, { label: "MCP Studio", href: "/admin/mcp", icon: KeyRound }];
 
 export function ControlPlaneTabs() {
-  const pathname = usePathname();
-  const { data: session } = useSession();
-  const activeTab = pathname === "/admin"
-    ? "overview"
-    : tabs.find((tab) => tab.id !== "overview" && tab.href && pathname.startsWith(tab.href))?.id || "overview";
-
-  async function handleSignOut() {
-    await signOut();
-    window.location.assign("/login");
-  }
-
-  return <aside className="flex min-h-[calc(100vh-2rem)] w-full flex-col border-editorial-border bg-editorial-bg lg:w-64 lg:shrink-0 lg:border-r lg:pr-6"><div className="border-b border-editorial-border pb-5"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-editorial-red">Contour</p><p className="mt-2 font-heading text-lg font-bold uppercase">Control plane</p></div><nav aria-label="Control plane" className="flex gap-1 overflow-x-auto py-4 lg:flex-col lg:overflow-visible">{tabs.map((tab) => { const isActive = activeTab === tab.id; const className = `shrink-0 border-l-2 px-3 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${isActive ? "border-editorial-red bg-white text-editorial-black" : "border-transparent text-editorial-muted hover:border-editorial-border hover:bg-white/60 hover:text-editorial-black"}`; return tab.href ? <Link key={tab.id} href={tab.href} aria-current={isActive ? "page" : undefined} className={className}>{tab.label}</Link> : <span key={tab.id} aria-disabled="true" className={`${className} cursor-not-allowed opacity-60`}>{tab.label}</span>; })}</nav><div className="mt-auto border-t border-editorial-border pt-4"><div className="flex items-center gap-3 px-3 py-2"><UserRound className="h-4 w-4 text-editorial-red" aria-hidden="true" /><div className="min-w-0"><p className="truncate text-xs font-bold">{session?.user?.name || "Platform user"}</p><p className="truncate text-[10px] text-editorial-muted">{session?.user?.email || "Authenticated account"}</p></div></div><button type="button" onClick={() => void handleSignOut()} className="mt-2 inline-flex w-full items-center gap-2 px-3 py-3 text-xs font-bold uppercase tracking-wider text-editorial-muted hover:bg-white hover:text-editorial-red"><LogOut className="h-4 w-4" aria-hidden="true" /> Log out</button></div></aside>;
+  const pathname = usePathname(); const [open, setOpen] = useState(false);
+  const settingsActive = pathname === "/admin/settings" || settings.some((item) => pathname.startsWith(item.href));
+  const active = (href: string) => href === "/admin" ? pathname === href : pathname.startsWith(href);
+  const links = [...primary, { label: "Settings", href: "/admin/settings", icon: Settings }];
+  const navigation = (mobile = false) => <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto" aria-label="Control plane navigation">{links.map(({ label, href, icon: Icon }) => { const isActive = label === "Settings" ? settingsActive : active(href); return <Link key={href} href={href} onClick={() => mobile && setOpen(false)} aria-current={isActive ? "page" : undefined} className={`group flex items-center gap-3 border px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 ${isActive ? "border-editorial-black bg-editorial-black text-white shadow-subtle" : "border-transparent text-editorial-muted hover:translate-x-1 hover:border-editorial-border hover:bg-white hover:text-editorial-black"}`}><Icon className={`h-4 w-4 transition-transform duration-200 group-hover:scale-110 ${isActive ? "text-contour-red" : ""}`} /><span>{label}</span>{isActive && <span className="ml-auto h-1.5 w-1.5 bg-contour-red" />}</Link>; })}{settingsActive && <div className="ml-4 space-y-1 border-l border-editorial-border pl-3 pt-1">{settings.map(({ label, href, icon: Icon }) => { const isActive = pathname.startsWith(href); return <Link key={href} href={href} onClick={() => mobile && setOpen(false)} aria-current={isActive ? "page" : undefined} className={`group flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider transition-colors ${isActive ? "bg-editorial-paper text-editorial-black" : "text-editorial-muted hover:bg-white hover:text-editorial-black"}`}><Icon className="h-3.5 w-3.5" /><span>{label}</span></Link>; })}</div>}</nav>;
+  return <><aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-hidden border-r border-editorial-border bg-white p-4 lg:flex"><div className="mb-8 shrink-0 border-b border-editorial-border pb-5"><div className="flex items-center justify-between"><ContourLogo size="md" /><span className="border border-editorial-border bg-editorial-paper px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-editorial-muted">Admin</span></div><p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-editorial-red">Platform operations</p><h2 className="mt-1 text-lg font-bold uppercase tracking-tight">Control Plane</h2></div>{navigation()}<div className="mt-4 shrink-0"><SidebarFooter /></div></aside><div className="border-b border-editorial-border bg-white px-4 py-3 lg:hidden"><div className="flex items-center justify-between"><ContourLogo size="sm" /><button type="button" onClick={() => setOpen(true)} aria-label="Open control plane menu" className="border border-editorial-border p-2 text-editorial-black transition-colors hover:bg-editorial-black hover:text-white"><Menu className="h-5 w-5" /></button></div></div>{open && <div className="fixed inset-0 z-50 lg:hidden"><button type="button" aria-label="Close control plane menu" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/40" /><aside className="relative flex h-full w-72 max-w-[86vw] flex-col bg-white p-5 shadow-2xl"><div className="mb-8 flex shrink-0 items-start justify-between border-b border-editorial-border pb-5"><div><ContourLogo size="md" /><p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-editorial-red">Platform operations</p><h2 className="mt-1 text-lg font-bold uppercase">Control Plane</h2></div><button type="button" onClick={() => setOpen(false)} aria-label="Close menu" className="border border-editorial-border p-2 hover:bg-editorial-black hover:text-white"><X className="h-4 w-4" /></button></div>{navigation(true)}<div className="mt-4 shrink-0"><SidebarFooter onSignOut={() => setOpen(false)} /></div></aside></div>}<nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-editorial-border bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.05)] lg:hidden" aria-label="Mobile control plane navigation"><div className="grid h-16 grid-cols-4 items-center">{links.map(({ label, href, icon: Icon }) => { const isActive = label === "Settings" ? settingsActive : active(href); return <Link key={href} href={href} className={`relative flex h-full flex-col items-center justify-center gap-1 text-[9px] font-bold uppercase tracking-wide transition-colors ${isActive ? "text-editorial-black" : "text-editorial-muted hover:text-editorial-black"}`}>{isActive && <span className="absolute inset-x-3 top-0 h-0.5 bg-contour-red" />}<Icon className={`h-4 w-4 ${isActive ? "text-contour-red" : ""}`} /><span>{label}</span></Link>; })}</div></nav></>;
 }
 
+function SidebarFooter({ onSignOut }: { onSignOut?: () => void }) {
+  const { data: session } = useSession();
+  return <div className="mt-auto border-t border-editorial-border pt-4"><p className="truncate px-3 text-[10px] font-bold uppercase tracking-wider text-editorial-muted">{session?.user?.name || "Platform user"}</p><p className="truncate px-3 pt-1 text-[10px] text-editorial-muted">{session?.user?.email || "Authenticated account"}</p><button type="button" onClick={async () => { await signOut(); onSignOut?.(); window.location.assign("/login"); }} className="mt-3 inline-flex w-full items-center gap-2 px-3 py-3 text-xs font-bold uppercase tracking-wider text-editorial-muted hover:bg-editorial-paper hover:text-editorial-red"><LogOut className="h-4 w-4" aria-hidden="true" /> Log out</button></div>;
+}
