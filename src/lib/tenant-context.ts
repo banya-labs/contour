@@ -37,6 +37,15 @@ export async function getTenantContext(req: NextRequest, existingSession?: Sessi
   }
 
   const userId = session.user.id;
+  const impersonationId = typeof req.cookies?.get === "function" ? req.cookies.get("contour_impersonation")?.value : undefined;
+  if (impersonationId) {
+    const impersonation = await db.supportAccessSession.findUnique({ where: { id: impersonationId }, select: { id: true, organizationId: true, startedByUserId: true, mode: true, expiresAt: true, revokedAt: true } });
+    if (!impersonation || impersonation.mode !== "ACT_AS" || impersonation.startedByUserId !== userId || impersonation.revokedAt || impersonation.expiresAt <= new Date()) return null;
+    const owner = await db.member.findFirst({ where: { organizationId: impersonation.organizationId, role: "OWNER", status: "active" }, select: { userId: true, role: true, roleAssignments: { include: { role: { include: { permissions: true } } } }, permissionOverrides: true } });
+    if (!owner) return null;
+    const assignedRole = owner.roleAssignments[0]?.role.key;
+    return { session, userId: owner.userId, organizationId: impersonation.organizationId, userRole: "OWNER", contourRole: resolveContourRole("OWNER", owner.role, assignedRole), permissions: effectivePermissionsForMember(owner.role, assignedRole, owner.permissionOverrides) };
+  }
   let organizationId = session.session?.activeOrganizationId;
 
   let membership: Membership | null = null;

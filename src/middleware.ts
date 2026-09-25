@@ -138,6 +138,12 @@ export async function middleware(request: NextRequest) {
     headers: toAuthHeaders(request.headers),
   });
   const pathname = request.nextUrl.pathname;
+  const impersonationId = request.cookies.get("contour_impersonation")?.value;
+
+  const allowedImpersonationApi = pathname === "/api/admin/support-access/current" || pathname === "/api/admin/support-access/current/exit" || /^\/api\/admin\/support-access\/[^/]+\/impersonate$/.test(pathname);
+  if (impersonationId && ((pathname === "/admin" || pathname.startsWith("/admin/")) && !pathname.startsWith("/admin/support-access/")) || (impersonationId && pathname.startsWith("/api/admin/") && !allowedImpersonationApi)) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
   if (!session) {
     // The control plane must always authenticate, even when local demo mode
