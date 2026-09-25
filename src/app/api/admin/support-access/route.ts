@@ -31,5 +31,8 @@ export async function POST(request: NextRequest) {
   const expiresAt = new Date(Date.now() + durationMinutes * 60_000);
   const access = await db.supportAccessSession.create({ data: { organizationId: organization.id, startedByUserId: actor.userId, reason: parsed.data.reason, mode, expiresAt } });
   await db.platformAuditEvent.create({ data: { actorStaffId: actor.staffId, actorUserId: actor.userId, targetType: "Organization", targetId: organization.id, capability: mode === "ACT_AS" ? "support.act_as.requested" : "support.impersonate", reason: parsed.data.reason, details: { accessSessionId: access.id, mode, expiresAt, durationMinutes } } });
-  return NextResponse.json({ success: true, access: { id: access.id, organization, mode: access.mode, expiresAt: access.expiresAt, redirectPath: `/admin/support-access/${access.id}` } });
+  const response = NextResponse.json({ success: true, access: { id: access.id, organization, mode: access.mode, expiresAt: access.expiresAt, redirectPath: "/dashboard" } });
+  response.cookies.set("contour_support_access", access.id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: access.expiresAt });
+  response.cookies.set("contour_impersonation", access.id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: access.expiresAt });
+  return response;
 }

@@ -24,5 +24,8 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   if (!access || access.startedByUserId !== actor.userId) return NextResponse.json({ error: "Support access session not found" }, { status: 404 });
   await db.supportAccessSession.update({ where: { id }, data: { revokedAt: new Date() } });
   await db.platformAuditEvent.create({ data: { actorStaffId: actor.staffId, actorUserId: actor.userId, targetType: "Organization", targetId: access.organizationId, capability: "support.impersonate.revoke", reason: "Support access ended by operator", details: { accessSessionId: id } } });
-  return NextResponse.json({ success: true });
+  const response = NextResponse.json({ success: true });
+  response.cookies.set("contour_support_access", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
+  response.cookies.set("contour_impersonation", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
+  return response;
 }

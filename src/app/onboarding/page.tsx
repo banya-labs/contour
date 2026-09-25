@@ -87,6 +87,14 @@ function OnboardingContent() {
     }
 
     try {
+      const supportResponse = await fetch("/api/support-access/current", { cache: "no-store" });
+      const supportAccess = await supportResponse.json();
+      if (supportResponse.ok && supportAccess.active) {
+        setTransitionStage("NAVIGATING");
+        router.replace(redirectUrl);
+        router.refresh();
+        return;
+      }
       // Do not claim invitations during ordinary onboarding/sign-in. An
       // invitation must be supplied explicitly from its invite URL/code.
       // Otherwise preserve the active organization for multi-tenant accounts.
