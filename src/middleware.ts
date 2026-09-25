@@ -43,6 +43,7 @@ export async function middleware(request: NextRequest) {
   // Zero-touch bypass for binary & multipart upload endpoints to prevent stream proxy corruption
   if (
     request.nextUrl.pathname === "/api/properties/upload-image" ||
+    request.nextUrl.pathname.startsWith("/api/properties/images/") ||
     request.nextUrl.pathname === "/api/storage/upload"
   ) {
     return NextResponse.next();
