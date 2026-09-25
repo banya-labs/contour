@@ -525,6 +525,9 @@ function OnboardingContent() {
               ← Return to public website
             </Link>
           </div>
+          <p className="mt-4 text-center text-[10px] text-editorial-muted">
+            Platform staff without an agency workspace can <Link href="/admin" className="font-semibold underline hover:text-editorial-black">access the Control Plane</Link>.
+          </p>
         </section>
       </main>
     );
