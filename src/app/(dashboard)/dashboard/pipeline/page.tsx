@@ -333,6 +333,7 @@ function DealPipelineContent() {
       return;
     }
     setTransitionReason("");
+    setFormError("");
     setPendingTransition({ deal, targetStage: nextStage });
   };
 
@@ -1763,16 +1764,8 @@ function DealPipelineContent() {
             </div>
             <p className="text-xs text-editorial-muted">
               Move this inquiry to <strong className="text-editorial-black">{STAGES.find((stage) => stage.id === pendingTransition.targetStage)?.label}</strong>?
-              Contour will check the required information before saving.
+              You can move inquiries between pipeline stages freely. This confirmation records the new stage.
             </p>
-            <div className="border border-editorial-border bg-neutral-50 p-3 space-y-2 text-xs">
-              <p className="font-heading font-bold uppercase tracking-wider text-editorial-black">Before you move it</p>
-              <ul className="list-disc pl-4 text-editorial-muted space-y-1">
-                <li>Confirm the buyer and property details are accurate.</li>
-                <li>Record the relevant viewing, offer, or follow-up information.</li>
-                <li>If the API finds a missing requirement, it will explain it here.</li>
-              </ul>
-            </div>
             <div>
               <label htmlFor="pipeline-transition-reason" className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Note (optional)</label>
               <textarea id="pipeline-transition-reason" value={transitionReason} onChange={(event) => setTransitionReason(event.target.value)} rows={3} maxLength={2000} placeholder="Add context for this movement..." className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist text-xs" />

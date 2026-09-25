@@ -30,6 +30,7 @@ export default function ContactsPage() {
     setContacts((current) => [data.contact, ...current]);
     setForm({ name: "", phone: "", email: "", notes: "" });
     setOpen(false);
+    window.location.reload();
   };
 
   return <main className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist text-editorial-black">

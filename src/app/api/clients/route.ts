@@ -10,6 +10,7 @@ import type { ApiRouteContext } from "@/lib/api-handler";
 import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
 import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
 import { getOrCreateContact } from "@/lib/crm/contact-service";
+import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -60,7 +61,41 @@ const getHandler = createApiHandler({
       orderBy: { createdAt: "desc" }
     });
 
-    return NextResponse.json({ success: true, clients });
+    const matchingProperties = await db.property.findMany({
+      where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
+      select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true },
+      orderBy: { updatedAt: "desc" },
+      take: 500,
+    });
+    const clientsWithMatches = clients.map((client) => ({
+      ...client,
+      matchingProperties: matchingProperties.filter((property) => inquiryMatchesProperty(
+        {
+          lookingFor: client.lookingFor,
+          currency: client.currency,
+          budgetMax: client.budgetMax ? Number(client.budgetMax) : null,
+          preferredSuburbs: client.preferredSuburbs,
+          propertyType: client.propertyType,
+        },
+        {
+          listingType: property.listingType,
+          currency: property.currency,
+          askingPrice: property.askingPrice ? Number(property.askingPrice) : null,
+          rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null,
+          suburb: property.suburb,
+          propertyType: property.propertyType,
+        },
+      )).map((property) => ({
+        id: property.id,
+        title: property.title,
+        suburb: property.suburb,
+        listingType: property.listingType,
+        currency: property.currency,
+        price: property.listingType === "FOR_RENT" ? property.rentalPrice : property.askingPrice,
+      })),
+    }));
+
+    return NextResponse.json({ success: true, clients: clientsWithMatches });
   }
 });
 
@@ -157,13 +192,10 @@ const postHandler = createApiHandler({
       contactId = contact.id;
     }
 
-    if (!body.existingInquiryId) {
-      const openClient = await db.inquiry.findFirst({ where: { organizationId: organizationId!, clientPhone, status: { not: "CLOSED" } }, orderBy: { updatedAt: "desc" } });
-      if (openClient) return NextResponse.json({ success: true, client: openClient, deduplicated: true });
-    }
-
     // Reuse an existing open opportunity selected from the pipeline instead of
-    // creating a second deal for the same tenant-scoped client record.
+    // creating a second deal for the same tenant-scoped opportunity. A contact
+    // is intentionally allowed to have multiple inquiries: phone number is an
+    // identity signal, not an inquiry-level idempotency key.
     if (body.existingInquiryId) {
       const existingInquiry = await db.inquiry.findFirst({
         where: { id: body.existingInquiryId, organizationId: organizationId! },
@@ -213,10 +245,16 @@ const postHandler = createApiHandler({
     }
 
     const recentDuplicate = await db.inquiry.findFirst({
-      where: { organizationId: organizationId!, clientPhone, propertyId: validPropertyId, status: { not: "CLOSED" }, createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) } },
+      where: {
+        organizationId: organizationId!,
+        clientPhone,
+        ...(validPropertyId ? { propertyId: validPropertyId } : {}),
+        status: { not: "CLOSED" },
+        createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
+      },
       orderBy: { createdAt: "desc" },
     });
-    if (recentDuplicate) return NextResponse.json({ success: true, client: recentDuplicate, deduplicated: true });
+    if (validPropertyId && recentDuplicate) return NextResponse.json({ success: true, client: recentDuplicate, deduplicated: true });
 
     const client = await db.inquiry.create({
       data: {
@@ -260,6 +298,19 @@ const postHandler = createApiHandler({
     });
     await createInquiryMatchNotifications(organizationId!, client.id);
 
+    const availableProperties = await db.property.findMany({
+      where: { organizationId: organizationId!, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
+      select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true },
+      orderBy: { updatedAt: "desc" },
+      take: 500,
+    });
+    const matchingProperties = availableProperties
+      .filter((property) => inquiryMatchesProperty(
+        { lookingFor: client.lookingFor, currency: client.currency, budgetMax: client.budgetMax ? Number(client.budgetMax) : null, preferredSuburbs: client.preferredSuburbs, propertyType: client.propertyType },
+        { listingType: property.listingType, currency: property.currency, askingPrice: property.askingPrice ? Number(property.askingPrice) : null, rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null, suburb: property.suburb, propertyType: property.propertyType },
+      ))
+      .map((property) => ({ id: property.id, title: property.title, suburb: property.suburb, listingType: property.listingType, currency: property.currency, price: property.listingType === "FOR_RENT" ? property.rentalPrice : property.askingPrice }));
+
     // Invalidate client, pipeline, and dashboard caches across all surfaces
     if (organizationId) {
       smartCache.invalidateTag(organizationId, "clients", "/dashboard/clients");
@@ -269,7 +320,7 @@ const postHandler = createApiHandler({
       smartCache.invalidateTag(organizationId, "agent-summary", "/agent");
     }
 
-    return NextResponse.json({ success: true, client });
+    return NextResponse.json({ success: true, client: { ...client, matchingProperties } });
   },
 });
 

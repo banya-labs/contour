@@ -44,6 +44,7 @@ function ClientsCRMContent() {
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
   const [createdInquiryNotice, setCreatedInquiryNotice] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [matchingInquiry, setMatchingInquiry] = useState<{ name: string; matches: Array<{ id: string; title: string; suburb: string; listingType: string; currency: string; price: unknown }> } | null>(null);
 
   // Edit Client State
   const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -124,6 +125,7 @@ function ClientsCRMContent() {
               lockExpiresInDays: daysLeft,
               lastContacted: "Active client",
               status: c.status || "NEW_INQUIRY",
+              matchingProperties: c.matchingProperties || [],
             };
           });
           setClients(normalized);
@@ -383,6 +385,7 @@ function ClientsCRMContent() {
           setClients([newClient, ...clients]);
           emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], newClient.id);
           setIsModalOpen(false);
+          setMatchingInquiry({ name: newClient.name, matches: data.client.matchingProperties || [] });
           setFormData({
             contactId: "",
             name: "",
@@ -498,7 +501,7 @@ function ClientsCRMContent() {
         <div className="overflow-x-auto bg-white border border-editorial-border">
           <table className="w-full min-w-[900px] text-left text-xs font-geist">
             <thead className="bg-neutral-50 border-b border-editorial-border text-[10px] font-heading uppercase tracking-wider text-editorial-muted">
-              <tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Requirement</th><th className="px-4 py-3">Budget</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Assigned agent</th><th className="px-4 py-3 text-right">Actions</th></tr>
+              <tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Requirement</th><th className="px-4 py-3">Budget</th><th className="px-4 py-3">Matches</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Assigned agent</th><th className="px-4 py-3 text-right">Actions</th></tr>
             </thead>
             <tbody className="divide-y divide-editorial-border">
               {filteredClients.map((client) => (
@@ -506,6 +509,7 @@ function ClientsCRMContent() {
                   <td className="px-4 py-3"><div className="font-heading font-bold text-editorial-black">{client.name}</div><div className="text-[11px] text-editorial-muted">{client.phone} · {client.email || "No email"}</div></td>
                   <td className="px-4 py-3"><div className="font-medium text-editorial-black">{client.lookingFor}</div><div className="text-[10px] text-editorial-muted">{client.purpose} · {client.leadSource}</div></td>
                   <td className="px-4 py-3 font-mono font-bold">{client.budgetMax}</td>
+                  <td className="px-4 py-3"><div className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold uppercase ${client.matchingProperties.length ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-neutral-50 text-editorial-muted border border-editorial-border"}`}><Sparkles className="w-3 h-3" />{client.matchingProperties.length} {client.matchingProperties.length === 1 ? "property" : "properties"}</div>{client.matchingProperties.length > 0 && <div className="mt-1 max-w-[220px] truncate text-[10px] text-editorial-muted" title={client.matchingProperties.map((property: any) => property.title).join(", ")}>{client.matchingProperties.map((property: any) => property.title).join(", ")}</div>}</td>
                   <td className="px-4 py-3"><span className="border border-editorial-border bg-editorial-paper px-2 py-1 text-[10px] font-mono font-bold uppercase">{client.status}</span></td>
                   <td className="px-4 py-3"><div className="font-medium">{client.assignedAgent}</div><div className="text-[10px] text-emerald-800">Locked: {client.lockExpiresInDays}d</div></td>
                   <td className="px-4 py-3 text-right"><div className="inline-flex items-center gap-2" onClick={(event) => event.stopPropagation()}><button type="button" onClick={() => openEditModal(client)} className="p-1.5 border border-editorial-border hover:border-editorial-black" title="Edit client"><Edit3 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => setDeletingClient(client)} className="p-1.5 border border-editorial-border text-red-600 hover:border-red-600" title="Delete client"><Trash2 className="h-3.5 w-3.5" /></button><a href={`https://wa.me/${formatWhatsAppDigits(client.phone)}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-editorial-black text-white text-[10px] font-mono font-bold">WhatsApp</a></div></td>
@@ -958,6 +962,44 @@ function ClientsCRMContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Modal: Delete Client Confirmation */}
+      {matchingInquiry && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white max-w-lg w-full border border-editorial-black p-5 sm:p-6 space-y-4 font-geist">
+            <div className="flex items-start justify-between border-b border-editorial-border pb-3">
+              <div>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-editorial-red">Property matching complete</p>
+                <h3 className="mt-1 font-serif font-bold text-xl text-editorial-black">{matchingInquiry.name}</h3>
+              </div>
+              <button type="button" onClick={() => { setMatchingInquiry(null); window.location.reload(); }} className="flex items-center justify-center w-8 h-8 border border-editorial-border hover:bg-editorial-black hover:text-white" title="Close">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-editorial-muted">
+              {matchingInquiry.matches.length > 0
+                ? `${matchingInquiry.matches.length} available ${matchingInquiry.matches.length === 1 ? "property matches" : "properties match"} this inquiry.`
+                : "No available properties currently match this inquiry."}
+            </p>
+            {matchingInquiry.matches.length > 0 && (
+              <div className="max-h-64 overflow-y-auto border border-editorial-border divide-y divide-editorial-border">
+                {matchingInquiry.matches.map((property) => (
+                  <div key={property.id} className="p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-editorial-black">{property.title}</p>
+                      <p className="text-xs text-editorial-muted">{property.suburb} · {property.listingType === "FOR_RENT" ? "For rent" : "For sale"}</p>
+                    </div>
+                    <span className="text-xs font-mono font-bold whitespace-nowrap">{property.price == null ? "Price on request" : `${property.currency} ${Number(property.price).toLocaleString()}`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button type="button" onClick={() => { setMatchingInquiry(null); window.location.reload(); }} className="w-full bg-editorial-black text-white px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider hover:bg-editorial-red">
+              Continue to refreshed inquiries
+            </button>
           </div>
         </div>
       )}

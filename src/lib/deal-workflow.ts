@@ -143,19 +143,12 @@ export function canMovePipelineStage(input: {
     return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Choose a different pipeline stage." };
   }
 
-  const movingBackward = targetIndex < currentIndex;
-  if (movingBackward) {
-    if (!reason?.trim()) {
-      return { allowed: false, requiresReason: true, missingRequirements: [], reason: "A reason is required when moving an inquiry backward." };
-    }
-    if (targetStage === "NEW_INQUIRY") {
-      return { allowed: false, requiresReason: true, missingRequirements: [], reason: "An active inquiry cannot return to New enquiry." };
-    }
-    return { allowed: true, requiresReason: true, missingRequirements: [] };
-  }
-
-  if (targetIndex !== currentIndex + 1) {
-    return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Move the inquiry one stage at a time." };
+  // Active pipeline stages are intentionally non-blocking. The popup is the
+  // human confirmation point; stage requirements are guidance, not gates.
+  // This also allows agents to correct a stage in either direction without
+  // inventing a note or completing work that has not happened yet.
+  if (targetStage !== "CLOSED" && ACTIVE_PIPELINE_STAGE_CODES.includes(targetStage) && currentIndex !== undefined) {
+    return { allowed: true, requiresReason: false, missingRequirements: [] };
   }
 
   const missingRequirements = getMissingRequirements(targetStage, context);

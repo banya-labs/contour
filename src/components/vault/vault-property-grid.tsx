@@ -143,6 +143,11 @@ export function VaultPropertyGrid({
               >
                 {property.title}
               </h3>
+              {(property.matchingInquiries?.length || 0) > 0 && (
+                <div className="mt-2 border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wide text-emerald-800">
+                  {property.matchingInquiries?.length} matching {property.listingType === "FOR_RENT" ? "renter" : "buyer"}{(property.matchingInquiries?.length || 0) === 1 ? "" : "s"}
+                </div>
+              )}
             </div>
 
             {/* 2. Document Metrics & Category Checklist */}

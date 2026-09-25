@@ -71,6 +71,11 @@ export interface PropertyItem {
   title: string;
   suburb: string;
   status: string;
+  listingType?: string;
+  currency?: string;
+  askingPrice?: number | string | null;
+  rentalPrice?: number | string | null;
+  matchingInquiries?: Array<{ id: string; clientName: string; lookingFor: string }>;
   titleDeedNumber?: string | null;
   standPlotNumber?: string | null;
   assignedAgentId?: string | null;
@@ -408,6 +413,11 @@ export function VaultTree({
                   {isArchived && (
                     <span className="text-[9px] font-mono uppercase bg-neutral-100 text-editorial-muted px-1.5 py-0.2 border border-editorial-border rounded-none">
                       ARCHIVED - READ ONLY
+                    </span>
+                  )}
+                  {(property.matchingInquiries?.length || 0) > 0 && (
+                    <span className="text-[9px] font-mono uppercase bg-emerald-50 text-emerald-800 px-1.5 py-0.2 border border-emerald-300">
+                      {property.matchingInquiries?.length} matching {property.listingType === "FOR_RENT" ? "renter" : "buyer"}{(property.matchingInquiries?.length || 0) === 1 ? "" : "s"}
                     </span>
                   )}
                 </div>
