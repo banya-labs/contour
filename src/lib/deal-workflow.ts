@@ -131,7 +131,7 @@ export function canMovePipelineStage(input: {
   reason?: string;
   isManagerOverride?: boolean;
 }): TransitionDecision {
-  const { currentStage, targetStage, context, reason, isManagerOverride = false } = input;
+  const { currentStage, targetStage } = input;
 
   if (currentStage === "CLOSED") {
     return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Closed inquiries cannot be reopened." };
@@ -150,18 +150,7 @@ export function canMovePipelineStage(input: {
   if (targetStage !== "CLOSED" && ACTIVE_PIPELINE_STAGE_CODES.includes(targetStage) && currentIndex !== undefined) {
     return { allowed: true, requiresReason: false, missingRequirements: [] };
   }
-
-  const missingRequirements = getMissingRequirements(targetStage, context);
-  if (missingRequirements.length > 0 && !isManagerOverride) {
-    return {
-      allowed: false,
-      requiresReason: false,
-      missingRequirements,
-      reason: `Missing: ${missingRequirements.join(", ")}.`,
-    };
-  }
-
-  return { allowed: true, requiresReason: isManagerOverride && missingRequirements.length > 0, missingRequirements };
+  return { allowed: true, requiresReason: false, missingRequirements: [] };
 }
 
 export function mapLegacyPipelineState(

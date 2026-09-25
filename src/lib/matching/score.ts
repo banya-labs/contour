@@ -39,5 +39,9 @@ export function scorePropertyForInquiry(
 }
 
 export function rankPropertiesForInquiry(inquiry: InquiryMatchingProfile, properties: MatchingCandidate[], limit = 5): MatchResult[] {
-  return properties.map((property) => scorePropertyForInquiry(inquiry, property)).filter((result) => result.hardFailures.length === 0).sort((a, b) => b.score - a.score).slice(0, limit);
+  return scoreAllPropertiesForInquiry(inquiry, properties).filter((result) => result.hardFailures.length === 0).slice(0, limit);
+}
+
+export function scoreAllPropertiesForInquiry(inquiry: InquiryMatchingProfile, properties: MatchingCandidate[]): MatchResult[] {
+  return properties.map((property) => scorePropertyForInquiry(inquiry, property)).sort((a, b) => b.score - a.score);
 }

@@ -6,7 +6,6 @@ import { updateInquirySchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { isManagementRole } from "@/lib/authorization";
-import { canAdvancePipelineStage } from "@/lib/pipeline-transition";
 
 export const PATCH = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
@@ -58,12 +57,6 @@ export const PATCH = createApiHandler({
     }
 
     const targetPropertyId = body.propertyId !== undefined ? body.propertyId : inquiry.propertyId;
-    if (body.status && body.status !== "CLOSED" && body.status !== inquiry.status) {
-      const currentValue = body.dealValue ?? null;
-      if (!canAdvancePipelineStage(inquiry.status, body.status, currentValue)) {
-        return NextResponse.json({ success: false, error: "Deals must progress through each stage in order, and an offer must have a positive value." }, { status: 409 });
-      }
-    }
     if (body.status !== "CLOSED" && body.propertyId !== undefined && targetPropertyId) {
       const property = await db.property.findFirst({ where: { id: targetPropertyId, organizationId: organizationId! }, select: { status: true } });
       if (property?.status === "SOLD") return NextResponse.json({ success: false, error: "This property has already been sold and cannot be reopened in the pipeline." }, { status: 409 });

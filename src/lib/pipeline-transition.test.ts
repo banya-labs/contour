@@ -8,13 +8,14 @@ describe("pipeline stage transitions", () => {
     expect(canAdvancePipelineStage("VIEWING_SCHEDULED", "NEGOTIATING")).toBe(true);
   });
 
-  it("requires a positive offer value before entering the offer stage", () => {
-    expect(canAdvancePipelineStage("NEGOTIATING", "OFFER_MADE", null)).toBe(false);
+  it("does not require an offer value to move between active stages", () => {
+    expect(canAdvancePipelineStage("NEGOTIATING", "OFFER_MADE", null)).toBe(true);
     expect(canAdvancePipelineStage("NEGOTIATING", "OFFER_MADE", 250000)).toBe(true);
   });
 
-  it("does not allow skipping stages or reopening closed deals", () => {
-    expect(canAdvancePipelineStage("NEW_INQUIRY", "OFFER_MADE", 250000)).toBe(false);
-    expect(canAdvancePipelineStage("CLOSED", "CONTACTED")).toBe(false);
+  it("allows active inquiries to skip, move backward, and move freely", () => {
+    expect(canAdvancePipelineStage("NEW_INQUIRY", "OFFER_MADE", 0)).toBe(true);
+    expect(canAdvancePipelineStage("NEGOTIATING", "NEW_INQUIRY")).toBe(true);
+    expect(canAdvancePipelineStage("VIEWING_SCHEDULED", "CONTACTED")).toBe(true);
   });
 });

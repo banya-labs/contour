@@ -43,6 +43,8 @@ function ClientsCRMContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
   const [createdInquiryNotice, setCreatedInquiryNotice] = useState<string | null>(null);
+  const [matchResults, setMatchResults] = useState<any | null>(null);
+  const [matchesLoading, setMatchesLoading] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [matchingInquiry, setMatchingInquiry] = useState<{ name: string; matches: Array<{ id: string; title: string; suburb: string; listingType: string; currency: string; price: unknown }> } | null>(null);
 
@@ -110,6 +112,7 @@ function ClientsCRMContent() {
 
             return {
               id: c.id,
+              propertyId: c.propertyId || null,
               name: c.clientName,
               phone: c.clientPhone,
               email: c.email || c.clientEmail || "not-provided@client.zm",
@@ -164,6 +167,21 @@ function ClientsCRMContent() {
       assignedAgentId: client.assignedAgentId || "",
       status: client.status || "NEW_INQUIRY",
     });
+  };
+
+  const loadMatches = async (client: any) => {
+    setMatchesLoading(true);
+    setMatchResults(null);
+    try {
+      const response = await fetch(`/api/clients/${client.id}/matches`);
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to calculate matches.");
+      setMatchResults(data);
+    } catch (error) {
+      setMatchResults({ error: error instanceof Error ? error.message : "Unable to calculate matches." });
+    } finally {
+      setMatchesLoading(false);
+    }
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -538,7 +556,7 @@ function ClientsCRMContent() {
           { label: "Pipeline status", value: selectedClient.status },
           { label: "Notes", value: selectedClient.notes },
         ] : []}
-        children={selectedClient ? <div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a></div> : undefined}
+        children={selectedClient ? <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a>{!selectedClient.propertyId && <button type="button" onClick={() => void loadMatches(selectedClient)} className="px-3 py-2 bg-contour-red text-white text-[10px] font-mono font-bold uppercase">{matchesLoading ? "Testing properties…" : "Test all properties"}</button>}</div>{matchResults && <div className="border-t border-editorial-border pt-3 space-y-2"><div className="flex items-center justify-between"><p className="text-[10px] font-mono font-bold uppercase tracking-wider">Property matching results</p><span className="text-[10px] text-editorial-muted">Matches are over 60%</span></div>{matchResults.error ? <p className="text-xs text-red-700">{matchResults.error}</p> : matchResults.matchingEnabled === false ? <p className="text-xs text-editorial-muted">Matching is disabled because this inquiry is already assigned to a property.</p> : <div className="max-h-64 overflow-y-auto space-y-1">{matchResults.matches.map((match: any) => <div key={match.property.id} className={`flex items-center justify-between gap-3 border p-2 ${match.isMatch ? "border-emerald-300 bg-emerald-50" : "border-editorial-border bg-neutral-50"}`}><div className="min-w-0"><p className="text-xs font-semibold truncate">{match.property.title}</p><p className="text-[10px] text-editorial-muted truncate">{match.property.suburb} · {match.hardFailures?.length ? `Does not fit: ${match.hardFailures.join(", ")}` : match.reasons.join(", ") || "Criteria evaluated"}</p></div><span className={`shrink-0 text-xs font-mono font-bold ${match.isMatch ? "text-emerald-700" : "text-editorial-muted"}`}>{match.score}%</span></div>)}</div>}</div>}</div> : undefined}
       />
 
       {/* Interactive Modal: Add New Client */}

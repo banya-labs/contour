@@ -1666,7 +1666,7 @@ function DealPipelineContent() {
                   <div className="w-full bg-neutral-50 px-3 py-2 border border-editorial-border text-editorial-black font-geist text-sm">
                     {STAGES.find((stage) => stage.id === editingDeal?.stage)?.label || "Closed outcome"}
                   </div>
-                  <p className="mt-1 text-[10px] text-editorial-muted">Stage changes use the transition action so requirements cannot be bypassed.</p>
+                  <p className="mt-1 text-[10px] text-editorial-muted">Move the inquiry to any active stage; closed outcomes remain final.</p>
                 </div>
 
                 <div>
