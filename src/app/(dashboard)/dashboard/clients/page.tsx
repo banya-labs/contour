@@ -42,6 +42,7 @@ function ClientsCRMContent() {
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [createdInquiryNotice, setCreatedInquiryNotice] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   // Edit Client State
@@ -285,8 +286,9 @@ function ClientsCRMContent() {
     phone: "",
     email: "",
     lookingFor: "",
-    preferredSuburbs: "Kabulonga, Woodlands",
-    budgetMax: "K 2,500,000",
+    preferredSuburbs: "",
+    budgetMax: "",
+    currency: "ZMW" as "ZMW" | "USD",
     purpose: "BUY",
     leadSource: "WALK_IN",
     assignedAgentId: "",
@@ -311,7 +313,7 @@ function ClientsCRMContent() {
     e.preventDefault();
     setFormError("");
 
-    if (!formData.name.trim() || formData.name.length < 3) {
+    if (!formData.name.trim() || formData.name.trim().length < 3) {
       setFormError("Client name is required (at least 3 characters).");
       return;
     }
@@ -319,7 +321,7 @@ function ClientsCRMContent() {
       setFormError("Select a contact before creating an inquiry.");
       return;
     }
-    if (!formData.phone.trim() || formData.phone.length < 7) {
+    if (!formData.phone.trim() || formData.phone.trim().length < 7) {
       setFormError("Valid phone number is required.");
       return;
     }
@@ -331,20 +333,20 @@ function ClientsCRMContent() {
     const budgetStr = formData.budgetMax.replace(/[^0-9.]/g, "");
     const budgetNum = parseFloat(budgetStr) || undefined;
     const lookingForType = formData.purpose === "RENT" ? "FOR_RENT" : "FOR_SALE";
-    const currency = formData.budgetMax.includes("$") ? "USD" : "ZMW";
+    const currency = formData.currency;
 
     const clientPayload = {
       idempotencyKey: `client-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      clientName: formData.name,
+      clientName: formData.name.trim(),
       contactId: formData.contactId,
-      clientPhone: formData.phone,
-      clientEmail: formData.email || undefined,
+      clientPhone: formData.phone.trim(),
+      clientEmail: formData.email.trim() || undefined,
       lookingFor: lookingForType,
-      propertyType: "STANDALONE_HOUSE",
+      propertyType: undefined,
       budgetMax: budgetNum,
       currency,
-      preferredSuburbs: formData.preferredSuburbs.split(",").map((s) => s.trim()),
-      notes: `[Source: ${formData.leadSource}] ${formData.lookingFor}`,
+      preferredSuburbs: formData.preferredSuburbs.split(",").map((s) => s.trim()).filter(Boolean),
+      notes: `[Source: ${formData.leadSource}] ${formData.lookingFor.trim()}`,
       assignedAgentId: formData.assignedAgentId || undefined,
       leadSource: formData.leadSource,
       status: "NEW_INQUIRY",
@@ -387,13 +389,14 @@ function ClientsCRMContent() {
             phone: "",
             email: "",
             lookingFor: "",
-            preferredSuburbs: "Kabulonga, Woodlands",
-            budgetMax: "K 2,500,000",
+            preferredSuburbs: "",
+            budgetMax: "",
+            currency: "ZMW",
             purpose: "BUY",
             leadSource: "WALK_IN",
             assignedAgentId: "",
           });
-          alert(`[SUCCESS] Client ${newClient.name} registered and locked for 30 days!`);
+          setCreatedInquiryNotice(`${newClient.name} was registered successfully and is locked to your agency for 30 days.`);
         } else {
           setFormError(data.error || "Failed to save client.");
         }
@@ -625,12 +628,38 @@ function ClientsCRMContent() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Budget Max</label>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Budget Max (Optional)</label>
                   <input
                     type="text"
                     value={formData.budgetMax}
                     onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
+                    placeholder="e.g. 2500000"
                     className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Currency</label>
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value as "ZMW" | "USD" })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                  >
+                    <option value="ZMW">ZMW (K)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Preferred Suburbs (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.preferredSuburbs}
+                    onChange={(e) => setFormData({ ...formData, preferredSuburbs: e.target.value })}
+                    placeholder="e.g. Kabulonga, Woodlands"
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
                   />
                 </div>
 
@@ -1003,6 +1032,28 @@ function ClientsCRMContent() {
                 >
                   Confirm Delete
                 </PendingButtonContent>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {createdInquiryNotice && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-editorial-black/65 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="created-inquiry-title">
+          <div className="w-full max-w-md border border-editorial-border bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-emerald-50 text-emerald-700">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-editorial-red">Contour CRM</p>
+                <h2 id="created-inquiry-title" className="mt-1 font-heading text-lg font-bold uppercase tracking-wide text-editorial-black">Inquiry registered</h2>
+                <p className="mt-2 text-sm leading-relaxed text-editorial-muted">{createdInquiryNotice}</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end border-t border-editorial-border pt-4">
+              <button type="button" onClick={() => setCreatedInquiryNotice(null)} className="bg-editorial-black px-5 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-editorial-red">
+                Close
               </button>
             </div>
           </div>

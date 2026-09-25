@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Upload, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, X, RefreshCw } from "lucide-react";
+import { Upload, CheckCircle2, AlertTriangle, FileText, X } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
 interface UploadDocumentModalProps {
@@ -31,7 +31,8 @@ export function UploadDocumentModal({
   const [nrcNumber, setNrcNumber] = React.useState("");
   const [isUploading, setIsUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState(false);
+  const [uploadStatus, setUploadStatus] = React.useState<"uploading" | "success" | "failure" | null>(null);
+  const [uploadStatusMessage, setUploadStatusMessage] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -114,6 +115,8 @@ export function UploadDocumentModal({
 
     setIsUploading(true);
     setError(null);
+    setUploadStatus("uploading");
+    setUploadStatusMessage(null);
 
     try {
       // Direct server-side multipart upload to prevent browser CORS/CSP blocking with MinIO
@@ -138,22 +141,32 @@ export function UploadDocumentModal({
         throw new Error(data.error || "Failed to upload document to vault");
       }
 
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        handleClearFile();
-        setTitle("");
-        setRegistryFolio("");
-        setStandPlotNumber("");
-        setNrcNumber("");
-        onSuccess();
-        onClose();
-      }, 1000);
-    } catch (err: any) {
-      setError(err.message || "Upload failed");
+      setUploadStatus("success");
+    } catch (err: unknown) {
+      setUploadStatusMessage(err instanceof Error ? err.message : "Upload failed");
+      setUploadStatus("failure");
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleCloseUploadStatus = () => {
+    if (uploadStatus === "uploading") return;
+
+    if (uploadStatus === "success") {
+      handleClearFile();
+      setTitle("");
+      setRegistryFolio("");
+      setStandPlotNumber("");
+      setNrcNumber("");
+      onSuccess();
+      onClose();
+      setUploadStatus(null);
+      return;
+    }
+
+    setUploadStatus(null);
+    setUploadStatusMessage(null);
   };
 
   return (
@@ -169,22 +182,39 @@ export function UploadDocumentModal({
           </DialogDescription>
         </DialogHeader>
 
-        {error && (
+        {uploadStatus ? (
+          <div className="py-8 flex flex-col items-center justify-center gap-3 text-center">
+            {uploadStatus === "uploading" ? (
+              <ContourSunLoader size="lg" label="Uploading document securely…" />
+            ) : uploadStatus === "success" ? (
+              <CheckCircle2 className="w-12 h-12 text-emerald-600" />
+            ) : (
+              <AlertTriangle className="w-12 h-12 text-red-600" />
+            )}
+            <h4 className="text-sm font-heading font-bold uppercase tracking-wider text-editorial-black">
+              {uploadStatus === "uploading" ? "Uploading Document" : uploadStatus === "success" ? "Document Uploaded Successfully" : "Document Upload Failed"}
+            </h4>
+            <p className="max-w-sm text-xs font-mono text-editorial-muted">
+              {uploadStatus === "uploading" ? "Please keep this window open while the document is encrypted and saved to the vault." : uploadStatus === "success" ? "Encrypted in MinIO S3 and linked to the property vault." : uploadStatusMessage}
+            </p>
+            {uploadStatus !== "uploading" && (
+              <button
+                type="button"
+                onClick={handleCloseUploadStatus}
+                className="mt-2 bg-contour-red px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-white hover:bg-contour-red/90"
+              >
+                Close
+              </button>
+            )}
+          </div>
+        ) : error && (
           <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-none text-xs font-mono text-red-700 my-2">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
-        {success ? (
-          <div className="py-8 flex flex-col items-center justify-center gap-2 text-center">
-            <CheckCircle2 className="w-12 h-12 text-emerald-600 animate-bounce" />
-            <h4 className="text-sm font-heading font-bold uppercase tracking-wider text-editorial-black">
-              Document Uploaded Successfully
-            </h4>
-            <p className="text-xs font-mono text-editorial-muted">Encrypted in MinIO S3 & linked to property vault.</p>
-          </div>
-        ) : (
+        {!uploadStatus && (
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             {/* Property Selector */}
             <div>

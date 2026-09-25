@@ -9,7 +9,7 @@ export const POST = createApiHandler({
   requireAuth: true,
   requirePermissions: ["org.update"],
   bodySchema: agencyProfileSchema,
-  handler: async (_req, { body, organizationId, userId }) => {
+  handler: async (_req, { body, organizationId, userId, session }) => {
     const orgId = organizationId!;
     const organization = await db.organization.findUnique({
       where: { id: orgId },
@@ -54,10 +54,9 @@ export const POST = createApiHandler({
     });
 
     const regulatoryMetadata = {
-      pacraRegistrationNumber: body.pacraRegistrationNumber || null,
       ziereaLicenseNumber: body.ziereaLicenseNumber || null,
-      dpoName: body.dpoName || null,
-      dpoEmail: body.dpoEmail || null,
+      dpoName: session?.user?.name || null,
+      dpoEmail: session?.user?.email || null,
       regulatoryDeclarationAgreed: Boolean(body.regulatoryDeclarationAgreed),
       declaredAt: new Date().toISOString(),
       statutoryFramework: "Zambia DPA No. 3 of 2021, Estate Agents Act Cap 187, FIC Act No. 46 of 2010",

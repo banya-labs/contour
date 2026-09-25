@@ -30,6 +30,7 @@ import {
   Copy,
   ScanLine,
   Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
@@ -37,6 +38,8 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { formatCurrency } from "@/lib/utils";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
+import { DocumentDetailsModal } from "@/components/vault/document-details-modal";
+import type { VaultDoc } from "@/components/vault/vault-tree";
 import TitleDeedOcrUploader, { TitleDeedOcrResult } from "@/components/properties/title-deed-ocr-uploader";
 import { useSession } from "@/lib/auth-client";
 import { canManagePropertyPhotos } from "@/lib/authorization";
@@ -140,6 +143,7 @@ export default function PropertyFullDetailModal({
   const [isAddingPhotosViewMode, setIsAddingPhotosViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Real Organization Agents State
   const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; phone?: string; email?: string; roleKey?: string }>>([]);
@@ -147,6 +151,7 @@ export default function PropertyFullDetailModal({
 
   // Real Documents State
   const [vaultDocuments, setVaultDocuments] = useState<any[]>([]);
+  const [selectedVaultDocument, setSelectedVaultDocument] = useState<VaultDoc | null>(null);
   const [vaultDocumentCount, setVaultDocumentCount] = useState(() => readCachedVaultCount(property));
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
@@ -156,6 +161,10 @@ export default function PropertyFullDetailModal({
   const [docUploadCategory, setDocUploadCategory] = useState("TITLE_DEED");
   const [docUploadTitle, setDocUploadTitle] = useState("");
   const [uploadingFileLoading, setUploadingFileLoading] = useState(false);
+  const [documentUploadStatus, setDocumentUploadStatus] = useState<{
+    type: "success" | "failure";
+    message: string;
+  } | null>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
 
   // Document Request State
@@ -174,6 +183,8 @@ export default function PropertyFullDetailModal({
   const [propertyInquiries, setPropertyInquiries] = useState<any[]>([]);
   const [unassignedMatches, setUnassignedMatches] = useState<Array<{ inquiry: { id: string; clientName: string }; score: number; reasons: string[] }>>([]);
   const [isAddingStakeholder, setIsAddingStakeholder] = useState(false);
+  const [stakeholderSource, setStakeholderSource] = useState<"CONTACT" | "AGENT" | "MANUAL">("CONTACT");
+  const [selectedStakeholderId, setSelectedStakeholderId] = useState("");
   const [newStakeholder, setNewStakeholder] = useState<Omit<DealParty, "id">>({
     name: "",
     title: "",
@@ -354,6 +365,34 @@ export default function PropertyFullDetailModal({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
+  const handleRefresh = async () => {
+    if (!property?.id || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      const [propertiesResponse] = await Promise.all([
+        fetch("/api/properties", { cache: "no-store" }),
+        loadVaultDocuments(),
+      ]);
+      const propertiesData = propertiesResponse.ok ? await propertiesResponse.json() : null;
+      const refreshedProperty = propertiesData?.properties?.find((item: { id: string }) => item.id === property.id);
+      if (refreshedProperty && onUpdateProperty) {
+        onUpdateProperty(refreshedProperty);
+      }
+
+      const clientsResponse = await fetch(`/api/clients?propertyId=${encodeURIComponent(property.id)}`, { cache: "no-store" });
+      const clientsData = clientsResponse.ok ? await clientsResponse.json() : null;
+      setPropertyInquiries(Array.isArray(clientsData?.clients) ? clientsData.clients : []);
+
+      const matchesResponse = await fetch("/api/matching/unassigned", { cache: "no-store" });
+      const matchesData = matchesResponse.ok ? await matchesResponse.json() : null;
+      setUnassignedMatches((matchesData?.matches || []).filter((match: { property?: { id?: string } }) => match.property?.id === property.id));
+    } catch (error) {
+      console.error("Failed to refresh property 360:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Save Listing Details (All Fields Editable)
   const handleSaveListingDetails = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -495,13 +534,23 @@ export default function PropertyFullDetailModal({
         setDocUploadTitle("");
         setIsUploadingDoc(false);
         await loadVaultDocuments();
+        setDocumentUploadStatus({
+          type: "success",
+          message: "The document was encrypted and linked to this property vault.",
+        });
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(`Upload failed: ${errData.error || "Unable to upload document"}`);
+        setDocumentUploadStatus({
+          type: "failure",
+          message: errData.error || "Unable to upload document.",
+        });
       }
     } catch (err) {
       console.error("Document upload failed:", err);
-      alert("Error uploading document to vault.");
+      setDocumentUploadStatus({
+        type: "failure",
+        message: "An error occurred while uploading the document to the vault.",
+      });
     } finally {
       setUploadingFileLoading(false);
       if (docFileInputRef.current) docFileInputRef.current.value = "";
@@ -607,11 +656,25 @@ export default function PropertyFullDetailModal({
   // Add Stakeholder
   const handleAddStakeholder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStakeholder.name.trim()) return;
+    const selectedContact = propertyInquiries.find((contact) => contact.id === selectedStakeholderId);
+    const selectedAgent = orgAgents.find((agent) => agent.id === selectedStakeholderId);
+    const selectedPerson = stakeholderSource === "CONTACT" ? selectedContact : selectedAgent;
+    const stakeholder = selectedPerson
+      ? {
+          ...newStakeholder,
+          name: selectedPerson.clientName || selectedPerson.name || "",
+          phone: selectedPerson.phone || "",
+          email: selectedPerson.email || "",
+          roleType: stakeholderSource === "AGENT" ? "BROKER" as const : newStakeholder.roleType,
+          title: stakeholderSource === "AGENT" ? selectedAgent?.roleKey?.replaceAll("_", " ") || "Co-broke Agent" : newStakeholder.title,
+        }
+      : newStakeholder;
+
+    if (!stakeholder.name.trim()) return;
 
     const created: DealParty = {
       id: `party_${Date.now()}`,
-      ...newStakeholder,
+      ...stakeholder,
     };
     setStakeholders((prev) => [...prev, created]);
     setNewStakeholder({
@@ -622,6 +685,8 @@ export default function PropertyFullDetailModal({
       email: "",
       roleType: "BUYER",
     });
+    setSelectedStakeholderId("");
+    setStakeholderSource("CONTACT");
     setIsAddingStakeholder(false);
   };
 
@@ -630,7 +695,8 @@ export default function PropertyFullDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[2200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 lg:p-6 font-sans">
+    <>
+      <div className="fixed inset-0 z-[2200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 lg:p-6 font-sans">
       <div className="bg-[#FCFBF9] border-0 sm:border border-[#E6E4DF] shadow-2xl flex flex-col overflow-hidden w-full max-w-5xl h-screen sm:h-[92vh] max-h-screen sm:max-h-[92vh]">
         
         {/* TOP COMPACT HEADER */}
@@ -664,6 +730,16 @@ export default function PropertyFullDetailModal({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing || isSaving || uploadingFileLoading}
+              className="flex items-center justify-center gap-1.5 border border-[#E6E4DF] bg-white px-2.5 py-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-[#1C1C1A] transition-colors hover:bg-[#F5F0E8] disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
+              title="Refresh property data"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-[#FA3600] ${isRefreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{isRefreshing ? "Refreshing…" : "Refresh"}</span>
+            </button>
             {isEditing ? (
               <>
                 <button
@@ -1698,7 +1774,16 @@ export default function PropertyFullDetailModal({
                     {vaultDocuments.map((doc) => (
                       <div
                         key={doc.id}
-                        className="p-3.5 bg-white border border-[#E6E4DF] flex items-center justify-between gap-3"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedVaultDocument(doc as VaultDoc)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedVaultDocument(doc as VaultDoc);
+                          }
+                        }}
+                        className="p-3.5 bg-white border border-[#E6E4DF] flex items-center justify-between gap-3 cursor-pointer hover:border-[#FA3600] transition-colors"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 bg-[#FA3600]/10 text-[#FA3600] flex items-center justify-center shrink-0">
@@ -1714,7 +1799,10 @@ export default function PropertyFullDetailModal({
 
                         <button
                           type="button"
-                          onClick={() => handleDownloadDoc(doc)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDownloadDoc(doc);
+                          }}
                           disabled={downloadingDocId === doc.id}
                           className="px-3 py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
                         >
@@ -1762,15 +1850,58 @@ export default function PropertyFullDetailModal({
                 {isAddingStakeholder && (
                   <form onSubmit={handleAddStakeholder} className="p-4 bg-white border border-[#E6E4DF] space-y-3 animate-in fade-in">
                     <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-[#1C1C1A]">
-                      Register New Stakeholder
+                      Add Deal Stakeholder
                     </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] text-[#73716B] font-mono mb-1">Add From</label>
+                        <select
+                          value={stakeholderSource}
+                          onChange={(e) => {
+                            setStakeholderSource(e.target.value as "CONTACT" | "AGENT" | "MANUAL");
+                            setSelectedStakeholderId("");
+                          }}
+                          className="w-full bg-white px-3 py-2 border border-[#E6E4DF] text-[#1C1C1A] text-xs font-semibold focus:outline-none focus:border-[#FA3600]"
+                        >
+                          <option value="CONTACT">Existing contact</option>
+                          <option value="AGENT">Agency agent</option>
+                          <option value="MANUAL">Enter manually</option>
+                        </select>
+                      </div>
+
+                      {stakeholderSource !== "MANUAL" && (
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] text-[#73716B] font-mono mb-1">
+                            {stakeholderSource === "AGENT" ? "Select agent" : "Select contact"}
+                          </label>
+                          <select
+                            required
+                            value={selectedStakeholderId}
+                            onChange={(e) => setSelectedStakeholderId(e.target.value)}
+                            className="w-full bg-white px-3 py-2 border border-[#E6E4DF] text-[#1C1C1A] text-xs font-semibold focus:outline-none focus:border-[#FA3600]"
+                          >
+                            <option value="">Choose {stakeholderSource === "AGENT" ? "an agent" : "a contact"}</option>
+                            {(stakeholderSource === "AGENT" ? orgAgents : propertyInquiries).map((person) => (
+                              <option key={person.id} value={person.id}>
+                                {person.name || person.clientName} {person.email ? ` · ${person.email}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="mt-1 text-[10px] text-[#73716B]">
+                            You can add another person after saving this one, including multiple agents on the same deal.
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-[11px] text-[#73716B] font-mono mb-1">Full Name *</label>
                         <input
                           type="text"
-                          required
+                          required={stakeholderSource === "MANUAL"}
+                          disabled={stakeholderSource !== "MANUAL"}
                           placeholder="e.g. Hastings Banda"
                           value={newStakeholder.name}
                           onChange={(e) => setNewStakeholder({ ...newStakeholder, name: e.target.value })}
@@ -1923,7 +2054,39 @@ export default function PropertyFullDetailModal({
           </div>
         </div>
 
+        {documentUploadStatus && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#1C1C1A]/65 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="document-upload-status-title">
+            <div className="w-full max-w-md border border-[#E6E4DF] bg-white p-6 shadow-2xl">
+              <div className="flex items-start gap-4">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center ${documentUploadStatus.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-[#FA3600]"}`}>
+                  {documentUploadStatus.type === "success" ? <Check className="h-6 w-6" /> : <X className="h-6 w-6" />}
+                </div>
+                <div>
+                  <p className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-[#FA3600]">Contour Vault</p>
+                  <h2 id="document-upload-status-title" className="mt-1 font-heading text-lg font-bold uppercase tracking-wide text-[#1C1C1A]">
+                    {documentUploadStatus.type === "success" ? "Upload successful" : "Upload failed"}
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-[#73716B]">{documentUploadStatus.message}</p>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end border-t border-[#E6E4DF] pt-4">
+                <button type="button" onClick={() => setDocumentUploadStatus(null)} className="bg-[#1C1C1A] px-5 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#FA3600]">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
+
+    <DocumentDetailsModal
+      isOpen={Boolean(selectedVaultDocument)}
+      doc={selectedVaultDocument}
+      onClose={() => setSelectedVaultDocument(null)}
+      onRefresh={loadVaultDocuments}
+    />
+    </>
   );
 }
