@@ -23,7 +23,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       id: true, name: true, slug: true, logo: true, currency: true, createdAt: true, updatedAt: true,
       subscriptionTier: true, subscriptionStatus: true, trialEndsAt: true, accountStatus: true, accountLockedAt: true, accountLockReason: true,
       profile: { select: { country: true, city: true, primaryOfficeAddress: true, primaryPhone: true, primaryEmail: true, agencyType: true } },
-      members: { orderBy: { createdAt: "asc" }, take: 100, select: { id: true, role: true, status: true, createdAt: true, user: { select: { name: true, email: true, phone: true } } } },
+      properties: { where: { status: "AVAILABLE" }, orderBy: { createdAt: "desc" }, take: 1, select: { slug: true } },
+      members: { orderBy: { createdAt: "asc" }, take: 100, select: { id: true, userId: true, role: true, status: true, createdAt: true, user: { select: { name: true, email: true, phone: true } } } },
       payments: { orderBy: { createdAt: "desc" }, take: 20, select: { id: true, reference: true, planId: true, billingCycle: true, amount: true, currency: true, status: true, completedAt: true, createdAt: true, failureReason: true } },
       _count: { select: { members: true, properties: true, inquiries: true } },
     },
@@ -36,10 +37,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     success: true,
     agency: {
       ...organization,
-      members: organization.members.map((member) => ({ id: member.id, name: member.user.name, email: member.user.email, role: member.role, status: member.status, phonePresent: Boolean(member.user.phone), createdAt: member.createdAt })),
-      owners: owners.map((member) => ({ name: member.user.name, email: member.user.email })),
+      members: organization.members.map((member) => ({ id: member.id, userId: member.userId, name: member.user.name, email: member.user.email, role: member.role, status: member.status, phonePresent: Boolean(member.user.phone), createdAt: member.createdAt })),
+      owners: owners.map((member) => ({ name: member.user.name, email: member.user.email, userId: member.userId })),
       subscription: { tier: organization.subscriptionTier, status: organization.subscriptionStatus, trialEndsAt: organization.trialEndsAt, nextPaymentAt, lastPayment: latestSuccess ? { ...latestSuccess, amount: Number(latestSuccess.amount) } : null },
       payments: organization.payments.map((payment) => ({ ...payment, amount: Number(payment.amount) })),
+      publicListingSlug: organization.properties[0]?.slug || null,
     },
   });
 }

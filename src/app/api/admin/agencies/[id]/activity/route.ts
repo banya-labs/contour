@@ -20,5 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     db.auditLog.count({ where: { organizationId: id } }),
     db.auditLog.findMany({ where: { organizationId: id }, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, action: true, entityType: true, entityId: true, details: true, createdAt: true, userId: true } }),
   ]);
-  return NextResponse.json({ success: true, activity: entries.map((entry) => ({ ...entry, actor: entry.userId || "System" })), pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
+  const actorIds = [...new Set(entries.map((entry) => entry.userId).filter((value): value is string => Boolean(value)))];
+  const users = actorIds.length ? await db.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, email: true } }) : [];
+  const userById = new Map(users.map((user) => [user.id, user]));
+  return NextResponse.json({ success: true, activity: entries.map((entry) => ({ ...entry, actor: entry.userId ? userById.get(entry.userId) || { name: "Deleted user", email: null } : { name: "System", email: null } })), pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
 }

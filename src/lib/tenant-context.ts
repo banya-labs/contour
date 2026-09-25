@@ -35,6 +35,13 @@ export async function getTenantContext(req: NextRequest): Promise<TenantContext 
   }
 
   const userId = session.user.id;
+  const supportAccessId = req.cookies.get("contour_support_access")?.value;
+  if (supportAccessId) {
+    const supportAccess = await db.supportAccessSession.findUnique({ where: { id: supportAccessId }, select: { organizationId: true, startedByUserId: true, expiresAt: true, revokedAt: true, mode: true } });
+    if (supportAccess?.startedByUserId === userId && supportAccess.mode === "ACT_AS" && !supportAccess.revokedAt && supportAccess.expiresAt > new Date()) {
+      return { session, userId, organizationId: supportAccess.organizationId, userRole: "SUPER_ADMIN", contourRole: "OWNER", permissions: effectivePermissionsForMember("owner", undefined, []) };
+    }
+  }
   let organizationId = session.session?.activeOrganizationId;
 
   let membership: Membership | null = null;
