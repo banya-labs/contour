@@ -131,7 +131,7 @@ export function canMovePipelineStage(input: {
   reason?: string;
   isManagerOverride?: boolean;
 }): TransitionDecision {
-  const { currentStage, targetStage, context, reason, isManagerOverride = false } = input;
+  const { currentStage, targetStage } = input;
 
   if (currentStage === "CLOSED") {
     return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Closed inquiries cannot be reopened." };
@@ -143,32 +143,7 @@ export function canMovePipelineStage(input: {
     return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Choose a different pipeline stage." };
   }
 
-  const movingBackward = targetIndex < currentIndex;
-  if (movingBackward) {
-    if (!reason?.trim()) {
-      return { allowed: false, requiresReason: true, missingRequirements: [], reason: "A reason is required when moving an inquiry backward." };
-    }
-    if (targetStage === "NEW_INQUIRY") {
-      return { allowed: false, requiresReason: true, missingRequirements: [], reason: "An active inquiry cannot return to New enquiry." };
-    }
-    return { allowed: true, requiresReason: true, missingRequirements: [] };
-  }
-
-  if (targetIndex !== currentIndex + 1) {
-    return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Move the inquiry one stage at a time." };
-  }
-
-  const missingRequirements = getMissingRequirements(targetStage, context);
-  if (missingRequirements.length > 0 && !isManagerOverride) {
-    return {
-      allowed: false,
-      requiresReason: false,
-      missingRequirements,
-      reason: `Missing: ${missingRequirements.join(", ")}.`,
-    };
-  }
-
-  return { allowed: true, requiresReason: isManagerOverride && missingRequirements.length > 0, missingRequirements };
+  return { allowed: true, requiresReason: false, missingRequirements: [] };
 }
 
 export function mapLegacyPipelineState(

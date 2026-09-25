@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
-import { rankPropertiesForInquiry } from "@/lib/matching/score";
+import { scoreAllPropertiesForInquiry } from "@/lib/matching/score";
 
 export const GET = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -15,10 +15,11 @@ export const GET = createApiHandler({
       where: { id: inquiryId, organizationId },
       select: {
         id: true, lookingFor: true, currency: true, budgetMin: true, budgetMax: true,
-        preferredSuburbs: true, propertyType: true, matchingProfile: true,
+        preferredSuburbs: true, propertyType: true, matchingProfile: true, propertyId: true,
       },
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
+    if (inquiry.propertyId) return NextResponse.json({ success: true, threshold: 60, matchingEnabled: false, matches: [] });
 
     const properties = await db.property.findMany({
       where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
@@ -28,7 +29,6 @@ export const GET = createApiHandler({
         bathrooms: true, matchingMetadata: true,
       },
       orderBy: { updatedAt: "desc" },
-      take: 500,
     });
 
     const profile = (inquiry.matchingProfile as Record<string, unknown> | null) || {
@@ -39,12 +39,12 @@ export const GET = createApiHandler({
       preferredAreas: inquiry.preferredSuburbs,
       propertyType: inquiry.propertyType,
     };
-    const ranked = rankPropertiesForInquiry(profile as never, properties as never, 5);
+    const ranked = scoreAllPropertiesForInquiry(profile as never, properties as never);
     const matches = ranked.map((result) => ({
       ...result,
       property: properties.find((property) => property.id === result.propertyId),
     })).filter((result) => result.property);
 
-    return NextResponse.json({ success: true, matches });
+    return NextResponse.json({ success: true, threshold: 60, matchingEnabled: !inquiry.propertyId, matches: matches.map((match) => ({ ...match, isMatch: match.score > 60 })) });
   },
 });

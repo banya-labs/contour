@@ -5,10 +5,5 @@ const PIPELINE_ORDER: readonly InquiryStatus[] = [
 ];
 
 export function canAdvancePipelineStage(current: InquiryStatus, next: InquiryStatus, dealValue?: number | null): boolean {
-  if (current === "CLOSED" || next === "NEW_INQUIRY") return false;
-  const currentIndex = PIPELINE_ORDER.indexOf(current);
-  const nextIndex = PIPELINE_ORDER.indexOf(next);
-  if (currentIndex < 0 || nextIndex !== currentIndex + 1) return false;
-  if (next === "OFFER_MADE" && (!dealValue || dealValue <= 0)) return false;
-  return true;
+  return current !== "CLOSED" && next !== "CLOSED" && PIPELINE_ORDER.includes(current) && PIPELINE_ORDER.includes(next) && current !== next;
 }

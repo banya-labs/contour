@@ -1665,7 +1665,7 @@ function DealPipelineContent() {
                   <div className="w-full bg-neutral-50 px-3 py-2 border border-editorial-border text-editorial-black font-geist text-sm">
                     {STAGES.find((stage) => stage.id === editingDeal?.stage)?.label || "Closed outcome"}
                   </div>
-                  <p className="mt-1 text-[10px] text-editorial-muted">Stage changes use the transition action so requirements cannot be bypassed.</p>
+                  <p className="mt-1 text-[10px] text-editorial-muted">Move the inquiry to any active stage; closed outcomes remain final.</p>
                 </div>
 
                 <div>
@@ -1763,14 +1763,14 @@ function DealPipelineContent() {
             </div>
             <p className="text-xs text-editorial-muted">
               Move this inquiry to <strong className="text-editorial-black">{STAGES.find((stage) => stage.id === pendingTransition.targetStage)?.label}</strong>?
-              Contour will check the required information before saving.
+              You can move an active inquiry freely; add an optional note for context.
             </p>
             <div className="border border-editorial-border bg-neutral-50 p-3 space-y-2 text-xs">
               <p className="font-heading font-bold uppercase tracking-wider text-editorial-black">Before you move it</p>
               <ul className="list-disc pl-4 text-editorial-muted space-y-1">
                 <li>Confirm the buyer and property details are accurate.</li>
                 <li>Record the relevant viewing, offer, or follow-up information.</li>
-                <li>If the API finds a missing requirement, it will explain it here.</li>
+                <li>Skipping or moving backward is allowed while the inquiry is active.</li>
               </ul>
             </div>
             <div>

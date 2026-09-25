@@ -38,6 +38,9 @@ export async function renderFlyerSvg(model: FlyerRenderModel, assets: FlyerRende
   const padding = 32;
   const heroHeight = model.aspectRatio === "9:16" ? 960 : model.aspectRatio === "1:1" ? 650 : 820;
   const bodyHeight = canvas.height - heroHeight - 120;
+  const contentWidth = canvas.width - padding * 2;
+  const leftColumnWidth = Math.floor(contentWidth * 0.58);
+  const rightColumnWidth = contentWidth - leftColumnWidth - 24;
   const fonts = await getFonts();
   const features = model.features.length ? model.features : ["Property details available on request"];
 
@@ -48,19 +51,19 @@ export async function renderFlyerSvg(model: FlyerRenderModel, assets: FlyerRende
       children: [
         { type: "div", props: { style: { width: canvas.width, height: heroHeight, position: "relative", display: "flex", overflow: "hidden" }, children: [image(assets.hero, canvas.width, heroHeight), { type: "div", props: { style: { position: "absolute", left: padding, top: padding, display: "flex", padding: 16, backgroundColor: "#ffffff", color: "#282828", fontSize: 24, fontWeight: 700, maxWidth: canvas.width - padding * 2 }, children: model.agencyName } }, { type: "div", props: { style: { position: "absolute", right: padding, bottom: padding, padding: "8px 12px", backgroundColor: "#000000", color: "#ffffff", fontSize: 18 }, children: `${model.suburb}, Lusaka` } }] } },
         { type: "div", props: { style: { height: bodyHeight, padding, display: "flex", flexDirection: "row", gap: 24, overflow: "hidden" }, children: [
-          { type: "div", props: { style: { width: canvas.width * 0.58, display: "flex", flexDirection: "column", gap: 16, overflow: "hidden" }, children: [
+          { type: "div", props: { style: { width: leftColumnWidth, minWidth: 0, display: "flex", flexDirection: "column", gap: 16, overflow: "hidden" }, children: [
             { type: "div", props: { style: { color: "#fa3600", fontSize: 18, fontWeight: 700, letterSpacing: 2 }, children: model.isSale ? "EXCLUSIVE MANDATE" : "AVAILABLE FOR LEASE" } },
-            { type: "div", props: { style: { fontSize: 34, fontWeight: 700, textTransform: "uppercase", lineHeight: 1.05, maxHeight: 76, overflow: "hidden" }, children: model.title } },
-            { type: "div", props: { style: { fontSize: 18, lineHeight: 1.35, color: dark ? "#dddddd" : "#666666", maxHeight: 122, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 5 }, children: model.copy } },
+            { type: "div", props: { style: { fontSize: 34, fontWeight: 700, textTransform: "uppercase", lineHeight: 1.05, maxHeight: 76, overflow: "hidden", wordBreak: "break-word" }, children: model.title } },
+            { type: "div", props: { style: { fontSize: 18, lineHeight: 1.35, color: dark ? "#dddddd" : "#666666", maxHeight: 122, overflow: "hidden", wordBreak: "break-word" }, children: model.copy } },
             { type: "div", props: { style: { display: "flex", padding: "10px 12px", backgroundColor: "#000000", color: "#ffffff", fontSize: 20, fontWeight: 700 }, children: model.isSale ? "HOME FEATURES" : "RENTAL HIGHLIGHTS" } },
-            { type: "div", props: { style: { display: "flex", flexDirection: "column", gap: 7, fontSize: 17, lineHeight: 1.15, overflow: "hidden" }, children: features.map((feature) => ({ type: "div", props: { style: { display: "flex", gap: 8, maxHeight: 40, overflow: "hidden" }, children: [{ type: "span", props: { style: { color: "#fa3600", fontWeight: 700 }, children: "+" } }, feature] } })) } },
+            { type: "div", props: { style: { display: "flex", flexDirection: "column", gap: 7, fontSize: 17, lineHeight: 1.15, overflow: "hidden" }, children: features.map((feature) => ({ type: "div", props: { style: { display: "flex", gap: 8, maxHeight: 40, overflow: "hidden", minWidth: 0 }, children: [{ type: "span", props: { style: { color: "#fa3600", fontWeight: 700 }, children: "+" } }, { type: "span", props: { style: { minWidth: 0, overflow: "hidden", wordBreak: "break-word" }, children: feature } }] } })) } },
           ] } },
-          { type: "div", props: { style: { width: canvas.width * 0.42 - 24, display: "flex", flexDirection: "column", gap: 16 }, children: [
+          { type: "div", props: { style: { width: rightColumnWidth, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }, children: [
             { type: "div", props: { style: { padding: 20, backgroundColor: "#282828", color: "#ffffff", textAlign: "center", fontSize: 26, fontWeight: 700 }, children: `${model.currency} ${model.price == null ? "—" : new Intl.NumberFormat("en-US").format(model.price)}` } },
             { type: "div", props: { style: { display: "flex", gap: 8 }, children: [image(assets.secondaryOne, 170, 170), image(assets.secondaryTwo, 170, 170)] } },
           ] } },
         ] } },
-        { type: "div", props: { style: { height: 140, display: "flex", alignItems: "center", backgroundColor: "#000000", color: "#ffffff", padding: "18px 24px", gap: 20, fontSize: 26, fontWeight: 800 }, children: [assets.qrCode ? image(assets.qrCode, 100, 100, "center") : "", `CONTACT ${model.contact.name} • WhatsApp ${model.contact.phone}`] } },
+        { type: "div", props: { style: { height: 140, display: "flex", alignItems: "center", backgroundColor: "#000000", color: "#ffffff", padding: "18px 24px", gap: 20, fontSize: 22, fontWeight: 800, minWidth: 0, overflow: "hidden" }, children: [assets.qrCode ? image(assets.qrCode, 100, 100, "center") : "", { type: "span", props: { style: { minWidth: 0, wordBreak: "break-word" }, children: `CONTACT ${model.contact.name} • WhatsApp ${model.contact.phone}` } }] } },
       ],
     },
   };
