@@ -139,13 +139,37 @@ function AgentKioskContent() {
   const [fieldSyncStatus, setFieldSyncStatus] = useState<FieldSyncStatus | null>(null);
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
   const [earningsPeriod, setEarningsPeriod] = useState<EarningsPeriod>("all");
+  const [earningsDate, setEarningsDate] = useState<Date | null>(null);
   const [flyerModalProperty, setFlyerModalProperty] = useState<any | null>(null);
+
+  useEffect(() => {
+    setEarningsDate(new Date());
+  }, []);
 
   useEffect(() => {
     if (fieldSyncStatus === "SYNCING" && !loading && outboxCount === 0) {
       setFieldSyncStatus("SYNCED");
     }
   }, [fieldSyncStatus, loading, outboxCount]);
+
+  const formatEarningsDate = (date: Date) =>
+    new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  const formatEarningsMonth = (date: Date) =>
+    new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(date);
+  const formatEarningsWeek = (date: Date) => {
+    const end = new Date(date);
+    end.setDate(end.getDate() - (end.getDay() === 0 ? 1 : end.getDay()));
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    return `${formatEarningsDate(start)} to ${formatEarningsDate(end)}`;
+  };
+  const earningsLabels = earningsDate
+    ? {
+        today: `Today (${new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(earningsDate)})`,
+        week: `Week (${formatEarningsWeek(earningsDate)})`,
+        month: `Month (${formatEarningsMonth(earningsDate)})`,
+      }
+    : { today: "Today", week: "This week", month: "This month" };
 
 
   // Real Agent Persona & Summary State
@@ -2483,9 +2507,9 @@ function AgentKioskContent() {
                   onChange={(event) => setEarningsPeriod(event.target.value as EarningsPeriod)}
                   className="border border-editorial-border bg-white px-2.5 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-black outline-none focus:border-contour-red"
                 >
-                  <option value="today">Today</option>
-                  <option value="week">This week</option>
-                  <option value="month">This month</option>
+                  <option value="today">{earningsLabels.today}</option>
+                  <option value="week">{earningsLabels.week}</option>
+                  <option value="month">{earningsLabels.month}</option>
                   <option value="all">All time</option>
                 </select>
               </div>
