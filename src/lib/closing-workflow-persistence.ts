@@ -26,8 +26,8 @@ export async function ensureClosingWorkflow(
 ) {
   await ensureDefaultClosingRequirementTemplates(client, input.organizationId, input.actorId);
 
-  const existing = await client.closingWorkflow.findUnique({
-    where: { inquiryId: input.inquiryId },
+  const existing = await client.closingWorkflow.findFirst({
+    where: { inquiryId: input.inquiryId, organizationId: input.organizationId },
     include: { items: { orderBy: { sortOrder: "asc" } } },
   });
   if (existing) return existing;

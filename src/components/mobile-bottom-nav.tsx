@@ -128,16 +128,9 @@ export default function MobileBottomNav() {
                 <div className="relative">
                   <Icon
                     className={`w-4 h-4 ${
-                      tab.isActive
-                        ? tab.highlight
-                          ? "text-contour-red"
-                          : "text-editorial-black"
-                        : "text-editorial-muted"
+                      tab.isActive ? "text-editorial-black" : "text-editorial-muted"
                     }`}
                   />
-                  {tab.highlight && !tab.isActive && (
-                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-contour-red" />
-                  )}
                 </div>
                 <span className="text-[10px] font-geist mt-1 truncate max-w-[58px]">
                   {tab.label}
