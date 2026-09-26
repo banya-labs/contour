@@ -186,6 +186,7 @@ function AgentKioskContent() {
   const [clientLookingForFilter, setClientLookingForFilter] = useState<"ALL" | "FOR_SALE" | "FOR_RENT">("ALL");
 
   const [dealAgentFilter, setDealAgentFilter] = useState<string>("ALL");
+  const [dealSearch, setDealSearch] = useState("");
   const [agentRefreshNonce, setAgentRefreshNonce] = useState(0);
   const [statusDeal, setStatusDeal] = useState<any | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -742,7 +743,11 @@ function AgentKioskContent() {
   }, [agentDeals, clients]);
 
   const filteredDeals = React.useMemo(() => {
+    const query = dealSearch.trim().toLowerCase();
     return allDeals.filter((d: any) => {
+      if (query && !JSON.stringify(d).toLowerCase().includes(query)) {
+        return false;
+      }
       if (dealAgentFilter === "ME") {
         const userId = session?.user?.id || currentAgent.id;
         const userName = session?.user?.name || currentAgent.name;
@@ -756,7 +761,7 @@ function AgentKioskContent() {
       }
       return true;
     });
-  }, [allDeals, dealAgentFilter, session, currentAgent]);
+  }, [allDeals, dealAgentFilter, dealSearch, session, currentAgent]);
 
   // Map Format for InteractivePropertyMap
   const mapItems: PropertyMapItem[] = mapFilteredProperties.map((p: any) => ({
@@ -2402,6 +2407,18 @@ function AgentKioskContent() {
                 </button>
               </div>
 
+              <div className="relative mt-2">
+                <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-editorial-muted" />
+                <input
+                  type="search"
+                  value={dealSearch}
+                  onChange={(event) => setDealSearch(event.target.value)}
+                  placeholder="Search deals, properties, clients, suburbs, stages..."
+                  aria-label="Search deals"
+                  className="w-full border border-editorial-border bg-white py-2 pl-9 pr-3 text-xs text-editorial-black placeholder-neutral-400 outline-none transition-colors focus:border-editorial-black"
+                />
+              </div>
+
             </div>
 
             {/* Deals Stream */}
@@ -2412,7 +2429,9 @@ function AgentKioskContent() {
                   <div>
                     <h4 className="text-sm font-heading font-semibold text-editorial-black">No pipeline deals found</h4>
                     <p className="text-xs text-editorial-muted mt-1 max-w-sm mx-auto">
-                      {dealAgentFilter === "ME"
+                      {dealSearch.trim()
+                        ? `No deals match “${dealSearch.trim()}”.`
+                        : dealAgentFilter === "ME"
                         ? "You currently have no active deals assigned to your agent profile."
                         : "No deals in this stage matching your selected filter."}
                     </p>
