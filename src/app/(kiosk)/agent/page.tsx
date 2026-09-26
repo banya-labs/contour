@@ -2037,33 +2037,8 @@ function AgentKioskContent() {
                 </button>
               </div>
 
-              {/* Specific Agent Selector & Requirement Filter Pills */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5">
-                  <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
-                  <select
-                    value={clientAgentFilter}
-                    onChange={(e) => {
-                      setClientAgentFilter(e.target.value);
-                      setClientAssignmentFilter(e.target.value === "ME" ? "ASSIGNED" : "ALL");
-                      playNeutralTone();
-                    }}
-                    className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
-                  >
-                    <option value="ALL">All Agents (Organization Inquiries)</option>
-                    <option value="ME">My Clients Only</option>
-                    <option value="UNASSIGNED">Unassigned Inquiries Only</option>
-                    {allKnownAgents
-                      .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
-                      .map((a) => (
-                        <option key={a.id} value={a.id}>
-                          Agent: {a.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
+              {/* Requirement Filter Pills */}
+              <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -2106,7 +2081,6 @@ function AgentKioskContent() {
                   >
                     Tenants
                   </button>
-                </div>
               </div>
             </div>
 
