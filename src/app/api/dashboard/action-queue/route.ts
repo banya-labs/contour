@@ -58,6 +58,7 @@ const getHandler = createApiHandler({
             include: {
               property: { select: { id: true, title: true, suburb: true } },
               assignedAgent: { select: { id: true, name: true } },
+              closingWorkflow: { select: { id: true, status: true, items: { select: { status: true, required: true } } } },
             },
             orderBy: { managementCloseRequestedAt: "asc" },
             take: 20,

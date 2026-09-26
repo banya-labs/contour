@@ -198,7 +198,7 @@ export default function DashboardOverviewPage() {
       tag: "MANAGEMENT",
       title: `Management Handover — ${inq.property?.title || "Property"}`,
       detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
-      actionLabel: "Close Handover",
+      actionLabel: "Review closing",
       actionMsg: "",
     });
   });
@@ -476,7 +476,7 @@ export default function DashboardOverviewPage() {
                 <h2 className="font-heading text-base sm:text-lg font-bold text-editorial-black mt-1">
                   {managementHandoverInquiries.length} {managementHandoverInquiries.length === 1 ? "property is" : "properties are"} awaiting handover review
                 </h2>
-                <p className="text-xs text-editorial-muted mt-1">A TO has moved pipeline work to management. Review the handover before closing or progressing the deal.</p>
+        <p className="text-xs text-editorial-muted mt-1">Review the agency closing requirements, resolve blocked items, and close only when the workflow is ready.</p>
               </div>
             </div>
             <Link href="/dashboard/pipeline" className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider shrink-0">

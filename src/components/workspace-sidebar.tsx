@@ -65,7 +65,7 @@ export default function WorkspaceSidebar() {
   // Track expanded submenu states
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Assets: true,
-    "CRM & Deals": true,
+    "CRM & Deals": false,
   });
 
   // Real-time dynamic workspace title pulled from agency settings
@@ -151,8 +151,7 @@ export default function WorkspaceSidebar() {
       name: "Assets",
       icon: Home,
       items: [
-        { name: "Catalog & Vault", href: "/dashboard/properties" },
-        { name: "Live Map Hub", href: "/dashboard/map", highlight: true },
+        { name: "Properties", href: "/dashboard/properties" },
         { name: "Property Sales", href: "/dashboard/sales" },
         { name: "Rentals & Leases", href: "/dashboard/leases" },
       ],

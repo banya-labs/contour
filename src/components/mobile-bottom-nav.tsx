@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  MapPin,
   TrendingUp,
   Users,
   Menu,
@@ -68,13 +67,6 @@ export default function MobileBottomNav() {
       href: "/dashboard",
       icon: LayoutDashboard,
       isActive: pathname === "/dashboard",
-    },
-    {
-      label: "Map Hub",
-      href: "/dashboard/map",
-      icon: MapPin,
-      isActive: pathname.startsWith("/dashboard/map"),
-      highlight: true,
     },
     {
       label: "Pipeline",
