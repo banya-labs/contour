@@ -60,6 +60,11 @@ model User {
   platformAuditEvents       PlatformAuditEvent[]        @relation("PlatformAuditActor")
   supportAccessSessions     SupportAccessSession[]      @relation("SupportAccessActor")
   grantedOrganizationOffers OrganizationOffer[]         @relation("OfferGrantActor")
+  createdClosingRequirements ClosingRequirementTemplate[] @relation("ClosingRequirementCreator")
+  closingWorkflowsCreated   ClosingWorkflow[]            @relation("ClosingWorkflowCreator")
+  closingWorkflowsReviewed  ClosingWorkflow[]            @relation("ClosingWorkflowReviewer")
+  closingItemsSubmitted    ClosingChecklistItem[]        @relation("ClosingItemSubmitter")
+  closingItemsApproved     ClosingChecklistItem[]        @relation("ClosingItemApprover")
 
   @@map("user")
 }
@@ -178,6 +183,8 @@ model Organization {
   accessRequestLink      AccessRequestLink?
   accessRequests         AccessRequest[]
   surveyExtractionJobs   SurveyExtractionJob[]
+  closingRequirementTemplates ClosingRequirementTemplate[]
+  closingWorkflows        ClosingWorkflow[]
   boundaries             PropertyBoundary[]
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
   followUpTasks          FollowUpTask[]
@@ -928,6 +935,113 @@ enum PipelineOutcome {
   LOST
 }
 
+enum ClosingWorkflowStatus {
+  OPEN
+  READY
+  CLOSED
+  CANCELLED
+}
+
+enum ClosingChecklistItemStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+  NOT_APPLICABLE
+}
+
+enum ClosingAssigneeType {
+  AGENT
+  MANAGER
+}
+
+enum ClosingEvidenceType {
+  NOTE
+  DOCUMENT
+  BOOLEAN
+  AMOUNT
+}
+
+model ClosingRequirementTemplate {
+  id             String              @id @default(cuid())
+  organizationId String
+  key            String
+  label          String
+  description    String              @db.Text
+  category       String
+  required       Boolean             @default(true)
+  assigneeType   ClosingAssigneeType @default(MANAGER)
+  evidenceType   ClosingEvidenceType @default(NOTE)
+  sortOrder      Int                 @default(0)
+  active         Boolean             @default(true)
+  archivedAt     DateTime?
+  createdById    String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ClosingRequirementCreator", fields: [createdById], references: [id])
+
+  @@unique([organizationId, key])
+  @@index([organizationId, active, sortOrder])
+  @@map("closing_requirement_template")
+}
+
+model ClosingWorkflow {
+  id             String                @id @default(cuid())
+  organizationId String
+  inquiryId      String                @unique
+  status         ClosingWorkflowStatus @default(OPEN)
+  createdById    String
+  reviewedById   String?
+  completedAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inquiry      Inquiry                @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  createdBy    User                   @relation("ClosingWorkflowCreator", fields: [createdById], references: [id])
+  reviewedBy   User?                  @relation("ClosingWorkflowReviewer", fields: [reviewedById], references: [id])
+  items        ClosingChecklistItem[]
+
+  @@index([organizationId, status])
+  @@map("closing_workflow")
+}
+
+model ClosingChecklistItem {
+  id               String                     @id @default(cuid())
+  workflowId       String
+  key              String
+  label            String
+  description      String                     @db.Text
+  category         String
+  required         Boolean
+  assigneeType     ClosingAssigneeType
+  evidenceType     ClosingEvidenceType
+  sortOrder        Int
+  status           ClosingChecklistItemStatus @default(PENDING)
+  notes            String?                    @db.Text
+  evidenceValue    String?                    @db.Text
+  rejectionReason  String?                    @db.Text
+  linkedDocumentId String?
+  submittedById    String?
+  approvedById     String?
+  submittedAt      DateTime?
+  approvedAt       DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  workflow       ClosingWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  linkedDocument VaultDocument?  @relation(fields: [linkedDocumentId], references: [id], onDelete: SetNull)
+  submittedBy    User?           @relation("ClosingItemSubmitter", fields: [submittedById], references: [id])
+  approvedBy     User?           @relation("ClosingItemApprover", fields: [approvedById], references: [id])
+
+  @@unique([workflowId, key])
+  @@index([workflowId, status])
+  @@index([linkedDocumentId])
+  @@map("closing_checklist_item")
+}
+
 enum LeadSource {
   WEBSITE
   WHATSAPP
@@ -1025,6 +1139,7 @@ model Inquiry {
   lease                      Lease?
   transactions               Transaction[]
   idempotencyKey             String?
+  closingWorkflow            ClosingWorkflow?
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status])
@@ -1337,6 +1452,7 @@ model VaultDocument {
   documentRequest      DocumentRequest?      @relation(fields: [documentRequestId], references: [id], onDelete: SetNull)
   surveyExtractionJobs SurveyExtractionJob[]
   boundaries           PropertyBoundary[]
+  closingChecklistItems ClosingChecklistItem[]
 
   @@index([organizationId, docType])
   @@index([organizationId, propertyId])

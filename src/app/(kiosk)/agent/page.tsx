@@ -69,6 +69,7 @@ import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { publicPropertyPath } from "@/lib/public-property";
+import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, type ActivePipelineStage } from "@/lib/deal-workflow";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -95,6 +96,11 @@ export default function FieldAgentPwaPage() {
 type TabType = "QUEUE" | "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
 type EarningsPeriod = "today" | "week" | "month" | "all";
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
+
+const MOBILE_PIPELINE_STAGES: ReadonlyArray<{ id: ActivePipelineStage; label: string; description: string }> = ACTIVE_PIPELINE_STAGE_CODES.map((id) => {
+  const definition = getStageDefinition(id);
+  return { id, label: definition.label, description: definition.description };
+});
 
 function AgentKioskContent() {
   const router = useRouter();
@@ -157,6 +163,9 @@ function AgentKioskContent() {
 
   const [dealAgentFilter, setDealAgentFilter] = useState<string>("ALL");
   const [agentRefreshNonce, setAgentRefreshNonce] = useState(0);
+  const [statusDeal, setStatusDeal] = useState<any | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusPending, setStatusPending] = useState(false);
 
   const [currentAgent, setCurrentAgent] = useState({
     id: session?.user?.id || "",
@@ -630,20 +639,16 @@ function AgentKioskContent() {
       map.set(d.id, d);
     });
 
-    const dealStages = ["NEW_INQUIRY", "CONTACTED", "VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER"];
+    const dealStages = ["NEW_INQUIRY", "CONTACTED", "QUALIFIED", "VIEWING_SCHEDULED", "VIEWING_OR_OFFER", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER", "VERIFICATION_CLOSING"];
     (clients || []).forEach((inq: any) => {
       if (dealStages.includes(inq.status) && !map.has(inq.id)) {
+        const canonical = mapLegacyPipelineState(inq.status, inq.outcome);
         const val = Number(inq.dealValue || inq.budgetMax || inq.property?.askingPrice || inq.property?.rentalPrice || 0);
         const commissionPct = Number(inq.property?.agencyCommissionPct ?? (inq.lookingFor === "FOR_RENT" ? 10 : 5));
         const commissionAmt = val * (commissionPct / 100);
         const agentSplitEst = commissionAmt * 0.5;
 
-        let stageLabel = "New Inquiry";
-        if (inq.status === "CONTACTED") stageLabel = "Contacted Lead";
-        if (inq.status === "VIEWING_SCHEDULED") stageLabel = "Viewing Booked";
-        if (inq.status === "NEGOTIATING") stageLabel = "In Negotiation";
-        if (inq.status === "OFFER_MADE") stageLabel = "Offer Submitted";
-        if (inq.status === "MANAGEMENT_HANDOVER") stageLabel = "Management Handover Requested";
+        const stageLabel = getStageDefinition(canonical.status).label;
 
         map.set(inq.id, {
           id: inq.id,
@@ -651,7 +656,7 @@ function AgentKioskContent() {
           suburb: inq.property?.suburb || (inq.preferredSuburbs && inq.preferredSuburbs[0]) || inq.preferredArea || "Lusaka",
           clientName: inq.clientName || inq.name || "Client",
           value: val ? formatCurrency(val, inq.currency || "ZMW") : "Price Open",
-          stage: inq.status,
+          stage: canonical.status,
           stageLabel,
           agentSplitEst: `${formatCurrency(agentSplitEst, inq.currency || "ZMW")} (50% Split)`,
           assignedAgentId: inq.assignedAgentId || inq.assignedAgent?.id,
@@ -996,52 +1001,37 @@ function AgentKioskContent() {
   };
 
   // Deal Stage Advancement with real-time server synchronization
-  const advanceDealStage = async (dealId: string) => {
-    let nextStage: string = "";
-    let nextStageLabel: string = "";
-    let nextOutcome: "WON" | undefined = undefined;
-
-    const currentDeal = agentDeals.find((d) => d.id === dealId);
-    if (!currentDeal) return;
-
-    if (currentDeal.stage === "NEW_INQUIRY") {
-      nextStage = "QUALIFIED";
-      nextStageLabel = "Qualified Lead";
-    } else if (currentDeal.stage === "QUALIFIED") {
-      nextStage = "VIEWING_OR_OFFER";
-      nextStageLabel = "Viewing / Offer";
-    } else if (currentDeal.stage === "VIEWING_OR_OFFER") {
-      nextStage = "NEGOTIATING";
-      nextStageLabel = "In Negotiation";
-    } else if (currentDeal.stage === "NEGOTIATING") {
-      nextStage = "VERIFICATION_CLOSING";
-      nextStageLabel = "Verification & Closing";
-    } else {
+  const changeDealStatus = async (nextStage: ActivePipelineStage) => {
+    const currentDeal = statusDeal;
+    if (!currentDeal || currentDeal.stage === nextStage) return;
+    if (currentDeal.id.startsWith("deal_")) {
+      setStatusError("This deal is still syncing. Try again once it appears in the pipeline.");
       return;
     }
 
-      setAgentDeals((prev) =>
-      prev.map((deal) => {
-        if (deal.id !== dealId) return deal;
-        return { ...deal, stage: nextStage, stageLabel: nextStageLabel, updatedAt: "Just now" };
-      })
-      );
-      emitWorkspaceMutation(["agent", "pipeline", "clients", "dashboard"], dealId);
-    playSuccessTone();
-
-    // If it's a real database inquiry, sync to server immediately
-    if (!dealId.startsWith("deal_")) {
-      try {
-        const payload: any = { targetStage: nextStage };
-        if (nextOutcome) { payload.targetStage = "CLOSED"; payload.outcome = nextOutcome; }
-        await fetch(`/api/clients/${dealId}/transition`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } catch (err) {
-        console.error("Failed to sync deal advancement to server:", err);
+    setStatusPending(true);
+    setStatusError(null);
+    try {
+      const response = await fetch(`/api/clients/${currentDeal.id}/transition`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetStage: nextStage }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStatusError(result?.error || "Contour could not update this deal.");
+        return;
       }
+
+      const updated = { ...currentDeal, stage: nextStage, stageLabel: getStageDefinition(nextStage).label, updatedAt: "Just now" };
+      setAgentDeals((previous) => [updated, ...previous.filter((deal) => deal.id !== updated.id)]);
+      setStatusDeal(null);
+      emitWorkspaceMutation(["agent", "pipeline", "clients", "dashboard"], currentDeal.id);
+      playSuccessTone();
+    } catch {
+      setStatusError("No connection. The deal was not changed.");
+    } finally {
+      setStatusPending(false);
     }
   };
 
@@ -2476,28 +2466,68 @@ function AgentKioskContent() {
                       </span>
                     </div>
 
-                    {/* Stage Advancement Action */}
-                    <label className="flex w-full items-center gap-2 border border-editorial-border bg-editorial-black px-3 py-2 text-white">
-                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-contour-red" />
-                      <span className="sr-only">Deal stage</span>
-                      <select
-                        value={deal.stage}
-                        disabled={deal.stage === "MANAGEMENT_HANDOVER" || deal.stage === "CLOSED" || deal.stage === "COMMISSION_PAID"}
-                        onChange={() => void advanceDealStage(deal.id)}
-                        className="w-full bg-transparent text-xs font-heading font-semibold uppercase tracking-wider outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        <option value={deal.stage} className="text-editorial-black">{deal.stage === "MANAGEMENT_HANDOVER" ? "Awaiting Management Close" : deal.stageLabel}</option>
-                        {deal.stage !== "MANAGEMENT_HANDOVER" && deal.stage !== "CLOSED" && deal.stage !== "COMMISSION_PAID" && (
-                          <option value="NEXT" className="text-editorial-black">
-                            {deal.stage === "OFFER_MADE" ? "Request Management Handover" : "Advance to next stage"}
-                          </option>
-                        )}
-                      </select>
-                    </label>
+                    {/* Explicit mobile status action */}
+                    <button
+                      type="button"
+                      disabled={deal.stage === "CLOSED" || deal.stage === "VERIFICATION_CLOSING" || statusPending}
+                      onClick={() => {
+                        setStatusDeal(deal);
+                        setStatusError(null);
+                      }}
+                      className="flex w-full items-center justify-between gap-2 border border-editorial-border bg-editorial-black px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-contour-red" />
+                        <span className="text-xs font-heading font-semibold uppercase tracking-wider">Change status</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-white/70">{deal.stage === "VERIFICATION_CLOSING" ? "With management" : "Choose stage"}</span>
+                    </button>
                   </div>
                 ))
               )}
             </div>
+
+            {statusDeal && (
+              <div className="fixed inset-0 z-50 flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="mobile-status-title">
+                <div className="w-full max-w-md space-y-4 border border-editorial-border bg-white p-5 shadow-xl">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Deal status</p>
+                      <h3 id="mobile-status-title" className="mt-1 text-lg font-heading font-semibold text-editorial-black">Change status</h3>
+                      <p className="mt-1 text-xs text-editorial-muted">Current: {statusDeal.stageLabel}. Choose where this deal is now.</p>
+                    </div>
+                    <button type="button" onClick={() => setStatusDeal(null)} className="flex h-8 w-8 items-center justify-center border border-editorial-border" aria-label="Close status dialog"><X className="h-4 w-4" /></button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {MOBILE_PIPELINE_STAGES.map((stage) => {
+                      const isCurrent = statusDeal.stage === stage.id;
+                      return (
+                        <button
+                          key={stage.id}
+                          type="button"
+                          disabled={isCurrent || statusPending}
+                          onClick={() => void changeDealStatus(stage.id)}
+                          className={`w-full border px-3 py-3 text-left transition-colors ${isCurrent ? "cursor-not-allowed border-editorial-border bg-neutral-100 text-editorial-muted" : "border-editorial-border bg-white text-editorial-black hover:border-editorial-black"}`}
+                        >
+                          <span className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-heading font-semibold">{stage.label}</span>
+                            {isCurrent && <span className="text-[10px] font-mono uppercase">Current</span>}
+                          </span>
+                          <span className="mt-1 block text-xs text-editorial-muted">{stage.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {statusDeal.stage === "VERIFICATION_CLOSING" && (
+                    <p className="border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Management is responsible for verification and the final Won or Lost decision.</p>
+                  )}
+                  {statusError && <p className="border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">{statusError}</p>}
+                  {statusPending && <p className="text-xs text-editorial-muted" role="status">Saving status…</p>}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

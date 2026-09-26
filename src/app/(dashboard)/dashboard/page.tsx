@@ -26,6 +26,7 @@ import { authClient } from "@/lib/auth-client";
 import { isManagementRole } from "@/lib/authorization";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
 
 export default function DashboardOverviewPage() {
   const { data: session } = authClient.useSession();
@@ -46,6 +47,7 @@ export default function DashboardOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [completedActions, setCompletedActions] = useState<string[]>([]);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [closingWorkflowTarget, setClosingWorkflowTarget] = useState<any | null>(null);
 
   // Real action queue data from DB
   const [arrearsLeases, setArrearsLeases] = useState<any[]>([]);
@@ -119,6 +121,10 @@ export default function DashboardOverviewPage() {
   };
 
   const startHandoverClose = (inquiry: any, outcome: "WON" | "LOST") => {
+    if (outcome === "WON") {
+      setClosingWorkflowTarget(inquiry);
+      return;
+    }
     setHandoverCloseTarget(inquiry);
     setHandoverCloseOutcome(outcome);
     setHandoverLostReason("");
@@ -198,7 +204,7 @@ export default function DashboardOverviewPage() {
       tag: "MANAGEMENT",
       title: `Management Handover — ${inq.property?.title || "Property"}`,
       detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
-      actionLabel: "Close Handover",
+      actionLabel: "Review closing",
       actionMsg: "",
     });
   });
@@ -476,7 +482,7 @@ export default function DashboardOverviewPage() {
                 <h2 className="font-heading text-base sm:text-lg font-bold text-editorial-black mt-1">
                   {managementHandoverInquiries.length} {managementHandoverInquiries.length === 1 ? "property is" : "properties are"} awaiting handover review
                 </h2>
-                <p className="text-xs text-editorial-muted mt-1">A TO has moved pipeline work to management. Review the handover before closing or progressing the deal.</p>
+        <p className="text-xs text-editorial-muted mt-1">Review the agency closing requirements, resolve blocked items, and close only when the workflow is ready.</p>
               </div>
             </div>
             <Link href="/dashboard/pipeline" className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider shrink-0">
@@ -498,6 +504,14 @@ export default function DashboardOverviewPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {closingWorkflowTarget && (
+        <ClosingWorkflowPanel
+          inquiryId={closingWorkflowTarget.id}
+          onClose={() => setClosingWorkflowTarget(null)}
+          onCompleted={() => setRefreshNonce((value) => value + 1)}
+        />
       )}
 
       {handoverCloseTarget && (

@@ -32,14 +32,12 @@ import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-c
 import TitleDeedOcrUploader from "@/components/properties/title-deed-ocr-uploader";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import LocationCoordinatePicker from "@/components/properties/location-coordinate-picker";
-import { PageTabs } from "@/components/ui/page-tabs";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { PropertyCardSkeleton } from "@/components/ui/skeleton";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { publicPropertyPath } from "@/lib/public-property";
-import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 const SUBURB_GPS_COORDINATES: Record<string, [number, number]> = {
@@ -64,8 +62,6 @@ function PropertiesCatalogContent() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 250);
-  const [filterType, setFilterType] = useState("ALL");
-  const [filterOwnership, setFilterOwnership] = useState("ALL");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [canOverrideCommission, setCanOverrideCommission] = useState(false);
@@ -338,32 +334,12 @@ function PropertiesCatalogContent() {
       p.suburb?.toLowerCase().includes(query) ||
       p.landmarkDirections?.toLowerCase().includes(query);
 
-    const matchesType =
-      filterType === "ALL" || p.listingType === filterType;
-
-    const matchesOwnership =
-      filterOwnership === "ALL" || p.ownershipType === filterOwnership;
-
     const matchesAssigned =
       filterAssigned === "ALL" ||
       (session?.user?.id && (p.assignedAgentId === session.user.id || p.assignedAgent?.id === session.user.id));
 
-    return matchesSearch && matchesType && matchesOwnership && matchesAssigned;
+    return matchesSearch && matchesAssigned;
   });
-
-  const typeTabs = [
-    { id: "ALL", label: "All Listings", count: properties.length },
-    {
-      id: "FOR_SALE",
-      label: "For Sale",
-      count: properties.filter((p) => p.listingType === "FOR_SALE").length,
-    },
-    {
-      id: "FOR_RENT",
-      label: "For Rent",
-      count: properties.filter((p) => p.listingType === "FOR_RENT").length,
-    },
-  ];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
@@ -404,15 +380,6 @@ function PropertiesCatalogContent() {
         </div>
       </div>
 
-      <UnassignedMatchPanel compact />
-
-      {/* Type Filter Sliding Tabs */}
-      <PageTabs
-        tabs={typeTabs}
-        activeTab={filterType}
-        onChange={(tabId) => setFilterType(tabId)}
-      />
-
       {/* Filter Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-3 border border-editorial-border">
         <div className="relative flex-1">
@@ -426,25 +393,23 @@ function PropertiesCatalogContent() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <select
-            value={filterAssigned}
-            onChange={(e) => setFilterAssigned(e.target.value as "ALL" | "ASSIGNED")}
-            className="bg-white text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black px-3 py-1.5 border border-editorial-border focus:outline-none"
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setFilterAssigned("ALL")}
+            aria-pressed={filterAssigned === "ALL"}
+            className={`px-3 py-1.5 border text-xs font-heading font-semibold uppercase tracking-wider transition-colors ${filterAssigned === "ALL" ? "bg-editorial-black text-white border-editorial-black" : "bg-white text-editorial-black border-editorial-border hover:border-editorial-black"}`}
           >
-            <option value="ALL">All Agents</option>
-            <option value="ASSIGNED">Assigned to Me</option>
-          </select>
-
-          <select
-            value={filterOwnership}
-            onChange={(e) => setFilterOwnership(e.target.value)}
-            className="bg-white text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black px-3 py-1.5 border border-editorial-border focus:outline-none"
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterAssigned("ASSIGNED")}
+            aria-pressed={filterAssigned === "ASSIGNED"}
+            className={`px-3 py-1.5 border text-xs font-heading font-semibold uppercase tracking-wider transition-colors ${filterAssigned === "ASSIGNED" ? "bg-editorial-black text-white border-editorial-black" : "bg-white text-editorial-black border-editorial-border hover:border-editorial-black"}`}
           >
-            <option value="ALL">All Ownership</option>
-            <option value="COMPANY_OWNED">Company-Owned</option>
-            <option value="MANAGED_ON_BEHALF">Managed on Behalf</option>
-          </select>
+            My Properties
+          </button>
         </div>
       </div>
 

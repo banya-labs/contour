@@ -52,12 +52,13 @@ const getHandler = createApiHandler({
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
-          // 4. Pipeline handovers awaiting management action
+          // 4. Verification and closing actions awaiting management action
           db.inquiry.findMany({
-            where: { organizationId, status: "MANAGEMENT_HANDOVER" },
+            where: { organizationId, status: "VERIFICATION_CLOSING", outcome: null },
             include: {
               property: { select: { id: true, title: true, suburb: true } },
               assignedAgent: { select: { id: true, name: true } },
+              closingWorkflow: { select: { id: true, status: true, items: { select: { status: true, required: true } } } },
             },
             orderBy: { managementCloseRequestedAt: "asc" },
             take: 20,

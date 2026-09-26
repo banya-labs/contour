@@ -1,5 +1,29 @@
 # Simplified Deal Pipeline Transition Implementation Plan
 
+## Revision: 2026-09-26 mobile status picker and management closing workflow
+
+The desktop/web surface remains a Kanban board. The agent PWA does not become
+a mobile Kanban: each deal uses one prominent `Change status` button that opens
+a modal listing the canonical pipeline stages. The current stage is disabled/
+greyed out; selecting another stage submits the same server transition command
+used by the dashboard. The modal must show pending, success, validation, and
+failure/rollback states.
+
+`Lost` is the unsuccessful terminal outcome. `Won` is the successful terminal
+outcome. Both are terminal and cannot be reopened through the normal UI.
+
+Entering `VERIFICATION_CLOSING` creates or updates one tenant-scoped management
+action for the inquiry. The action remains open while the deal is in
+verification/closing, is visible from both the dashboard and the agent PWA,
+and is removed only when the inquiry reaches `CLOSED` with `WON` or `LOST`.
+The notification is unread until management opens the action, then becomes
+viewed without generating duplicate notifications for the same entry event.
+
+The PWA and dashboard must consume one canonical server-backed deal projection;
+the PWA must not render actionable inquiry records that are absent from the
+local mutation source. No stage movement may be implemented as a local-only
+optimistic change.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Safely move Contour from the current six-column inquiry board to a simple five-stage working pipeline plus a Won/Lost outcome register, with server-enforced movement rules and a clear agent-first UI.
@@ -163,7 +187,7 @@ NEW_INQUIRY -> QUALIFIED -> VIEWING_OR_OFFER -> NEGOTIATING -> VERIFICATION_CLOS
 
 ### Task 5: Rebuild the board around next actions, not free-form editing
 
-**Status:** Board now renders the five active stages, maps legacy records for display, sends stage/outcome changes through the transition endpoint, and confirms normal moves in a transition drawer. Rich server-returned requirement badges and full mobile UX remain. Local browser verification is blocked by the in-app browser CDP state timeout on port 3001.
+**Status:** Desktop Kanban remains the manager/operator surface and continues to use the shared transition endpoint. Mobile now uses a prominent `Change status` action with a greyed current stage, server-backed selection, and visible pending/error feedback. Inquiry-derived cards are normalized to the canonical stage before rendering, and the no-op mutation path is removed. Browser verification remains outstanding.
 
 **Files:**
 - Create: `src/components/pipeline/deal-card.tsx`
@@ -184,6 +208,8 @@ NEW_INQUIRY -> QUALIFIED -> VIEWING_OR_OFFER -> NEGOTIATING -> VERIFICATION_CLOS
 - [ ] **Step 10: Commit** with `feat(pipeline): simplify board navigation and transition feedback`.
 
 ### Task 6: Update mobile and agent-facing summaries
+
+**Status:** Mobile status selection is implemented as an explicit modal rather than a native select. The agent summary now presents canonical labels and prioritizes Verification & Closing as a management review action. The dashboard action queue treats `VERIFICATION_CLOSING` as the active management handoff until `WON` or `LOST`. `LOST` is the unsuccessful terminal outcome; `WON` is successful. A full browser smoke check and notification read-state verification remain.
 
 **Files:**
 - Modify: `src/app/api/agent/summary/route.ts`

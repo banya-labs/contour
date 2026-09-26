@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { formatCurrency } from "@/lib/utils";
+import { getStageDefinition, mapLegacyPipelineState } from "@/lib/deal-workflow";
 
 const earningsPeriods = ["today", "week", "month", "all"] as const;
 type EarningsPeriod = (typeof earningsPeriods)[number];
@@ -95,15 +96,24 @@ const getHandler = createApiHandler({
     }> = [];
 
     for (const inq of assignedInquiries) {
-      if (inq.status === "OFFER_MADE") {
+      const canonical = mapLegacyPipelineState(inq.status, inq.outcome);
+      if (canonical.status === "VERIFICATION_CLOSING") {
         queueItems.push({
-          id: `queue_offer_${inq.id}`,
-          title: `Advance ${inq.clientName}'s offer`,
-          subtitle: `${inq.property?.suburb || "Lusaka"} · Offer submitted (${formatCurrency(Number(inq.dealValue || inq.budgetMax || 0), inq.currency)})`,
+          id: `queue_verification_${inq.id}`,
+          title: `Management review for ${inq.clientName}`,
+          subtitle: `${inq.property?.suburb || "Lusaka"} · Verification and closing action required`,
           type: "DEAL",
           targetTab: "DEALS",
         });
-      } else if (inq.status === "VIEWING_SCHEDULED") {
+      } else if (canonical.status === "NEGOTIATING") {
+        queueItems.push({
+          id: `queue_negotiation_${inq.id}`,
+          title: `Continue ${inq.clientName}'s negotiation`,
+          subtitle: `${inq.property?.suburb || "Lusaka"} · ${getStageDefinition(canonical.status).label} (${formatCurrency(Number(inq.dealValue || inq.budgetMax || 0), inq.currency)})`,
+          type: "DEAL",
+          targetTab: "DEALS",
+        });
+      } else if (canonical.status === "VIEWING_OR_OFFER") {
         queueItems.push({
           id: `queue_viewing_${inq.id}`,
           title: `Conduct viewing for ${inq.clientName}`,
@@ -111,7 +121,7 @@ const getHandler = createApiHandler({
           type: "VIEWING",
           targetTab: "PROPERTIES",
         });
-      } else if (inq.status === "NEW_INQUIRY") {
+      } else if (canonical.status === "NEW_INQUIRY") {
         queueItems.push({
           id: `queue_inquiry_${inq.id}`,
           title: `Contact new lead ${inq.clientName}`,
@@ -134,7 +144,7 @@ const getHandler = createApiHandler({
     }
 
     // 6. Active Deals for this agent
-    const dealStages = ["VIEWING_SCHEDULED", "NEGOTIATING", "OFFER_MADE", "CLOSED_WON"];
+    const dealStages = ["QUALIFIED", "VIEWING_OR_OFFER", "NEGOTIATING", "VERIFICATION_CLOSING"];
     const activeDeals = assignedInquiries
       .filter((inq) => dealStages.includes(inq.status))
       .map((inq) => {
@@ -144,10 +154,8 @@ const getHandler = createApiHandler({
           ? Math.max(0, Math.ceil((lockExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
           : 30;
 
-        let stageLabel = "Viewing Scheduled";
-        if (inq.status === "NEGOTIATING") stageLabel = "Negotiating Terms";
-        if (inq.status === "OFFER_MADE") stageLabel = "Offer Submitted";
-        if (inq.status === "CLOSED_WON") stageLabel = "Deeds Lodged / Closed";
+        const canonical = mapLegacyPipelineState(inq.status, inq.outcome);
+        const stageLabel = getStageDefinition(canonical.status).label;
 
         const commissionPct = Number(inq.property?.agencyCommissionPct ?? (inq.lookingFor === "FOR_RENT" ? 10 : 5));
         const commissionAmt = val * (commissionPct / 100);
@@ -159,7 +167,7 @@ const getHandler = createApiHandler({
           suburb: inq.property?.suburb || inq.preferredSuburbs?.[0] || "Lusaka",
           clientName: inq.clientName,
           value: formatCurrency(val, inq.currency),
-          stage: inq.status,
+          stage: canonical.status,
           stageLabel,
           agentSplitEst: `${formatCurrency(agentSplitEst, inq.currency)} (50% Split)`,
           lockDaysRemaining: daysRemaining,

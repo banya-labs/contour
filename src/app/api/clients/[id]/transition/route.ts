@@ -7,6 +7,8 @@ import { smartCache } from "@/lib/cache";
 import { isManagementRole } from "@/lib/authorization";
 import { canMovePipelineStage, mapLegacyPipelineState, type PipelineRequirementContext, type PipelineStage } from "@/lib/deal-workflow";
 import { createPipelineTransitionAuditDetails } from "@/lib/pipeline-transition-audit";
+import { ensureClosingWorkflow } from "@/lib/closing-workflow-persistence";
+import { getClosingReadiness } from "@/lib/closing-workflow";
 
 const transitionSchema = z.object({
   targetStage: z.enum(["NEW_INQUIRY", "QUALIFIED", "VIEWING_OR_OFFER", "NEGOTIATING", "VERIFICATION_CLOSING", "CLOSED"]),
@@ -67,6 +69,13 @@ export const POST = createApiHandler({
     if (targetStage === "CLOSED" && body.outcome === "LOST" && !body.reason) {
       return transitionError("A reason is required when marking an inquiry lost.", 400);
     }
+    if (targetStage === "CLOSED" && body.outcome === "WON") {
+      if (!isManagementRole(contourRole)) return transitionError("Only management can close a deal as Won.", 403);
+      const closingWorkflow = await db.closingWorkflow.findFirst({ where: { organizationId, inquiryId }, include: { items: true } });
+      if (!closingWorkflow) return transitionError("Complete the closing workflow before marking the deal Won.", 409);
+      const readiness = getClosingReadiness(closingWorkflow.items.map((item) => ({ ...item, active: true })));
+      if (!readiness.ready) return transitionError("Complete all required closing requirements before marking the deal Won.", 409, { readiness });
+    }
 
     const context: PipelineRequirementContext = {
       hasClient: Boolean(inquiry.contactId && inquiry.clientName.trim() && inquiry.clientPhone.trim()),
@@ -109,10 +118,15 @@ export const POST = createApiHandler({
         data: {
           status: targetStage,
           ...(closed ? { outcome: body.outcome, closedAt: now, closedById: userId } : {}),
+          ...(targetStage === "VERIFICATION_CLOSING" ? { managementCloseRequestedAt: now, managementCloseRequestedById: userId } : {}),
           ...(body.outcome === "LOST" ? { lostReason: body.reason, failedAtStage: inquiry.status } : {}),
         },
         include: { property: { select: { id: true, status: true, title: true } } },
       });
+
+      if (targetStage === "VERIFICATION_CLOSING") {
+        await ensureClosingWorkflow(tx, { organizationId, inquiryId: inquiry.id, actorId: userId });
+      }
 
       if (closed && body.outcome === "WON" && inquiry.propertyId) {
         const propertyUpdate = await tx.property.updateMany({
