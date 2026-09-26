@@ -26,6 +26,7 @@ import { authClient } from "@/lib/auth-client";
 import { isManagementRole } from "@/lib/authorization";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
 
 export default function DashboardOverviewPage() {
   const { data: session } = authClient.useSession();
@@ -46,6 +47,7 @@ export default function DashboardOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [completedActions, setCompletedActions] = useState<string[]>([]);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [closingWorkflowTarget, setClosingWorkflowTarget] = useState<any | null>(null);
 
   // Real action queue data from DB
   const [arrearsLeases, setArrearsLeases] = useState<any[]>([]);
@@ -119,6 +121,10 @@ export default function DashboardOverviewPage() {
   };
 
   const startHandoverClose = (inquiry: any, outcome: "WON" | "LOST") => {
+    if (outcome === "WON") {
+      setClosingWorkflowTarget(inquiry);
+      return;
+    }
     setHandoverCloseTarget(inquiry);
     setHandoverCloseOutcome(outcome);
     setHandoverLostReason("");
@@ -498,6 +504,14 @@ export default function DashboardOverviewPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {closingWorkflowTarget && (
+        <ClosingWorkflowPanel
+          inquiryId={closingWorkflowTarget.id}
+          onClose={() => setClosingWorkflowTarget(null)}
+          onCompleted={() => setRefreshNonce((value) => value + 1)}
+        />
       )}
 
       {handoverCloseTarget && (
