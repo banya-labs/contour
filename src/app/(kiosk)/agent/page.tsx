@@ -209,6 +209,8 @@ function AgentKioskContent() {
   const [profilePhone, setProfilePhone] = useState("");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileDeleteConfirming, setProfileDeleteConfirming] = useState(false);
+  const [profileDeleting, setProfileDeleting] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [canAccessDashboard, setCanAccessDashboard] = useState(false);
 
@@ -216,6 +218,7 @@ function AgentKioskContent() {
     setProfileName(session?.user?.name || currentAgent.name || "");
     setProfilePhone((session?.user as any)?.phone || currentAgent.phone || "");
     setProfileError(null);
+    setProfileDeleteConfirming(false);
     setIsPersonaModalOpen(true);
   };
 
@@ -248,6 +251,22 @@ function AgentKioskContent() {
       setProfileError(error instanceof Error ? error.message : "Unable to update your profile.");
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    setProfileDeleting(true);
+    setProfileError(null);
+    try {
+      const response = await fetch("/api/organization/membership/leave", { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to remove your agency profile.");
+      await signOut();
+      router.push("/");
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "Unable to remove your agency profile.");
+      setProfileDeleting(false);
+      setProfileDeleteConfirming(false);
     }
   };
 
@@ -3687,6 +3706,41 @@ function AgentKioskContent() {
                 </div>
               </div>
             </form>
+
+            <div className="border-t border-red-200 pt-3">
+              {!profileDeleteConfirming ? (
+                <button
+                  type="button"
+                  onClick={() => setProfileDeleteConfirming(true)}
+                  className="text-xs font-bold uppercase tracking-wider text-red-700 hover:text-red-900"
+                >
+                  Delete agency profile
+                </button>
+              ) : (
+                <div className="space-y-2 border border-red-200 bg-red-50 p-3 text-xs text-red-900">
+                  <p className="font-bold">Leave this agency?</p>
+                  <p>This removes your membership from the current agency and signs you out. Your login and historical records are preserved, but you will no longer be assigned to this agency.</p>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setProfileDeleteConfirming(false)}
+                      disabled={profileDeleting}
+                      className="border border-red-200 bg-white px-3 py-2 font-bold text-red-900 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteProfile()}
+                      disabled={profileDeleting}
+                      className="bg-red-700 px-3 py-2 font-bold text-white disabled:opacity-50"
+                    >
+                      {profileDeleting ? "Removing…" : "Yes, leave agency"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
