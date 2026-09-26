@@ -126,6 +126,7 @@ function AgentKioskContent() {
   const [search, setSearch] = useState("");
   const [selectedSub, setSelectedSub] = useState("ALL");
   const [propertyTypeFilter, setPropertyTypeFilter] = useState<"ALL" | "SALE" | "RENT">("ALL");
+  const [isPropertyFilterOpen, setIsPropertyFilterOpen] = useState(false);
 
   // Selection & Modal States
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -155,7 +156,6 @@ function AgentKioskContent() {
   // Organization Agents & Multi-Facet Filters
   const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; email?: string; phone?: string; roleKey?: string }>>([]);
   const [propertyAgentFilter, setPropertyAgentFilter] = useState<string>("ALL");
-  const [mandateCategoryFilter, setMandateCategoryFilter] = useState<"ALL" | "COMPANY_OWNED" | "MANAGED">("ALL");
 
   const [clientSearch, setClientSearch] = useState("");
   const [clientAgentFilter, setClientAgentFilter] = useState<string>("ALL");
@@ -574,13 +574,6 @@ function AgentKioskContent() {
       matchesAgent = isAssigned;
     }
 
-    let matchesCategory = true;
-    if (mandateCategoryFilter === "COMPANY_OWNED") {
-      matchesCategory = p.ownershipType === "COMPANY_OWNED";
-    } else if (mandateCategoryFilter === "MANAGED") {
-      matchesCategory = p.ownershipType !== "COMPANY_OWNED";
-    }
-
     const matchesSub = selectedSub === "ALL" || p.suburb?.toLowerCase() === selectedSub.toLowerCase();
     const matchesSearch =
       !search ||
@@ -592,7 +585,7 @@ function AgentKioskContent() {
       propertyTypeFilter === "ALL" ||
       (propertyTypeFilter === "SALE" && (p.listingType === "FOR_SALE" || !p.listingType)) ||
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
-    return matchesAgent && matchesCategory && matchesSub && matchesSearch && matchesType;
+    return matchesAgent && matchesSub && matchesSearch && matchesType;
   });
 
   // Map Pins: Shows properties matching exact same multi-facet filter criteria
@@ -610,13 +603,6 @@ function AgentKioskContent() {
       matchesAgent = isAssigned;
     }
 
-    let matchesCategory = true;
-    if (mandateCategoryFilter === "COMPANY_OWNED") {
-      matchesCategory = p.ownershipType === "COMPANY_OWNED";
-    } else if (mandateCategoryFilter === "MANAGED") {
-      matchesCategory = p.ownershipType !== "COMPANY_OWNED";
-    }
-
     const matchesSub = selectedSub === "ALL" || p.suburb?.toLowerCase() === selectedSub.toLowerCase();
     const matchesSearch =
       !search ||
@@ -628,7 +614,7 @@ function AgentKioskContent() {
       propertyTypeFilter === "ALL" ||
       (propertyTypeFilter === "SALE" && (p.listingType === "FOR_SALE" || !p.listingType)) ||
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
-    return matchesAgent && matchesCategory && matchesSub && matchesSearch && matchesType;
+    return matchesAgent && matchesSub && matchesSearch && matchesType;
   });
 
   // All Organization Deals compiled from summary + live inquiries/clients
@@ -1486,50 +1472,6 @@ function AgentKioskContent() {
                     </select>
                   </div>
 
-                  <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMandateCategoryFilter("ALL");
-                        playNeutralTone();
-                      }}
-                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
-                        mandateCategoryFilter === "ALL"
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      All Types
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMandateCategoryFilter("COMPANY_OWNED");
-                        playNeutralTone();
-                      }}
-                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
-                        mandateCategoryFilter === "COMPANY_OWNED"
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      Company
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMandateCategoryFilter("MANAGED");
-                        playNeutralTone();
-                      }}
-                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
-                        mandateCategoryFilter === "MANAGED"
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      Managed
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -1597,26 +1539,44 @@ function AgentKioskContent() {
                     {sub}
                   </button>
                 ))}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsPropertyFilterOpen((open) => !open)}
+                    aria-expanded={isPropertyFilterOpen}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 border font-mono uppercase tracking-wider text-[11px] whitespace-nowrap transition-all ${
+                      propertyTypeFilter !== "ALL"
+                        ? "bg-editorial-black text-white border-editorial-black"
+                        : "bg-white text-editorial-black border-editorial-border hover:border-editorial-black"
+                    }`}
+                  >
+                    <Filter className="w-3 h-3" />
+                    Filter{propertyTypeFilter !== "ALL" ? `: ${propertyTypeFilter === "SALE" ? "Sale" : "Rent"}` : ""}
+                  </button>
+                  {isPropertyFilterOpen && (
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-32 border border-editorial-border bg-white p-1 shadow-lg">
+                      {(["ALL", "SALE", "RENT"] as const).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => {
+                            setPropertyTypeFilter(type);
+                            setIsPropertyFilterOpen(false);
+                            playNeutralTone();
+                          }}
+                          className={`block w-full px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider ${
+                            propertyTypeFilter === type ? "bg-editorial-black text-white" : "text-editorial-black hover:bg-neutral-100"
+                          }`}
+                        >
+                          {type === "ALL" ? "All listings" : type === "SALE" ? "For sale" : "For rent"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Type Filter Pill Switcher */}
               <div className="flex items-center gap-2 pt-0.5 text-xs">
-                <span className="text-[10px] uppercase font-mono text-editorial-muted font-bold">Type:</span>
-                <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px]">
-                  {(["ALL", "SALE", "RENT"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setPropertyTypeFilter(t)}
-                      className={`px-2.5 py-0.5 font-mono uppercase font-semibold transition-colors ${
-                        propertyTypeFilter === t
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      {t === "ALL" ? "All" : t === "SALE" ? "For Sale" : "For Rent"}
-                    </button>
-                  ))}
-                </div>
                 <span className="ml-auto text-[10px] text-editorial-black font-mono font-bold">
                   {filteredProperties.length} Mandates
                 </span>
@@ -1819,7 +1779,19 @@ function AgentKioskContent() {
                   return (
                     <div
                       key={p.id}
-                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 text-editorial-black transition-colors hover:border-editorial-black/50"
+                      onClick={(event) => {
+                        if ((event.target as HTMLElement).closest("button, a")) return;
+                        setSelectedPropertyDetail(p);
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedPropertyDetail(p);
+                        }
+                      }}
+                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 text-editorial-black transition-colors hover:border-editorial-black/50 cursor-pointer"
                     >
                       <div className="relative h-44 sm:h-48 overflow-hidden border border-editorial-border bg-neutral-100 shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
