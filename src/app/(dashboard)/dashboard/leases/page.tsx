@@ -19,6 +19,7 @@ import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import StatementsPage from "@/app/(dashboard)/dashboard/statements/page";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
+import { PageTabs } from "@/components/ui/page-tabs";
 
 function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
@@ -262,10 +263,14 @@ function LeasesManagementContent() {
       </div>
 
       {/* Rentals workspace tabs */}
-      <div className="flex gap-1 border-b border-editorial-border pb-2">
-        <Link href="/dashboard/leases" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Leases</Link>
-        <Link href="/dashboard/leases?tab=statements" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Statements</Link>
-      </div>
+      <PageTabs
+        tabs={[
+          { id: "leases", label: "Leases", href: "/dashboard/leases", count: leases.length },
+          { id: "statements", label: "Statements", href: "/dashboard/leases?tab=statements" },
+        ]}
+        activeTab={activeTab}
+        className="mt-1"
+      />
 
       {/* Leases Table Card */}
       <div className="bg-white border border-editorial-border">
