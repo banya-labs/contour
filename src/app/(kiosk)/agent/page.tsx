@@ -851,6 +851,7 @@ function AgentKioskContent() {
     ].filter(Boolean).join(" | ");
 
     const payload: any = {
+      idempotencyKey: `pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       clientName: newClientName.trim(),
       clientPhone: normalizedClientPhone,
       budgetMax: finalBudget,
@@ -965,6 +966,7 @@ function AgentKioskContent() {
     setAgentDeals((prev) => [newDeal, ...prev]);
 
     const payload: any = {
+      idempotencyKey: `pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       clientName: resolvedClientName,
       clientPhone: normalizePhoneNumber(resolvedClientPhone),
       budgetMax: amount,

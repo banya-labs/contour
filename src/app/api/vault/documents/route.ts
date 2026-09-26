@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { isManagementRole } from "@/lib/authorization";
+import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
 
 // ── GET /api/vault/documents ─────────────────────────────────────────────────
 export const GET = createApiHandler({
@@ -98,6 +99,11 @@ export const GET = createApiHandler({
         title: true,
         suburb: true,
         status: true,
+        listingType: true,
+        currency: true,
+        askingPrice: true,
+        rentalPrice: true,
+        propertyType: true,
         titleDeedNumber: true,
         assignedAgentId: true,
         assignedAgent: {
@@ -112,6 +118,41 @@ export const GET = createApiHandler({
       },
       orderBy: { createdAt: "desc" },
     });
+
+    const inquiries = await db.inquiry.findMany({
+      where: { organizationId: orgId, status: { not: "CLOSED" } },
+      select: {
+        id: true,
+        clientName: true,
+        lookingFor: true,
+        currency: true,
+        budgetMax: true,
+        preferredSuburbs: true,
+        propertyType: true,
+      },
+    });
+    const propertiesWithMatches = properties.map((property) => ({
+      ...property,
+      matchingInquiries: inquiries
+        .filter((inquiry) => inquiryMatchesProperty(
+          {
+            lookingFor: inquiry.lookingFor,
+            currency: inquiry.currency,
+            budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
+            preferredSuburbs: inquiry.preferredSuburbs,
+            propertyType: inquiry.propertyType,
+          },
+          {
+            listingType: property.listingType,
+            currency: property.currency,
+            askingPrice: property.askingPrice ? Number(property.askingPrice) : null,
+            rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null,
+            suburb: property.suburb,
+            propertyType: property.propertyType,
+          },
+        ))
+        .map((inquiry) => ({ id: inquiry.id, clientName: inquiry.clientName, lookingFor: inquiry.lookingFor })),
+    }));
 
     // 5. Fetch all organization members with vault grants for collaborator management
     const membersRaw = await db.user.findMany({
@@ -156,7 +197,7 @@ export const GET = createApiHandler({
       success: true,
       accessLevel,
       documents,
-      properties,
+      properties: propertiesWithMatches,
       members,
     });
   },

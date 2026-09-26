@@ -42,9 +42,11 @@ function ClientsCRMContent() {
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [createdInquiryNotice, setCreatedInquiryNotice] = useState<string | null>(null);
   const [matchResults, setMatchResults] = useState<any | null>(null);
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [matchingInquiry, setMatchingInquiry] = useState<{ name: string; matches: Array<{ id: string; title: string; suburb: string; listingType: string; currency: string; price: unknown }> } | null>(null);
 
   // Edit Client State
   const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -126,6 +128,7 @@ function ClientsCRMContent() {
               lockExpiresInDays: daysLeft,
               lastContacted: "Active client",
               status: c.status || "NEW_INQUIRY",
+              matchingProperties: c.matchingProperties || [],
             };
           });
           setClients(normalized);
@@ -303,8 +306,9 @@ function ClientsCRMContent() {
     phone: "",
     email: "",
     lookingFor: "",
-    preferredSuburbs: "Kabulonga, Woodlands",
-    budgetMax: "K 2,500,000",
+    preferredSuburbs: "",
+    budgetMax: "",
+    currency: "ZMW" as "ZMW" | "USD",
     purpose: "BUY",
     leadSource: "WALK_IN",
     assignedAgentId: "",
@@ -329,7 +333,7 @@ function ClientsCRMContent() {
     e.preventDefault();
     setFormError("");
 
-    if (!formData.name.trim() || formData.name.length < 3) {
+    if (!formData.name.trim() || formData.name.trim().length < 3) {
       setFormError("Client name is required (at least 3 characters).");
       return;
     }
@@ -337,7 +341,7 @@ function ClientsCRMContent() {
       setFormError("Select a contact before creating an inquiry.");
       return;
     }
-    if (!formData.phone.trim() || formData.phone.length < 7) {
+    if (!formData.phone.trim() || formData.phone.trim().length < 7) {
       setFormError("Valid phone number is required.");
       return;
     }
@@ -349,20 +353,20 @@ function ClientsCRMContent() {
     const budgetStr = formData.budgetMax.replace(/[^0-9.]/g, "");
     const budgetNum = parseFloat(budgetStr) || undefined;
     const lookingForType = formData.purpose === "RENT" ? "FOR_RENT" : "FOR_SALE";
-    const currency = formData.budgetMax.includes("$") ? "USD" : "ZMW";
+    const currency = formData.currency;
 
     const clientPayload = {
       idempotencyKey: `client-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      clientName: formData.name,
+      clientName: formData.name.trim(),
       contactId: formData.contactId,
-      clientPhone: formData.phone,
-      clientEmail: formData.email || undefined,
+      clientPhone: formData.phone.trim(),
+      clientEmail: formData.email.trim() || undefined,
       lookingFor: lookingForType,
-      propertyType: "STANDALONE_HOUSE",
+      propertyType: undefined,
       budgetMax: budgetNum,
       currency,
-      preferredSuburbs: formData.preferredSuburbs.split(",").map((s) => s.trim()),
-      notes: `[Source: ${formData.leadSource}] ${formData.lookingFor}`,
+      preferredSuburbs: formData.preferredSuburbs.split(",").map((s) => s.trim()).filter(Boolean),
+      notes: `[Source: ${formData.leadSource}] ${formData.lookingFor.trim()}`,
       assignedAgentId: formData.assignedAgentId || undefined,
       leadSource: formData.leadSource,
       status: "NEW_INQUIRY",
@@ -399,19 +403,21 @@ function ClientsCRMContent() {
           setClients([newClient, ...clients]);
           emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], newClient.id);
           setIsModalOpen(false);
+          setMatchingInquiry({ name: newClient.name, matches: data.client.matchingProperties || [] });
           setFormData({
             contactId: "",
             name: "",
             phone: "",
             email: "",
             lookingFor: "",
-            preferredSuburbs: "Kabulonga, Woodlands",
-            budgetMax: "K 2,500,000",
+            preferredSuburbs: "",
+            budgetMax: "",
+            currency: "ZMW",
             purpose: "BUY",
             leadSource: "WALK_IN",
             assignedAgentId: "",
           });
-          alert(`[SUCCESS] Client ${newClient.name} registered and locked for 30 days!`);
+          setCreatedInquiryNotice(`${newClient.name} was registered successfully and is locked to your agency for 30 days.`);
         } else {
           setFormError(data.error || "Failed to save client.");
         }
@@ -513,7 +519,7 @@ function ClientsCRMContent() {
         <div className="overflow-x-auto bg-white border border-editorial-border">
           <table className="w-full min-w-[900px] text-left text-xs font-geist">
             <thead className="bg-neutral-50 border-b border-editorial-border text-[10px] font-heading uppercase tracking-wider text-editorial-muted">
-              <tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Requirement</th><th className="px-4 py-3">Budget</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Assigned agent</th><th className="px-4 py-3 text-right">Actions</th></tr>
+              <tr><th className="px-4 py-3">Client</th><th className="px-4 py-3">Requirement</th><th className="px-4 py-3">Budget</th><th className="px-4 py-3">Matches</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Assigned agent</th><th className="px-4 py-3 text-right">Actions</th></tr>
             </thead>
             <tbody className="divide-y divide-editorial-border">
               {filteredClients.map((client) => (
@@ -521,6 +527,7 @@ function ClientsCRMContent() {
                   <td className="px-4 py-3"><div className="font-heading font-bold text-editorial-black">{client.name}</div><div className="text-[11px] text-editorial-muted">{client.phone} · {client.email || "No email"}</div></td>
                   <td className="px-4 py-3"><div className="font-medium text-editorial-black">{client.lookingFor}</div><div className="text-[10px] text-editorial-muted">{client.purpose} · {client.leadSource}</div></td>
                   <td className="px-4 py-3 font-mono font-bold">{client.budgetMax}</td>
+                  <td className="px-4 py-3"><div className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold uppercase ${client.matchingProperties.length ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-neutral-50 text-editorial-muted border border-editorial-border"}`}><Sparkles className="w-3 h-3" />{client.matchingProperties.length} {client.matchingProperties.length === 1 ? "property" : "properties"}</div>{client.matchingProperties.length > 0 && <div className="mt-1 max-w-[220px] truncate text-[10px] text-editorial-muted" title={client.matchingProperties.map((property: any) => property.title).join(", ")}>{client.matchingProperties.map((property: any) => property.title).join(", ")}</div>}</td>
                   <td className="px-4 py-3"><span className="border border-editorial-border bg-editorial-paper px-2 py-1 text-[10px] font-mono font-bold uppercase">{client.status}</span></td>
                   <td className="px-4 py-3"><div className="font-medium">{client.assignedAgent}</div><div className="text-[10px] text-emerald-800">Locked: {client.lockExpiresInDays}d</div></td>
                   <td className="px-4 py-3 text-right"><div className="inline-flex items-center gap-2" onClick={(event) => event.stopPropagation()}><button type="button" onClick={() => openEditModal(client)} className="p-1.5 border border-editorial-border hover:border-editorial-black" title="Edit client"><Edit3 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => setDeletingClient(client)} className="p-1.5 border border-editorial-border text-red-600 hover:border-red-600" title="Delete client"><Trash2 className="h-3.5 w-3.5" /></button><a href={`https://wa.me/${formatWhatsAppDigits(client.phone)}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-editorial-black text-white text-[10px] font-mono font-bold">WhatsApp</a></div></td>
@@ -643,12 +650,38 @@ function ClientsCRMContent() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Budget Max</label>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Budget Max (Optional)</label>
                   <input
                     type="text"
                     value={formData.budgetMax}
                     onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
+                    placeholder="e.g. 2500000"
                     className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Currency</label>
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value as "ZMW" | "USD" })}
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                  >
+                    <option value="ZMW">ZMW (K)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Preferred Suburbs (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.preferredSuburbs}
+                    onChange={(e) => setFormData({ ...formData, preferredSuburbs: e.target.value })}
+                    placeholder="e.g. Kabulonga, Woodlands"
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
                   />
                 </div>
 
@@ -952,6 +985,44 @@ function ClientsCRMContent() {
       )}
 
       {/* Interactive Modal: Delete Client Confirmation */}
+      {matchingInquiry && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white max-w-lg w-full border border-editorial-black p-5 sm:p-6 space-y-4 font-geist">
+            <div className="flex items-start justify-between border-b border-editorial-border pb-3">
+              <div>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-editorial-red">Property matching complete</p>
+                <h3 className="mt-1 font-serif font-bold text-xl text-editorial-black">{matchingInquiry.name}</h3>
+              </div>
+              <button type="button" onClick={() => { setMatchingInquiry(null); window.location.reload(); }} className="flex items-center justify-center w-8 h-8 border border-editorial-border hover:bg-editorial-black hover:text-white" title="Close">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-editorial-muted">
+              {matchingInquiry.matches.length > 0
+                ? `${matchingInquiry.matches.length} available ${matchingInquiry.matches.length === 1 ? "property matches" : "properties match"} this inquiry.`
+                : "No available properties currently match this inquiry."}
+            </p>
+            {matchingInquiry.matches.length > 0 && (
+              <div className="max-h-64 overflow-y-auto border border-editorial-border divide-y divide-editorial-border">
+                {matchingInquiry.matches.map((property) => (
+                  <div key={property.id} className="p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-editorial-black">{property.title}</p>
+                      <p className="text-xs text-editorial-muted">{property.suburb} · {property.listingType === "FOR_RENT" ? "For rent" : "For sale"}</p>
+                    </div>
+                    <span className="text-xs font-mono font-bold whitespace-nowrap">{property.price == null ? "Price on request" : `${property.currency} ${Number(property.price).toLocaleString()}`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button type="button" onClick={() => { setMatchingInquiry(null); window.location.reload(); }} className="w-full bg-editorial-black text-white px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider hover:bg-editorial-red">
+              Continue to refreshed inquiries
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Modal: Delete Client Confirmation */}
       {deletingClient && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white rounded-none max-w-md w-full p-5 sm:p-6 border border-red-600 space-y-4 font-geist">
@@ -1021,6 +1092,28 @@ function ClientsCRMContent() {
                 >
                   Confirm Delete
                 </PendingButtonContent>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {createdInquiryNotice && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-editorial-black/65 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="created-inquiry-title">
+          <div className="w-full max-w-md border border-editorial-border bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-emerald-50 text-emerald-700">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-editorial-red">Contour CRM</p>
+                <h2 id="created-inquiry-title" className="mt-1 font-heading text-lg font-bold uppercase tracking-wide text-editorial-black">Inquiry registered</h2>
+                <p className="mt-2 text-sm leading-relaxed text-editorial-muted">{createdInquiryNotice}</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end border-t border-editorial-border pt-4">
+              <button type="button" onClick={() => setCreatedInquiryNotice(null)} className="bg-editorial-black px-5 py-2.5 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-editorial-red">
+                Close
               </button>
             </div>
           </div>

@@ -194,7 +194,7 @@ function DealPipelineContent() {
             clientEmail: inquiry.clientEmail,
             propertyId: inquiry.property?.id || inquiry.propertyId || null,
             propertyTitle: inquiry.property?.title || "Unassigned property",
-            suburb: inquiry.property?.suburb || inquiry.preferredSuburbs?.[0] || "—",
+            suburb: inquiry.property?.suburb?.trim() || inquiry.preferredSuburbs?.find((area: string) => area.trim())?.trim() || "Location not specified",
             dealValue: Number(inquiry.dealValue || inquiry.property?.askingPrice || inquiry.property?.rentalPrice || 0),
             currency: inquiry.currency || "ZMW",
             agencyCommissionPct: Number(inquiry.property?.agencyCommissionPct ?? 5),
@@ -333,6 +333,7 @@ function DealPipelineContent() {
       return;
     }
     setTransitionReason("");
+    setFormError("");
     setPendingTransition({ deal, targetStage: nextStage });
   };
 
@@ -448,7 +449,7 @@ function DealPipelineContent() {
             ...d,
             propertyId: editFormData.propertyId || null,
             propertyTitle: matchedProp ? matchedProp.title : (updatedInquiry?.property?.title || "Unassigned property"),
-            suburb: matchedProp?.suburb || updatedInquiry?.property?.suburb || "—",
+            suburb: matchedProp?.suburb?.trim() || updatedInquiry?.property?.suburb?.trim() || updatedInquiry?.preferredSuburbs?.find((area: string) => area.trim())?.trim() || "Location not specified",
             assignedAgentId: editFormData.assignedAgentId || null,
             agentName: matchedAgent ? matchedAgent.name : (updatedInquiry?.assignedAgent?.name || "Unassigned"),
             dealValue: valNum,
@@ -551,7 +552,7 @@ function DealPipelineContent() {
       clientEmail: inquiry.clientEmail,
       propertyId: formData.propertyId || null,
       propertyTitle: matchedProp ? matchedProp.title : "Unassigned property",
-      suburb: matchedProp?.suburb || "—",
+      suburb: matchedProp?.suburb?.trim() || inquiry.preferredSuburbs?.find((area: string) => area.trim())?.trim() || "Location not specified",
       dealValue: valNum,
       currency: formData.currency,
       agencyCommissionPct: Number(matchedProp?.agencyCommissionPct ?? 5),
@@ -1763,16 +1764,8 @@ function DealPipelineContent() {
             </div>
             <p className="text-xs text-editorial-muted">
               Move this inquiry to <strong className="text-editorial-black">{STAGES.find((stage) => stage.id === pendingTransition.targetStage)?.label}</strong>?
-              You can move an active inquiry freely; add an optional note for context.
+              You can move inquiries between pipeline stages freely. This confirmation records the new stage.
             </p>
-            <div className="border border-editorial-border bg-neutral-50 p-3 space-y-2 text-xs">
-              <p className="font-heading font-bold uppercase tracking-wider text-editorial-black">Before you move it</p>
-              <ul className="list-disc pl-4 text-editorial-muted space-y-1">
-                <li>Confirm the buyer and property details are accurate.</li>
-                <li>Record the relevant viewing, offer, or follow-up information.</li>
-                <li>Skipping or moving backward is allowed while the inquiry is active.</li>
-              </ul>
-            </div>
             <div>
               <label htmlFor="pipeline-transition-reason" className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Note (optional)</label>
               <textarea id="pipeline-transition-reason" value={transitionReason} onChange={(event) => setTransitionReason(event.target.value)} rows={3} maxLength={2000} placeholder="Add context for this movement..." className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist text-xs" />

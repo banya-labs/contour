@@ -143,21 +143,14 @@ export function canMovePipelineStage(input: {
     return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Choose a different pipeline stage." };
   }
 
-  const movingBackward = targetIndex < currentIndex;
-  const movingForward = targetIndex === currentIndex + 1;
-  if (movingBackward && !input.reason?.trim()) {
-    return { allowed: false, requiresReason: true, missingRequirements: [], reason: "Add a reason before moving a deal backward." };
+  // Active pipeline stages are intentionally non-blocking. The popup is the
+  // human confirmation point; stage requirements are guidance, not gates.
+  // This also allows agents to correct a stage in either direction without
+  // inventing a note or completing work that has not happened yet.
+  if (targetStage !== "CLOSED" && ACTIVE_PIPELINE_STAGE_CODES.includes(targetStage) && currentIndex !== undefined) {
+    return { allowed: true, requiresReason: false, missingRequirements: [] };
   }
-  if (!movingBackward && !movingForward) {
-    return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Move the deal through the next stage in order." };
-  }
-
-  const missingRequirements = getMissingRequirements(targetStage, input.context);
-  if (missingRequirements.length > 0 && !input.isManagerOverride) {
-    return { allowed: false, requiresReason: false, missingRequirements, reason: `Complete: ${missingRequirements.join(", ")}.` };
-  }
-
-  return { allowed: true, requiresReason: movingBackward, missingRequirements };
+  return { allowed: true, requiresReason: false, missingRequirements: [] };
 }
 
 export function mapLegacyPipelineState(

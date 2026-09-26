@@ -25,7 +25,7 @@ import {
   Copy,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { evaluatePropertyAgainstAlerts, AlertMatchResult } from "@/lib/alerts/matchmaker";
+import type { AlertMatchResult } from "@/lib/alerts/matchmaker";
 import PropertyMatchSummaryModal from "@/components/alerts/property-match-summary-modal";
 import Property360DetailModal from "@/components/properties/property-360-detail-modal";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
@@ -470,10 +470,31 @@ function PropertiesCatalogContent() {
           {filteredProperties.map((p) => {
             const isSale = p.listingType === "FOR_SALE";
             const price = isSale ? p.askingPrice : p.rentalPrice;
-            const cardMatches = evaluatePropertyAgainstAlerts({
-              ...p,
-              assignedAgentName: p.assignedAgent?.name || undefined,
-            });
+            const cardMatches = (p.matchingInquiries || []).map((inquiry: any) => ({
+              id: inquiry.id,
+              alert: {
+                id: inquiry.id,
+                organizationId: p.organizationId,
+                clientName: inquiry.clientName,
+                clientPhone: inquiry.clientPhone,
+                suburb: inquiry.preferredSuburbs?.[0] || p.suburb,
+                listingType: inquiry.lookingFor,
+                maxPrice: inquiry.budgetMax || 0,
+                currency: inquiry.currency,
+                minBedrooms: 0,
+                assignedAgentName: "",
+                status: "ACTIVE",
+                matchCount: 0,
+                createdAt: "",
+              },
+              matchedProperty: p,
+              whatsAppMessage: "",
+              dispatchTimestamp: "",
+              reminderStatus: "QUEUED",
+              deliveryChannel: "WHATSAPP_DIRECT",
+              matchPercentage: 100,
+              customOfferText: "",
+            })) as AlertMatchResult[];
             const photoCount = p.photos ? p.photos.length : 1;
 
             return (
@@ -600,7 +621,7 @@ function PropertiesCatalogContent() {
                       >
                         <span className="flex items-center gap-1">
                           <Sparkles className="w-3 h-3 text-contour-red" />
-                          <span>{cardMatches.length} Matching Buyer{cardMatches.length > 1 ? "s" : ""}</span>
+                          <span>{cardMatches.length} Matching {isSale ? "Buyer" : "Renter"}{cardMatches.length > 1 ? "s" : ""}</span>
                         </span>
                         <span className="text-[10px] font-geist uppercase underline">Engage →</span>
                       </button>
@@ -1156,10 +1177,11 @@ function PropertiesCatalogContent() {
           setMatchSummaryState({
             isOpen: true,
             property: p,
-                            matches: evaluatePropertyAgainstAlerts({
-                              ...p,
-                              assignedAgentName: p.assignedAgent?.name || undefined,
-                            }),
+                            matches: ((p.matchingInquiries || []).map((inquiry: any) => ({
+                              id: inquiry.id,
+                              alert: { id: inquiry.id, organizationId: p.organizationId, clientName: inquiry.clientName, clientPhone: inquiry.clientPhone, suburb: inquiry.preferredSuburbs?.[0] || p.suburb, listingType: inquiry.lookingFor, maxPrice: inquiry.budgetMax || 0, currency: inquiry.currency, minBedrooms: 0, assignedAgentName: "", status: "ACTIVE", matchCount: 0, createdAt: "" },
+                              matchedProperty: p, whatsAppMessage: "", dispatchTimestamp: "", reminderStatus: "QUEUED", deliveryChannel: "WHATSAPP_DIRECT", matchPercentage: 100, customOfferText: "",
+                            })) as AlertMatchResult[]),
           })
         }
       />

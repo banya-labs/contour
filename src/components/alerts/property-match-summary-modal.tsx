@@ -67,18 +67,16 @@ export default function PropertyMatchSummaryModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold text-[#fa3600] uppercase tracking-widest">
-                  [MATCH-01]
-                </span>
+                <span className="text-[10px] font-mono font-bold text-[#fa3600] uppercase tracking-widest">LIVE MATCHES</span>
                 <h3 className="font-heading font-bold text-base text-[#282828] uppercase tracking-tight">
-                  Reverse-Match Engine Triggered
+                  Matching inquiries
                 </h3>
                 <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-none bg-[#fff5f3] text-[#fa3600] border border-[#fa3600]/30 uppercase">
                   {matches.length} Matching Buyer{matches.length !== 1 ? "s" : ""}
                 </span>
               </div>
               <p className="text-[11px] font-mono text-[#6b6b6b] mt-0.5">
-                Automated WhatsApp alerts dispatched. You can also reach out manually with customized offers.
+                Persisted inquiry matches for this property in your workspace.
               </p>
             </div>
           </div>
@@ -129,12 +127,12 @@ export default function PropertyMatchSummaryModal({
           {/* 2. List of Matching Buyers with Reminder Status & Manual Offer Action */}
           <div className="space-y-4">
             <h4 className="font-serif font-bold text-sm text-ink-900 flex items-center gap-2">
-              <span>Matching Buyers & Automated Delivery Status</span>
+              <span>Matched inquiries</span>
             </h4>
 
             {matches.length === 0 ? (
               <div className="p-8 text-center bg-paper-100 rounded-2xl border border-paper-200 text-ink-600 text-xs">
-                No active buyer alerts currently match these criteria in {property.suburb}.
+                No active inquiries currently match these criteria in {property.suburb}.
               </div>
             ) : (
               matches.map((match, idx) => {
@@ -152,18 +150,18 @@ export default function PropertyMatchSummaryModal({
                         <div className="flex items-center gap-2">
                           <h5 className="font-bold text-sm text-ink-900">{match.alert.clientName}</h5>
                           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            100% Match
+                            Live match
                           </span>
                         </div>
                         <div className="text-xs text-ink-600 mt-0.5">
-                          Target Budget: <strong className="text-ink-900 font-mono">{match.alert.currency} {match.alert.maxPrice.toLocaleString()}</strong> • Suburb: <strong>{match.alert.suburb}</strong>
+                          Budget: <strong className="text-ink-900 font-mono">{match.alert.currency} {match.alert.maxPrice ? match.alert.maxPrice.toLocaleString() : "Not specified"}</strong> • Area: <strong>{match.alert.suburb}</strong>
                         </div>
                       </div>
 
                       {/* Automated Reminder Status Badge with Exact Timestamp */}
                       <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Auto-Alert Sent ({match.dispatchTimestamp})</span>
+                        <span>Matched from live inquiry data</span>
                       </div>
                     </div>
 
@@ -189,7 +187,7 @@ export default function PropertyMatchSummaryModal({
                         </button>
                       </div>
                       <p className="text-ink-800 whitespace-pre-line font-sans text-xs italic">
-                        "{match.customOfferText}"
+                        "{match.customOfferText || `Hi ${match.alert.clientName}, this property matches your recorded requirements.`}"
                       </p>
                     </div>
 
@@ -197,7 +195,7 @@ export default function PropertyMatchSummaryModal({
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       {/* Option 1: WhatsApp Web Link */}
                       <a
-                        href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(match.customOfferText)}`}
+                        href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(match.customOfferText || `Hi ${match.alert.clientName}, this property matches your recorded requirements.`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="py-2 px-3 rounded-none bg-white hover:bg-[#fff5f3] border border-[#e0e0e0] text-[#282828] text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"

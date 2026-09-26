@@ -12,6 +12,7 @@ import {
   Plus,
   ImageOff,
   RefreshCw,
+  GripVertical,
 } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
@@ -48,6 +49,7 @@ export default function PropertyImageUploader({
   const [dragOver, setDragOver] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
+  const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -241,6 +243,19 @@ export default function PropertyImageUploader({
     onChange(photos, url);
   };
 
+  const handlePhotoDrop = (targetIndex: number) => {
+    if (disabled || draggedPhotoIndex === null || draggedPhotoIndex === targetIndex) {
+      setDraggedPhotoIndex(null);
+      return;
+    }
+
+    const reorderedPhotos = [...photos];
+    const [movedPhoto] = reorderedPhotos.splice(draggedPhotoIndex, 1);
+    reorderedPhotos.splice(targetIndex, 0, movedPhoto);
+    onChange(reorderedPhotos, featuredPhoto);
+    setDraggedPhotoIndex(null);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
@@ -381,7 +396,7 @@ export default function PropertyImageUploader({
               Listing Photos ({totalVisibleCount}/{maxPhotos})
             </span>
             <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-stone-500"}`}>
-              Click ★ to select cover photo
+              Drag photos to reorder · Click ★ to select cover photo
             </span>
           </div>
 
@@ -394,13 +409,23 @@ export default function PropertyImageUploader({
               return (
                 <div
                   key={`${url}-${idx}`}
+                  draggable={!disabled}
+                  onDragStart={() => setDraggedPhotoIndex(idx)}
+                  onDragEnd={() => setDraggedPhotoIndex(null)}
+                  onDragOver={(event) => {
+                    if (!disabled) event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handlePhotoDrop(idx);
+                  }}
                   className={`relative group aspect-square rounded-xl overflow-hidden border-2 transition-all ${
                     isCover
                       ? "border-[#E57A1A] ring-2 ring-[#E57A1A]/30"
                       : isDark
                       ? "border-emerald-900/60 bg-emerald-950/40"
                       : "border-stone-200 bg-stone-100"
-                  }`}
+                  } ${draggedPhotoIndex === idx ? "opacity-50" : ""}`}
                 >
                   {hasFailed ? (
                     <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-stone-100 dark:bg-stone-800 text-stone-500">
@@ -442,6 +467,15 @@ export default function PropertyImageUploader({
                     <div className="absolute top-1 left-1 bg-[#E57A1A] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow z-10 pointer-events-none">
                       COVER
                     </div>
+                  )}
+
+                  {!disabled && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-1 left-1 z-20 rounded bg-black/65 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      <GripVertical className="h-3.5 w-3.5" />
+                    </span>
                   )}
 
                   {/* Permanent Top-Right Delete Badge (Accessible on mobile/touch & hover) */}

@@ -337,6 +337,51 @@ const getHandler = createApiHandler({
       publicUrl: publicPropertyPath(targetOrgData?.slug || targetOrgData?.id || "organization", p.slug || p.id),
     }));
 
+    // Matching is persisted inquiry/property data, not a client-side demo
+    // alert store. Only expose match details to authenticated workspace users.
+    if (!isPublicRequest) {
+      const inquiries = await db.inquiry.findMany({
+        where: { organizationId: targetOrgId, status: { not: "CLOSED" } },
+        select: {
+          id: true, clientName: true, clientPhone: true, lookingFor: true,
+          currency: true, budgetMin: true, budgetMax: true, preferredSuburbs: true,
+          propertyType: true, propertyId: true, assignedAgentId: true,
+        },
+      });
+
+      for (const property of properties) {
+        const matches = inquiries.filter((inquiry) => inquiryMatchesProperty(
+          {
+            lookingFor: inquiry.lookingFor,
+            currency: inquiry.currency,
+            budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
+            preferredSuburbs: inquiry.preferredSuburbs,
+            propertyType: inquiry.propertyType,
+          },
+          {
+            listingType: property.listingType,
+            currency: property.currency,
+            askingPrice: property.askingPrice ? Number(property.askingPrice) : null,
+            rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null,
+            suburb: property.suburb,
+            propertyType: property.propertyType,
+          },
+        )).map((inquiry) => ({
+          id: inquiry.id,
+          clientName: inquiry.clientName,
+          clientPhone: inquiry.clientPhone,
+          lookingFor: inquiry.lookingFor,
+          currency: inquiry.currency,
+          budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
+          preferredSuburbs: inquiry.preferredSuburbs,
+          assignedAgentId: inquiry.assignedAgentId,
+          isAssigned: inquiry.propertyId === property.id,
+        }));
+
+        Object.assign(property, { matchingInquiries: matches, matchingInquiryCount: matches.length });
+      }
+    }
+
     const totalPages = Math.ceil(total / take);
 
     return NextResponse.json(

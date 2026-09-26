@@ -30,6 +30,7 @@ import {
   RotateCw,
   ZoomIn,
   ZoomOut,
+  Trash2,
 } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { VaultDoc } from "./vault-tree";
@@ -65,6 +66,7 @@ export function DocumentDetailsModal({
   const [imageZoom, setImageZoom] = useState<number>(1);
   const [imageLoadError, setImageLoadError] = useState<boolean>(false);
   const [imageLoading, setImageLoading] = useState<boolean>(true);
+  const [deleting, setDeleting] = useState(false);
 
   // Load complete document details when opened
   useEffect(() => {
@@ -195,6 +197,23 @@ export function DocumentDetailsModal({
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm("Delete this document from the vault? It will be soft-deleted and removed from active views.")) return;
+    setDeleting(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/vault/documents/${currentDoc.id}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "Unable to delete document");
+      onRefresh?.();
+      onClose();
+    } catch (err: any) {
+      setActionError(`Delete failed: ${err.message}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getDocTypeIcon = () => {
     if (isImage) return <FileImage className="w-5 h-5 text-purple-600" />;
     if (isWord) return <FileText className="w-5 h-5 text-blue-600" />;
@@ -246,6 +265,15 @@ export function DocumentDetailsModal({
 
           {/* Quick Action Tabs */}
           <div className="flex items-center gap-1 bg-neutral-100 p-1 border border-editorial-border self-start sm:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-semibold uppercase tracking-wider text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {deleting ? "Deleting…" : "Delete"}
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab("METADATA")}
