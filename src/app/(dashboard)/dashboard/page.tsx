@@ -121,14 +121,8 @@ export default function DashboardOverviewPage() {
   };
 
   const startHandoverClose = (inquiry: any, outcome: "WON" | "LOST") => {
-    if (outcome === "WON") {
-      setClosingWorkflowTarget(inquiry);
-      return;
-    }
-    setHandoverCloseTarget(inquiry);
-    setHandoverCloseOutcome(outcome);
-    setHandoverLostReason("");
-    setHandoverCloseError("");
+    setClosingWorkflowTarget(inquiry);
+    void outcome;
   };
 
   const handleCloseHandover = async () => {
