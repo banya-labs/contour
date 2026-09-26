@@ -143,7 +143,21 @@ export function canMovePipelineStage(input: {
     return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Choose a different pipeline stage." };
   }
 
-  return { allowed: true, requiresReason: false, missingRequirements: [] };
+  const movingBackward = targetIndex < currentIndex;
+  const movingForward = targetIndex === currentIndex + 1;
+  if (movingBackward && !input.reason?.trim()) {
+    return { allowed: false, requiresReason: true, missingRequirements: [], reason: "Add a reason before moving a deal backward." };
+  }
+  if (!movingBackward && !movingForward) {
+    return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Move the deal through the next stage in order." };
+  }
+
+  const missingRequirements = getMissingRequirements(targetStage, input.context);
+  if (missingRequirements.length > 0 && !input.isManagerOverride) {
+    return { allowed: false, requiresReason: false, missingRequirements, reason: `Complete: ${missingRequirements.join(", ")}.` };
+  }
+
+  return { allowed: true, requiresReason: movingBackward, missingRequirements };
 }
 
 export function mapLegacyPipelineState(
