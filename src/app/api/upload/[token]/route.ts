@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import { s3Storage, StorageCategory } from "@/lib/storage/s3";
 import { recordClientConsent } from "@/lib/zambia-dpa";
+import { resolveVaultDocumentTitle } from "@/lib/vault-document-title";
 import { isDocumentRequestConsumed, ONE_TIME_UPLOAD_CONSUMED_MESSAGE } from "@/lib/document-request-status";
 
 // ── GET /api/upload/[token] ──────────────────────────────────────────────────
@@ -203,7 +204,7 @@ export async function POST(
             organizationId: docRequest.organizationId,
             propertyId: docRequest.propertyId || null,
             documentRequestId: docRequest.id,
-            title: f.title || f.originalFileName,
+            title: resolveVaultDocumentTitle({ uploadedTitle: f.title, requestTitle: docRequest.title, originalFileName: f.originalFileName }),
             docType: f.docType || "NRC_PASSPORT_ID",
             classification: "CONFIDENTIAL_PII",
             objectKey: f.objectKey,
