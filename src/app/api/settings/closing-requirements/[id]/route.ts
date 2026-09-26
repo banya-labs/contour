@@ -25,6 +25,8 @@ export const DELETE = createApiHandler({ requirePermissions: ["org.update"], han
   if (!isManagementRole(contourRole)) return NextResponse.json({ success: false, error: "Only management can archive closing requirements." }, { status: 403 });
   const existing = await db.closingRequirementTemplate.findFirst({ where: { id, organizationId }, select: { id: true } });
   if (!existing) return NextResponse.json({ success: false, error: "Requirement not found." }, { status: 404 });
+  const activeRequiredCount = await db.closingRequirementTemplate.count({ where: { organizationId, active: true, archivedAt: null, required: true, id: { not: id } } });
+  if (activeRequiredCount === 0) return NextResponse.json({ success: false, error: "Keep at least one active required closing requirement." }, { status: 409 });
   const template = await db.closingRequirementTemplate.update({ where: { id }, data: { active: false, archivedAt: new Date() } });
   return NextResponse.json({ success: true, template });
 } });

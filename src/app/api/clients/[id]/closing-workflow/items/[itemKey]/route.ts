@@ -29,9 +29,10 @@ export const PATCH = createApiHandler({
     if (body.status === "APPROVED" && !management) return NextResponse.json({ success: false, error: "Only management can approve closing requirements." }, { status: 403 });
     if (body.status === "REJECTED" && !body.rejectionReason) return NextResponse.json({ success: false, error: "A rejection reason is required." }, { status: 400 });
     if (body.status === "NOT_APPLICABLE" && item.required && !management) return NextResponse.json({ success: false, error: "Only management can waive a required closing requirement." }, { status: 403 });
-    if (body.linkedDocumentId) {
-      const document = await db.vaultDocument.findFirst({ where: { id: body.linkedDocumentId, organizationId, isDeleted: false }, select: { id: true } });
-      if (!document) return NextResponse.json({ success: false, error: "The linked Vault document was not found in this agency." }, { status: 400 });
+    if (body.linkedDocumentId || (body.status === "APPROVED" && item.evidenceType === "DOCUMENT")) {
+      const document = body.linkedDocumentId ? await db.vaultDocument.findFirst({ where: { id: body.linkedDocumentId, organizationId, isDeleted: false }, select: { id: true, isVerified: true } }) : null;
+      if (!document) return NextResponse.json({ success: false, error: "A valid Vault document is required for this requirement." }, { status: 400 });
+      if (body.status === "APPROVED" && !document.isVerified) return NextResponse.json({ success: false, error: "The linked Vault document must be verified before approval." }, { status: 409 });
     }
 
     const updated = await db.$transaction(async (tx) => {
