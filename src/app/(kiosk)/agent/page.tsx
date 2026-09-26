@@ -126,6 +126,7 @@ function AgentKioskContent() {
   const [search, setSearch] = useState("");
   const [selectedSub, setSelectedSub] = useState("ALL");
   const [propertyTypeFilter, setPropertyTypeFilter] = useState<"ALL" | "SALE" | "RENT">("ALL");
+  const [isPropertyFilterOpen, setIsPropertyFilterOpen] = useState(false);
 
   // Selection & Modal States
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -138,13 +139,37 @@ function AgentKioskContent() {
   const [fieldSyncStatus, setFieldSyncStatus] = useState<FieldSyncStatus | null>(null);
   const [selectedCommissionSlip, setSelectedCommissionSlip] = useState<any | null>(null);
   const [earningsPeriod, setEarningsPeriod] = useState<EarningsPeriod>("all");
+  const [earningsDate, setEarningsDate] = useState<Date | null>(null);
   const [flyerModalProperty, setFlyerModalProperty] = useState<any | null>(null);
+
+  useEffect(() => {
+    setEarningsDate(new Date());
+  }, []);
 
   useEffect(() => {
     if (fieldSyncStatus === "SYNCING" && !loading && outboxCount === 0) {
       setFieldSyncStatus("SYNCED");
     }
   }, [fieldSyncStatus, loading, outboxCount]);
+
+  const formatEarningsDate = (date: Date) =>
+    new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  const formatEarningsMonth = (date: Date) =>
+    new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(date);
+  const formatEarningsWeek = (date: Date) => {
+    const end = new Date(date);
+    end.setDate(end.getDate() - (end.getDay() === 0 ? 1 : end.getDay()));
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    return `${formatEarningsDate(start)} to ${formatEarningsDate(end)}`;
+  };
+  const earningsLabels = earningsDate
+    ? {
+        today: `Today (${new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(earningsDate)})`,
+        week: `Week (${formatEarningsWeek(earningsDate)})`,
+        month: `Month (${formatEarningsMonth(earningsDate)})`,
+      }
+    : { today: "Today", week: "This week", month: "This month" };
 
 
   // Real Agent Persona & Summary State
@@ -155,7 +180,6 @@ function AgentKioskContent() {
   // Organization Agents & Multi-Facet Filters
   const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; email?: string; phone?: string; roleKey?: string }>>([]);
   const [propertyAgentFilter, setPropertyAgentFilter] = useState<string>("ALL");
-  const [mandateCategoryFilter, setMandateCategoryFilter] = useState<"ALL" | "COMPANY_OWNED" | "MANAGED">("ALL");
 
   const [clientSearch, setClientSearch] = useState("");
   const [clientAgentFilter, setClientAgentFilter] = useState<string>("ALL");
@@ -181,8 +205,70 @@ function AgentKioskContent() {
   });
 
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileDeleteConfirming, setProfileDeleteConfirming] = useState(false);
+  const [profileDeleting, setProfileDeleting] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [canAccessDashboard, setCanAccessDashboard] = useState(false);
+
+  const openProfileModal = () => {
+    setProfileName(session?.user?.name || currentAgent.name || "");
+    setProfilePhone((session?.user as any)?.phone || currentAgent.phone || "");
+    setProfileError(null);
+    setProfileDeleteConfirming(false);
+    setIsPersonaModalOpen(true);
+  };
+
+  const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = profileName.trim();
+    if (name.length < 2) {
+      setProfileError("Enter your full name.");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      const response = await fetch("/api/profile/phone", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone: profilePhone.trim() || null }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to update your profile.");
+
+      setCurrentAgent((current) => ({ ...current, name: data.name || name, phone: data.phone || "" }));
+      setProfileName(data.name || name);
+      setProfilePhone(data.phone || "");
+      setIsPersonaModalOpen(false);
+      await syncData();
+      playSuccessTone();
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "Unable to update your profile.");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    setProfileDeleting(true);
+    setProfileError(null);
+    try {
+      const response = await fetch("/api/organization/membership/leave", { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to remove your agency profile.");
+      await signOut();
+      router.push("/");
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "Unable to remove your agency profile.");
+      setProfileDeleting(false);
+      setProfileDeleteConfirming(false);
+    }
+  };
 
   const userRole = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined;
   const isManagerOrAdmin = Boolean(userRole && (userRole === "SUPER_ADMIN" || userRole === "BROKER_MANAGER"));
@@ -574,13 +660,6 @@ function AgentKioskContent() {
       matchesAgent = isAssigned;
     }
 
-    let matchesCategory = true;
-    if (mandateCategoryFilter === "COMPANY_OWNED") {
-      matchesCategory = p.ownershipType === "COMPANY_OWNED";
-    } else if (mandateCategoryFilter === "MANAGED") {
-      matchesCategory = p.ownershipType !== "COMPANY_OWNED";
-    }
-
     const matchesSub = selectedSub === "ALL" || p.suburb?.toLowerCase() === selectedSub.toLowerCase();
     const matchesSearch =
       !search ||
@@ -592,7 +671,7 @@ function AgentKioskContent() {
       propertyTypeFilter === "ALL" ||
       (propertyTypeFilter === "SALE" && (p.listingType === "FOR_SALE" || !p.listingType)) ||
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
-    return matchesAgent && matchesCategory && matchesSub && matchesSearch && matchesType;
+    return matchesAgent && matchesSub && matchesSearch && matchesType;
   });
 
   // Map Pins: Shows properties matching exact same multi-facet filter criteria
@@ -610,13 +689,6 @@ function AgentKioskContent() {
       matchesAgent = isAssigned;
     }
 
-    let matchesCategory = true;
-    if (mandateCategoryFilter === "COMPANY_OWNED") {
-      matchesCategory = p.ownershipType === "COMPANY_OWNED";
-    } else if (mandateCategoryFilter === "MANAGED") {
-      matchesCategory = p.ownershipType !== "COMPANY_OWNED";
-    }
-
     const matchesSub = selectedSub === "ALL" || p.suburb?.toLowerCase() === selectedSub.toLowerCase();
     const matchesSearch =
       !search ||
@@ -628,7 +700,7 @@ function AgentKioskContent() {
       propertyTypeFilter === "ALL" ||
       (propertyTypeFilter === "SALE" && (p.listingType === "FOR_SALE" || !p.listingType)) ||
       (propertyTypeFilter === "RENT" && p.listingType === "FOR_RENT");
-    return matchesAgent && matchesCategory && matchesSub && matchesSearch && matchesType;
+    return matchesAgent && matchesSub && matchesSearch && matchesType;
   });
 
   // All Organization Deals compiled from summary + live inquiries/clients
@@ -1221,7 +1293,7 @@ function AgentKioskContent() {
               type="button"
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                setIsPersonaModalOpen(true);
+                openProfileModal();
               }}
               className="flex min-h-10 w-full items-center gap-3 px-3 text-left text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
             >
@@ -1486,50 +1558,6 @@ function AgentKioskContent() {
                     </select>
                   </div>
 
-                  <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMandateCategoryFilter("ALL");
-                        playNeutralTone();
-                      }}
-                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
-                        mandateCategoryFilter === "ALL"
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      All Types
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMandateCategoryFilter("COMPANY_OWNED");
-                        playNeutralTone();
-                      }}
-                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
-                        mandateCategoryFilter === "COMPANY_OWNED"
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      Company
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMandateCategoryFilter("MANAGED");
-                        playNeutralTone();
-                      }}
-                      className={`flex-1 py-1 font-mono uppercase font-semibold transition-colors text-center ${
-                        mandateCategoryFilter === "MANAGED"
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      Managed
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -1597,26 +1625,44 @@ function AgentKioskContent() {
                     {sub}
                   </button>
                 ))}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsPropertyFilterOpen((open) => !open)}
+                    aria-expanded={isPropertyFilterOpen}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 border font-mono uppercase tracking-wider text-[11px] whitespace-nowrap transition-all ${
+                      propertyTypeFilter !== "ALL"
+                        ? "bg-editorial-black text-white border-editorial-black"
+                        : "bg-white text-editorial-black border-editorial-border hover:border-editorial-black"
+                    }`}
+                  >
+                    <Filter className="w-3 h-3" />
+                    Filter{propertyTypeFilter !== "ALL" ? `: ${propertyTypeFilter === "SALE" ? "Sale" : "Rent"}` : ""}
+                  </button>
+                  {isPropertyFilterOpen && (
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-32 border border-editorial-border bg-white p-1 shadow-lg">
+                      {(["ALL", "SALE", "RENT"] as const).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => {
+                            setPropertyTypeFilter(type);
+                            setIsPropertyFilterOpen(false);
+                            playNeutralTone();
+                          }}
+                          className={`block w-full px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider ${
+                            propertyTypeFilter === type ? "bg-editorial-black text-white" : "text-editorial-black hover:bg-neutral-100"
+                          }`}
+                        >
+                          {type === "ALL" ? "All listings" : type === "SALE" ? "For sale" : "For rent"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Type Filter Pill Switcher */}
               <div className="flex items-center gap-2 pt-0.5 text-xs">
-                <span className="text-[10px] uppercase font-mono text-editorial-muted font-bold">Type:</span>
-                <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px]">
-                  {(["ALL", "SALE", "RENT"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setPropertyTypeFilter(t)}
-                      className={`px-2.5 py-0.5 font-mono uppercase font-semibold transition-colors ${
-                        propertyTypeFilter === t
-                          ? "bg-editorial-black text-white"
-                          : "text-editorial-muted hover:text-editorial-black"
-                      }`}
-                    >
-                      {t === "ALL" ? "All" : t === "SALE" ? "For Sale" : "For Rent"}
-                    </button>
-                  ))}
-                </div>
                 <span className="ml-auto text-[10px] text-editorial-black font-mono font-bold">
                   {filteredProperties.length} Mandates
                 </span>
@@ -1819,7 +1865,19 @@ function AgentKioskContent() {
                   return (
                     <div
                       key={p.id}
-                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 text-editorial-black transition-colors hover:border-editorial-black/50"
+                      onClick={(event) => {
+                        if ((event.target as HTMLElement).closest("button, a")) return;
+                        setSelectedPropertyDetail(p);
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedPropertyDetail(p);
+                        }
+                      }}
+                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 text-editorial-black transition-colors hover:border-editorial-black/50 cursor-pointer"
                     >
                       <div className="relative h-44 sm:h-48 overflow-hidden border border-editorial-border bg-neutral-100 shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2065,33 +2123,8 @@ function AgentKioskContent() {
                 </button>
               </div>
 
-              {/* Specific Agent Selector & Requirement Filter Pills */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5">
-                  <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
-                  <select
-                    value={clientAgentFilter}
-                    onChange={(e) => {
-                      setClientAgentFilter(e.target.value);
-                      setClientAssignmentFilter(e.target.value === "ME" ? "ASSIGNED" : "ALL");
-                      playNeutralTone();
-                    }}
-                    className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
-                  >
-                    <option value="ALL">All Agents (Organization Inquiries)</option>
-                    <option value="ME">My Clients Only</option>
-                    <option value="UNASSIGNED">Unassigned Inquiries Only</option>
-                    {allKnownAgents
-                      .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
-                      .map((a) => (
-                        <option key={a.id} value={a.id}>
-                          Agent: {a.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
+              {/* Requirement Filter Pills */}
+              <div className="flex bg-neutral-100 p-0.5 border border-editorial-border text-[11px] items-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -2134,7 +2167,6 @@ function AgentKioskContent() {
                   >
                     Tenants
                   </button>
-                </div>
               </div>
             </div>
 
@@ -2337,8 +2369,8 @@ function AgentKioskContent() {
               </button>
             </div>
 
-            {/* Deals Assignment Switcher & Agent Selector */}
-            <div className="space-y-2">
+            {/* Deals Assignment Switcher */}
+            <div>
               <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
                 <button
                   type="button"
@@ -2370,28 +2402,6 @@ function AgentKioskContent() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5 text-xs">
-                <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
-                <select
-                  value={dealAgentFilter}
-                  onChange={(e) => {
-                    setDealAgentFilter(e.target.value);
-                    playNeutralTone();
-                  }}
-                  className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">All Agents (Organization Pipeline)</option>
-                  <option value="ME">My Active Deals Only</option>
-                  <option value="UNASSIGNED">Unassigned Deals Only</option>
-                  {allKnownAgents
-                    .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
-                    .map((a) => (
-                      <option key={a.id} value={a.id}>
-                        Agent: {a.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
             </div>
 
             {/* Deals Stream */}
@@ -2559,9 +2569,9 @@ function AgentKioskContent() {
                   onChange={(event) => setEarningsPeriod(event.target.value as EarningsPeriod)}
                   className="border border-editorial-border bg-white px-2.5 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-black outline-none focus:border-contour-red"
                 >
-                  <option value="today">Today</option>
-                  <option value="week">This week</option>
-                  <option value="month">This month</option>
+                  <option value="today">{earningsLabels.today}</option>
+                  <option value="week">{earningsLabels.week}</option>
+                  <option value="month">{earningsLabels.month}</option>
                   <option value="all">All time</option>
                 </select>
               </div>
@@ -3648,17 +3658,88 @@ function AgentKioskContent() {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="border border-editorial-border bg-neutral-50 p-3">
-                <p className="font-bold">{session.user.name}</p>
-                <p className="mt-1 text-editorial-muted">{session.user.email}</p>
+            {profileError && (
+              <div role="alert" className="border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                {profileError}
               </div>
-              <p className="leading-5 text-editorial-muted">Your access is tied to your authenticated Contour organization membership. Contact an organization admin to change your role or workspace access.</p>
-            </div>
+            )}
 
-            <div className="flex items-center justify-between border-t border-editorial-border pt-3">
-              <Link href="/dashboard/settings?tab=ACCOUNT" className="text-xs font-bold uppercase tracking-wider text-contour-red">Account settings</Link>
-              <button onClick={() => setIsPersonaModalOpen(false)} className="bg-editorial-black px-4 py-2 text-xs font-bold text-white">Done</button>
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="border border-editorial-border bg-neutral-50 p-3">
+                <label className="block font-heading font-semibold text-editorial-black mb-1" htmlFor="agent-profile-name">
+                  Display name
+                </label>
+                <input
+                  id="agent-profile-name"
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  value={profileName}
+                  onChange={(event) => setProfileName(event.target.value)}
+                  className="w-full border border-editorial-border bg-white px-2.5 py-2 font-mono text-xs text-editorial-black outline-none focus:border-contour-red"
+                />
+                <p className="mt-2 text-editorial-muted">This name is used across assignments, deals, client records, and your agent workspace.</p>
+              </div>
+
+              <div className="border border-editorial-border bg-neutral-50 p-3">
+                <label className="block font-heading font-semibold text-editorial-black mb-1" htmlFor="agent-profile-phone">
+                  WhatsApp number
+                </label>
+                <PhoneNumberInput
+                  value={profilePhone}
+                  onChange={setProfilePhone}
+                  label=""
+                />
+                <p className="mt-2 text-editorial-muted">This updates the WhatsApp number used for agent contact and outbound field workflows.</p>
+              </div>
+
+              <p className="leading-5 text-editorial-muted">Your email and organization access are managed by Contour authentication and your organization administrator.</p>
+
+              <div className="flex items-center justify-between border-t border-editorial-border pt-3">
+                <Link href="/dashboard/settings?tab=ACCOUNT" className="text-xs font-bold uppercase tracking-wider text-contour-red">Account settings</Link>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setIsPersonaModalOpen(false)} className="border border-editorial-border px-4 py-2 text-xs font-bold text-editorial-black">Cancel</button>
+                  <button type="submit" disabled={profileSaving} className="bg-editorial-black px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+                    {profileSaving ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <div className="border-t border-red-200 pt-3">
+              {!profileDeleteConfirming ? (
+                <button
+                  type="button"
+                  onClick={() => setProfileDeleteConfirming(true)}
+                  className="text-xs font-bold uppercase tracking-wider text-red-700 hover:text-red-900"
+                >
+                  Delete agency profile
+                </button>
+              ) : (
+                <div className="space-y-2 border border-red-200 bg-red-50 p-3 text-xs text-red-900">
+                  <p className="font-bold">Leave this agency?</p>
+                  <p>This removes your membership from the current agency and signs you out. Your login and historical records are preserved, but you will no longer be assigned to this agency.</p>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setProfileDeleteConfirming(false)}
+                      disabled={profileDeleting}
+                      className="border border-red-200 bg-white px-3 py-2 font-bold text-red-900 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteProfile()}
+                      disabled={profileDeleting}
+                      className="bg-red-700 px-3 py-2 font-bold text-white disabled:opacity-50"
+                    >
+                      {profileDeleting ? "Removing…" : "Yes, leave agency"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
