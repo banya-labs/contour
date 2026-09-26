@@ -38,6 +38,7 @@ interface RequestDetails {
 }
 
 interface UploadedFileRecord {
+  title: string;
   objectKey: string;
   originalFileName: string;
   fileSize: number;
@@ -186,6 +187,7 @@ export default function ClientUploadPortalPage() {
         }
 
         newUploadedFileRecords.push({
+          title: request?.title || file.name.replace(/\.[^/.]+$/, ""),
           objectKey: presignData.objectKey,
           originalFileName: file.name,
           fileSize: file.size,
