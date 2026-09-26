@@ -2283,8 +2283,8 @@ function AgentKioskContent() {
               </button>
             </div>
 
-            {/* Deals Assignment Switcher & Agent Selector */}
-            <div className="space-y-2">
+            {/* Deals Assignment Switcher */}
+            <div>
               <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
                 <button
                   type="button"
@@ -2316,28 +2316,6 @@ function AgentKioskContent() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5 text-xs">
-                <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
-                <select
-                  value={dealAgentFilter}
-                  onChange={(e) => {
-                    setDealAgentFilter(e.target.value);
-                    playNeutralTone();
-                  }}
-                  className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">All Agents (Organization Pipeline)</option>
-                  <option value="ME">My Active Deals Only</option>
-                  <option value="UNASSIGNED">Unassigned Deals Only</option>
-                  {allKnownAgents
-                    .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
-                    .map((a) => (
-                      <option key={a.id} value={a.id}>
-                        Agent: {a.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
             </div>
 
             {/* Deals Stream */}
