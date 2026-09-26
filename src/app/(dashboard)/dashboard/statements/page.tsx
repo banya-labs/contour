@@ -168,7 +168,6 @@ function LandlordStatementsContent() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
-      <PageTabs tabs={[{ id: "leases", label: "Active Leases", href: "/dashboard/leases" }, { id: "statements", label: "Landlord Statements", href: "/dashboard/leases?tab=statements", count: statements.length }]} activeTab="statements" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>
@@ -207,6 +206,15 @@ function LandlordStatementsContent() {
           </p>
         </div>
       </div>
+
+      <PageTabs
+        tabs={[
+          { id: "leases", label: "Active Leases", href: "/dashboard/leases" },
+          { id: "statements", label: "Landlord Statements", href: "/dashboard/leases?tab=statements", count: statements.length },
+        ]}
+        activeTab="statements"
+        className="mt-1"
+      />
 
       {/* Statements List */}
       <div className="space-y-4">
