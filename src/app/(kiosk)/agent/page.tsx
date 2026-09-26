@@ -205,8 +205,51 @@ function AgentKioskContent() {
   });
 
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [canAccessDashboard, setCanAccessDashboard] = useState(false);
+
+  const openProfileModal = () => {
+    setProfileName(session?.user?.name || currentAgent.name || "");
+    setProfilePhone((session?.user as any)?.phone || currentAgent.phone || "");
+    setProfileError(null);
+    setIsPersonaModalOpen(true);
+  };
+
+  const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = profileName.trim();
+    if (name.length < 2) {
+      setProfileError("Enter your full name.");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      const response = await fetch("/api/profile/phone", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone: profilePhone.trim() || null }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to update your profile.");
+
+      setCurrentAgent((current) => ({ ...current, name: data.name || name, phone: data.phone || "" }));
+      setProfileName(data.name || name);
+      setProfilePhone(data.phone || "");
+      setIsPersonaModalOpen(false);
+      await syncData();
+      playSuccessTone();
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "Unable to update your profile.");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   const userRole = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined;
   const isManagerOrAdmin = Boolean(userRole && (userRole === "SUPER_ADMIN" || userRole === "BROKER_MANAGER"));
@@ -1231,7 +1274,7 @@ function AgentKioskContent() {
               type="button"
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                setIsPersonaModalOpen(true);
+                openProfileModal();
               }}
               className="flex min-h-10 w-full items-center gap-3 px-3 text-left text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black hover:bg-neutral-50 transition-colors"
             >
@@ -3596,18 +3639,54 @@ function AgentKioskContent() {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="border border-editorial-border bg-neutral-50 p-3">
-                <p className="font-bold">{session.user.name}</p>
-                <p className="mt-1 text-editorial-muted">{session.user.email}</p>
+            {profileError && (
+              <div role="alert" className="border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                {profileError}
               </div>
-              <p className="leading-5 text-editorial-muted">Your access is tied to your authenticated Contour organization membership. Contact an organization admin to change your role or workspace access.</p>
-            </div>
+            )}
 
-            <div className="flex items-center justify-between border-t border-editorial-border pt-3">
-              <Link href="/dashboard/settings?tab=ACCOUNT" className="text-xs font-bold uppercase tracking-wider text-contour-red">Account settings</Link>
-              <button onClick={() => setIsPersonaModalOpen(false)} className="bg-editorial-black px-4 py-2 text-xs font-bold text-white">Done</button>
-            </div>
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div className="border border-editorial-border bg-neutral-50 p-3">
+                <label className="block font-heading font-semibold text-editorial-black mb-1" htmlFor="agent-profile-name">
+                  Display name
+                </label>
+                <input
+                  id="agent-profile-name"
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  value={profileName}
+                  onChange={(event) => setProfileName(event.target.value)}
+                  className="w-full border border-editorial-border bg-white px-2.5 py-2 font-mono text-xs text-editorial-black outline-none focus:border-contour-red"
+                />
+                <p className="mt-2 text-editorial-muted">This name is used across assignments, deals, client records, and your agent workspace.</p>
+              </div>
+
+              <div className="border border-editorial-border bg-neutral-50 p-3">
+                <label className="block font-heading font-semibold text-editorial-black mb-1" htmlFor="agent-profile-phone">
+                  WhatsApp number
+                </label>
+                <PhoneNumberInput
+                  value={profilePhone}
+                  onChange={setProfilePhone}
+                  label=""
+                />
+                <p className="mt-2 text-editorial-muted">This updates the WhatsApp number used for agent contact and outbound field workflows.</p>
+              </div>
+
+              <p className="leading-5 text-editorial-muted">Your email and organization access are managed by Contour authentication and your organization administrator.</p>
+
+              <div className="flex items-center justify-between border-t border-editorial-border pt-3">
+                <Link href="/dashboard/settings?tab=ACCOUNT" className="text-xs font-bold uppercase tracking-wider text-contour-red">Account settings</Link>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setIsPersonaModalOpen(false)} className="border border-editorial-border px-4 py-2 text-xs font-bold text-editorial-black">Cancel</button>
+                  <button type="submit" disabled={profileSaving} className="bg-editorial-black px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+                    {profileSaving ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
