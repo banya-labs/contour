@@ -126,6 +126,7 @@ function AgentKioskContent() {
   const [contacts, setContacts] = useState<AgentContact[]>([]);
   const [contactSearch, setContactSearch] = useState("");
   const [contactsLoading, setContactsLoading] = useState(false);
+  const [selectedInquiryContactId, setSelectedInquiryContactId] = useState("");
   const [contactEditorOpen, setContactEditorOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<AgentContact | null>(null);
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", notes: "" });
@@ -465,14 +466,14 @@ function AgentKioskContent() {
   }, [earningsPeriod, session, syncData, agentRefreshNonce]);
 
   useEffect(() => {
-    if (activeTab !== "CLIENTS" || clientSubTab !== "CONTACTS") return;
+    if (activeTab !== "CLIENTS" || (clientSubTab !== "CONTACTS" && intakeDrawer !== "CLIENT")) return;
     setContactsLoading(true);
     void fetch(`/api/contacts?search=${encodeURIComponent(contactSearch)}`, { cache: "no-store" })
       .then((response) => response.json())
       .then((data) => { if (data.success) setContacts(Array.isArray(data.contacts) ? data.contacts : []); })
       .catch(() => setContacts([]))
       .finally(() => setContactsLoading(false));
-  }, [activeTab, clientSubTab, contactSearch]);
+  }, [activeTab, clientSubTab, contactSearch, intakeDrawer]);
 
   const openContactEditor = (contact?: AgentContact) => {
     setEditingContact(contact || null);
@@ -1001,6 +1002,7 @@ function AgentKioskContent() {
       propertyId: newClientAttachOffer && attachedOfferProperty ? attachedOfferProperty.id : undefined,
       dealValue: newClientAttachOffer && offerVal > 0 ? offerVal : undefined,
       exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      contactId: selectedInquiryContactId || undefined,
     };
 
     if (newClientAttachOffer && attachedOfferProperty) {
@@ -1035,6 +1037,7 @@ function AgentKioskContent() {
     setNewClientAttachOffer(false);
     setNewClientOfferPropertyId("");
     setNewClientOfferAmount("");
+    setSelectedInquiryContactId("");
     } catch {
       setFieldSyncStatus("FAILED");
     } finally {
@@ -3007,6 +3010,14 @@ function AgentKioskContent() {
             {/* 2. Client Intake Form */}
             {intakeDrawer === "CLIENT" && (
               <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
+                <div className="border border-editorial-border bg-neutral-50/50 p-3">
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">Contact record</label>
+                  <select value={selectedInquiryContactId} onChange={(event) => { const contact = contacts.find((candidate) => candidate.id === event.target.value); setSelectedInquiryContactId(event.target.value); if (contact) { setNewClientName(contact.name); setNewClientPhone(contact.phone); } }} className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none focus:border-editorial-black">
+                    <option value="">Create or link a new contact</option>
+                    {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.phone}</option>)}
+                  </select>
+                  <p className="mt-1 text-[10px] text-editorial-muted">Linking an existing contact allows multiple inquiries under one person.</p>
+                </div>
                 <div>
                   <label className="block text-editorial-black font-heading font-semibold mb-1">
                     Client Full Name <span className="text-contour-red">*</span>
