@@ -66,7 +66,7 @@ function LeasesManagementContent() {
     depositAmount: "",
     paymentDayOfMonth: "",
     currency: "ZMW",
-    managementFeePercent: "10",
+    managementFeePercent: "",
     leaseStartDate: "",
     leaseEndDate: "",
   });
@@ -166,6 +166,11 @@ function LeasesManagementContent() {
       setFormError("Payment day must be a whole number from 1 to 28.");
       return;
     }
+    const feePercent = parseFloat(formData.managementFeePercent);
+    if (!Number.isFinite(feePercent) || feePercent < 0 || feePercent > 100) {
+      setFormError("Management fee must be entered as a percentage from 0 to 100.");
+      return;
+    }
 
     const leasePayload = {
       propertyId: formData.propertyId,
@@ -174,7 +179,7 @@ function LeasesManagementContent() {
       tenantPhone: formData.tenantPhone,
       monthlyRent: rentNum,
       currency: formData.currency,
-      managementFeePercent: parseFloat(formData.managementFeePercent) || 10,
+      managementFeePercent: feePercent,
       leaseStartDate: formData.leaseStartDate,
       leaseEndDate: formData.leaseEndDate,
       depositAmount: depositNum,
@@ -202,7 +207,7 @@ function LeasesManagementContent() {
             depositAmount: "",
             paymentDayOfMonth: "",
             currency: "ZMW",
-            managementFeePercent: "10",
+            managementFeePercent: "",
             leaseStartDate: "",
             leaseEndDate: "",
           });
@@ -611,6 +616,7 @@ function LeasesManagementContent() {
                     value={formData.managementFeePercent}
                     onChange={(e) => setFormData({ ...formData, managementFeePercent: e.target.value })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    required
                   />
                 </div>
 
