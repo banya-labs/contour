@@ -229,7 +229,6 @@ function ClientsCRMContent() {
           notes: `[Source: ${editFormData.leadSource}] ${editFormData.lookingFor.trim()}`,
           leadSource: editFormData.leadSource,
           assignedAgentId: editFormData.assignedAgentId || null,
-          status: editFormData.status,
         }),
       });
 
@@ -267,7 +266,7 @@ function ClientsCRMContent() {
             assignedAgentId: editFormData.assignedAgentId || "",
             assignedAgent: assignedName,
             lockExpiresInDays: editFormData.assignedAgentId ? 30 : c.lockExpiresInDays,
-            status: editFormData.status,
+            status: updatedInquiry?.status || c.status,
           };
         })
       );
@@ -893,16 +892,21 @@ function ClientsCRMContent() {
                   </label>
                   <select
                     value={editFormData.status}
-                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                    onChange={() => undefined}
+                    disabled
                     className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
                   >
                     <option value="NEW_INQUIRY">New Inquiry</option>
+                    <option value="QUALIFIED">Qualified</option>
                     <option value="CONTACTED">Contacted</option>
+                    <option value="VIEWING_OR_OFFER">Viewing / Offer</option>
                     <option value="VIEWING_SCHEDULED">Viewing Scheduled</option>
                     <option value="NEGOTIATING">Negotiating</option>
                     <option value="OFFER_MADE">Offer Made</option>
+                    <option value="VERIFICATION_CLOSING">Verification / Closing</option>
                     <option value="CLOSED">Closed</option>
                   </select>
+                  <p className="mt-1 text-[10px] text-editorial-muted">Pipeline stages are changed through the transition workflow.</p>
                 </div>
               </div>
 
