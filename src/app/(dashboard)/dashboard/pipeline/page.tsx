@@ -25,6 +25,7 @@ import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
+import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
 import { mapLegacyPipelineState } from "@/lib/deal-workflow";
 import {
   emitWorkspaceMutation,
@@ -146,6 +147,8 @@ function DealPipelineContent() {
   const [selectedClosedDeal, setSelectedClosedDeal] = useState<Deal | null>(null);
   const [lostReason, setLostReason] = useState("");
   const [pendingTransition, setPendingTransition] = useState<{ deal: Deal; targetStage: Deal["stage"] } | null>(null);
+  const [closingWorkflowPrompt, setClosingWorkflowPrompt] = useState<Deal | null>(null);
+  const [closingWorkflowTarget, setClosingWorkflowTarget] = useState<Deal | null>(null);
   const [transitionReason, setTransitionReason] = useState("");
 
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
@@ -335,6 +338,7 @@ function DealPipelineContent() {
       );
       emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], deal.id);
       setPendingTransition(null);
+      if (targetStage === "VERIFICATION_CLOSING") setClosingWorkflowPrompt(deal);
     } finally {
       setPendingDealActions((state) => setKeyPending(state, actionKey, false));
     }
@@ -1733,6 +1737,30 @@ function DealPipelineContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {closingWorkflowTarget && (
+        <ClosingWorkflowPanel
+          inquiryId={closingWorkflowTarget.id}
+          onClose={() => setClosingWorkflowTarget(null)}
+          onCompleted={() => { setClosingWorkflowTarget(null); loadAllPipelineData(); }}
+        />
+      )}
+
+      {closingWorkflowPrompt && (
+        <div className="fixed inset-0 z-[75] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md border-2 border-contour-red p-5 space-y-4 shadow-xl">
+            <div>
+              <p className="text-[10px] font-geist font-bold uppercase tracking-widest text-contour-red">Verification & Closing</p>
+              <h2 className="font-heading font-bold text-lg text-editorial-black mt-1">Start the closing workflow?</h2>
+              <p className="text-xs text-editorial-muted mt-2">{closingWorkflowPrompt.clientName} is now in the final closing stage. Work through the required evidence before marking the deal Won or Lost.</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-editorial-border pt-3">
+              <button type="button" onClick={() => setClosingWorkflowPrompt(null)} className="px-3 py-2 border border-editorial-border text-xs font-heading font-semibold uppercase tracking-wider">Later</button>
+              <button type="button" onClick={() => { setClosingWorkflowTarget(closingWorkflowPrompt); setClosingWorkflowPrompt(null); }} className="px-3 py-2 bg-editorial-black text-white text-xs font-heading font-semibold uppercase tracking-wider">Start workflow</button>
+            </div>
           </div>
         </div>
       )}
