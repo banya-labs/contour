@@ -142,20 +142,26 @@ function LandlordStatementsContent() {
     const actionKey = `${id}:authorize`;
     setPendingAuthorizations((state) => setKeyPending(state, actionKey, true));
     try {
+      const statement = statements.find((item) => item.id === id);
+      const nextStatus = statement?.status === "DRAFT"
+        ? "APPROVED_BY_MANAGER"
+        : statement?.status === "APPROVED_BY_MANAGER"
+        ? "SENT_TO_LANDLORD"
+        : "PAID_OUT";
       const res = await fetch("/api/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: "PAID_OUT" })
+        body: JSON.stringify({ id, status: nextStatus })
       });
       const data = await res.json();
       if (data.success && data.statement) {
-        setStatements(prev => prev.map(s => s.id === id ? { ...s, status: "PAID_OUT" } : s));
-        alert("DocuSign Seam Signed! Landlord Statement approved and remittance payout authorized.");
+        setStatements(prev => prev.map(s => s.id === id ? { ...s, status: data.statement.status } : s));
+        window.dispatchEvent(new CustomEvent(WORKSPACE_MUTATION_EVENT, { detail: { scopes: ["leases", "dashboard"], entityId: id } }));
       } else {
-        alert("Failed to authorize statement: " + (data.error || "Unknown error"));
+        setFormError(data.error || "Unable to update statement.");
       }
     } catch (caught) {
-      alert("Error authorizing statement: " + (caught instanceof Error ? caught.message : "Unknown error"));
+      setFormError(caught instanceof Error ? caught.message : "Unable to update statement.");
     } finally {
       setPendingAuthorizations((state) => setKeyPending(state, actionKey, false));
     }
@@ -221,6 +227,13 @@ function LandlordStatementsContent() {
         ) : (
           statements.map((stmt) => {
             const isAuthorized = stmt.status === "PAID_OUT";
+            const actionLabel = stmt.status === "DRAFT"
+              ? "Approve statement"
+              : stmt.status === "APPROVED_BY_MANAGER"
+              ? "Send to landlord"
+              : stmt.status === "SENT_TO_LANDLORD"
+              ? "Confirm paid out"
+              : null;
             const monthStr = `${MONTHS[stmt.statementMonth - 1]} ${stmt.statementYear}`;
 
             return (
@@ -308,7 +321,7 @@ function LandlordStatementsContent() {
                         pendingLabel="Authorising statement…"
                         icon={<Lock className="h-3.5 w-3.5" />}
                       >
-                        Authorize &amp; Disburse Remittance
+                        {actionLabel}
                       </PendingButtonContent>
                     </button>
                   ) : (
