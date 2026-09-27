@@ -3,7 +3,7 @@ import { getFlyerExportDimensions } from "./flyer-export";
 
 describe("flyer export dimensions", () => {
   it("uses the same integer capture dimensions for scale and output", () => {
-    expect(getFlyerExportDimensions({ getBoundingClientRect: () => ({ width: 679.4, height: 849.2 }) }, "4:5")).toEqual({
+    expect(getFlyerExportDimensions({ getBoundingClientRect: () => ({ width: 679.4, height: 777 }) }, "4:5")).toEqual({
       width: 679,
       height: 849,
       pixelRatio: 1080 / 679,
