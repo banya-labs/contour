@@ -380,7 +380,7 @@ export default function WorkspaceSidebar() {
           </span>
         </button>
 
-        {isAccountMenuOpen && <div id="workspace-account-menu" className="space-y-1 pt-1">
+        {isAccountMenuOpen ? <div id="workspace-account-menu" className="space-y-1 pt-1">
           <Link href="/dashboard/settings?tab=account" title="View Account Profile" className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors">
             <Users className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
             <span className="hidden lg:inline">Account Profile</span>
@@ -402,9 +402,8 @@ export default function WorkspaceSidebar() {
             <LogOut className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
             <span className="hidden lg:inline">Logout</span>
           </button>
-        </div>}
+        </div> : null}
         </div>
-      </div>
     </aside>
   );
 }
