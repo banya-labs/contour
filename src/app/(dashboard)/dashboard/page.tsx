@@ -562,7 +562,7 @@ export default function DashboardOverviewPage() {
             </h3>
           </div>
           <span className="text-[10px] font-geist uppercase tracking-wider px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-muted">
-            Automated Operational Dispatch
+            Server-confirmed operational actions
           </span>
         </div>
         {!loading && pendingTransactionRecordCount > pendingTransactions.length && (
