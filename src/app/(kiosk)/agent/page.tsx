@@ -126,6 +126,11 @@ function AgentKioskContent() {
   const [contacts, setContacts] = useState<AgentContact[]>([]);
   const [contactSearch, setContactSearch] = useState("");
   const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactEditorOpen, setContactEditorOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<AgentContact | null>(null);
+  const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [contactSaveError, setContactSaveError] = useState("");
+  const [contactSaving, setContactSaving] = useState(false);
   const [propertyViewMode, setPropertyViewMode] = useState<"LIST" | "MAP">("LIST");
 
   // Search & Filters
@@ -466,6 +471,26 @@ function AgentKioskContent() {
       .catch(() => setContacts([]))
       .finally(() => setContactsLoading(false));
   }, [activeTab, clientSubTab, contactSearch]);
+
+  const openContactEditor = (contact?: AgentContact) => {
+    setEditingContact(contact || null);
+    setContactForm({ name: contact?.name || "", phone: contact?.phone || "", email: contact?.email || "", notes: "" });
+    setContactSaveError("");
+    setContactEditorOpen(true);
+  };
+
+  const saveContact = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setContactSaving(true);
+    setContactSaveError("");
+    try {
+      const response = await fetch(editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts", { method: editingContact ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(contactForm) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to save contact.");
+      setContactEditorOpen(false);
+      setContacts((current) => editingContact ? current.map((contact) => contact.id === editingContact.id ? { ...contact, ...data.contact } : contact) : [data.contact, ...current]);
+    } catch (error) { setContactSaveError(error instanceof Error ? error.message : "Unable to save contact."); } finally { setContactSaving(false); }
+  };
 
   useEffect(() => {
     const handleWorkspaceMutation = (event: Event) => {
@@ -2035,9 +2060,10 @@ function AgentKioskContent() {
               <button type="button" onClick={() => setClientSubTab("CONTACTS")} className={`flex-1 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider ${clientSubTab === "CONTACTS" ? "border-b-2 border-contour-red text-editorial-black" : "text-editorial-muted"}`}>Contacts</button>
             </div>
             {clientSubTab === "CONTACTS" ? <div className="space-y-3">
-              <div className="flex items-center justify-between bg-white p-4 border border-editorial-border"><div><h2 className="text-xs font-mono font-bold uppercase tracking-wider text-contour-red">Organization contacts</h2><p className="text-[11px] text-editorial-muted mt-0.5">Reusable people records connected to multiple inquiries.</p></div><button type="button" onClick={() => setIntakeDrawer("CLIENT")} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-heading font-semibold uppercase tracking-wider"><Plus className="inline w-3 h-3 mr-1" />Add contact</button></div>
+              <div className="flex items-center justify-between bg-white p-4 border border-editorial-border"><div><h2 className="text-xs font-mono font-bold uppercase tracking-wider text-contour-red">Organization contacts</h2><p className="text-[11px] text-editorial-muted mt-0.5">Reusable people records connected to multiple inquiries.</p></div><button type="button" onClick={() => openContactEditor()} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-heading font-semibold uppercase tracking-wider"><Plus className="inline w-3 h-3 mr-1" />Add contact</button></div>
               <div className="relative"><Search className="w-3.5 h-3.5 text-editorial-muted absolute left-3.5 top-1/2 -translate-y-1/2" /><input value={contactSearch} onChange={(event) => setContactSearch(event.target.value)} placeholder="Search contacts by name, phone, or email..." className="w-full bg-white border border-editorial-border pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-editorial-black" /></div>
-              {contactsLoading ? <div className="bg-white border border-editorial-border p-8 text-center text-xs text-editorial-muted">Loading contacts…</div> : contacts.length === 0 ? <div className="bg-white border border-dashed border-editorial-border p-8 text-center text-xs text-editorial-muted">No contacts found.</div> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{contacts.map((contact) => <article key={contact.id} className="bg-white border border-editorial-border p-4 space-y-2"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-heading font-semibold">{contact.name}</h3><p className="text-xs text-editorial-muted font-mono">{contact.phone}</p></div><Users className="w-4 h-4 text-contour-red" /></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="pt-2 border-t border-editorial-border text-[10px] font-mono uppercase text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>}
+              {contactsLoading ? <div className="bg-white border border-editorial-border p-8 text-center text-xs text-editorial-muted">Loading contacts…</div> : contacts.length === 0 ? <div className="bg-white border border-dashed border-editorial-border p-8 text-center text-xs text-editorial-muted">No contacts found.</div> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{contacts.map((contact) => <article key={contact.id} className="bg-white border border-editorial-border p-4 space-y-2"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-heading font-semibold">{contact.name}</h3><p className="text-xs text-editorial-muted font-mono">{contact.phone}</p></div><button type="button" onClick={() => openContactEditor(contact)} className="text-[10px] font-mono uppercase text-contour-red">Edit</button></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="pt-2 border-t border-editorial-border text-[10px] font-mono uppercase text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>}
+              {contactEditorOpen && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center"><form onSubmit={saveContact} className="w-full max-w-md space-y-4 border border-editorial-black bg-white p-5 shadow-2xl"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact registry</p><h3 className="font-heading font-bold uppercase">{editingContact ? "Edit contact" : "Add contact"}</h3></div><button type="button" onClick={() => setContactEditorOpen(false)} aria-label="Close contact editor"><X className="w-4 h-4" /></button></div>{contactSaveError && <p className="border border-red-200 bg-red-50 p-2 text-xs text-red-700">{contactSaveError}</p>}<input required minLength={2} value={contactForm.name} onChange={(event) => setContactForm({ ...contactForm, name: event.target.value })} placeholder="Full name" className="w-full border border-editorial-border px-3 py-2 text-xs" /><PhoneNumberInput value={contactForm.phone} onChange={(phone) => setContactForm({ ...contactForm, phone })} label="Phone number" required /><input type="email" value={contactForm.email} onChange={(event) => setContactForm({ ...contactForm, email: event.target.value })} placeholder="Email (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" /><textarea value={contactForm.notes} onChange={(event) => setContactForm({ ...contactForm, notes: event.target.value })} placeholder="Notes (optional)" rows={3} className="w-full border border-editorial-border px-3 py-2 text-xs" /><button type="submit" disabled={contactSaving} className="w-full bg-editorial-black px-4 py-2 text-xs font-heading font-semibold uppercase text-white disabled:opacity-50">{contactSaving ? "Saving…" : editingContact ? "Save changes" : "Save contact"}</button></form></div>}
             </div> : <>
             
             {/* Header & Intake Trigger */}
