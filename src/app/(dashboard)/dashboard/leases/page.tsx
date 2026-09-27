@@ -63,6 +63,8 @@ function LeasesManagementContent() {
     tenantName: "",
     tenantPhone: "",
     monthlyRent: "",
+    depositAmount: "",
+    paymentDayOfMonth: "",
     currency: "ZMW",
     managementFeePercent: "10",
     leaseStartDate: "",
@@ -154,6 +156,16 @@ function LeasesManagementContent() {
       setFormError("Monthly rent must be greater than 0.");
       return;
     }
+    const depositNum = parseFloat(formData.depositAmount);
+    const paymentDay = Number(formData.paymentDayOfMonth);
+    if (!Number.isFinite(depositNum) || depositNum < 0) {
+      setFormError("Deposit amount is required and cannot be negative.");
+      return;
+    }
+    if (!Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 28) {
+      setFormError("Payment day must be a whole number from 1 to 28.");
+      return;
+    }
 
     const leasePayload = {
       propertyId: formData.propertyId,
@@ -165,8 +177,8 @@ function LeasesManagementContent() {
       managementFeePercent: parseFloat(formData.managementFeePercent) || 10,
       leaseStartDate: formData.leaseStartDate,
       leaseEndDate: formData.leaseEndDate,
-      depositAmount: rentNum,
-      paymentDayOfMonth: 1,
+      depositAmount: depositNum,
+      paymentDayOfMonth: paymentDay,
     };
 
     setIsCreatingLease(true);
@@ -187,6 +199,8 @@ function LeasesManagementContent() {
             tenantName: "",
             tenantPhone: "",
             monthlyRent: "",
+            depositAmount: "",
+            paymentDayOfMonth: "",
             currency: "ZMW",
             managementFeePercent: "10",
             leaseStartDate: "",
@@ -597,6 +611,35 @@ function LeasesManagementContent() {
                     value={formData.managementFeePercent}
                     onChange={(e) => setFormData({ ...formData, managementFeePercent: e.target.value })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Deposit amount *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.depositAmount}
+                    onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Payment day (1-28) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={formData.paymentDayOfMonth}
+                    onChange={(e) => setFormData({ ...formData, paymentDayOfMonth: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    required
                   />
                 </div>
               </div>
