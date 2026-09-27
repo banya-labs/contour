@@ -78,6 +78,7 @@ export async function getClosingDealContext(client: DbClient, organizationId: st
       propertyId: true,
       property: { select: { id: true, title: true, suburb: true, rentalPrice: true, currency: true } },
       contact: { select: { id: true, name: true, phone: true, email: true } },
+      documentRequests: { orderBy: { createdAt: "desc" }, take: 20, select: { id: true, title: true, status: true, expiresAt: true, documents: { select: { id: true, title: true, originalFileName: true, isVerified: true, isDeleted: true }, where: { isDeleted: false }, orderBy: { createdAt: "desc" } } } },
     },
   });
   if (!inquiry) return null;
@@ -87,5 +88,6 @@ export async function getClosingDealContext(client: DbClient, organizationId: st
     transactionType: resolveClosingTransactionType(inquiry.lookingFor),
     client: { id: inquiry.contact.id, name: inquiry.clientName || inquiry.contact.name, phone: inquiry.clientPhone || inquiry.contact.phone, email: inquiry.clientEmail || inquiry.contact.email },
     property: inquiry.property,
+    documentRequests: inquiry.documentRequests,
   };
 }

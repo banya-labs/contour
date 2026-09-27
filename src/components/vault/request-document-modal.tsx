@@ -10,6 +10,7 @@ interface RequestDocumentModalProps {
   onClose: () => void;
   onSuccess: () => void;
   properties: Array<{ id: string; title: string; suburb: string }>;
+  context?: { inquiryId: string; propertyId?: string | null; clientName?: string | null };
 }
 
 export function RequestDocumentModal({
@@ -17,12 +18,13 @@ export function RequestDocumentModal({
   onClose,
   onSuccess,
   properties,
+  context,
 }: RequestDocumentModalProps) {
   const [title, setTitle] = React.useState("Client Identification & Verification Documents");
   const [message, setMessage] = React.useState(
     "Please upload clear photos or PDF scans of your verification documents. These will be securely stored in our legal vault under the Zambia Data Protection Act."
   );
-  const [propertyId, setPropertyId] = React.useState("");
+  const [propertyId, setPropertyId] = React.useState(context?.propertyId || "");
   const [requiredTypes, setRequiredTypes] = React.useState<string[]>([]);
   const [customDocuments, setCustomDocuments] = React.useState("");
   const [expiryHours, setExpiryHours] = React.useState(72);
@@ -64,6 +66,7 @@ export function RequestDocumentModal({
           title,
           message,
           propertyId: propertyId || null,
+          inquiryId: context?.inquiryId || null,
           requiredTypes,
           customDocuments: customDocuments.trim() || null,
           expiryHours,
@@ -223,9 +226,10 @@ export function RequestDocumentModal({
               <select
                 value={propertyId}
                 onChange={(e) => setPropertyId(e.target.value)}
+                disabled={Boolean(context?.propertyId)}
                 className="w-full text-xs font-mono rounded-none border border-editorial-border bg-white px-3 py-2 text-editorial-black focus:border-contour-red outline-none"
               >
-                <option value="">General Client Verification (No specific property)</option>
+                <option value="">{context?.clientName ? `For ${context.clientName}` : "General Client Verification (No specific property)"}</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.title} ({p.suburb})
@@ -368,7 +372,7 @@ export function RequestDocumentModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || requiredTypes.length === 0}
+                disabled={isSubmitting || (requiredTypes.length === 0 && !customDocuments.trim())}
                 className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-mono font-bold uppercase tracking-wider bg-contour-red hover:bg-contour-red/90 text-white rounded-none transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? (
