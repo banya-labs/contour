@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
-import { rankPropertiesForInquiry } from "@/lib/matching/score";
+import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "@/lib/matching/score";
 
 export const GET = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -31,7 +31,7 @@ export const GET = createApiHandler({
         budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
         preferredAreas: inquiry.preferredSuburbs, propertyType: inquiry.propertyType,
       };
-      const best = rankPropertiesForInquiry(profile as never, properties as never, 1)[0];
+      const best = scoreAllPropertiesForInquiry(profile as never, properties as never).find((result) => result.score > PROPERTY_MATCH_THRESHOLD);
       if (!best) return [];
       const property = properties.find((item) => item.id === best.propertyId);
       return property ? [{ inquiry, property, score: best.score, reasons: best.reasons }] : [];

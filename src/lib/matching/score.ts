@@ -1,5 +1,7 @@
 import type { InquiryMatchingProfile, MatchingCandidate, MatchResult } from "./types";
 
+export const PROPERTY_MATCH_THRESHOLD = 70;
+
 const normalise = (value: string) => value.trim().toLowerCase();
 
 export function scorePropertyForInquiry(

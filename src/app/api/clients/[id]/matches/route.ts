@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
-import { scoreAllPropertiesForInquiry } from "@/lib/matching/score";
+import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "@/lib/matching/score";
 
 export const GET = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -19,8 +19,6 @@ export const GET = createApiHandler({
       },
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
-    if (inquiry.propertyId) return NextResponse.json({ success: true, threshold: 60, matchingEnabled: false, matches: [] });
-
     const properties = await db.property.findMany({
       where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
       select: {
@@ -45,6 +43,6 @@ export const GET = createApiHandler({
       property: properties.find((property) => property.id === result.propertyId),
     })).filter((result) => result.property);
 
-    return NextResponse.json({ success: true, threshold: 60, matchingEnabled: !inquiry.propertyId, matches: matches.map((match) => ({ ...match, isMatch: match.score > 60 })) });
+    return NextResponse.json({ success: true, threshold: PROPERTY_MATCH_THRESHOLD, matchingEnabled: true, matches: matches.map((match) => ({ ...match, isMatch: match.score > PROPERTY_MATCH_THRESHOLD })) });
   },
 });
