@@ -45,7 +45,6 @@ export default function DashboardOverviewPage() {
   const [recentSales, setRecentSales] = useState<any[]>([]);
   const [recentLeases, setRecentLeases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [completedActions, setCompletedActions] = useState<string[]>([]);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [closingWorkflowTarget, setClosingWorkflowTarget] = useState<any | null>(null);
 
@@ -55,6 +54,7 @@ export default function DashboardOverviewPage() {
   const [newInquiries, setNewInquiries] = useState<any[]>([]);
   const [managementHandoverInquiries, setManagementHandoverInquiries] = useState<any[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
+  const [rentalLeaseSetups, setRentalLeaseSetups] = useState<any[]>([]);
   const [expiringSoonLeases, setExpiringSoonLeases] = useState<any[]>([]);
   const [inquiryStatusBreakdown, setInquiryStatusBreakdown] = useState<any[]>([]);
   const [totalInquiries, setTotalInquiries] = useState(0);
@@ -93,6 +93,7 @@ export default function DashboardOverviewPage() {
           setNewInquiries(aqData.newInquiries || []);
           setManagementHandoverInquiries(aqData.managementHandoverInquiries || []);
           setPendingTransactions(aqData.pendingTransactions || []);
+          setRentalLeaseSetups(aqData.rentalLeaseSetups || []);
           setExpiringSoonLeases(aqData.expiringSoonLeases || []);
           setInquiryStatusBreakdown(aqData.inquiryStatusBreakdown || []);
           setTotalInquiries(aqData.totalInquiries || 0);
@@ -114,11 +115,6 @@ export default function DashboardOverviewPage() {
     window.addEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
     return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
   }, []);
-
-  const handleCompleteAction = (id: string, actionMsg: string) => {
-    setCompletedActions((prev) => [...prev, id]);
-    alert(`[ACTION EXECUTED] ${actionMsg}`);
-  };
 
   const startHandoverClose = (inquiry: any, outcome: "WON" | "LOST") => {
     setClosingWorkflowTarget(inquiry);
@@ -165,7 +161,6 @@ export default function DashboardOverviewPage() {
     title: string;
     detail: string;
     actionLabel: string;
-    actionMsg: string;
   }> = [];
 
   arrearsLeases.forEach((lease) => {
@@ -176,8 +171,7 @@ export default function DashboardOverviewPage() {
       tag: "ARREARS",
       title: `Rent Overdue — ${lease.tenantName}`,
       detail: `${propertyTitle}${suburb ? ` (${suburb})` : ""} • ${formatCurrency(Number(lease.monthlyRent), lease.currency)} pending`,
-      actionLabel: "WhatsApp Nudge",
-      actionMsg: `Tier-1 WhatsApp rent arrears reminder dispatched to ${lease.tenantName} (${lease.tenantPhone}) with 4-day cooldown key.`,
+      actionLabel: "Open arrears",
     });
   });
 
@@ -187,8 +181,7 @@ export default function DashboardOverviewPage() {
       tag: "INQUIRY",
       title: `New Lead — ${inq.clientName}`,
       detail: `${inq.property?.title || "General Inquiry"} • Phone: ${inq.clientPhone}`,
-      actionLabel: "Assign Agent",
-      actionMsg: `Lead ${inq.clientName} assigned to active on-duty broker with auto-reply flyer dispatched.`,
+      actionLabel: "Open inquiry",
     });
   });
 
@@ -199,7 +192,6 @@ export default function DashboardOverviewPage() {
       title: `Management Handover — ${inq.property?.title || "Property"}`,
       detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
       actionLabel: "Review closing",
-      actionMsg: "",
     });
   });
 
@@ -209,8 +201,7 @@ export default function DashboardOverviewPage() {
       tag: "STATEMENT",
       title: `Approve Statement — ${stmt.landlordName}`,
       detail: `${stmt.period} • Net Payout: ${formatCurrency(Number(stmt.netPayout), stmt.currency)}`,
-      actionLabel: "Sign & Release",
-      actionMsg: `Human-in-the-loop authorization granted. Statement locked and payment receipt generated.`,
+      actionLabel: "Open statement",
     });
   });
 
@@ -220,8 +211,17 @@ export default function DashboardOverviewPage() {
       tag: "CONVEYANCE",
       title: `Sale in Escrow — ${tx.property?.title || "Property"}`,
       detail: `Buyer: ${tx.buyerName} • Gross: ${formatCurrency(Number(tx.salePrice), tx.currency)}`,
-      actionLabel: "Check Deeds",
-      actionMsg: `Ministry of Lands verification status synced from MinIO legal documents vault.`,
+      actionLabel: "Open conveyance",
+    });
+  });
+
+  rentalLeaseSetups.forEach((inq) => {
+    dailyActionQueue.push({
+      id: `lease_${inq.id}`,
+      tag: "LEASE",
+      title: `Register Lease — ${inq.property?.title || "Rental property"}`,
+      detail: `${inq.clientName} • Rental deal Won${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
+      actionLabel: "Register Lease",
     });
   });
 
@@ -538,7 +538,7 @@ export default function DashboardOverviewPage() {
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-contour-red" />
             <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
-              Daily Action Queue ({loading ? "…" : Math.max(0, dailyActionQueue.length - completedActions.length)} Items Requiring Decision)
+              Daily Action Queue ({loading ? "…" : dailyActionQueue.length} Items Requiring Decision)
             </h3>
           </div>
           <span className="text-[10px] font-geist uppercase tracking-wider px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-muted">
@@ -556,14 +556,10 @@ export default function DashboardOverviewPage() {
         ) : (
           <div className="divide-y divide-editorial-border border border-editorial-border">
             {dailyActionQueue.map((item) => {
-              const isDone = completedActions.includes(item.id);
-
               return (
                 <div
                   key={item.id}
-                  className={`p-3.5 transition-colors flex items-center justify-between gap-4 ${
-                    isDone ? "bg-neutral-50/50 opacity-50" : "bg-white hover:bg-[#fff5f3]/40"
-                  }`}
+                  className="p-3.5 transition-colors flex items-center justify-between gap-4 bg-white hover:bg-[#fff5f3]/40"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span
@@ -587,25 +583,39 @@ export default function DashboardOverviewPage() {
                     </div>
                   </div>
 
-                  {!isDone ? (
-                    <button
+                  <button
                       onClick={() => {
                         if (item.tag === "MANAGEMENT") {
                           const inquiry = managementHandoverInquiries.find((candidate) => `handover_${candidate.id}` === item.id);
                           if (inquiry) startHandoverClose(inquiry, "WON");
+                        } else if (item.tag === "LEASE") {
+                          const inquiry = rentalLeaseSetups.find((candidate) => `lease_${candidate.id}` === item.id);
+                          if (inquiry) {
+                            const prefill = encodeURIComponent(JSON.stringify({
+                              propertyId: inquiry.property?.id,
+                              inquiryId: inquiry.id,
+                              tenantName: inquiry.clientName,
+                              tenantPhone: inquiry.clientPhone,
+                              tenantEmail: inquiry.clientEmail,
+                              currency: inquiry.currency,
+                            }));
+                            window.location.assign(`/dashboard/leases?new=1&prefill=${prefill}`);
+                          }
                         } else {
-                          handleCompleteAction(item.id, item.actionMsg);
+                          const destination = item.tag === "ARREARS"
+                            ? "/dashboard/leases"
+                            : item.tag === "INQUIRY"
+                            ? "/dashboard/clients"
+                            : item.tag === "STATEMENT"
+                            ? "/dashboard/leases?tab=statements"
+                            : "/dashboard/sales";
+                          window.location.assign(destination);
                         }
                       }}
                       className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none"
                     >
                       {item.actionLabel}
-                    </button>
-                  ) : (
-                    <span className="text-xs font-geist font-bold text-emerald-700 flex items-center gap-1 shrink-0">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Done
-                    </span>
-                  )}
+                  </button>
                 </div>
               );
             })}

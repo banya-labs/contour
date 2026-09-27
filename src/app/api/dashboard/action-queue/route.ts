@@ -25,6 +25,7 @@ const getHandler = createApiHandler({
           newInquiries,
           managementHandoverInquiries,
           pendingTransactions,
+          rentalLeaseSetups,
           inquiryStatusBreakdown,
           expiringSoonLeases,
         ] = await Promise.all([
@@ -73,6 +74,15 @@ const getHandler = createApiHandler({
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
+          db.inquiry.findMany({
+            where: { organizationId, status: "CLOSED", outcome: "WON", lookingFor: "FOR_RENT", lease: null },
+            include: {
+              property: { select: { id: true, title: true, suburb: true } },
+              lease: { select: { id: true } },
+            },
+            orderBy: { closedAt: "asc" },
+            take: 20,
+          }),
           // 6. Inquiry status breakdown
           db.inquiry.groupBy({
             by: ["status"],
@@ -106,6 +116,7 @@ const getHandler = createApiHandler({
           managementHandoverInquiries,
           managementActionCount: managementHandoverInquiries.length,
           pendingTransactions,
+          rentalLeaseSetups,
           expiringSoonLeases,
           inquiryStatusBreakdown,
           totalInquiries,
