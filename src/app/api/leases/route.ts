@@ -5,6 +5,7 @@ import { createLeaseSchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { Prisma } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
+import { NextResponse } from "next/server";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leases.read"],
@@ -61,7 +62,25 @@ const postHandler = createApiHandler({
       if (!inquiry) return NextResponse.json({ success: false, error: "The rental inquiry is not a winning closed deal for this property." }, { status: 409 });
     }
 
-    const lease = await db.$transaction(async (tx) => {
+    let lease;
+    try {
+      lease = await db.$transaction(async (tx) => {
+      if (body.inquiryId) {
+        const existingLease = await tx.lease.findUnique({
+          where: { inquiryId: body.inquiryId },
+          include: { property: { select: { title: true, slug: true, suburb: true } } },
+        });
+        if (existingLease) return existingLease;
+      }
+
+      const activeLease = await tx.lease.findFirst({
+        where: { organizationId, propertyId: body.propertyId, status: { in: ["ACTIVE", "EXPIRING_SOON", "IN_ARREARS"] } },
+        select: { id: true },
+      });
+      if (activeLease) {
+        throw new Error("ACTIVE_LEASE_EXISTS");
+      }
+
       const createdLease = await tx.lease.create({
       data: {
         organizationId: organizationId!,
@@ -89,7 +108,13 @@ const postHandler = createApiHandler({
           }
         }
       }
-    });
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "ACTIVE_LEASE_EXISTS") {
+        return NextResponse.json({ success: false, error: "This property already has an active lease." }, { status: 409 });
+      }
+      throw error;
+    }
 
       await tx.property.update({
       where: { id: body.propertyId },
