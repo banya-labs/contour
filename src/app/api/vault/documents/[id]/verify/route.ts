@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
+import { resolveDeedVerificationResult, isConveyanceDeed } from "@/lib/actions/deed-verification";
 
 export const POST = createApiHandler({
   requireAuth: true,
@@ -21,6 +22,16 @@ export const POST = createApiHandler({
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
+    const result = resolveDeedVerificationResult(doc.isVerified);
+    if (result === "ALREADY_VERIFIED") {
+      return NextResponse.json({
+        success: true,
+        result,
+        message: "Document was already verified",
+        document: doc,
+      });
+    }
+
     const updated = await db.vaultDocument.update({
       where: { id },
       data: {
@@ -36,7 +47,7 @@ export const POST = createApiHandler({
         data: {
           organizationId: orgId,
           userId,
-          action: "ZAMBIA_DPA_DOCUMENT_VERIFIED",
+          action: isConveyanceDeed(doc.docType) ? "CONVEYANCE_DOCUMENT_VERIFIED" : "ZAMBIA_DPA_DOCUMENT_VERIFIED",
           entityType: "VaultDocument",
           entityId: doc.id,
           details: {
@@ -53,6 +64,7 @@ export const POST = createApiHandler({
 
     return NextResponse.json({
       success: true,
+      result,
       message: "Document marked as verified",
       document: updated,
     });

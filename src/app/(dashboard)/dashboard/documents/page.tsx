@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   FileText,
   ShieldCheck,
@@ -32,6 +33,8 @@ import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationE
 import { PageTabs } from "@/components/ui/page-tabs";
 
 export default function DocumentVaultPage() {
+  const searchParams = useSearchParams();
+  const propertyIdFromQuery = searchParams.get("propertyId");
   const [documents, setDocuments] = useState<VaultDoc[]>([]);
   const [properties, setProperties] = useState<PropertyItem[]>([]);
   const [members, setMembers] = useState<any[]>([]);
@@ -112,6 +115,9 @@ export default function DocumentVaultPage() {
   // Filtered properties based on Search, Status, and Category
   const filteredProperties = useMemo(() => {
     return properties.filter((prop) => {
+      if (propertyIdFromQuery && prop.id !== propertyIdFromQuery) {
+        return false;
+      }
       // 1. Property Status filter
       if (statusFilter !== "ALL" && prop.status !== statusFilter) {
         return false;
@@ -142,7 +148,7 @@ export default function DocumentVaultPage() {
 
       return true;
     });
-  }, [properties, documents, search, statusFilter, category]);
+  }, [properties, documents, search, statusFilter, category, propertyIdFromQuery]);
 
   return (
     <div className="w-full h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-32 space-y-6 font-geist antialiased text-editorial-black">

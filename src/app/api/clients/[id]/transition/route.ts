@@ -7,6 +7,7 @@ import { smartCache } from "@/lib/cache";
 import { isManagementRole } from "@/lib/authorization";
 import { canMovePipelineStage, mapLegacyPipelineState, type PipelineRequirementContext, type PipelineStage } from "@/lib/deal-workflow";
 import { createPipelineTransitionAuditDetails } from "@/lib/pipeline-transition-audit";
+import { nextActionAfterClose } from "@/lib/lease-workflow";
 import { ensureClosingWorkflow } from "@/lib/closing-workflow-persistence";
 import { getClosingReadiness } from "@/lib/closing-workflow";
 
@@ -131,13 +132,13 @@ export const POST = createApiHandler({
       if (closed && body.outcome === "WON" && inquiry.propertyId) {
         const propertyUpdate = await tx.property.updateMany({
           where: { id: inquiry.propertyId, organizationId, status: { not: "SOLD" } },
-          data: { status: inquiry.lookingFor === "FOR_RENT" ? "RENTED" : "SOLD" },
+          data: { status: inquiry.lookingFor === "FOR_RENT" ? "UNDER_OFFER" : "SOLD" },
         });
         if (propertyUpdate.count !== 1) throw new Error("This property already has a winning inquiry.");
 
         const closedCompeting = await tx.inquiry.updateMany({
           where: { organizationId, propertyId: inquiry.propertyId, id: { not: inquiry.id }, status: { not: "CLOSED" } },
-          data: { status: "CLOSED", outcome: "LOST", lostReason: "Property sold to another client.", closedAt: now, closedById: userId },
+          data: { status: "CLOSED", outcome: "LOST", lostReason: "Property awarded to another client.", closedAt: now, closedById: userId },
         });
         competingInquiriesClosed = closedCompeting.count;
 
@@ -181,6 +182,16 @@ export const POST = createApiHandler({
       smartCache.invalidateTag(organizationId, tag, tag === "pipeline" ? "/dashboard/pipeline" : tag === "agent-summary" ? "/agent" : undefined);
     }
 
-    return NextResponse.json({ success: true, inquiry: updated, previousStatus: inquiry.status });
+    return NextResponse.json({
+      success: true,
+      inquiry: updated,
+      previousStatus: inquiry.status,
+      nextAction: nextActionAfterClose({
+        lookingFor: inquiry.lookingFor,
+        outcome: body.outcome,
+        inquiryId: inquiry.id,
+        propertyId: inquiry.propertyId,
+      }),
+    });
   },
 });

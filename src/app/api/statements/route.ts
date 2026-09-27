@@ -32,6 +32,8 @@ import { generateLandlordStatementSchema } from "@/lib/validations";
 import { Prisma } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
 import { roleHasPermission, resolveContourRole } from "@/lib/authorization";
+import { canTransitionStatement } from "@/lib/actions/statement-workflow";
+import { smartCache } from "@/lib/cache";
 
 const updateStatementStatusSchema = z.object({
   id: z.string(),
@@ -47,8 +49,13 @@ const postHandler = createApiHandler({
     if ("id" in body) {
       const existing = await db.landlordStatement.findFirst({ where: { id: body.id, organizationId } });
       if (!existing) return NextResponse.json({ success: false, error: "Statement not found." }, { status: 404 });
-      if (!roleHasPermission(resolveContourRole(ctx.contourRole ?? ctx.userRole ?? "member", "member"), "statements.approve")) {
+      const role = resolveContourRole(ctx.contourRole ?? ctx.userRole ?? "member", "member");
+      const requiredPermission: "finance.manage" | "statements.approve" = body.status === "PAID_OUT" ? "finance.manage" : "statements.approve";
+      if (!roleHasPermission(role, requiredPermission)) {
         return NextResponse.json({ success: false, error: "Statement approval permission required." }, { status: 403 });
+      }
+      if (!canTransitionStatement(existing.status, body.status)) {
+        return NextResponse.json({ success: false, error: `Statement cannot move from ${existing.status} to ${body.status}.` }, { status: 409 });
       }
       const updated = await db.landlordStatement.update({
         where: { id: body.id },
@@ -58,6 +65,10 @@ const postHandler = createApiHandler({
           approvedById: body.status === "PAID_OUT" ? userId : undefined,
         },
       });
+
+      await db.auditLog.create({ data: { organizationId: organizationId!, userId, action: "STATEMENT_STATUS_CHANGED", entityType: "LandlordStatement", entityId: existing.id, details: { previousStatus: existing.status, nextStatus: body.status, propertyId: existing.propertyId } } });
+      smartCache.invalidateTag(organizationId!, "dashboard-action-queue");
+      smartCache.invalidateTag(organizationId!, "statements", "/dashboard/leases?tab=statements");
 
       return NextResponse.json({ success: true, statement: updated });
     }

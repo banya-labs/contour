@@ -10,6 +10,7 @@ import type { ApiRouteContext } from "@/lib/api-handler";
 import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
 import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
 import { getOrCreateContact } from "@/lib/crm/contact-service";
+import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "@/lib/matching/score";
 import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
 
 const getHandler = createApiHandler({
@@ -63,36 +64,30 @@ const getHandler = createApiHandler({
 
     const matchingProperties = await db.property.findMany({
       where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
-      select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true },
+      select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true, bedrooms: true, bathrooms: true, matchingMetadata: true },
       orderBy: { updatedAt: "desc" },
       take: 500,
     });
     const clientsWithMatches = clients.map((client) => ({
       ...client,
-      matchingProperties: matchingProperties.filter((property) => inquiryMatchesProperty(
-        {
-          lookingFor: client.lookingFor,
-          currency: client.currency,
-          budgetMax: client.budgetMax ? Number(client.budgetMax) : null,
-          preferredSuburbs: client.preferredSuburbs,
-          propertyType: client.propertyType,
-        },
-        {
-          listingType: property.listingType,
-          currency: property.currency,
-          askingPrice: property.askingPrice ? Number(property.askingPrice) : null,
-          rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null,
-          suburb: property.suburb,
-          propertyType: property.propertyType,
-        },
-      )).map((property) => ({
+      matchingProperties: scoreAllPropertiesForInquiry({
+        lookingFor: client.lookingFor,
+        currency: client.currency,
+        budgetMax: client.budgetMax ? Number(client.budgetMax) : null,
+        preferredAreas: client.preferredSuburbs,
+        propertyType: client.propertyType,
+      }, matchingProperties as never).filter((result) => result.score > PROPERTY_MATCH_THRESHOLD).map((result) => {
+        const property = matchingProperties.find((candidate) => candidate.id === result.propertyId)!;
+        return {
         id: property.id,
         title: property.title,
         suburb: property.suburb,
         listingType: property.listingType,
         currency: property.currency,
         price: property.listingType === "FOR_RENT" ? property.rentalPrice : property.askingPrice,
-      })),
+        score: result.score,
+      };
+      }),
     }));
 
     return NextResponse.json({ success: true, clients: clientsWithMatches });

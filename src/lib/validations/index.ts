@@ -118,11 +118,11 @@ export const createLeaseSchema = z.object({
   tenantIdNumber: z.string().max(50).optional(),
   monthlyRent: z.number().positive(),
   currency: CurrencyEnum.default("ZMW"),
-  depositAmount: z.number().nonnegative().default(0),
-  managementFeePercent: z.number().min(0).max(100).default(10.0),
+  depositAmount: z.number().nonnegative(),
+  managementFeePercent: z.number().min(0).max(100),
   leaseStartDate: z.string(),
   leaseEndDate: z.string(),
-  paymentDayOfMonth: z.number().int().min(1).max(31).default(1),
+  paymentDayOfMonth: z.number().int().min(1).max(28),
 });
 
 export const recordRentPaymentSchema = z.object({

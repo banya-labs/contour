@@ -45,6 +45,7 @@ function LandlordStatementsContent() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
   const [isCreatingStatement, setIsCreatingStatement] = useState(false);
   const [pendingAuthorizations, setPendingAuthorizations] =
     useState<ReadonlySet<string>>(new Set());
@@ -104,6 +105,7 @@ function LandlordStatementsContent() {
   const handleCreateStatement = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    setFormSuccess("");
 
     if (!formData.propertyId) {
       setFormError("Please select a property.");
@@ -127,7 +129,7 @@ function LandlordStatementsContent() {
       if (data.success && data.statement) {
         setStatements([data.statement, ...statements]);
         setIsModalOpen(false);
-        alert("[SUCCESS] Draft Landlord Statement generated!");
+        setFormSuccess("Draft landlord statement generated.");
       } else {
         setFormError(data.error || "Failed to generate statement.");
       }
@@ -142,20 +144,26 @@ function LandlordStatementsContent() {
     const actionKey = `${id}:authorize`;
     setPendingAuthorizations((state) => setKeyPending(state, actionKey, true));
     try {
+      const statement = statements.find((item) => item.id === id);
+      const nextStatus = statement?.status === "DRAFT"
+        ? "APPROVED_BY_MANAGER"
+        : statement?.status === "APPROVED_BY_MANAGER"
+        ? "SENT_TO_LANDLORD"
+        : "PAID_OUT";
       const res = await fetch("/api/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: "PAID_OUT" })
+        body: JSON.stringify({ id, status: nextStatus })
       });
       const data = await res.json();
       if (data.success && data.statement) {
-        setStatements(prev => prev.map(s => s.id === id ? { ...s, status: "PAID_OUT" } : s));
-        alert("DocuSign Seam Signed! Landlord Statement approved and remittance payout authorized.");
+        setStatements(prev => prev.map(s => s.id === id ? { ...s, status: data.statement.status } : s));
+        window.dispatchEvent(new CustomEvent(WORKSPACE_MUTATION_EVENT, { detail: { scopes: ["leases", "dashboard"], entityId: id } }));
       } else {
-        alert("Failed to authorize statement: " + (data.error || "Unknown error"));
+        setFormError(data.error || "Unable to update statement.");
       }
     } catch (caught) {
-      alert("Error authorizing statement: " + (caught instanceof Error ? caught.message : "Unknown error"));
+      setFormError(caught instanceof Error ? caught.message : "Unable to update statement.");
     } finally {
       setPendingAuthorizations((state) => setKeyPending(state, actionKey, false));
     }
@@ -215,6 +223,7 @@ function LandlordStatementsContent() {
         activeTab="statements"
         className="mt-1"
       />
+      {formSuccess && <div className="border border-emerald-300 bg-emerald-50 p-2.5 text-xs text-emerald-800">{formSuccess}</div>}
 
       {/* Statements List */}
       <div className="space-y-4">

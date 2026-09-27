@@ -65,7 +65,7 @@ export default function WorkspaceSidebar() {
   // Track expanded submenu states
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Assets: true,
-    "CRM & Deals": false,
+    "CRM & Deals": true,
   });
 
   // Real-time dynamic workspace title pulled from agency settings

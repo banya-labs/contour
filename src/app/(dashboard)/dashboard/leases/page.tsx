@@ -26,6 +26,7 @@ function LeasesManagementContent() {
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [remindedLeaseId, setRemindedLeaseId] = useState<string | null>(null);
+  const [reminderError, setReminderError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreatingLease, setIsCreatingLease] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any | null>(null);
@@ -62,11 +63,13 @@ function LeasesManagementContent() {
     inquiryId: "",
     tenantName: "",
     tenantPhone: "",
-    monthlyRent: "2200",
-    currency: "USD",
-    managementFeePercent: "10",
-    leaseStartDate: "2026-09-01",
-    leaseEndDate: "2027-08-31",
+    monthlyRent: "",
+    depositAmount: "",
+    paymentDayOfMonth: "",
+    currency: "ZMW",
+    managementFeePercent: "",
+    leaseStartDate: "",
+    leaseEndDate: "",
   });
   const [formError, setFormError] = useState("");
 
@@ -108,11 +111,23 @@ function LeasesManagementContent() {
     return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
   }, []);
 
-  const handleSendReminder = (leaseId: string) => {
+  const handleSendReminder = async (leaseId: string) => {
     setRemindedLeaseId(leaseId);
-    setTimeout(() => {
-      alert("WhatsApp Arrears Reminder Tier-1 Dispatched to Tenant with 4-day cooldown key!");
-    }, 400);
+    setReminderError("");
+    try {
+      const response = await fetch(`/api/leases/${leaseId}/arrears-reminder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: 1 }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to queue reminder.");
+      setRefreshNonce((value) => value + 1);
+    } catch (error) {
+      setReminderError(error instanceof Error ? error.message : "Unable to queue reminder.");
+    } finally {
+      setRemindedLeaseId(null);
+    }
   };
 
   const handleCreateLease = (e: React.FormEvent) => {
@@ -132,9 +147,29 @@ function LeasesManagementContent() {
       return;
     }
 
+    if (!formData.leaseStartDate || !formData.leaseEndDate || formData.leaseEndDate <= formData.leaseStartDate) {
+      setFormError("Lease start and end dates are required, and the end date must be later.");
+      return;
+    }
+
     const rentNum = parseFloat(formData.monthlyRent);
     if (!rentNum || rentNum <= 0) {
       setFormError("Monthly rent must be greater than 0.");
+      return;
+    }
+    const depositNum = parseFloat(formData.depositAmount);
+    const paymentDay = Number(formData.paymentDayOfMonth);
+    if (!Number.isFinite(depositNum) || depositNum < 0) {
+      setFormError("Deposit amount is required and cannot be negative.");
+      return;
+    }
+    if (!Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 28) {
+      setFormError("Payment day must be a whole number from 1 to 28.");
+      return;
+    }
+    const feePercent = parseFloat(formData.managementFeePercent);
+    if (!Number.isFinite(feePercent) || feePercent < 0 || feePercent > 100) {
+      setFormError("Management fee must be entered as a percentage from 0 to 100.");
       return;
     }
 
@@ -145,11 +180,11 @@ function LeasesManagementContent() {
       tenantPhone: formData.tenantPhone,
       monthlyRent: rentNum,
       currency: formData.currency,
-      managementFeePercent: parseFloat(formData.managementFeePercent) || 10,
+      managementFeePercent: feePercent,
       leaseStartDate: formData.leaseStartDate,
       leaseEndDate: formData.leaseEndDate,
-      depositAmount: rentNum,
-      paymentDayOfMonth: 1,
+      depositAmount: depositNum,
+      paymentDayOfMonth: paymentDay,
     };
 
     setIsCreatingLease(true);
@@ -169,11 +204,13 @@ function LeasesManagementContent() {
             inquiryId: "",
             tenantName: "",
             tenantPhone: "",
-            monthlyRent: "2200",
-            currency: "USD",
-            managementFeePercent: "10",
-            leaseStartDate: "2026-09-01",
-            leaseEndDate: "2027-08-31",
+            monthlyRent: "",
+            depositAmount: "",
+            paymentDayOfMonth: "",
+            currency: "ZMW",
+            managementFeePercent: "",
+            leaseStartDate: "",
+            leaseEndDate: "",
           });
         } else {
           setFormError(data.error || "Failed to create lease.");
@@ -191,6 +228,9 @@ function LeasesManagementContent() {
 
   return activeTab === "statements" ? <StatementsPage /> : (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
+      {reminderError && (
+        <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">{reminderError}</div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
@@ -199,14 +239,14 @@ function LeasesManagementContent() {
               Leasehold Management
             </span>
             <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
-              WhatsApp Nudge Protocol
+              Arrears Reminder Queue
             </span>
           </div>
           <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
             Rentals & Leases
           </h1>
           <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
-            Active tenancies, automated 1st-of-month rent schedules, and WhatsApp arrears recovery workflows.
+            Active tenancies, rent schedules, and auditable arrears reminder workflows.
           </p>
         </div>
 
@@ -241,7 +281,7 @@ function LeasesManagementContent() {
             {loading ? "…" : arrearsLeases.length}
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-contour-red mt-0.5 block">
-            Require WhatsApp reminder
+            Require arrears reminder
           </span>
         </MotionCard>
 
@@ -279,7 +319,7 @@ function LeasesManagementContent() {
             Active Leases & Rent Ledger
           </h3>
           <span className="text-[9px] sm:text-[10px] font-geist text-editorial-muted uppercase tracking-wider">
-            4-Day Cooldown WhatsApp
+              4-Day Reminder Cooldown
           </span>
         </div>
 
@@ -361,7 +401,7 @@ function LeasesManagementContent() {
                         }`}
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
-                        <span>{isReminded ? "Dispatched" : "WhatsApp Nudge"}</span>
+                        <span>{isReminded ? "Queued" : "Queue reminder"}</span>
                       </button>
                     )}
                   </div>
@@ -436,7 +476,7 @@ function LeasesManagementContent() {
                               }`}
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
-                              <span>{isReminded ? "Dispatched" : "WhatsApp Nudge"}</span>
+                              <span>{isReminded ? "Queued" : "Queue reminder"}</span>
                             </button>
                           )}
                         </td>
@@ -581,6 +621,36 @@ function LeasesManagementContent() {
                     value={formData.managementFeePercent}
                     onChange={(e) => setFormData({ ...formData, managementFeePercent: e.target.value })}
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Deposit amount *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.depositAmount}
+                    onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                    Payment day (1-28) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={formData.paymentDayOfMonth}
+                    onChange={(e) => setFormData({ ...formData, paymentDayOfMonth: e.target.value })}
+                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-mono"
+                    required
                   />
                 </div>
               </div>

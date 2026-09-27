@@ -45,7 +45,6 @@ export default function DashboardOverviewPage() {
   const [recentSales, setRecentSales] = useState<any[]>([]);
   const [recentLeases, setRecentLeases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [completedActions, setCompletedActions] = useState<string[]>([]);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [closingWorkflowTarget, setClosingWorkflowTarget] = useState<any | null>(null);
 
@@ -55,17 +54,23 @@ export default function DashboardOverviewPage() {
   const [newInquiries, setNewInquiries] = useState<any[]>([]);
   const [managementHandoverInquiries, setManagementHandoverInquiries] = useState<any[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
+  const [rentalLeaseSetups, setRentalLeaseSetups] = useState<any[]>([]);
   const [expiringSoonLeases, setExpiringSoonLeases] = useState<any[]>([]);
   const [inquiryStatusBreakdown, setInquiryStatusBreakdown] = useState<any[]>([]);
   const [totalInquiries, setTotalInquiries] = useState(0);
+  const [pendingTransactionRecordCount, setPendingTransactionRecordCount] = useState(0);
   const [handoverCloseTarget, setHandoverCloseTarget] = useState<any | null>(null);
   const [handoverCloseOutcome, setHandoverCloseOutcome] = useState<"WON" | "LOST">("WON");
   const [handoverLostReason, setHandoverLostReason] = useState("");
   const [isClosingHandover, setIsClosingHandover] = useState(false);
   const [handoverCloseError, setHandoverCloseError] = useState("");
+  const [queueActionPendingId, setQueueActionPendingId] = useState<string | null>(null);
+  const [queueActionError, setQueueActionError] = useState<string | null>(null);
+  const [actionQueueError, setActionQueueError] = useState("");
 
   useEffect(() => {
     async function loadData() {
+      setActionQueueError("");
       try {
         const [metricsRes, salesRes, leasesRes, actionQueueRes] = await Promise.all([
           fetch("/api/dashboard/metrics"),
@@ -93,12 +98,17 @@ export default function DashboardOverviewPage() {
           setNewInquiries(aqData.newInquiries || []);
           setManagementHandoverInquiries(aqData.managementHandoverInquiries || []);
           setPendingTransactions(aqData.pendingTransactions || []);
+          setRentalLeaseSetups(aqData.rentalLeaseSetups || []);
           setExpiringSoonLeases(aqData.expiringSoonLeases || []);
           setInquiryStatusBreakdown(aqData.inquiryStatusBreakdown || []);
           setTotalInquiries(aqData.totalInquiries || 0);
+          setPendingTransactionRecordCount(aqData.queueMeta?.pendingTransactionRecordCount || 0);
+        } else {
+          throw new Error(aqData.error || "The operational queue could not be loaded.");
         }
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
+        setActionQueueError(err instanceof Error ? err.message : "The operational queue could not be loaded.");
       } finally {
         setLoading(false);
       }
@@ -114,11 +124,6 @@ export default function DashboardOverviewPage() {
     window.addEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
     return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
   }, []);
-
-  const handleCompleteAction = (id: string, actionMsg: string) => {
-    setCompletedActions((prev) => [...prev, id]);
-    alert(`[ACTION EXECUTED] ${actionMsg}`);
-  };
 
   const startHandoverClose = (inquiry: any, outcome: "WON" | "LOST") => {
     setClosingWorkflowTarget(inquiry);
@@ -165,7 +170,6 @@ export default function DashboardOverviewPage() {
     title: string;
     detail: string;
     actionLabel: string;
-    actionMsg: string;
   }> = [];
 
   arrearsLeases.forEach((lease) => {
@@ -176,8 +180,7 @@ export default function DashboardOverviewPage() {
       tag: "ARREARS",
       title: `Rent Overdue — ${lease.tenantName}`,
       detail: `${propertyTitle}${suburb ? ` (${suburb})` : ""} • ${formatCurrency(Number(lease.monthlyRent), lease.currency)} pending`,
-      actionLabel: "WhatsApp Nudge",
-      actionMsg: `Tier-1 WhatsApp rent arrears reminder dispatched to ${lease.tenantName} (${lease.tenantPhone}) with 4-day cooldown key.`,
+      actionLabel: "Queue reminder",
     });
   });
 
@@ -187,8 +190,7 @@ export default function DashboardOverviewPage() {
       tag: "INQUIRY",
       title: `New Lead — ${inq.clientName}`,
       detail: `${inq.property?.title || "General Inquiry"} • Phone: ${inq.clientPhone}`,
-      actionLabel: "Assign Agent",
-      actionMsg: `Lead ${inq.clientName} assigned to active on-duty broker with auto-reply flyer dispatched.`,
+      actionLabel: "Assign to me",
     });
   });
 
@@ -199,7 +201,6 @@ export default function DashboardOverviewPage() {
       title: `Management Handover — ${inq.property?.title || "Property"}`,
       detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
       actionLabel: "Review closing",
-      actionMsg: "",
     });
   });
 
@@ -209,8 +210,7 @@ export default function DashboardOverviewPage() {
       tag: "STATEMENT",
       title: `Approve Statement — ${stmt.landlordName}`,
       detail: `${stmt.period} • Net Payout: ${formatCurrency(Number(stmt.netPayout), stmt.currency)}`,
-      actionLabel: "Sign & Release",
-      actionMsg: `Human-in-the-loop authorization granted. Statement locked and payment receipt generated.`,
+      actionLabel: "Open statement",
     });
   });
 
@@ -220,8 +220,17 @@ export default function DashboardOverviewPage() {
       tag: "CONVEYANCE",
       title: `Sale in Escrow — ${tx.property?.title || "Property"}`,
       detail: `Buyer: ${tx.buyerName} • Gross: ${formatCurrency(Number(tx.salePrice), tx.currency)}`,
-      actionLabel: "Check Deeds",
-      actionMsg: `Ministry of Lands verification status synced from MinIO legal documents vault.`,
+      actionLabel: "Open conveyance",
+    });
+  });
+
+  rentalLeaseSetups.forEach((inq) => {
+    dailyActionQueue.push({
+      id: `lease_${inq.id}`,
+      tag: "LEASE",
+      title: `Register Lease — ${inq.property?.title || "Rental property"}`,
+      detail: `${inq.clientName} • Rental deal Won${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
+      actionLabel: "Register Lease",
     });
   });
 
@@ -538,16 +547,26 @@ export default function DashboardOverviewPage() {
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-contour-red" />
             <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
-              Daily Action Queue ({loading ? "…" : Math.max(0, dailyActionQueue.length - completedActions.length)} Items Requiring Decision)
+              Daily Action Queue ({loading ? "…" : dailyActionQueue.length} Items Requiring Decision)
             </h3>
           </div>
           <span className="text-[10px] font-geist uppercase tracking-wider px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-muted">
             Automated Operational Dispatch
           </span>
         </div>
+        {!loading && pendingTransactionRecordCount > pendingTransactions.length && (
+          <p className="text-[11px] text-amber-800 border border-amber-300 bg-amber-50 px-3 py-2">
+            {pendingTransactionRecordCount - pendingTransactions.length} additional conveyance record(s) are pending review and are not shown in this first page.
+          </p>
+        )}
 
         {loading ? (
           <ActionQueueSkeleton />
+        ) : actionQueueError ? (
+          <div className="border border-red-300 bg-red-50 p-4 text-sm text-red-800 flex items-center justify-between gap-4">
+            <span>{actionQueueError}</span>
+            <button type="button" onClick={() => setRefreshNonce((value) => value + 1)} className="border border-red-400 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-red-100">Retry</button>
+          </div>
         ) : dailyActionQueue.length === 0 ? (
           <div className="text-center py-8 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -556,14 +575,10 @@ export default function DashboardOverviewPage() {
         ) : (
           <div className="divide-y divide-editorial-border border border-editorial-border">
             {dailyActionQueue.map((item) => {
-              const isDone = completedActions.includes(item.id);
-
               return (
                 <div
                   key={item.id}
-                  className={`p-3.5 transition-colors flex items-center justify-between gap-4 ${
-                    isDone ? "bg-neutral-50/50 opacity-50" : "bg-white hover:bg-[#fff5f3]/40"
-                  }`}
+                  className="p-3.5 transition-colors flex items-center justify-between gap-4 bg-white hover:bg-[#fff5f3]/40"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span
@@ -587,30 +602,82 @@ export default function DashboardOverviewPage() {
                     </div>
                   </div>
 
-                  {!isDone ? (
-                    <button
+                  <button
+                      disabled={queueActionPendingId === item.id}
                       onClick={() => {
                         if (item.tag === "MANAGEMENT") {
                           const inquiry = managementHandoverInquiries.find((candidate) => `handover_${candidate.id}` === item.id);
                           if (inquiry) startHandoverClose(inquiry, "WON");
+                        } else if (item.tag === "ARREARS") {
+                          const lease = arrearsLeases.find((candidate) => `arrears_${candidate.id}` === item.id);
+                          if (lease) {
+                            setQueueActionPendingId(item.id);
+                            setQueueActionError(null);
+                            void fetch(`/api/leases/${lease.id}/arrears-reminder`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ tier: 1 }),
+                            }).then(async (response) => {
+                              const result = await response.json().catch(() => null);
+                              if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to queue reminder.");
+                              setRefreshNonce((value) => value + 1);
+                            }).catch((error: unknown) => {
+                              setQueueActionError(error instanceof Error ? error.message : "Unable to queue reminder.");
+                            }).finally(() => setQueueActionPendingId(null));
+                          }
+                        } else if (item.tag === "INQUIRY") {
+                          const inquiry = newInquiries.find((candidate) => `inq_${candidate.id}` === item.id);
+                          if (inquiry) {
+                            setQueueActionPendingId(item.id);
+                            setQueueActionError(null);
+                            void fetch("/api/dashboard/actions/assign-inquiry", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ inquiryId: inquiry.id }),
+                            }).then(async (response) => {
+                              const result = await response.json().catch(() => null);
+                              if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to assign inquiry.");
+                              setRefreshNonce((value) => value + 1);
+                            }).catch((error: unknown) => {
+                              setQueueActionError(error instanceof Error ? error.message : "Unable to assign inquiry.");
+                            }).finally(() => setQueueActionPendingId(null));
+                          }
+                        } else if (item.tag === "LEASE") {
+                          const inquiry = rentalLeaseSetups.find((candidate) => `lease_${candidate.id}` === item.id);
+                          if (inquiry) {
+                            const prefill = encodeURIComponent(JSON.stringify({
+                              propertyId: inquiry.property?.id,
+                              inquiryId: inquiry.id,
+                              tenantName: inquiry.clientName,
+                              tenantPhone: inquiry.clientPhone,
+                              tenantEmail: inquiry.clientEmail,
+                              currency: inquiry.currency,
+                            }));
+                            window.location.assign(`/dashboard/leases?new=1&prefill=${prefill}`);
+                          }
+                        } else if (item.tag === "CONVEYANCE") {
+                          const transaction = pendingTransactions.find((candidate) => `tx_${candidate.id}` === item.id);
+                          const propertyId = transaction?.property?.id;
+                          window.location.assign(propertyId ? `/dashboard/documents?propertyId=${encodeURIComponent(propertyId)}` : "/dashboard/documents");
                         } else {
-                          handleCompleteAction(item.id, item.actionMsg);
+                          const destination = item.tag === "INQUIRY"
+                            ? "/dashboard/clients"
+                            : item.tag === "STATEMENT"
+                            ? "/dashboard/leases?tab=statements"
+                            : "/dashboard/sales";
+                          window.location.assign(destination);
                         }
                       }}
-                      className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none"
+                      className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none disabled:opacity-50"
                     >
-                      {item.actionLabel}
-                    </button>
-                  ) : (
-                    <span className="text-xs font-geist font-bold text-emerald-700 flex items-center gap-1 shrink-0">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Done
-                    </span>
-                  )}
+                      {queueActionPendingId === item.id ? "Saving…" : item.actionLabel}
+                  </button>
                 </div>
               );
             })}
           </div>
         )}
+        {queueActionError && <p className="mt-3 border border-red-300 bg-red-50 p-2.5 text-xs text-red-800">{queueActionError}</p>}
       </div>
 
       {/* 3. CRM Lead Conversion Funnel */}
