@@ -45,6 +45,7 @@ function LandlordStatementsContent() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
   const [isCreatingStatement, setIsCreatingStatement] = useState(false);
   const [pendingAuthorizations, setPendingAuthorizations] =
     useState<ReadonlySet<string>>(new Set());
@@ -104,6 +105,7 @@ function LandlordStatementsContent() {
   const handleCreateStatement = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    setFormSuccess("");
 
     if (!formData.propertyId) {
       setFormError("Please select a property.");
@@ -127,7 +129,7 @@ function LandlordStatementsContent() {
       if (data.success && data.statement) {
         setStatements([data.statement, ...statements]);
         setIsModalOpen(false);
-        alert("[SUCCESS] Draft Landlord Statement generated!");
+        setFormSuccess("Draft landlord statement generated.");
       } else {
         setFormError(data.error || "Failed to generate statement.");
       }
@@ -175,6 +177,7 @@ function LandlordStatementsContent() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
       <PageTabs tabs={[{ id: "leases", label: "Active Leases", href: "/dashboard/leases" }, { id: "statements", label: "Landlord Statements", href: "/dashboard/leases?tab=statements", count: statements.length }]} activeTab="statements" />
+      {formSuccess && <div className="border border-emerald-300 bg-emerald-50 p-2.5 text-xs text-emerald-800">{formSuccess}</div>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>
