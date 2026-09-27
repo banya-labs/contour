@@ -219,14 +219,14 @@ function LeasesManagementContent() {
               Leasehold Management
             </span>
             <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
-              WhatsApp Nudge Protocol
+              Arrears Reminder Queue
             </span>
           </div>
           <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
             Rentals & Leases
           </h1>
           <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
-            Active tenancies, automated 1st-of-month rent schedules, and WhatsApp arrears recovery workflows.
+            Active tenancies, rent schedules, and auditable arrears reminder workflows.
           </p>
         </div>
 
@@ -261,7 +261,7 @@ function LeasesManagementContent() {
             {loading ? "…" : arrearsLeases.length}
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-contour-red mt-0.5 block">
-            Require WhatsApp reminder
+            Require arrears reminder
           </span>
         </MotionCard>
 
@@ -295,7 +295,7 @@ function LeasesManagementContent() {
             Active Leases & Rent Ledger
           </h3>
           <span className="text-[9px] sm:text-[10px] font-geist text-editorial-muted uppercase tracking-wider">
-            4-Day Cooldown WhatsApp
+              4-Day Reminder Cooldown
           </span>
         </div>
 
@@ -377,7 +377,7 @@ function LeasesManagementContent() {
                         }`}
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
-                        <span>{isReminded ? "Dispatched" : "WhatsApp Nudge"}</span>
+                        <span>{isReminded ? "Queued" : "Queue reminder"}</span>
                       </button>
                     )}
                   </div>
@@ -452,7 +452,7 @@ function LeasesManagementContent() {
                               }`}
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
-                              <span>{isReminded ? "Dispatched" : "WhatsApp Nudge"}</span>
+                              <span>{isReminded ? "Queued" : "Queue reminder"}</span>
                             </button>
                           )}
                         </td>
