@@ -94,6 +94,8 @@ export default function FieldAgentPwaPage() {
 }
 
 type TabType = "QUEUE" | "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
+type ClientSubTab = "INQUIRIES" | "CONTACTS";
+type AgentContact = { id: string; name: string; phone: string; email?: string | null; _count?: { inquiries: number } };
 type EarningsPeriod = "today" | "week" | "month" | "all";
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
 
@@ -120,6 +122,18 @@ function AgentKioskContent() {
 
   // Active Bottom Navigation Tab & Sub-View
   const [activeTab, setActiveTab] = useState<TabType>("QUEUE");
+  const [clientSubTab, setClientSubTab] = useState<ClientSubTab>("INQUIRIES");
+  const [contacts, setContacts] = useState<AgentContact[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [selectedInquiryContactId, setSelectedInquiryContactId] = useState("");
+  const [contactEditorOpen, setContactEditorOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<AgentContact | null>(null);
+  const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [contactSaveError, setContactSaveError] = useState("");
+  const [contactSaving, setContactSaving] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<any | null>(null);
+  const [contactDetailLoading, setContactDetailLoading] = useState(false);
   const [propertyViewMode, setPropertyViewMode] = useState<"LIST" | "MAP">("LIST");
 
   // Search & Filters
@@ -273,6 +287,13 @@ function AgentKioskContent() {
 
   const userRole = (session?.user as Record<string, unknown> | undefined)?.role as string | undefined;
   const isManagerOrAdmin = Boolean(userRole && (userRole === "SUPER_ADMIN" || userRole === "BROKER_MANAGER"));
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const defaultScope = isManagerOrAdmin ? "ALL" : "ME";
+    setPropertyAgentFilter(defaultScope);
+    setPropertyAssignmentFilter(isManagerOrAdmin ? "ALL" : "ASSIGNED");
+  }, [isManagerOrAdmin, session?.user]);
 
   useEffect(() => {
     if (isSessionPending || !session?.user) {
@@ -443,6 +464,45 @@ function AgentKioskContent() {
       return () => window.clearInterval(summaryRefresh);
     }
   }, [earningsPeriod, session, syncData, agentRefreshNonce]);
+
+  useEffect(() => {
+    if (activeTab !== "CLIENTS" || (clientSubTab !== "CONTACTS" && intakeDrawer !== "CLIENT")) return;
+    setContactsLoading(true);
+    void fetch(`/api/contacts?search=${encodeURIComponent(contactSearch)}`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => { if (data.success) setContacts(Array.isArray(data.contacts) ? data.contacts : []); })
+      .catch(() => setContacts([]))
+      .finally(() => setContactsLoading(false));
+  }, [activeTab, clientSubTab, contactSearch, intakeDrawer]);
+
+  const openContactEditor = (contact?: AgentContact) => {
+    setEditingContact(contact || null);
+    setContactForm({ name: contact?.name || "", phone: contact?.phone || "", email: contact?.email || "", notes: "" });
+    setContactSaveError("");
+    setContactEditorOpen(true);
+  };
+
+  const saveContact = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setContactSaving(true);
+    setContactSaveError("");
+    try {
+      const response = await fetch(editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts", { method: editingContact ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(contactForm) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to save contact.");
+      setContactEditorOpen(false);
+      setContacts((current) => editingContact ? current.map((contact) => contact.id === editingContact.id ? { ...contact, ...data.contact } : contact) : [data.contact, ...current]);
+    } catch (error) { setContactSaveError(error instanceof Error ? error.message : "Unable to save contact."); } finally { setContactSaving(false); }
+  };
+
+  const openContactDetail = async (contact: AgentContact) => {
+    setContactDetailLoading(true);
+    try {
+      const response = await fetch(`/api/contacts/${contact.id}`, { cache: "no-store" });
+      const data = await response.json();
+      if (response.ok && data.success) setSelectedContact(data.contact);
+    } finally { setContactDetailLoading(false); }
+  };
 
   useEffect(() => {
     const handleWorkspaceMutation = (event: Event) => {
@@ -942,6 +1002,7 @@ function AgentKioskContent() {
       propertyId: newClientAttachOffer && attachedOfferProperty ? attachedOfferProperty.id : undefined,
       dealValue: newClientAttachOffer && offerVal > 0 ? offerVal : undefined,
       exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      contactId: selectedInquiryContactId || undefined,
     };
 
     if (newClientAttachOffer && attachedOfferProperty) {
@@ -976,6 +1037,7 @@ function AgentKioskContent() {
     setNewClientAttachOffer(false);
     setNewClientOfferPropertyId("");
     setNewClientOfferAmount("");
+    setSelectedInquiryContactId("");
     } catch {
       setFieldSyncStatus("FAILED");
     } finally {
@@ -1502,68 +1564,15 @@ function AgentKioskContent() {
             {/* Search, Suburb Chips & Layout Switcher */}
             <div className={activeTab === "MAP" ? "hidden" : "space-y-2.5"}>
               
-              {/* Assignment & Agent Filter Hub */}
-              <div className="space-y-2">
-                <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPropertyAgentFilter("ALL");
-                      setPropertyAssignmentFilter("ALL");
-                      playNeutralTone();
-                    }}
-                    className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
-                      propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL"
-                        ? "bg-editorial-black text-white shadow-xs"
-                        : "text-editorial-muted hover:text-editorial-black"
-                    }`}
-                  >
-                    View All Mandates ({displayProperties.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPropertyAgentFilter("ME");
-                      setPropertyAssignmentFilter("ASSIGNED");
-                      playNeutralTone();
-                    }}
-                    className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
-                      propertyAgentFilter === "ME" || propertyAssignmentFilter === "ASSIGNED"
-                        ? "bg-editorial-black text-white shadow-xs"
-                        : "text-editorial-muted hover:text-editorial-black"
-                    }`}
-                  >
-                    Assigned to Me ({displayProperties.filter((p: any) => isPropertyAssignedToMe(p)).length})
-                  </button>
+              {/* Ownership scope: agents start with their own properties; management starts organization-wide. */}
+              <div className="flex items-center justify-between gap-3 border border-editorial-border bg-white px-3 py-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <User className="w-3.5 h-3.5 text-editorial-muted" />
+                  <span className="font-heading font-semibold uppercase tracking-wider">{propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL" ? "All organization mandates" : "My assigned mandates"}</span>
                 </div>
-
-                {/* Specific Agent & Mandate Category Filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5">
-                    <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
-                    <select
-                      value={propertyAgentFilter}
-                      onChange={(e) => {
-                        setPropertyAgentFilter(e.target.value);
-                        setPropertyAssignmentFilter(e.target.value === "ME" ? "ASSIGNED" : "ALL");
-                        playNeutralTone();
-                      }}
-                      className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
-                    >
-                      <option value="ALL">All Agents (Organization-Wide)</option>
-                      <option value="ME">My Mandates Only</option>
-                      <option value="UNASSIGNED">Unassigned Mandates Only</option>
-                      {allKnownAgents
-                        .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
-                        .map((a) => (
-                          <option key={a.id} value={a.id}>
-                            Agent: {a.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                </div>
+                <button type="button" onClick={() => { const showAll = propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL"; setPropertyAgentFilter(showAll ? "ME" : "ALL"); setPropertyAssignmentFilter(showAll ? "ASSIGNED" : "ALL"); playNeutralTone(); }} className="border border-editorial-border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider hover:border-editorial-black">
+                  {propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL" ? "Show my mandates" : "Show all mandates"}
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -2060,6 +2069,18 @@ function AgentKioskContent() {
         {/* ================= TAB 2: CLIENTS ================= */}
         {activeTab === "CLIENTS" && (
           <div className="space-y-4">
+            <div className="flex border-b border-editorial-border bg-white">
+              <button type="button" onClick={() => setClientSubTab("INQUIRIES")} className={`flex-1 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider ${clientSubTab === "INQUIRIES" ? "border-b-2 border-contour-red text-editorial-black" : "text-editorial-muted"}`}>Inquiries</button>
+              <button type="button" onClick={() => setClientSubTab("CONTACTS")} className={`flex-1 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider ${clientSubTab === "CONTACTS" ? "border-b-2 border-contour-red text-editorial-black" : "text-editorial-muted"}`}>Contacts</button>
+            </div>
+            {clientSubTab === "CONTACTS" ? <div className="space-y-3">
+              <div className="flex items-center justify-between bg-white p-4 border border-editorial-border"><div><h2 className="text-xs font-mono font-bold uppercase tracking-wider text-contour-red">Organization contacts</h2><p className="text-[11px] text-editorial-muted mt-0.5">Reusable people records connected to multiple inquiries.</p></div><button type="button" onClick={() => openContactEditor()} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-heading font-semibold uppercase tracking-wider"><Plus className="inline w-3 h-3 mr-1" />Add contact</button></div>
+              <div className="relative"><Search className="w-3.5 h-3.5 text-editorial-muted absolute left-3.5 top-1/2 -translate-y-1/2" /><input value={contactSearch} onChange={(event) => setContactSearch(event.target.value)} placeholder="Search contacts by name, phone, or email..." className="w-full bg-white border border-editorial-border pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-editorial-black" /></div>
+              {contactsLoading ? <div className="bg-white border border-editorial-border p-8 text-center text-xs text-editorial-muted">Loading contacts…</div> : contacts.length === 0 ? <div className="bg-white border border-dashed border-editorial-border p-8 text-center text-xs text-editorial-muted">No contacts found.</div> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{contacts.map((contact) => <article key={contact.id} className="bg-white border border-editorial-border p-4 space-y-2 cursor-pointer hover:border-editorial-black" onClick={() => void openContactDetail(contact)}><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-heading font-semibold">{contact.name}</h3><p className="text-xs text-editorial-muted font-mono">{contact.phone}</p></div><button type="button" onClick={(event) => { event.stopPropagation(); openContactEditor(contact); }} className="text-[10px] font-mono uppercase text-contour-red">Edit</button></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="pt-2 border-t border-editorial-border text-[10px] font-mono uppercase text-editorial-muted">{contact._count?.inquiries || 0} inquiries · View details</div></article>)}</div>}
+              {contactDetailLoading && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-editorial-black/40 text-xs text-white">Loading contact…</div>}
+              {selectedContact && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center" onClick={() => setSelectedContact(null)}><section className="w-full max-w-lg space-y-4 border border-editorial-black bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact detail</p><h3 className="font-heading text-lg font-bold">{selectedContact.name}</h3><p className="text-xs text-editorial-muted">{selectedContact.phone} · {selectedContact.email || "No email"}</p></div><button type="button" onClick={() => setSelectedContact(null)} aria-label="Close contact details"><X className="w-4 h-4" /></button></div><div><p className="mb-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-muted">Related inquiries ({selectedContact.inquiries?.length || 0})</p>{selectedContact.inquiries?.length ? <div className="space-y-2">{selectedContact.inquiries.map((inquiry: any) => <div key={inquiry.id} className="border border-editorial-border p-3"><p className="text-sm font-heading font-semibold">{inquiry.property?.title || "Unassigned inquiry"}</p><p className="text-[11px] text-editorial-muted">{inquiry.lookingFor === "FOR_RENT" ? "Rental inquiry" : "Purchase inquiry"} · {inquiry.status}</p></div>)}</div> : <p className="border border-dashed border-editorial-border p-4 text-xs text-editorial-muted">No inquiries linked yet.</p>}</div></section></div>}
+              {contactEditorOpen && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center"><form onSubmit={saveContact} className="w-full max-w-md space-y-4 border border-editorial-black bg-white p-5 shadow-2xl"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact registry</p><h3 className="font-heading font-bold uppercase">{editingContact ? "Edit contact" : "Add contact"}</h3></div><button type="button" onClick={() => setContactEditorOpen(false)} aria-label="Close contact editor"><X className="w-4 h-4" /></button></div>{contactSaveError && <p className="border border-red-200 bg-red-50 p-2 text-xs text-red-700">{contactSaveError}</p>}<input required minLength={2} value={contactForm.name} onChange={(event) => setContactForm({ ...contactForm, name: event.target.value })} placeholder="Full name" className="w-full border border-editorial-border px-3 py-2 text-xs" /><PhoneNumberInput value={contactForm.phone} onChange={(phone) => setContactForm({ ...contactForm, phone })} label="Phone number" required /><input type="email" value={contactForm.email} onChange={(event) => setContactForm({ ...contactForm, email: event.target.value })} placeholder="Email (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" /><textarea value={contactForm.notes} onChange={(event) => setContactForm({ ...contactForm, notes: event.target.value })} placeholder="Notes (optional)" rows={3} className="w-full border border-editorial-border px-3 py-2 text-xs" /><button type="submit" disabled={contactSaving} className="w-full bg-editorial-black px-4 py-2 text-xs font-heading font-semibold uppercase text-white disabled:opacity-50">{contactSaving ? "Saving…" : editingContact ? "Save changes" : "Save contact"}</button></form></div>}
+            </div> : <>
             
             {/* Header & Intake Trigger */}
             <div className="flex items-center justify-between bg-white p-4 border border-editorial-border">
@@ -2348,6 +2369,7 @@ function AgentKioskContent() {
                 });
               })()}
             </div>
+          </>}
           </div>
         )}
 
@@ -2704,21 +2726,21 @@ function AgentKioskContent() {
             <span className="text-[10px] leading-tight tracking-tight">Properties</span>
           </button>
 
-          {/* Clients Tab */}
+          {/* Inquiries Tab */}
           <button
             onClick={() => {
               setActiveTab("CLIENTS");
               playNeutralTone();
             }}
-            aria-label="Clients"
-            title="Clients"
+            aria-label="Inquiries"
+            title="Inquiries"
             aria-current={activeTab === "CLIENTS" ? "page" : undefined}
             className={`flex flex-col items-center justify-center gap-1 py-1 transition-colors ${
               activeTab === "CLIENTS" ? "text-contour-red font-semibold" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
-            <Users className="w-5 h-5 shrink-0" />
-            <span className="text-[10px] leading-tight tracking-tight">Clients</span>
+            <ClipboardList className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] leading-tight tracking-tight">Inquiries</span>
           </button>
 
           {/* Center Home Action Button (Round Contour Red #FA3600 Circle with Home Icon) */}
@@ -2988,6 +3010,14 @@ function AgentKioskContent() {
             {/* 2. Client Intake Form */}
             {intakeDrawer === "CLIENT" && (
               <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
+                <div className="border border-editorial-border bg-neutral-50/50 p-3">
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">Contact record</label>
+                  <select value={selectedInquiryContactId} onChange={(event) => { const contact = contacts.find((candidate) => candidate.id === event.target.value); setSelectedInquiryContactId(event.target.value); if (contact) { setNewClientName(contact.name); setNewClientPhone(contact.phone); } }} className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none focus:border-editorial-black">
+                    <option value="">Create or link a new contact</option>
+                    {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.phone}</option>)}
+                  </select>
+                  <p className="mt-1 text-[10px] text-editorial-muted">Linking an existing contact allows multiple inquiries under one person.</p>
+                </div>
                 <div>
                   <label className="block text-editorial-black font-heading font-semibold mb-1">
                     Client Full Name <span className="text-contour-red">*</span>
