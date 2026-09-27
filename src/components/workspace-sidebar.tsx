@@ -47,6 +47,7 @@ export default function WorkspaceSidebar() {
   const isManagement = isManagementRole(role);
   const [managementActionCount, setManagementActionCount] = useState(0);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const permissionForHref = (href: string) => href.startsWith("/dashboard/properties") || href.startsWith("/dashboard/map") ? "properties.read" : href.startsWith("/dashboard/sales") || href.startsWith("/dashboard/commissions") ? "finance.read" : href.startsWith("/dashboard/leases") ? "leases.read" : href.startsWith("/dashboard/pipeline") ? "pipeline.read" : href.startsWith("/dashboard/clients") ? "leads.read" : href.startsWith("/dashboard/statements") ? "statements.read" : href.startsWith("/dashboard/billing") ? "org.billing.read" : href.startsWith("/dashboard/documents") ? "vault.read" : href.startsWith("/dashboard/settings") ? "org.read" : "dashboard.read";
   const hasPermission = (href: string) => permissions.includes(permissionForHref(href));
   const roleLabel =
@@ -343,50 +344,17 @@ export default function WorkspaceSidebar() {
         </nav>
       </div>
 
-      {/* Bottom Profile / Surface Switches */}
+      {/* Collapsible Account / Surface Switcher */}
       <div className="space-y-1 pt-2 lg:pt-3 border-t border-editorial-border shrink-0">
-        <Link
-          href="/dashboard/settings"
-          title="Agency Settings"
-          className={`flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium transition-colors ${
-            pathname === "/dashboard/settings"
-              ? "bg-editorial-black text-white font-semibold"
-              : "text-editorial-black hover:bg-neutral-50"
-          }`}
-        >
-          <Settings className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
-          <span className="hidden lg:inline">Agency Settings</span>
-        </Link>
-        {isManagement && (
-          <Link href="/dashboard/settings/closing-requirements" className={`ml-5 mt-1 flex items-center px-2 lg:px-3 py-1.5 text-[10px] uppercase tracking-wider ${pathname.startsWith("/dashboard/settings/closing-requirements") ? "text-contour-red font-bold" : "text-editorial-muted hover:text-editorial-black"}`}>
-            Closing requirements
-          </Link>
-        )}
-        <Link
-          href="/agent"
-          title="Field Agent PWA"
-          className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors"
-        >
-          <Smartphone className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
-          <span className="hidden lg:inline">Field Agent PWA</span>
-        </Link>
         <button
           type="button"
-          onClick={triggerPwaInstallModal}
-          title="Install App"
-          className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-contour-red hover:bg-red-50/60 transition-colors w-full text-left"
+          onClick={() => setIsAccountMenuOpen((open) => !open)}
+          aria-expanded={isAccountMenuOpen}
+          aria-controls="workspace-account-menu"
+          title={isAccountMenuOpen ? "Collapse account menu" : "Expand account menu"}
+          className="w-full flex items-center justify-center lg:justify-between p-1.5 lg:p-2 border border-editorial-border bg-neutral-50/70 hover:bg-neutral-100 transition-colors"
         >
-          <Download className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
-          <span className="hidden lg:inline">Install App</span>
-        </button>
-
-        {/* Live Better Auth User Profile Card */}
-        <div className="flex items-center justify-center lg:justify-between p-1.5 lg:p-2 border border-editorial-border bg-neutral-50/70 mt-1">
-          <Link
-            href="/dashboard/settings?tab=account"
-            className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80 transition-opacity"
-            title="View Account Profile"
-          >
+          <span className="flex items-center gap-2 min-w-0">
             {user?.image ? (
               <img
                 src={user.image}
@@ -406,17 +374,35 @@ export default function WorkspaceSidebar() {
                 {roleLabel}
               </div>
             </div>
+          </span>
+          <span className="hidden lg:inline-flex text-editorial-muted" aria-hidden="true">
+            {isAccountMenuOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </span>
+        </button>
+
+        {isAccountMenuOpen && <div id="workspace-account-menu" className="space-y-1 pt-1">
+          <Link href="/dashboard/settings?tab=account" title="View Account Profile" className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors">
+            <Users className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
+            <span className="hidden lg:inline">Account Profile</span>
           </Link>
-          <div className="hidden lg:block">
-            <button
-              type="button"
-              title="Sign Out"
-              onClick={() => contourSignOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })}
-              className="text-editorial-muted hover:text-contour-red p-1 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <Link href="/dashboard/settings" title="Agency Settings" className={`flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium transition-colors ${pathname === "/dashboard/settings" ? "bg-editorial-black text-white font-semibold" : "text-editorial-black hover:bg-neutral-50"}`}>
+            <Settings className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
+            <span className="hidden lg:inline">Agency Settings</span>
+          </Link>
+          {isManagement && <Link href="/dashboard/settings/closing-requirements" className={`ml-5 mt-1 flex items-center px-2 lg:px-3 py-1.5 text-[10px] uppercase tracking-wider ${pathname.startsWith("/dashboard/settings/closing-requirements") ? "text-contour-red font-bold" : "text-editorial-muted hover:text-editorial-black"}`}>Closing requirements</Link>}
+          <Link href="/agent" title="Field Agent PWA" className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors">
+            <Smartphone className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
+            <span className="hidden lg:inline">Field Agent PWA</span>
+          </Link>
+          <button type="button" onClick={triggerPwaInstallModal} title="Install App" className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-contour-red hover:bg-red-50/60 transition-colors w-full text-left">
+            <Download className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
+            <span className="hidden lg:inline">Install App</span>
+          </button>
+          <button type="button" title="Sign Out" onClick={() => contourSignOut({ fetchOptions: { onSuccess: () => window.location.assign("/sign-in") } })} className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-muted hover:bg-red-50/60 hover:text-contour-red transition-colors w-full text-left">
+            <LogOut className="w-4 h-4 lg:w-3.5 lg:h-3.5 shrink-0" />
+            <span className="hidden lg:inline">Logout</span>
+          </button>
+        </div>}
         </div>
       </div>
     </aside>
