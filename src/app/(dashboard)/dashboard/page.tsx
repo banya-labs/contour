@@ -671,7 +671,7 @@ export default function DashboardOverviewPage() {
                           const propertyId = transaction?.property?.id;
                           window.location.assign(propertyId ? `/dashboard/documents?propertyId=${encodeURIComponent(propertyId)}` : "/dashboard/documents");
                         } else if (item.tag === "LEASE EXPIRY") {
-                          window.location.assign("/dashboard/leases");
+                          window.location.assign(`/dashboard/leases?leaseId=${encodeURIComponent(item.id.replace("expiry_", ""))}`);
                         } else {
                           const destination = item.tag === "INQUIRY"
                             ? "/dashboard/clients"

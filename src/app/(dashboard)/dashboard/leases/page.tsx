@@ -83,6 +83,11 @@ function LeasesManagementContent() {
         const propsData = await propsRes.json();
         if (leasesData.success) {
           setLeases(leasesData.leases);
+          const leaseId = searchParams?.get("leaseId");
+          if (leaseId) {
+            const matchingLease = leasesData.leases.find((lease: any) => lease.id === leaseId);
+            if (matchingLease) setSelectedLease(matchingLease);
+          }
         }
         if (propsData.success) {
           const rentProps = propsData.properties.filter(
