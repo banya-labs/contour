@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { canCloseDeal, getClosingReadiness, getDefaultClosingRequirementTemplates, validateClosingRequirementTemplate, type ClosingChecklistItemSnapshot } from "./closing-workflow";
+import { canCloseDeal, getClosingReadiness, getDefaultClosingRequirementTemplates, resolveClosingTransactionType, validateClosingRequirementTemplate, type ClosingChecklistItemSnapshot } from "./closing-workflow";
+
+describe("resolveClosingTransactionType", () => {
+  it("maps rental inquiries to the rental placement closing mode", () => {
+    expect(resolveClosingTransactionType("FOR_RENT")).toBe("RENTAL_PLACEMENT");
+  });
+
+  it("maps sale inquiries to the property sale closing mode", () => {
+    expect(resolveClosingTransactionType("FOR_SALE")).toBe("PROPERTY_SALE");
+  });
+
+  it("rejects unsupported inquiry types instead of defaulting to a sale", () => {
+    expect(() => resolveClosingTransactionType("UNKNOWN")).toThrow("Unsupported inquiry transaction type");
+  });
+});
 
 describe("configurable closing workflow", () => {
   it("provides editable agency defaults without hardcoding the deal workflow", () => {

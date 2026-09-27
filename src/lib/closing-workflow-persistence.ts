@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { DEFAULT_CLOSING_REQUIREMENT_TEMPLATES } from "./closing-workflow";
+import { DEFAULT_CLOSING_REQUIREMENT_TEMPLATES, resolveClosingTransactionType } from "./closing-workflow";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -64,4 +64,28 @@ export async function getClosingWorkflow(client: DbClient, organizationId: strin
     where: { organizationId, inquiryId },
     include: { items: { orderBy: { sortOrder: "asc" }, include: { linkedDocument: { select: { id: true, title: true, isVerified: true, isDeleted: true } } } } },
   });
+}
+
+export async function getClosingDealContext(client: DbClient, organizationId: string, inquiryId: string) {
+  const inquiry = await client.inquiry.findFirst({
+    where: { id: inquiryId, organizationId },
+    select: {
+      id: true,
+      lookingFor: true,
+      clientName: true,
+      clientPhone: true,
+      clientEmail: true,
+      propertyId: true,
+      property: { select: { id: true, title: true, suburb: true, rentalPrice: true, currency: true } },
+      contact: { select: { id: true, name: true, phone: true, email: true } },
+    },
+  });
+  if (!inquiry) return null;
+
+  return {
+    inquiryId: inquiry.id,
+    transactionType: resolveClosingTransactionType(inquiry.lookingFor),
+    client: { id: inquiry.contact.id, name: inquiry.clientName || inquiry.contact.name, phone: inquiry.clientPhone || inquiry.contact.phone, email: inquiry.clientEmail || inquiry.contact.email },
+    property: inquiry.property,
+  };
 }
