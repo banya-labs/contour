@@ -66,9 +66,11 @@ export default function DashboardOverviewPage() {
   const [handoverCloseError, setHandoverCloseError] = useState("");
   const [queueActionPendingId, setQueueActionPendingId] = useState<string | null>(null);
   const [queueActionError, setQueueActionError] = useState<string | null>(null);
+  const [actionQueueError, setActionQueueError] = useState("");
 
   useEffect(() => {
     async function loadData() {
+      setActionQueueError("");
       try {
         const [metricsRes, salesRes, leasesRes, actionQueueRes] = await Promise.all([
           fetch("/api/dashboard/metrics"),
@@ -101,9 +103,12 @@ export default function DashboardOverviewPage() {
           setInquiryStatusBreakdown(aqData.inquiryStatusBreakdown || []);
           setTotalInquiries(aqData.totalInquiries || 0);
           setPendingTransactionRecordCount(aqData.queueMeta?.pendingTransactionRecordCount || 0);
+        } else {
+          throw new Error(aqData.error || "The operational queue could not be loaded.");
         }
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
+        setActionQueueError(err instanceof Error ? err.message : "The operational queue could not be loaded.");
       } finally {
         setLoading(false);
       }
@@ -557,6 +562,11 @@ export default function DashboardOverviewPage() {
 
         {loading ? (
           <ActionQueueSkeleton />
+        ) : actionQueueError ? (
+          <div className="border border-red-300 bg-red-50 p-4 text-sm text-red-800 flex items-center justify-between gap-4">
+            <span>{actionQueueError}</span>
+            <button type="button" onClick={() => setRefreshNonce((value) => value + 1)} className="border border-red-400 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-red-100">Retry</button>
+          </div>
         ) : dailyActionQueue.length === 0 ? (
           <div className="text-center py-8 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
