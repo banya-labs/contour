@@ -102,8 +102,7 @@ function DealPipelineContent() {
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
-  // New Deal Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Pipeline creation is owned by CRM inquiries; this page only displays and manages them.
   const [clientSelectionMode, setClientSelectionMode] = useState<"existing" | "new">("new");
   const [formError, setFormError] = useState("");
   const [formData, setFormData] = useState({
@@ -152,28 +151,6 @@ function DealPipelineContent() {
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
 
   const searchParams = useSearchParams();
-  useEffect(() => {
-    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
-      setIsModalOpen(true);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const inquiryId = searchParams?.get("inquiryId");
-    if (!inquiryId) return;
-    const client = existingClients.find((item) => item.id === inquiryId);
-    if (!client) return;
-    setClientSelectionMode("existing");
-    setFormData((current) => ({
-      ...current,
-      selectedExistingClientId: client.id,
-      clientName: client.clientName,
-      clientPhone: client.clientPhone,
-      clientEmail: client.clientEmail || "",
-    }));
-    setIsModalOpen(true);
-  }, [existingClients, searchParams]);
-
   const loadAllPipelineData = () => {
     void Promise.all([
       fetch("/api/clients"),
@@ -671,13 +648,13 @@ function DealPipelineContent() {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
+        <Link
+          href="/dashboard/clients?new=1"
           className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>New Deal Opportunity</span>
-        </button>
+          <span>New Inquiry</span>
+        </Link>
       </div>
 
       {/* Velocity Intelligence Cards */}
@@ -1277,7 +1254,7 @@ function DealPipelineContent() {
       )}
 
       {/* Interactive Modal: New Deal Opportunity */}
-      {isModalOpen && (
+      {false && isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-geist">
           <div className="bg-white max-w-lg w-full p-6 border border-editorial-border space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-editorial-border pb-3">
