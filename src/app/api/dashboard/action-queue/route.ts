@@ -26,6 +26,7 @@ const getHandler = createApiHandler({
           newInquiries,
           managementHandoverInquiries,
           pendingTransactions,
+          pendingTransactionRecordCount,
           rentalLeaseSetups,
           inquiryStatusBreakdown,
           expiringSoonLeases,
@@ -85,6 +86,7 @@ const getHandler = createApiHandler({
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
+          db.transaction.count({ where: { organizationId, status: "EXPECTED" } }),
           db.inquiry.findMany({
             where: { organizationId, status: "CLOSED", outcome: "WON", lookingFor: "FOR_RENT", lease: null },
             include: {
@@ -133,6 +135,7 @@ const getHandler = createApiHandler({
           expiringSoonLeases,
           inquiryStatusBreakdown,
           totalInquiries,
+          queueMeta: { pendingTransactionRecordCount },
         };
       },
       60

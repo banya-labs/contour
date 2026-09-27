@@ -58,6 +58,7 @@ export default function DashboardOverviewPage() {
   const [expiringSoonLeases, setExpiringSoonLeases] = useState<any[]>([]);
   const [inquiryStatusBreakdown, setInquiryStatusBreakdown] = useState<any[]>([]);
   const [totalInquiries, setTotalInquiries] = useState(0);
+  const [pendingTransactionRecordCount, setPendingTransactionRecordCount] = useState(0);
   const [handoverCloseTarget, setHandoverCloseTarget] = useState<any | null>(null);
   const [handoverCloseOutcome, setHandoverCloseOutcome] = useState<"WON" | "LOST">("WON");
   const [handoverLostReason, setHandoverLostReason] = useState("");
@@ -99,6 +100,7 @@ export default function DashboardOverviewPage() {
           setExpiringSoonLeases(aqData.expiringSoonLeases || []);
           setInquiryStatusBreakdown(aqData.inquiryStatusBreakdown || []);
           setTotalInquiries(aqData.totalInquiries || 0);
+          setPendingTransactionRecordCount(aqData.queueMeta?.pendingTransactionRecordCount || 0);
         }
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
@@ -547,6 +549,11 @@ export default function DashboardOverviewPage() {
             Automated Operational Dispatch
           </span>
         </div>
+        {!loading && pendingTransactionRecordCount > pendingTransactions.length && (
+          <p className="text-[11px] text-amber-800 border border-amber-300 bg-amber-50 px-3 py-2">
+            {pendingTransactionRecordCount - pendingTransactions.length} additional conveyance record(s) are pending review and are not shown in this first page.
+          </p>
+        )}
 
         {loading ? (
           <ActionQueueSkeleton />
