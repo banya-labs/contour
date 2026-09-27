@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
