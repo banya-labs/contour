@@ -63,6 +63,8 @@ export default function DashboardOverviewPage() {
   const [handoverLostReason, setHandoverLostReason] = useState("");
   const [isClosingHandover, setIsClosingHandover] = useState(false);
   const [handoverCloseError, setHandoverCloseError] = useState("");
+  const [queueActionPendingId, setQueueActionPendingId] = useState<string | null>(null);
+  const [queueActionError, setQueueActionError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -181,7 +183,7 @@ export default function DashboardOverviewPage() {
       tag: "INQUIRY",
       title: `New Lead — ${inq.clientName}`,
       detail: `${inq.property?.title || "General Inquiry"} • Phone: ${inq.clientPhone}`,
-      actionLabel: "Open inquiry",
+      actionLabel: "Assign to me",
     });
   });
 
@@ -584,10 +586,28 @@ export default function DashboardOverviewPage() {
                   </div>
 
                   <button
+                      disabled={queueActionPendingId === item.id}
                       onClick={() => {
                         if (item.tag === "MANAGEMENT") {
                           const inquiry = managementHandoverInquiries.find((candidate) => `handover_${candidate.id}` === item.id);
                           if (inquiry) startHandoverClose(inquiry, "WON");
+                        } else if (item.tag === "INQUIRY") {
+                          const inquiry = newInquiries.find((candidate) => `inq_${candidate.id}` === item.id);
+                          if (inquiry) {
+                            setQueueActionPendingId(item.id);
+                            setQueueActionError(null);
+                            void fetch("/api/dashboard/actions/assign-inquiry", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ inquiryId: inquiry.id }),
+                            }).then(async (response) => {
+                              const result = await response.json().catch(() => null);
+                              if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to assign inquiry.");
+                              setRefreshNonce((value) => value + 1);
+                            }).catch((error: unknown) => {
+                              setQueueActionError(error instanceof Error ? error.message : "Unable to assign inquiry.");
+                            }).finally(() => setQueueActionPendingId(null));
+                          }
                         } else if (item.tag === "LEASE") {
                           const inquiry = rentalLeaseSetups.find((candidate) => `lease_${candidate.id}` === item.id);
                           if (inquiry) {
@@ -612,15 +632,16 @@ export default function DashboardOverviewPage() {
                           window.location.assign(destination);
                         }
                       }}
-                      className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none"
+                      className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none disabled:opacity-50"
                     >
-                      {item.actionLabel}
+                      {queueActionPendingId === item.id ? "Saving…" : item.actionLabel}
                   </button>
                 </div>
               );
             })}
           </div>
         )}
+        {queueActionError && <p className="mt-3 border border-red-300 bg-red-50 p-2.5 text-xs text-red-800">{queueActionError}</p>}
       </div>
 
       {/* 3. CRM Lead Conversion Funnel */}
