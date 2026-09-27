@@ -37,7 +37,7 @@ export function SelectedRowDetailsDialog({ open, eyebrow, title, subtitle, detai
           {details.map((detail) => (
             <div key={detail.label} className="bg-white p-4">
               <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-muted">{detail.label}</p>
-              <div className="mt-1 text-sm font-semibold text-editorial-black break-words">{detail.value || "—"}</div>
+              <div className="mt-1 text-sm font-semibold text-editorial-black break-words">{detail.value || "-"}</div>
             </div>
           ))}
         </div>

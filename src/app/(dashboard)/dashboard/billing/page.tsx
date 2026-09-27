@@ -51,7 +51,7 @@ const date = (value: string | null | undefined) =>
         month: "short",
         year: "numeric",
       })
-    : "—";
+    : "-";
 
 export default function BillingPage() {
   const [billing, setBilling] = useState<BillingData | null>(null);

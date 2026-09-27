@@ -178,7 +178,7 @@ export default function DashboardOverviewPage() {
     dailyActionQueue.push({
       id: `arrears_${lease.id}`,
       tag: "ARREARS",
-      title: `Rent Overdue — ${lease.tenantName}`,
+      title: `Rent Overdue - ${lease.tenantName}`,
       detail: `${propertyTitle}${suburb ? ` (${suburb})` : ""} • ${formatCurrency(Number(lease.monthlyRent), lease.currency)} pending`,
       actionLabel: "Queue reminder",
     });
@@ -188,7 +188,7 @@ export default function DashboardOverviewPage() {
     dailyActionQueue.push({
       id: `inq_${inq.id}`,
       tag: "INQUIRY",
-      title: `New Lead — ${inq.clientName}`,
+      title: `New Lead - ${inq.clientName}`,
       detail: `${inq.property?.title || "General Inquiry"} • Phone: ${inq.clientPhone}`,
       actionLabel: "Assign to me",
     });
@@ -198,7 +198,7 @@ export default function DashboardOverviewPage() {
     dailyActionQueue.push({
       id: `handover_${inq.id}`,
       tag: "MANAGEMENT",
-      title: `Management Handover — ${inq.property?.title || "Property"}`,
+      title: `Management Handover - ${inq.property?.title || "Property"}`,
       detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
       actionLabel: "Review closing",
     });
@@ -208,7 +208,7 @@ export default function DashboardOverviewPage() {
     dailyActionQueue.push({
       id: `stmt_${stmt.id}`,
       tag: "STATEMENT",
-      title: `Approve Statement — ${stmt.landlordName}`,
+      title: `Approve Statement - ${stmt.landlordName}`,
       detail: `${stmt.period} • Net Payout: ${formatCurrency(Number(stmt.netPayout), stmt.currency)}`,
       actionLabel: "Open statement",
     });
@@ -218,7 +218,7 @@ export default function DashboardOverviewPage() {
     dailyActionQueue.push({
       id: `tx_${tx.id}`,
       tag: "CONVEYANCE",
-      title: `Sale in Escrow — ${tx.property?.title || "Property"}`,
+      title: `Sale in Escrow - ${tx.property?.title || "Property"}`,
       detail: `Buyer: ${tx.buyerName} • Gross: ${formatCurrency(Number(tx.salePrice), tx.currency)}`,
       actionLabel: "Open conveyance",
     });
@@ -228,7 +228,7 @@ export default function DashboardOverviewPage() {
     dailyActionQueue.push({
       id: `lease_${inq.id}`,
       tag: "LEASE",
-      title: `Register Lease — ${inq.property?.title || "Rental property"}`,
+      title: `Register Lease - ${inq.property?.title || "Rental property"}`,
       detail: `${inq.clientName} • Rental deal Won${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
       actionLabel: "Register Lease",
     });
@@ -239,7 +239,7 @@ export default function DashboardOverviewPage() {
     dailyActionQueue.push({
       id: `expiry_${lease.id}`,
       tag: "LEASE EXPIRY",
-      title: `Lease Expiring — ${lease.tenantName}`,
+      title: `Lease Expiring - ${lease.tenantName}`,
       detail: `${lease.property?.title || "Property"} • Ends ${endDate}`,
       actionLabel: "Review lease",
     });
@@ -326,7 +326,7 @@ export default function DashboardOverviewPage() {
             Quick Actions
           </span>
           <span className="text-[11px] font-geist text-editorial-muted hidden lg:inline">
-            — Instant operational actions across Lusaka HQ
+            - Instant operational actions across Lusaka HQ
           </span>
         </div>
 
@@ -580,7 +580,7 @@ export default function DashboardOverviewPage() {
         ) : dailyActionQueue.length === 0 ? (
           <div className="text-center py-8 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            All clear — no pending operational actions today.
+            All clear - no pending operational actions today.
           </div>
         ) : (
           <div className="divide-y divide-editorial-border border border-editorial-border">

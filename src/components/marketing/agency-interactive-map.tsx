@@ -76,7 +76,7 @@ const AGENCY_PROPERTIES: AgencyMapItem[] = [
   },
   {
     id: "prop-kabulonga-villa",
-    title: "The Palm Pavilion — 5-Bed Diplomatic Villa",
+    title: "The Palm Pavilion - 5-Bed Diplomatic Villa",
     suburb: "Kabulonga",
     category: "Diplomatic Residence & Embassy Strip",
     type: "FOR SALE",

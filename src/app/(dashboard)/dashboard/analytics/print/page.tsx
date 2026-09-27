@@ -155,7 +155,7 @@ function AnalyticsPrintContent() {
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-emerald-400" />
             <span className="text-xs font-semibold text-white truncate max-w-xs">
-              {report.meta.companyName} — {report.period.label} Report
+              {report.meta.companyName} - {report.period.label} Report
             </span>
             <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
               5 Pages • A4
@@ -273,7 +273,7 @@ function AnalyticsPrintContent() {
                   </div>
                   <div className="text-right">
                     <span className="font-semibold text-neutral-600">Reporting Window: </span>
-                    <span className="font-bold text-black">{report.period.from} – {report.period.to}</span>
+                    <span className="font-bold text-black">{report.period.from} - {report.period.to}</span>
                   </div>
                   <div>
                     <span className="font-semibold text-neutral-600">Prepared By: </span>
@@ -302,7 +302,7 @@ function AnalyticsPrintContent() {
                 <div className="grid grid-cols-2 gap-4">
                   {/* Operational Activity Table */}
                   <div>
-                    <h3 className="font-bold text-[10px] uppercase text-neutral-700 mb-1">Business Performance — {report.period.label}</h3>
+                    <h3 className="font-bold text-[10px] uppercase text-neutral-700 mb-1">Business Performance - {report.period.label}</h3>
                     <table className="w-full border-collapse border border-neutral-300 text-[10px]">
                       <thead>
                         <tr className="bg-neutral-100 border-b border-neutral-300">
@@ -847,7 +847,7 @@ function AnalyticsPrintContent() {
                 </h2>
                 <div className="space-y-2 text-[10px]">
                   <div className="p-2 bg-[#FFF8F7] border-l-2 border-red-600">
-                    <strong className="text-red-700 uppercase">Priority 1 — Immediate (24–48h):</strong>
+                    <strong className="text-red-700 uppercase">Priority 1 - Immediate (24-48h):</strong>
                     <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                       {report.aiNarrative.actionPlan.immediatePriority1.map((item: string, i: number) => (
                         <li key={i}>{item}</li>
@@ -856,7 +856,7 @@ function AnalyticsPrintContent() {
                   </div>
 
                   <div className="p-2 bg-[#FFFDF5] border-l-2 border-amber-500">
-                    <strong className="text-amber-800 uppercase">Priority 2 — This Week:</strong>
+                    <strong className="text-amber-800 uppercase">Priority 2 - This Week:</strong>
                     <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                       {report.aiNarrative.actionPlan.thisWeekPriority2.map((item: string, i: number) => (
                         <li key={i}>{item}</li>
@@ -865,7 +865,7 @@ function AnalyticsPrintContent() {
                   </div>
 
                   <div className="p-2 bg-[#F6F9F8] border-l-2 border-emerald-800">
-                    <strong className="text-emerald-800 uppercase">Priority 3 — Next Month:</strong>
+                    <strong className="text-emerald-800 uppercase">Priority 3 - Next Month:</strong>
                     <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                       {report.aiNarrative.actionPlan.nextMonthPriority3.map((item: string, i: number) => (
                         <li key={i}>{item}</li>

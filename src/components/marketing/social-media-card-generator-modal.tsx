@@ -76,7 +76,7 @@ export type FlyerTemplate = "SWISS_LIGHT" | "SWISS_DARK" | "NAVY_EDITORIAL" | "G
 export type FlyerAspectRatio = keyof typeof FLYER_CANVAS;
 
 function formatFlyerPrice(value: number | null | undefined): string {
-  return value == null ? "—" : new Intl.NumberFormat("en-US").format(value).replace(/,/g, " ");
+  return value == null ? "-" : new Intl.NumberFormat("en-US").format(value).replace(/,/g, " ");
 }
 
 function FlyerFooter({
@@ -103,7 +103,7 @@ function FlyerFooter({
           <div className="truncate font-heading text-[10px] font-bold uppercase tracking-wide">For more information and viewings, contact</div>
           <div className="truncate font-heading text-[14px] font-extrabold leading-tight text-white">{contactName}</div>
           <div className="truncate font-mono text-[15px] font-extrabold leading-tight text-white">{formatPhoneDisplay(contactPhone) || "number unavailable"}</div>
-          <div className="truncate text-[8px] font-mono text-neutral-300">ZIEA No. {zieaNumber || "—"}</div>
+          <div className="truncate text-[8px] font-mono text-neutral-300">ZIEA No. {zieaNumber || "-"}</div>
         </div>
       </div>
       <div className="flex items-center bg-[#fa3600] px-4 font-heading text-[10px] font-bold uppercase tracking-wider text-white">

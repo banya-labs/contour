@@ -110,7 +110,7 @@ export default function DashboardMapPage() {
 
   return (
     <div className="flex flex-col h-full max-h-full p-2 sm:p-4 lg:p-6 gap-2 sm:gap-3 w-full overflow-hidden bg-white font-geist antialiased text-editorial-black">
-      {/* Header Bar — Responsive on Mobile / Landscape */}
+      {/* Header Bar - Responsive on Mobile / Landscape */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white p-3 sm:p-4 border border-editorial-border shrink-0">
         {/* Title & Coordinate Badge */}
         <div className="flex items-center gap-2.5">
@@ -255,19 +255,19 @@ export default function DashboardMapPage() {
               <div>
                 <span className="text-[10px] text-editorial-muted uppercase block">Bedrooms</span>
                 <span className="font-bold flex items-center justify-center gap-1 mt-0.5">
-                  <Bed className="w-3.5 h-3.5 text-editorial-muted" /> {selectedProperty.bedrooms || "—"}
+                  <Bed className="w-3.5 h-3.5 text-editorial-muted" /> {selectedProperty.bedrooms || "-"}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-editorial-muted uppercase block">Bathrooms</span>
                 <span className="font-bold flex items-center justify-center gap-1 mt-0.5">
-                  <Bath className="w-3.5 h-3.5 text-editorial-muted" /> {selectedProperty.bathrooms || "—"}
+                  <Bath className="w-3.5 h-3.5 text-editorial-muted" /> {selectedProperty.bathrooms || "-"}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-editorial-muted uppercase block">Plot Size</span>
                 <span className="font-bold flex items-center justify-center gap-1 mt-0.5">
-                  <Ruler className="w-3.5 h-3.5 text-editorial-muted" /> {selectedProperty.plotSizeSqm ? `${selectedProperty.plotSizeSqm} m²` : "—"}
+                  <Ruler className="w-3.5 h-3.5 text-editorial-muted" /> {selectedProperty.plotSizeSqm ? `${selectedProperty.plotSizeSqm} m²` : "-"}
                 </span>
               </div>
             </div>

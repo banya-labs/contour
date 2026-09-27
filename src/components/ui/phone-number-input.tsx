@@ -107,7 +107,7 @@ export function PhoneNumberInput({
         />
       </div>
       <p id={`${inputId}-hint`} className="mt-1 text-[11px] text-editorial-muted">
-        Enter {country.subscriberDigits} digits only. {country.dialLabel} is already selected — do not add the country code or a leading 0.
+        Enter {country.subscriberDigits} digits only. {country.dialLabel} is already selected - do not add the country code or a leading 0.
       </p>
       {(validationMessage || error) && <p id={`${inputId}-error`} role="alert" className="mt-1 text-[11px] font-semibold text-red-700">{error || validationMessage}</p>}
     </div>

@@ -145,7 +145,7 @@ function SettingsContent() {
       await (authClient as any).twoFactor.disable();
       setMfaEnabled(false);
     } catch {
-      // silent fail — user can try again
+      // silent fail - user can try again
     } finally {
       setMfaDisabling(false);
       setSettingsActionPending("mfa:disable", false);
@@ -1312,7 +1312,7 @@ function SettingsContent() {
               <p className="text-[11px] text-editorial-muted font-geist">
                 {mfaEnabled
                   ? "You will be prompted for a 6-digit code every time you sign in."
-                  : "Scan a QR code once — then enter a 6-digit code each login. Free forever."}
+                  : "Scan a QR code once - then enter a 6-digit code each login. Free forever."}
               </p>
             </div>
             {!mfaEnabled ? (
@@ -1831,13 +1831,13 @@ submitListingInquiry({
                             <tr>
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">search</td>
                               <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
-                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">-</td>
                               <td className="py-2.5 px-3">Case-insensitive keyword match across title, suburb, and description (e.g. <code className="bg-neutral-100 px-1 py-0.5">search=villa</code>).</td>
                             </tr>
                             <tr>
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">suburb</td>
                               <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
-                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">-</td>
                               <td className="py-2.5 px-3">Filter by Lusaka neighborhood (e.g. <code className="bg-neutral-100 px-1 py-0.5">suburb=Kabulonga</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Woodlands</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Roma</code>).</td>
                             </tr>
                             <tr>
@@ -1867,25 +1867,25 @@ submitListingInquiry({
                             <tr>
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">listingType</td>
                               <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
-                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">-</td>
                               <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">SALE</code> (or <code className="bg-neutral-100 px-1 py-0.5">FOR_SALE</code>) or <code className="bg-neutral-100 px-1 py-0.5">RENT</code> (or <code className="bg-neutral-100 px-1 py-0.5">FOR_RENT</code>).</td>
                             </tr>
                             <tr>
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">propertyType</td>
                               <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">enum</td>
-                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">-</td>
                               <td className="py-2.5 px-3"><code className="bg-neutral-100 px-1 py-0.5">STANDALONE_HOUSE</code> (or <code className="bg-neutral-100 px-1 py-0.5">HOUSE</code>), <code className="bg-neutral-100 px-1 py-0.5">APARTMENT</code>, <code className="bg-neutral-100 px-1 py-0.5">COMMERCIAL_OFFICE</code>, <code className="bg-neutral-100 px-1 py-0.5">WAREHOUSE</code>, <code className="bg-neutral-100 px-1 py-0.5">VACANT_LAND_PLOT</code>.</td>
                             </tr>
                             <tr>
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">minPrice / maxPrice</td>
                               <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
-                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">-</td>
                               <td className="py-2.5 px-3">Price range filtering in listing currency (e.g. <code className="bg-neutral-100 px-1 py-0.5">minPrice=500000&maxPrice=2500000</code>).</td>
                             </tr>
                             <tr>
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">bedrooms / bathrooms</td>
                               <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">number</td>
-                              <td className="py-2.5 px-3 text-editorial-muted">—</td>
+                              <td className="py-2.5 px-3 text-editorial-muted">-</td>
                               <td className="py-2.5 px-3">Minimum room counts (e.g. <code className="bg-neutral-100 px-1 py-0.5">bedrooms=3</code>).</td>
                             </tr>
                           </tbody>

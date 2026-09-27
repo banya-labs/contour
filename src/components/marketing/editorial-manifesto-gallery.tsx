@@ -44,7 +44,7 @@ export function EditorialManifestoGallery() {
   const pillars = [
     {
       title: "Get Clarity",
-      subtitle: "We define what you truly need — not just what is currently available on the market.",
+      subtitle: "We define what you truly need - not just what is currently available on the market.",
       detail: "Direct zoning analysis, water table checks, and municipal infrastructure verification before you tour.",
     },
     {

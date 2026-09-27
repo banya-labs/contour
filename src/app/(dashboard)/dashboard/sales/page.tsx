@@ -78,7 +78,7 @@ function PropertySalesContent() {
         if (salesData.success && salesData.transactions) {
           const normalized = salesData.transactions.map((t: any) => {
             const buyerName = t.inquiry?.clientName || "Buyer details pending";
-            const buyerContact = t.inquiry?.clientPhone || "—";
+            const buyerContact = t.inquiry?.clientPhone || "-";
             const buyerNrcPassport = "Not captured";
             const ministryRef = `LUS/LAND/2026/${t.id.slice(-4).toUpperCase()}-A`;
 
@@ -574,7 +574,7 @@ function PropertySalesContent() {
         onClose={() => setSelectedSale(null)}
         eyebrow="Closed property sale"
         title={selectedSale?.propertyTitle || "Property sale"}
-        subtitle={selectedSale ? `${selectedSale.suburb || "—"} · ${selectedSale.closedAt || "No closing date"}` : undefined}
+        subtitle={selectedSale ? `${selectedSale.suburb || "-"} · ${selectedSale.closedAt || "No closing date"}` : undefined}
         details={selectedSale ? [
           { label: "Buyer", value: selectedSale.buyerName },
           { label: "Buyer contact", value: selectedSale.buyerContact },

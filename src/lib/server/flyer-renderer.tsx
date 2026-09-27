@@ -59,7 +59,7 @@ export async function renderFlyerSvg(model: FlyerRenderModel, assets: FlyerRende
             { type: "div", props: { style: { display: "flex", flexDirection: "column", gap: 7, fontSize: 17, lineHeight: 1.15, overflow: "hidden" }, children: features.map((feature) => ({ type: "div", props: { style: { display: "flex", gap: 8, maxHeight: 40, overflow: "hidden", minWidth: 0 }, children: [{ type: "span", props: { style: { color: "#fa3600", fontWeight: 700 }, children: "+" } }, { type: "span", props: { style: { minWidth: 0, overflow: "hidden", wordBreak: "break-word" }, children: feature } }] } })) } },
           ] } },
           { type: "div", props: { style: { width: rightColumnWidth, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }, children: [
-            { type: "div", props: { style: { padding: 20, backgroundColor: "#282828", color: "#ffffff", textAlign: "center", fontSize: 26, fontWeight: 700 }, children: `${model.currency} ${model.price == null ? "—" : new Intl.NumberFormat("en-US").format(model.price)}` } },
+            { type: "div", props: { style: { padding: 20, backgroundColor: "#282828", color: "#ffffff", textAlign: "center", fontSize: 26, fontWeight: 700 }, children: `${model.currency} ${model.price == null ? "-" : new Intl.NumberFormat("en-US").format(model.price)}` } },
             { type: "div", props: { style: { display: "flex", gap: 8 }, children: [image(assets.secondaryOne, 170, 170), image(assets.secondaryTwo, 170, 170)] } },
           ] } },
         ] } },

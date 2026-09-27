@@ -58,7 +58,7 @@ export default function PublicPropertyGallery({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${title} — Contour`,
+          title: `${title} - Contour`,
           text: `Check out this listing in ${suburb}, ${city}: ${title} (${priceText})`,
           url: publicUrl,
         });

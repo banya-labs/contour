@@ -500,7 +500,7 @@ function LeasesManagementContent() {
         onClose={() => setSelectedLease(null)}
         eyebrow="Rental lease"
         title={selectedLease?.property?.title || selectedLease?.propertyTitle || "Lease agreement"}
-        subtitle={selectedLease ? `${selectedLease.tenantName || "Tenant"} · ${selectedLease.status || "—"}` : undefined}
+        subtitle={selectedLease ? `${selectedLease.tenantName || "Tenant"} · ${selectedLease.status || "-"}` : undefined}
         details={selectedLease ? [
           { label: "Tenant", value: selectedLease.tenantName },
           { label: "Tenant phone", value: selectedLease.tenantPhone },
@@ -508,7 +508,7 @@ function LeasesManagementContent() {
           { label: "Monthly rent", value: formatCurrency(Number(selectedLease.monthlyRent || 0), selectedLease.currency) },
           { label: "Deposit", value: formatCurrency(Number(selectedLease.depositAmount || 0), selectedLease.currency) },
           { label: "Management fee", value: `${selectedLease.managementFeePercent || 0}%` },
-          { label: "Lease term", value: `${selectedLease.leaseStartDate ? new Date(selectedLease.leaseStartDate).toLocaleDateString() : "—"} → ${selectedLease.leaseEndDate ? new Date(selectedLease.leaseEndDate).toLocaleDateString() : "—"}` },
+          { label: "Lease term", value: `${selectedLease.leaseStartDate ? new Date(selectedLease.leaseStartDate).toLocaleDateString() : "-"} → ${selectedLease.leaseEndDate ? new Date(selectedLease.leaseEndDate).toLocaleDateString() : "-"}` },
           { label: "Status", value: selectedLease.status?.replace(/_/g, " ") },
         ] : []}
       />

@@ -183,7 +183,7 @@ export class ContourReportEngine {
 
       let recommendation = "Continue monitoring";
       if (inqCount === 0 && visCount === 0) recommendation = "Review listing & boost marketing";
-      else if (inqCount > 3 && visCount > 2 && negCount === 0) recommendation = "Review price — resistance during viewings";
+      else if (inqCount > 3 && visCount > 2 && negCount === 0) recommendation = "Review price - resistance during viewings";
       else if (visCount === 0 && inqCount > 0) recommendation = "Audit photos and accessibility";
 
       return {
@@ -702,7 +702,7 @@ export class ContourReportEngine {
         agentId: u.id,
         name: u.name,
         email: u.email,
-        phone: u.phone || "—",
+        phone: u.phone || "-",
         inquiries: inqCount,
         matches: matchCount,
         viewings: userVisits.length,

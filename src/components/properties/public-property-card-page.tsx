@@ -173,7 +173,7 @@ export async function generateMetadata({
       ? `${formatCurrency(Number(property.rentalPrice || 0), property.currency)}/month`
       : formatCurrency(Number(property.askingPrice || 0), property.currency);
 
-  const title = `${property.title} — ${property.suburb}, ${property.city} (${priceText})`;
+  const title = `${property.title} - ${property.suburb}, ${property.city} (${priceText})`;
   const description = property.description
     ? `${property.description.slice(0, 155)}...`
     : `Exclusive real estate listing in ${property.suburb}, ${property.city}. Certified title deed and mandate verification on Contour.`;

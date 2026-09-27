@@ -17,7 +17,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Contour — Real Estate Operations & Field Agent OS",
+    default: "Contour - Real Estate Operations & Field Agent OS",
     template: "%s | Contour",
   },
   description:
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     locale: "en_ZM",
     url: siteUrl,
     siteName: "Contour",
-    title: "Contour — Real Estate Operations & Field Agent OS",
+    title: "Contour - Real Estate Operations & Field Agent OS",
     description:
       "Run your agency. Chase nothing. Mandate capture, deal pipeline, 5% commission ledger, and automated WhatsApp syndication for Lusaka brokerages.",
     images: [
@@ -65,13 +65,13 @@ export const metadata: Metadata = {
         url: `${siteUrl}/opengraph-image`,
         width: 1200,
         height: 630,
-        alt: "Contour — Real Estate Operations & Field Agent OS",
+        alt: "Contour - Real Estate Operations & Field Agent OS",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Contour — Real Estate Operations & Field Agent OS",
+    title: "Contour - Real Estate Operations & Field Agent OS",
     description:
       "The mandate operating system for Lusaka real estate agents. Fixed 5% commission, deal pipeline, and cadastral spatial mapping.",
     images: [`${siteUrl}/opengraph-image`],

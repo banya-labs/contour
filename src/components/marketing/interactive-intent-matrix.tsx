@@ -12,7 +12,7 @@ export function InteractiveIntentMatrix() {
     buy: {
       headline: "Buy Smarter with Vetted Local Intelligence",
       subhead:
-        "Backed by Ministry of Lands legal custody, direct cadastral survey checks, and appraisal price verification — locked in before you view.",
+        "Backed by Ministry of Lands legal custody, direct cadastral survey checks, and appraisal price verification - locked in before you view.",
       points: [
         "100% Verified Certificate of Title & PACRA company verification.",
         "Zoning & municipal utility infrastructure checks.",

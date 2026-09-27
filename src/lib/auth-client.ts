@@ -9,8 +9,8 @@ export const authClient = createAuthClient({
 });
 
 /**
- * Safe signOut wrapper — clears local caches before calling better-auth's signOut.
- * IMPORTANT: Do NOT mutate authClient.signOut directly — it corrupts the Proxy
+ * Safe signOut wrapper - clears local caches before calling better-auth's signOut.
+ * IMPORTANT: Do NOT mutate authClient.signOut directly - it corrupts the Proxy
  * and causes '[object Promise]' is not a valid HTTP method errors.
  */
 export async function contourSignOut(

@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { toAuthHeaders } from "@/lib/auth-headers";
 
 /**
- * Root route — always routes users to the appropriate destination.
+ * Root route - always routes users to the appropriate destination.
  * - Authenticated users → /dashboard or /agent (role-based)
  * - Unauthenticated users → /sign-in
  *

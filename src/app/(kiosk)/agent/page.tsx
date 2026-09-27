@@ -791,7 +791,7 @@ function AgentKioskContent() {
     const priceStr = formatCurrency(Number(rawPrice), p.currency || "ZMW");
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
     const clientLink = `${origin}${publicPropertyPath(p.organization?.slug || p.organizationSlug || "organization", p.slug || p.id)}`;
-    const text = `*🏡 CONTOUR EXCLUSIVE MANDATE — ${p.title.toUpperCase()}*\n\n` +
+    const text = `*🏡 CONTOUR EXCLUSIVE MANDATE - ${p.title.toUpperCase()}*\n\n` +
       `📍 *Location:* ${p.suburb}, Lusaka\n` +
       `💰 *Price:* ${priceStr}${p.listingType === "FOR_RENT" ? " / month" : ""}\n` +
       `🛏 *Specs:* ${p.bedrooms || 4} Beds | ${p.bathrooms || 3} Baths\n` +
@@ -3168,7 +3168,7 @@ function AgentKioskContent() {
                           <option value="">Choose Mandate...</option>
                           {displayProperties.map((p: any) => (
                             <option key={p.id} value={p.id}>
-                              {p.title} ({p.suburb}) — {formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW")}
+                              {p.title} ({p.suburb}) - {formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW")}
                             </option>
                           ))}
                         </select>
@@ -3235,7 +3235,7 @@ function AgentKioskContent() {
                     <option value="">Choose Mandate...</option>
                     {displayProperties.map((p: any) => (
                       <option key={p.id} value={p.id}>
-                        {p.title} ({p.suburb}) — {formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW")}
+                        {p.title} ({p.suburb}) - {formatCurrency(Number(p.price || p.askingPrice || p.rentalPrice || 0), p.currency || "ZMW")}
                       </option>
                     ))}
                   </select>
@@ -3400,7 +3400,7 @@ function AgentKioskContent() {
               {[
                 { label: "Bedrooms", value: selectedPropertyDetail.bedrooms || 0 },
                 { label: "Bathrooms", value: selectedPropertyDetail.bathrooms || 0 },
-                { label: "Plot sqm", value: selectedPropertyDetail.plotSizeSqm || "—" },
+                { label: "Plot sqm", value: selectedPropertyDetail.plotSizeSqm || "-" },
               ].map((item) => (
                 <div key={item.label} className="border border-editorial-border bg-neutral-50 p-3">
                   <p className="font-mono text-[9px] uppercase tracking-wider text-editorial-muted">{item.label}</p>

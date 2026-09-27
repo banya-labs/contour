@@ -49,7 +49,7 @@ export const auth = betterAuth({
     organization({
     }),
     bearer(),
-    // Fix 1: TOTP-based MFA — opt-in via settings, no email required.
+    // Fix 1: TOTP-based MFA - opt-in via settings, no email required.
     // Users scan a QR code with Google Authenticator / Authy once during setup.
     twoFactor({
       totpOptions: { digits: 6, period: 30 },
@@ -84,7 +84,7 @@ export const auth = betterAuth({
       },
     },
   },
-  // Fix 7: Auth audit trail — write sign-in / sign-out events to AuditLog.
+  // Fix 7: Auth audit trail - write sign-in / sign-out events to AuditLog.
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path === "/sign-in/email") {
@@ -124,7 +124,7 @@ export const auth = betterAuth({
             });
           }
         } catch {
-          // Non-blocking — never let audit failures break login
+          // Non-blocking - never let audit failures break login
         }
       } else if (ctx.path === "/sign-out") {
         try {

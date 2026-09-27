@@ -37,7 +37,7 @@ export const GET = createApiHandler({
       fromDate = new Date(fromParam);
       toDate = new Date(toParam);
       toDate.setHours(23, 59, 59, 999);
-      label = `${fromParam} – ${toParam}`;
+      label = `${fromParam} - ${toParam}`;
     } else {
       // Default: this_month
       fromDate = new Date(now.getFullYear(), now.getMonth(), 1);

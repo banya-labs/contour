@@ -22,42 +22,42 @@ export function ProductFeatures() {
       num: "01",
       name: "Mandate Capture",
       desc: "Add any listing in under 2 minutes with title deed and landlord verification.",
-      tag: "MANDATE INTAKE — ACTIVE VIEW",
+      tag: "MANDATE INTAKE - ACTIVE VIEW",
     },
     {
       id: "02",
       num: "02",
       name: "Deal Pipeline",
       desc: "Every deal, every stage, always visible across your entire agency.",
-      tag: "DEAL PIPELINE — ACTIVE VIEW",
+      tag: "DEAL PIPELINE - ACTIVE VIEW",
     },
     {
       id: "03",
       num: "03",
       name: "Commission Tracking",
       desc: "Every 5% locked, transparent, and accounted for from offer to registration.",
-      tag: "COMMISSION LEDGER — ACTIVE VIEW",
+      tag: "COMMISSION LEDGER - ACTIVE VIEW",
     },
     {
       id: "04",
       num: "04",
       name: "Lease & Arrears",
       desc: "Automated WhatsApp reminders sent before you ever need to chase.",
-      tag: "ARREARS SENTINEL — ACTIVE VIEW",
+      tag: "ARREARS SENTINEL - ACTIVE VIEW",
     },
     {
       id: "05",
       num: "05",
       name: "WhatsApp Syndication",
       desc: "One-tap branded flyer generated with masked landlord PII to any client group.",
-      tag: "SYNDICATION HUB — ACTIVE VIEW",
+      tag: "SYNDICATION HUB - ACTIVE VIEW",
     },
     {
       id: "06",
       num: "06",
       name: "Document Vault",
       desc: "Certificates of Title and NRC identity scans encrypted with POPIA compliance.",
-      tag: "LEGAL CUSTODY — ACTIVE VIEW",
+      tag: "LEGAL CUSTODY - ACTIVE VIEW",
     },
   ];
 
@@ -98,7 +98,7 @@ export function ProductFeatures() {
           transition={{ duration: 0.6, ease: ease.out, delay: 0.15 }}
           className="mt-5 font-geist text-sm sm:text-base text-editorial-muted max-w-prose mx-auto"
         >
-          Contour is the operating system for Lusaka real estate agents — from mandate capture to commission cleared.
+          Contour is the operating system for Lusaka real estate agents - from mandate capture to commission cleared.
         </motion.p>
       </div>
 
@@ -127,7 +127,7 @@ export function ProductFeatures() {
                     </span>
                     <div>
                       <h3 className="font-heading font-bold text-base sm:text-lg text-editorial-black tracking-tight flex items-center gap-2">
-                        <span>Feature {item.num} — {item.name}</span>
+                        <span>Feature {item.num} - {item.name}</span>
                       </h3>
                       <p className="mt-1 font-geist text-xs sm:text-sm text-editorial-muted leading-relaxed">
                         "{item.desc}"

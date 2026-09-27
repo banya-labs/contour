@@ -7,7 +7,7 @@ export default function NotFound() {
       <div className="max-w-md w-full text-center space-y-4">
         <ContourLogo size="lg" />
         <h1 className="text-4xl font-heading font-black tracking-tight text-editorial-black mt-4">
-          404 — PAGE NOT FOUND
+          404 - PAGE NOT FOUND
         </h1>
         <p className="text-sm text-editorial-muted">
           The requested real estate parcel or workspace record could not be found.

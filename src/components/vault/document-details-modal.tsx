@@ -430,21 +430,21 @@ export function DocumentDetailsModal({
                     <div className="flex justify-between items-center">
                       <span className="text-editorial-muted">Stand / Plot Number:</span>
                       <span className="font-mono text-[11px] font-medium text-editorial-black">
-                        {currentDoc.standPlotNumber || "—"}
+                        {currentDoc.standPlotNumber || "-"}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center">
                       <span className="text-editorial-muted">Title Deed Folio:</span>
                       <span className="font-mono text-[11px] font-medium text-editorial-black">
-                        {currentDoc.registryFolio || currentDoc.property?.titleDeedNumber || "—"}
+                        {currentDoc.registryFolio || currentDoc.property?.titleDeedNumber || "-"}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center">
                       <span className="text-editorial-muted">NRC / Passport No:</span>
                       <span className="font-mono text-[11px] font-medium text-editorial-black">
-                        {currentDoc.nrcNumber || "—"}
+                        {currentDoc.nrcNumber || "-"}
                       </span>
                     </div>
                   </div>
