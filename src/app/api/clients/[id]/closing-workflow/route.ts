@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { getClosingReadiness } from "@/lib/closing-workflow";
-import { ensureClosingWorkflow, getClosingWorkflow } from "@/lib/closing-workflow-persistence";
+import { ensureClosingWorkflow, getClosingDealContext, getClosingWorkflow } from "@/lib/closing-workflow-persistence";
 
 const createSchema = z.object({}).optional();
 
@@ -12,9 +12,11 @@ export const GET = createApiHandler({
   handler: async (_request, { params, organizationId }) => {
     const inquiryId = typeof params?.id === "string" ? params.id : undefined;
     if (!inquiryId || !organizationId) return NextResponse.json({ success: false, error: "Inquiry and organization context are required." }, { status: 400 });
+    const deal = await getClosingDealContext(db, organizationId, inquiryId);
+    if (!deal) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
     const workflow = await getClosingWorkflow(db, organizationId, inquiryId);
     if (!workflow) return NextResponse.json({ success: false, error: "Closing workflow not found." }, { status: 404 });
-    return NextResponse.json({ success: true, workflow, readiness: getClosingReadiness(workflow.items.map((item) => ({ ...item, active: true }))) });
+    return NextResponse.json({ success: true, deal, workflow, readiness: getClosingReadiness(workflow.items.map((item) => ({ ...item, active: true }))) });
   },
 });
 
@@ -28,6 +30,7 @@ export const POST = createApiHandler({
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
     if (inquiry.status !== "VERIFICATION_CLOSING") return NextResponse.json({ success: false, error: "A closing workflow can only be created for Verification & Closing deals." }, { status: 409 });
     const workflow = await ensureClosingWorkflow(db, { organizationId, inquiryId, actorId: userId });
-    return NextResponse.json({ success: true, workflow, readiness: getClosingReadiness(workflow.items.map((item) => ({ ...item, active: true }))) });
+    const deal = await getClosingDealContext(db, organizationId, inquiryId);
+    return NextResponse.json({ success: true, deal, workflow, readiness: getClosingReadiness(workflow.items.map((item) => ({ ...item, active: true }))) });
   },
 });

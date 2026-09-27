@@ -63,6 +63,17 @@ export const POST = createApiHandler({
     const orgId = organizationId!;
     const data = body;
 
+    let linkedPropertyId = data.propertyId || null;
+    if (data.inquiryId) {
+      const inquiry = await db.inquiry.findFirst({ where: { id: data.inquiryId, organizationId: orgId }, select: { id: true, propertyId: true } });
+      if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found or access denied." }, { status: 404 });
+      if (linkedPropertyId && inquiry.propertyId !== linkedPropertyId) return NextResponse.json({ success: false, error: "The request property must match the deal property." }, { status: 409 });
+      linkedPropertyId = inquiry.propertyId;
+    } else if (linkedPropertyId) {
+      const property = await db.property.findFirst({ where: { id: linkedPropertyId, organizationId: orgId }, select: { id: true } });
+      if (!property) return NextResponse.json({ success: false, error: "Property not found or access denied." }, { status: 404 });
+    }
+
     // Generate secure 32-byte cryptographic token
     const token = crypto.randomBytes(24).toString("hex");
 
@@ -91,7 +102,7 @@ export const POST = createApiHandler({
     const docRequest = await db.documentRequest.create({
       data: {
         organizationId: orgId,
-        propertyId: data.propertyId || null,
+        propertyId: linkedPropertyId,
         inquiryId: data.inquiryId || null,
         requestedById: userId!,
         title: data.title,

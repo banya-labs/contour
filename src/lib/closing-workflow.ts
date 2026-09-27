@@ -5,6 +5,13 @@ export const CLOSING_ITEM_STATUSES = ["PENDING", "SUBMITTED", "APPROVED", "REJEC
 export type ClosingAssignee = (typeof CLOSING_ASSIGNEES)[number];
 export type ClosingEvidenceType = (typeof CLOSING_EVIDENCE_TYPES)[number];
 export type ClosingItemStatus = (typeof CLOSING_ITEM_STATUSES)[number];
+export type ClosingTransactionType = "PROPERTY_SALE" | "RENTAL_PLACEMENT";
+
+export function resolveClosingTransactionType(lookingFor: string): ClosingTransactionType {
+  if (lookingFor === "FOR_RENT") return "RENTAL_PLACEMENT";
+  if (lookingFor === "FOR_SALE") return "PROPERTY_SALE";
+  throw new Error("Unsupported inquiry transaction type.");
+}
 
 export type ClosingRequirementTemplate = {
   key: string;
