@@ -234,6 +234,17 @@ export default function DashboardOverviewPage() {
     });
   });
 
+  expiringSoonLeases.forEach((lease) => {
+    const endDate = lease.leaseEndDate ? new Date(lease.leaseEndDate).toLocaleDateString() : "soon";
+    dailyActionQueue.push({
+      id: `expiry_${lease.id}`,
+      tag: "LEASE EXPIRY",
+      title: `Lease Expiring — ${lease.tenantName}`,
+      detail: `${lease.property?.title || "Property"} • Ends ${endDate}`,
+      actionLabel: "Review lease",
+    });
+  });
+
   // Pipeline breakdown calculation
   const statusMeta: Record<string, { label: string; tag: string }> = {
     NEW_INQUIRY: { label: "New Leads", tag: "RAW" },
@@ -659,6 +670,8 @@ export default function DashboardOverviewPage() {
                           const transaction = pendingTransactions.find((candidate) => `tx_${candidate.id}` === item.id);
                           const propertyId = transaction?.property?.id;
                           window.location.assign(propertyId ? `/dashboard/documents?propertyId=${encodeURIComponent(propertyId)}` : "/dashboard/documents");
+                        } else if (item.tag === "LEASE EXPIRY") {
+                          window.location.assign("/dashboard/leases");
                         } else {
                           const destination = item.tag === "INQUIRY"
                             ? "/dashboard/clients"
