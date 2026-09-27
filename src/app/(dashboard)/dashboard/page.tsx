@@ -484,7 +484,7 @@ export default function DashboardOverviewPage() {
       {/* 2. Daily Action Queue */}
       <UnassignedMatchPanel />
 
-      {isManagement && managementHandoverInquiries.length > 0 && (
+      {managementHandoverInquiries.length > 0 && (
         <div className="border-2 border-contour-red bg-[#fff5f3] p-4 sm:p-5 shadow-none">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-start gap-3">
@@ -492,7 +492,7 @@ export default function DashboardOverviewPage() {
                 <Bell className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-[10px] font-geist font-bold uppercase tracking-widest text-contour-red">Management attention required</p>
+            <p className="text-[10px] font-geist font-bold uppercase tracking-widest text-contour-red">Closing workflow required</p>
                 <h2 className="font-heading text-base sm:text-lg font-bold text-editorial-black mt-1">
                   {managementHandoverInquiries.length} {managementHandoverInquiries.length === 1 ? "property is" : "properties are"} awaiting handover review
                 </h2>
@@ -511,8 +511,7 @@ export default function DashboardOverviewPage() {
                   <p className="text-[11px] text-editorial-muted truncate">{inquiry.clientName} · TO: {inquiry.assignedAgent?.name || "Unassigned"}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button type="button" onClick={() => startHandoverClose(inquiry, "WON")} className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-heading font-bold uppercase tracking-wider">Close Won</button>
-                  <button type="button" onClick={() => startHandoverClose(inquiry, "LOST")} className="px-3 py-1.5 border border-red-300 bg-white hover:bg-red-50 text-red-700 text-[10px] font-heading font-bold uppercase tracking-wider">Close Lost</button>
+                  <button type="button" onClick={() => setClosingWorkflowTarget(inquiry)} className="px-3 py-1.5 bg-editorial-black hover:bg-contour-red text-white text-[10px] font-heading font-bold uppercase tracking-wider">Open closing workflow</button>
                 </div>
               </div>
             ))}
