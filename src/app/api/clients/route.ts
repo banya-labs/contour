@@ -135,16 +135,21 @@ const postHandler = createApiHandler({
     }
 
     let validPropertyId: string | undefined = undefined;
+    let resolvedPropertyValue: number | undefined;
+    let resolvedPropertyCurrency: "ZMW" | "USD" | undefined;
     if (body.propertyId) {
       const property = await db.property.findFirst({
         where: { id: body.propertyId, organizationId: organizationId! },
-        select: { id: true, status: true },
+        select: { id: true, status: true, askingPrice: true, rentalPrice: true, currency: true },
       });
       if (property) {
         if (!isPropertyAvailableForNewOpportunity(property.status)) {
           return NextResponse.json({ success: false, error: "This property has already been sold and cannot be attached to a new deal." }, { status: 409 });
         }
         validPropertyId = property.id;
+        const propertyValue = body.lookingFor === "FOR_RENT" ? property.rentalPrice : property.askingPrice;
+        resolvedPropertyValue = propertyValue == null ? undefined : Number(propertyValue);
+        resolvedPropertyCurrency = property.currency;
       }
     }
 
@@ -160,7 +165,7 @@ const postHandler = createApiHandler({
           ...(body.propertyType ? { propertyType: body.propertyType } : {}),
           ...(body.preferredSuburbs?.length ? { suburb: { in: body.preferredSuburbs, mode: "insensitive" } } : {}),
         },
-        select: { id: true, askingPrice: true, rentalPrice: true },
+        select: { id: true, askingPrice: true, rentalPrice: true, currency: true },
         orderBy: { createdAt: "desc" },
         take: 25,
       });
@@ -171,6 +176,11 @@ const postHandler = createApiHandler({
         return price == null || Number(price) <= budgetMax * 1.1;
       });
       validPropertyId = match?.id;
+      if (match) {
+        const propertyValue = body.lookingFor === "FOR_RENT" ? match.rentalPrice : match.askingPrice;
+        resolvedPropertyValue = propertyValue == null ? undefined : Number(propertyValue);
+        resolvedPropertyCurrency = match.currency;
+      }
     }
 
     const lockDurationDays = 30;
@@ -210,13 +220,17 @@ const postHandler = createApiHandler({
             clientPhone,
             clientEmail: body.clientEmail?.trim() || null,
             lookingFor: body.lookingFor || "FOR_SALE",
-            currency: body.currency || "ZMW",
+            currency: resolvedPropertyCurrency || body.currency || "ZMW",
             notes: body.notes || null,
             status: body.status || existingInquiry.status,
             leadSource: body.leadSource || "OTHER",
             propertyId: validPropertyId || null,
             matchStatus: validPropertyId ? "MATCHED" : "UNMATCHED",
-            dealValue: body.dealValue !== undefined ? new Prisma.Decimal(body.dealValue) : undefined,
+            dealValue: resolvedPropertyValue !== undefined
+              ? new Prisma.Decimal(resolvedPropertyValue)
+              : body.dealValue !== undefined
+              ? new Prisma.Decimal(body.dealValue)
+              : undefined,
             ...(effectiveAgentId ? { assignedAgentId: effectiveAgentId } : {}),
             exclusiveLockExpiresAt,
           },
@@ -262,14 +276,18 @@ const postHandler = createApiHandler({
         propertyType: body.propertyType,
         budgetMin: body.budgetMin ? new Prisma.Decimal(body.budgetMin) : undefined,
         budgetMax: body.budgetMax ? new Prisma.Decimal(body.budgetMax) : undefined,
-        currency: body.currency || "ZMW",
+        currency: resolvedPropertyCurrency || body.currency || "ZMW",
         preferredSuburbs: body.preferredSuburbs || [],
         notes: body.notes,
         status: body.status || "CONTACTED",
         leadSource: body.leadSource || "OTHER",
         propertyId: validPropertyId,
         matchStatus: validPropertyId ? "MATCHED" : "UNMATCHED",
-        dealValue: body.dealValue !== undefined ? new Prisma.Decimal(body.dealValue) : undefined,
+        dealValue: resolvedPropertyValue !== undefined
+          ? new Prisma.Decimal(resolvedPropertyValue)
+          : body.dealValue !== undefined
+          ? new Prisma.Decimal(body.dealValue)
+          : undefined,
         assignedAgentId: effectiveAgentId,
         exclusiveLockExpiresAt,
         idempotencyKey: body.idempotencyKey,

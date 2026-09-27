@@ -1414,7 +1414,17 @@ function DealPipelineContent() {
                 </label>
                 <select
                   value={formData.propertyId}
-                  onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
+                  onChange={(e) => {
+                    const propertyId = e.target.value;
+                    const property = availableProperties.find((candidate) => candidate.id === propertyId);
+                    const propertyValue = property?.askingPrice ?? property?.rentalPrice;
+                    setFormData({
+                      ...formData,
+                      propertyId,
+                      dealValue: propertyValue != null ? String(propertyValue) : "",
+                      currency: property?.currency || formData.currency,
+                    });
+                  }}
                   className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                 >
                   <option value="">Select a property...</option>
@@ -1488,7 +1498,7 @@ function DealPipelineContent() {
                   <input
                     type="number"
                     value={formData.dealValue}
-                    onChange={(e) => setFormData({ ...formData, dealValue: e.target.value })}
+                    readOnly
                     className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist"
                     required
                   />
