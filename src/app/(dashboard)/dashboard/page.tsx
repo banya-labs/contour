@@ -173,7 +173,7 @@ export default function DashboardOverviewPage() {
       tag: "ARREARS",
       title: `Rent Overdue — ${lease.tenantName}`,
       detail: `${propertyTitle}${suburb ? ` (${suburb})` : ""} • ${formatCurrency(Number(lease.monthlyRent), lease.currency)} pending`,
-      actionLabel: "Open arrears",
+      actionLabel: "Queue reminder",
     });
   });
 
@@ -591,6 +591,23 @@ export default function DashboardOverviewPage() {
                         if (item.tag === "MANAGEMENT") {
                           const inquiry = managementHandoverInquiries.find((candidate) => `handover_${candidate.id}` === item.id);
                           if (inquiry) startHandoverClose(inquiry, "WON");
+                        } else if (item.tag === "ARREARS") {
+                          const lease = arrearsLeases.find((candidate) => `arrears_${candidate.id}` === item.id);
+                          if (lease) {
+                            setQueueActionPendingId(item.id);
+                            setQueueActionError(null);
+                            void fetch(`/api/leases/${lease.id}/arrears-reminder`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ tier: 1 }),
+                            }).then(async (response) => {
+                              const result = await response.json().catch(() => null);
+                              if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to queue reminder.");
+                              setRefreshNonce((value) => value + 1);
+                            }).catch((error: unknown) => {
+                              setQueueActionError(error instanceof Error ? error.message : "Unable to queue reminder.");
+                            }).finally(() => setQueueActionPendingId(null));
+                          }
                         } else if (item.tag === "INQUIRY") {
                           const inquiry = newInquiries.find((candidate) => `inq_${candidate.id}` === item.id);
                           if (inquiry) {
@@ -622,9 +639,7 @@ export default function DashboardOverviewPage() {
                             window.location.assign(`/dashboard/leases?new=1&prefill=${prefill}`);
                           }
                         } else {
-                          const destination = item.tag === "ARREARS"
-                            ? "/dashboard/leases"
-                            : item.tag === "INQUIRY"
+                          const destination = item.tag === "INQUIRY"
                             ? "/dashboard/clients"
                             : item.tag === "STATEMENT"
                             ? "/dashboard/leases?tab=statements"
