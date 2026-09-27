@@ -86,7 +86,17 @@ const getHandler = createApiHandler({
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
-          db.transaction.count({ where: { organizationId, status: "EXPECTED" } }),
+          db.transaction.count({
+            where: {
+              organizationId,
+              status: "EXPECTED",
+              property: {
+                vaultDocuments: {
+                  none: { docType: "TITLE_DEED", isDeleted: false, isVerified: true },
+                },
+              },
+            },
+          }),
           db.inquiry.findMany({
             where: { organizationId, status: "CLOSED", outcome: "WON", lookingFor: "FOR_RENT", lease: null },
             include: {
