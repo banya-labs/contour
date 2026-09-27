@@ -266,7 +266,7 @@ export default function SocialMediaCardGeneratorModal({
       website: agencySettings?.website,
     },
   );
-  const logoUrl = organizationLogoUrl.trim();
+  const logoUrl = organizationLogoUrl.trim() || agencySettings?.logoUrl?.trim() || "";
 
   const photos = property.photos && property.photos.length > 0
     ? property.photos
@@ -316,10 +316,10 @@ export default function SocialMediaCardGeneratorModal({
       const capture = getFlyerExportDimensions(cardRef.current, aspectRatio);
       const canvas = await toCanvas(cardRef.current, {
         width: capture.width,
-        height: capture.height,
-        canvasWidth: capture.width,
-        canvasHeight: capture.height,
-        pixelRatio: capture.pixelRatio,
+        height: capture.sourceHeight,
+        canvasWidth: capture.canvasWidth,
+        canvasHeight: capture.canvasHeight,
+        pixelRatio: 1,
         backgroundColor: isDark ? "#282828" : "#ffffff",
       });
 
