@@ -128,4 +128,3 @@
 - [ ] **Step 3: Run browser smoke checks for both deal types, including client upload-link visibility, without claiming deployed-runtime proof.
 - [ ] **Step 4: Review migration SQL and `git diff --check`.
 - [ ] **Step 5: Commit** `test(closing): verify deal-type workflows`.
-
