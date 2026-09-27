@@ -68,6 +68,7 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { InquiryMatchModal, type InquiryMatch } from "@/components/matching/inquiry-match-modal";
 import { publicPropertyPath } from "@/lib/public-property";
 import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, type ActivePipelineStage } from "@/lib/deal-workflow";
 
@@ -145,6 +146,9 @@ function AgentKioskContent() {
   // Selection & Modal States
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [matchedProperty, setMatchedProperty] = useState<any | null>(null);
+  const [selectedInquiryMatches, setSelectedInquiryMatches] = useState<{ inquiry: any; matches: InquiryMatch[]; threshold: number } | null>(null);
+  const [inquiryMatchesLoading, setInquiryMatchesLoading] = useState(false);
+  const [inquiryMatchesError, setInquiryMatchesError] = useState<string | null>(null);
   const [selectedMapProperty, setSelectedMapProperty] = useState<any | null>(null);
   const [selectedPropertyDetail, setSelectedPropertyDetail] = useState<any | null>(null);
   const [intakeDrawer, setIntakeDrawer] = useState<IntakeType>("NONE");
@@ -155,6 +159,22 @@ function AgentKioskContent() {
   const [earningsPeriod, setEarningsPeriod] = useState<EarningsPeriod>("all");
   const [earningsDate, setEarningsDate] = useState<Date | null>(null);
   const [flyerModalProperty, setFlyerModalProperty] = useState<any | null>(null);
+
+  const openInquiryMatches = async (inquiry: any) => {
+    setSelectedInquiryMatches({ inquiry, matches: [], threshold: 70 });
+    setInquiryMatchesLoading(true);
+    setInquiryMatchesError(null);
+    try {
+      const response = await fetch(`/api/clients/${encodeURIComponent(inquiry.id)}/matches`);
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to load property matches.");
+      setSelectedInquiryMatches({ inquiry, matches: payload.matches || [], threshold: payload.threshold ?? 70 });
+    } catch (error) {
+      setInquiryMatchesError(error instanceof Error ? error.message : "Unable to load property matches.");
+    } finally {
+      setInquiryMatchesLoading(false);
+    }
+  };
 
   useEffect(() => {
     setEarningsDate(new Date());
@@ -2261,6 +2281,7 @@ function AgentKioskContent() {
                   const isAssigned = isClientAssignedToMe(c);
                   const agentName = c.assignedAgent?.name || (isAssigned ? currentAgent.name : null);
                   const isRental = c.lookingFor === "FOR_RENT" || c.lookingFor === "RENT";
+                  const visibleMatches = Array.isArray(c.matchingProperties) ? c.matchingProperties : [];
 
                   return (
                     <div
@@ -2316,6 +2337,33 @@ function AgentKioskContent() {
                           </span>
                         </div>
                       )}
+
+                      <div className="border border-emerald-200 bg-emerald-50/60 p-2.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-900">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                            {visibleMatches.length ? `${visibleMatches.length} match${visibleMatches.length === 1 ? "" : "es"} found` : "Find matching properties"}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => openInquiryMatches(c)}
+                            className="shrink-0 px-2 py-1 bg-white hover:bg-editorial-black hover:text-white border border-emerald-300 text-[10px] font-heading font-semibold uppercase tracking-wider transition-colors"
+                          >
+                            Matches
+                          </button>
+                        </div>
+                        {visibleMatches.length > 0 && (
+                          <div className="space-y-1">
+                            {visibleMatches.slice(0, 2).map((match: any) => (
+                              <div key={match.id} className="flex items-center justify-between gap-2 text-[11px] text-editorial-black">
+                                <span className="truncate">{match.title} <span className="text-editorial-muted">• {match.suburb || "Location pending"}</span></span>
+                                <span className="shrink-0 font-mono font-bold text-emerald-800">{match.score}%</span>
+                              </div>
+                            ))}
+                            {visibleMatches.length > 2 && <p className="text-[10px] text-emerald-800 font-mono">Open Matches to see all results.</p>}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Client Requirements Notes Excerpt */}
                       {c.notes && (
@@ -3628,6 +3676,18 @@ function AgentKioskContent() {
           </div>
         </div>
       )}
+
+      <InquiryMatchModal
+        inquiry={selectedInquiryMatches?.inquiry || null}
+        matches={selectedInquiryMatches?.matches || []}
+        threshold={selectedInquiryMatches?.threshold || 70}
+        loading={inquiryMatchesLoading}
+        error={inquiryMatchesError}
+        onClose={() => {
+          setSelectedInquiryMatches(null);
+          setInquiryMatchesError(null);
+        }}
+      />
 
       {/* ================= MODAL: DIGITAL COMMISSION SLIP ================= */}
       {selectedCommissionSlip && (
