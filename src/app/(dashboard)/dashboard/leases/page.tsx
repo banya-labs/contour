@@ -25,6 +25,7 @@ function LeasesManagementContent() {
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [remindedLeaseId, setRemindedLeaseId] = useState<string | null>(null);
+  const [reminderError, setReminderError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreatingLease, setIsCreatingLease] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any | null>(null);
@@ -61,11 +62,11 @@ function LeasesManagementContent() {
     inquiryId: "",
     tenantName: "",
     tenantPhone: "",
-    monthlyRent: "2200",
-    currency: "USD",
+    monthlyRent: "",
+    currency: "ZMW",
     managementFeePercent: "10",
-    leaseStartDate: "2026-09-01",
-    leaseEndDate: "2027-08-31",
+    leaseStartDate: "",
+    leaseEndDate: "",
   });
   const [formError, setFormError] = useState("");
 
@@ -107,11 +108,23 @@ function LeasesManagementContent() {
     return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handle);
   }, []);
 
-  const handleSendReminder = (leaseId: string) => {
+  const handleSendReminder = async (leaseId: string) => {
     setRemindedLeaseId(leaseId);
-    setTimeout(() => {
-      alert("WhatsApp Arrears Reminder Tier-1 Dispatched to Tenant with 4-day cooldown key!");
-    }, 400);
+    setReminderError("");
+    try {
+      const response = await fetch(`/api/leases/${leaseId}/arrears-reminder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: 1 }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || "Unable to queue reminder.");
+      setRefreshNonce((value) => value + 1);
+    } catch (error) {
+      setReminderError(error instanceof Error ? error.message : "Unable to queue reminder.");
+    } finally {
+      setRemindedLeaseId(null);
+    }
   };
 
   const handleCreateLease = (e: React.FormEvent) => {
@@ -128,6 +141,11 @@ function LeasesManagementContent() {
     }
     if (!formData.tenantPhone.trim() || formData.tenantPhone.length < 7) {
       setFormError("Valid tenant phone number is required.");
+      return;
+    }
+
+    if (!formData.leaseStartDate || !formData.leaseEndDate || formData.leaseEndDate <= formData.leaseStartDate) {
+      setFormError("Lease start and end dates are required, and the end date must be later.");
       return;
     }
 
@@ -168,11 +186,11 @@ function LeasesManagementContent() {
             inquiryId: "",
             tenantName: "",
             tenantPhone: "",
-            monthlyRent: "2200",
-            currency: "USD",
+            monthlyRent: "",
+            currency: "ZMW",
             managementFeePercent: "10",
-            leaseStartDate: "2026-09-01",
-            leaseEndDate: "2027-08-31",
+            leaseStartDate: "",
+            leaseEndDate: "",
           });
         } else {
           setFormError(data.error || "Failed to create lease.");
@@ -190,6 +208,9 @@ function LeasesManagementContent() {
 
   return activeTab === "statements" ? <StatementsPage /> : (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
+      {reminderError && (
+        <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">{reminderError}</div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
