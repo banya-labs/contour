@@ -184,7 +184,7 @@ export default function DashboardOverviewPage() {
     });
   });
 
-  newInquiries.forEach((inq) => {
+  newInquiries.filter((inq) => !inq.assignedAgentId).forEach((inq) => {
     dailyActionQueue.push({
       id: `inq_${inq.id}`,
       tag: "INQUIRY",
@@ -332,11 +332,11 @@ export default function DashboardOverviewPage() {
 
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
           <Link
-            href="/dashboard/clients?new=1"
+            href="/dashboard/clients?tab=contacts&new=1"
             className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
           >
             <Plus className="w-3 h-3 text-contour-red" />
-            <span>Add Client</span>
+            <span>Add Contact</span>
           </Link>
 
           <Link
@@ -348,11 +348,11 @@ export default function DashboardOverviewPage() {
           </Link>
 
           <Link
-            href="/dashboard/pipeline?new=1"
+            href="/dashboard/clients?new=1"
             className="px-3 py-1.5 bg-neutral-100 hover:bg-editorial-black hover:text-white border border-editorial-border text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shrink-0"
           >
             <Plus className="w-3 h-3 text-contour-red" />
-            <span>Add Deal Pipeline</span>
+            <span>Add Inquiry</span>
           </Link>
 
           <Link

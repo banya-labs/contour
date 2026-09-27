@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
+import { buildContactIdentity, normalizeContactPhone } from "@/lib/crm/contact-identity";
 
 export const GET = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -21,7 +22,11 @@ export const PATCH = createApiHandler({
     if (typeof id !== "string") return NextResponse.json({ success: false, error: "Contact id is required." }, { status: 400 });
     const existing = await db.contact.findFirst({ where: { id, organizationId: organizationId! }, select: { id: true } });
     if (!existing) return NextResponse.json({ success: false, error: "Contact not found." }, { status: 404 });
-    const contact = await db.contact.update({ where: { id }, data: { name: body.name, phone: body.phone, email: body.email || null, notes: body.notes || null } });
+    const phone = normalizeContactPhone(body.phone);
+    const identityKey = buildContactIdentity(organizationId!, phone, body.name);
+    const duplicate = await db.contact.findFirst({ where: { organizationId: organizationId!, identityKey, NOT: { id } }, select: { id: true } });
+    if (duplicate) return NextResponse.json({ success: false, error: "A contact with this phone number already exists." }, { status: 409 });
+    const contact = await db.contact.update({ where: { id }, data: { identityKey, name: body.name, phone, email: body.email || null, notes: body.notes || null } });
     return NextResponse.json({ success: true, contact });
   },
 });
