@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 
 import { smartCache } from "@/lib/cache";
+import { getConveyanceState } from "@/lib/actions/conveyance-state";
 
 const getHandler = createApiHandler({
   handler: async (req, ctx) => {
@@ -68,7 +69,17 @@ const getHandler = createApiHandler({
           db.transaction.findMany({
             where: { organizationId, status: "EXPECTED" },
             include: {
-              property: { select: { title: true, suburb: true } },
+              property: {
+                select: {
+                  id: true,
+                  title: true,
+                  suburb: true,
+                  vaultDocuments: {
+                    where: { docType: "TITLE_DEED", isDeleted: false },
+                    select: { isVerified: true },
+                  },
+                },
+              },
               closingAgent: { select: { name: true } },
             },
             orderBy: { createdAt: "asc" },
@@ -115,7 +126,9 @@ const getHandler = createApiHandler({
           newInquiries,
           managementHandoverInquiries,
           managementActionCount: managementHandoverInquiries.length,
-          pendingTransactions,
+          pendingTransactions: pendingTransactions.filter(
+            (transaction) => getConveyanceState(transaction.property?.vaultDocuments ?? []) !== "VERIFIED"
+          ),
           rentalLeaseSetups,
           expiringSoonLeases,
           inquiryStatusBreakdown,

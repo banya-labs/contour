@@ -638,6 +638,10 @@ export default function DashboardOverviewPage() {
                             }));
                             window.location.assign(`/dashboard/leases?new=1&prefill=${prefill}`);
                           }
+                        } else if (item.tag === "CONVEYANCE") {
+                          const transaction = pendingTransactions.find((candidate) => `tx_${candidate.id}` === item.id);
+                          const propertyId = transaction?.property?.id;
+                          window.location.assign(propertyId ? `/dashboard/documents?propertyId=${encodeURIComponent(propertyId)}` : "/dashboard/documents");
                         } else {
                           const destination = item.tag === "INQUIRY"
                             ? "/dashboard/clients"
