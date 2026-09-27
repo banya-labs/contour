@@ -275,6 +275,13 @@ function AgentKioskContent() {
   const isManagerOrAdmin = Boolean(userRole && (userRole === "SUPER_ADMIN" || userRole === "BROKER_MANAGER"));
 
   useEffect(() => {
+    if (!session?.user) return;
+    const defaultScope = isManagerOrAdmin ? "ALL" : "ME";
+    setPropertyAgentFilter(defaultScope);
+    setPropertyAssignmentFilter(isManagerOrAdmin ? "ALL" : "ASSIGNED");
+  }, [isManagerOrAdmin, session?.user]);
+
+  useEffect(() => {
     if (isSessionPending || !session?.user) {
       setCanAccessDashboard(false);
       return;
@@ -1502,68 +1509,15 @@ function AgentKioskContent() {
             {/* Search, Suburb Chips & Layout Switcher */}
             <div className={activeTab === "MAP" ? "hidden" : "space-y-2.5"}>
               
-              {/* Assignment & Agent Filter Hub */}
-              <div className="space-y-2">
-                <div className="flex bg-neutral-100 p-1 border border-editorial-border text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPropertyAgentFilter("ALL");
-                      setPropertyAssignmentFilter("ALL");
-                      playNeutralTone();
-                    }}
-                    className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
-                      propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL"
-                        ? "bg-editorial-black text-white shadow-xs"
-                        : "text-editorial-muted hover:text-editorial-black"
-                    }`}
-                  >
-                    View All Mandates ({displayProperties.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPropertyAgentFilter("ME");
-                      setPropertyAssignmentFilter("ASSIGNED");
-                      playNeutralTone();
-                    }}
-                    className={`flex-1 py-1.5 font-heading font-semibold uppercase tracking-wider text-center transition-all ${
-                      propertyAgentFilter === "ME" || propertyAssignmentFilter === "ASSIGNED"
-                        ? "bg-editorial-black text-white shadow-xs"
-                        : "text-editorial-muted hover:text-editorial-black"
-                    }`}
-                  >
-                    Assigned to Me ({displayProperties.filter((p: any) => isPropertyAssignedToMe(p)).length})
-                  </button>
+              {/* Ownership scope: agents start with their own properties; management starts organization-wide. */}
+              <div className="flex items-center justify-between gap-3 border border-editorial-border bg-white px-3 py-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <User className="w-3.5 h-3.5 text-editorial-muted" />
+                  <span className="font-heading font-semibold uppercase tracking-wider">{propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL" ? "All organization mandates" : "My assigned mandates"}</span>
                 </div>
-
-                {/* Specific Agent & Mandate Category Filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 bg-white border border-editorial-border px-2.5 py-1.5">
-                    <User className="w-3.5 h-3.5 text-editorial-muted shrink-0" />
-                    <select
-                      value={propertyAgentFilter}
-                      onChange={(e) => {
-                        setPropertyAgentFilter(e.target.value);
-                        setPropertyAssignmentFilter(e.target.value === "ME" ? "ASSIGNED" : "ALL");
-                        playNeutralTone();
-                      }}
-                      className="w-full bg-transparent text-xs font-mono font-medium text-editorial-black focus:outline-none cursor-pointer"
-                    >
-                      <option value="ALL">All Agents (Organization-Wide)</option>
-                      <option value="ME">My Mandates Only</option>
-                      <option value="UNASSIGNED">Unassigned Mandates Only</option>
-                      {allKnownAgents
-                        .filter((a) => a.id !== currentAgent.id && a.id !== session?.user?.id)
-                        .map((a) => (
-                          <option key={a.id} value={a.id}>
-                            Agent: {a.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                </div>
+                <button type="button" onClick={() => { const showAll = propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL"; setPropertyAgentFilter(showAll ? "ME" : "ALL"); setPropertyAssignmentFilter(showAll ? "ASSIGNED" : "ALL"); playNeutralTone(); }} className="border border-editorial-border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider hover:border-editorial-black">
+                  {propertyAgentFilter === "ALL" && propertyAssignmentFilter === "ALL" ? "Show my mandates" : "Show all mandates"}
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
