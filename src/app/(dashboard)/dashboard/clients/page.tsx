@@ -128,7 +128,7 @@ function ClientsCRMContent() {
               lockExpiresInDays: daysLeft,
               lastContacted: "Active client",
               status: c.status || "NEW_INQUIRY",
-              matchingProperties: c.matchingProperties || [],
+              matchingProperties: Array.isArray(c.matchingProperties) ? c.matchingProperties : [],
             };
           });
           setClients(normalized);
@@ -406,6 +406,7 @@ function ClientsCRMContent() {
             lockExpiresInDays: 30,
             lastContacted: "Just now",
             status: data.client.status || "NEW_INQUIRY",
+            matchingProperties: Array.isArray(data.client.matchingProperties) ? data.client.matchingProperties : [],
           };
           setClients([newClient, ...clients]);
           emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], newClient.id);
