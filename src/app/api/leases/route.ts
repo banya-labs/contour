@@ -5,7 +5,6 @@ import { createLeaseSchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { Prisma } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
-import { NextResponse } from "next/server";
 
 const getHandler = createApiHandler({
   requirePermissions: ["leases.read"],
@@ -109,19 +108,18 @@ const postHandler = createApiHandler({
         }
       }
       });
+      await tx.property.update({
+        where: { id: body.propertyId },
+        data: { status: "RENTED" },
+      });
+      return createdLease;
+    });
     } catch (error) {
       if (error instanceof Error && error.message === "ACTIVE_LEASE_EXISTS") {
         return NextResponse.json({ success: false, error: "This property already has an active lease." }, { status: 409 });
       }
       throw error;
     }
-
-      await tx.property.update({
-      where: { id: body.propertyId },
-      data: { status: "RENTED" },
-      });
-      return createdLease;
-    });
 
     // Invalidate lease and property caches across all surfaces
     if (organizationId) {
