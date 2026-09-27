@@ -94,6 +94,8 @@ export default function FieldAgentPwaPage() {
 }
 
 type TabType = "QUEUE" | "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
+type ClientSubTab = "INQUIRIES" | "CONTACTS";
+type AgentContact = { id: string; name: string; phone: string; email?: string | null; _count?: { inquiries: number } };
 type EarningsPeriod = "today" | "week" | "month" | "all";
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
 
@@ -120,6 +122,10 @@ function AgentKioskContent() {
 
   // Active Bottom Navigation Tab & Sub-View
   const [activeTab, setActiveTab] = useState<TabType>("QUEUE");
+  const [clientSubTab, setClientSubTab] = useState<ClientSubTab>("INQUIRIES");
+  const [contacts, setContacts] = useState<AgentContact[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [propertyViewMode, setPropertyViewMode] = useState<"LIST" | "MAP">("LIST");
 
   // Search & Filters
@@ -450,6 +456,16 @@ function AgentKioskContent() {
       return () => window.clearInterval(summaryRefresh);
     }
   }, [earningsPeriod, session, syncData, agentRefreshNonce]);
+
+  useEffect(() => {
+    if (activeTab !== "CLIENTS" || clientSubTab !== "CONTACTS") return;
+    setContactsLoading(true);
+    void fetch(`/api/contacts?search=${encodeURIComponent(contactSearch)}`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => { if (data.success) setContacts(Array.isArray(data.contacts) ? data.contacts : []); })
+      .catch(() => setContacts([]))
+      .finally(() => setContactsLoading(false));
+  }, [activeTab, clientSubTab, contactSearch]);
 
   useEffect(() => {
     const handleWorkspaceMutation = (event: Event) => {
@@ -2014,6 +2030,15 @@ function AgentKioskContent() {
         {/* ================= TAB 2: CLIENTS ================= */}
         {activeTab === "CLIENTS" && (
           <div className="space-y-4">
+            <div className="flex border-b border-editorial-border bg-white">
+              <button type="button" onClick={() => setClientSubTab("INQUIRIES")} className={`flex-1 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider ${clientSubTab === "INQUIRIES" ? "border-b-2 border-contour-red text-editorial-black" : "text-editorial-muted"}`}>Inquiries</button>
+              <button type="button" onClick={() => setClientSubTab("CONTACTS")} className={`flex-1 px-4 py-2.5 text-xs font-heading font-semibold uppercase tracking-wider ${clientSubTab === "CONTACTS" ? "border-b-2 border-contour-red text-editorial-black" : "text-editorial-muted"}`}>Contacts</button>
+            </div>
+            {clientSubTab === "CONTACTS" ? <div className="space-y-3">
+              <div className="flex items-center justify-between bg-white p-4 border border-editorial-border"><div><h2 className="text-xs font-mono font-bold uppercase tracking-wider text-contour-red">Organization contacts</h2><p className="text-[11px] text-editorial-muted mt-0.5">Reusable people records connected to multiple inquiries.</p></div><button type="button" onClick={() => setIntakeDrawer("CLIENT")} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-heading font-semibold uppercase tracking-wider"><Plus className="inline w-3 h-3 mr-1" />Add contact</button></div>
+              <div className="relative"><Search className="w-3.5 h-3.5 text-editorial-muted absolute left-3.5 top-1/2 -translate-y-1/2" /><input value={contactSearch} onChange={(event) => setContactSearch(event.target.value)} placeholder="Search contacts by name, phone, or email..." className="w-full bg-white border border-editorial-border pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-editorial-black" /></div>
+              {contactsLoading ? <div className="bg-white border border-editorial-border p-8 text-center text-xs text-editorial-muted">Loading contacts…</div> : contacts.length === 0 ? <div className="bg-white border border-dashed border-editorial-border p-8 text-center text-xs text-editorial-muted">No contacts found.</div> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{contacts.map((contact) => <article key={contact.id} className="bg-white border border-editorial-border p-4 space-y-2"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-heading font-semibold">{contact.name}</h3><p className="text-xs text-editorial-muted font-mono">{contact.phone}</p></div><Users className="w-4 h-4 text-contour-red" /></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="pt-2 border-t border-editorial-border text-[10px] font-mono uppercase text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>}
+            </div> : <>
             
             {/* Header & Intake Trigger */}
             <div className="flex items-center justify-between bg-white p-4 border border-editorial-border">
@@ -2302,6 +2327,7 @@ function AgentKioskContent() {
                 });
               })()}
             </div>
+          </>}
           </div>
         )}
 
@@ -2658,21 +2684,21 @@ function AgentKioskContent() {
             <span className="text-[10px] leading-tight tracking-tight">Properties</span>
           </button>
 
-          {/* Clients Tab */}
+          {/* Inquiries Tab */}
           <button
             onClick={() => {
               setActiveTab("CLIENTS");
               playNeutralTone();
             }}
-            aria-label="Clients"
-            title="Clients"
+            aria-label="Inquiries"
+            title="Inquiries"
             aria-current={activeTab === "CLIENTS" ? "page" : undefined}
             className={`flex flex-col items-center justify-center gap-1 py-1 transition-colors ${
               activeTab === "CLIENTS" ? "text-contour-red font-semibold" : "text-editorial-muted hover:text-editorial-black"
             }`}
           >
-            <Users className="w-5 h-5 shrink-0" />
-            <span className="text-[10px] leading-tight tracking-tight">Clients</span>
+            <ClipboardList className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] leading-tight tracking-tight">Inquiries</span>
           </button>
 
           {/* Center Home Action Button (Round Contour Red #FA3600 Circle with Home Icon) */}
