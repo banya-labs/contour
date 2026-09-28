@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatAdminCurrency,
   formatAgencyOwner,
+  formatActivityActor,
   formatSubscriptionState,
   formatTrialOrPaymentDue,
 } from "./formatters";
@@ -28,5 +29,10 @@ describe("admin control-plane formatters", () => {
     expect(formatAgencyOwner([])).toBe("Unassigned");
     expect(formatAgencyOwner([{ name: "A", email: "a@example.com" }, { name: "B", email: "b@example.com" }])).toBe("Multiple owners");
     expect(formatAgencyOwner([{ name: "A", email: "a@example.com" }])).toBe("A · a@example.com");
+  });
+
+  it("formats activity actors returned as structured user objects", () => {
+    expect(formatActivityActor({ name: "Seward", email: "banya.labs@gmail.com" })).toBe("Seward · banya.labs@gmail.com");
+    expect(formatActivityActor({ name: "System", email: null })).toBe("System");
   });
 });
