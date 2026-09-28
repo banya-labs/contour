@@ -10,3 +10,11 @@ export const CONTROL_PLANE_NAVIGATION = {
     { label: "MCP Studio", href: "/admin/mcp" },
   ],
 } as const;
+
+export function getControlPlanePrimaryItems() {
+  return CONTROL_PLANE_NAVIGATION.primary;
+}
+
+export function isControlPlaneItemActive(pathname: string, href: string): boolean {
+  return href === "/admin" ? pathname === href : pathname.startsWith(href);
+}
