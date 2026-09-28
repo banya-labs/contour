@@ -2022,7 +2022,8 @@ function AgentKioskContent() {
 
                       <button
                         onClick={() => setSelectedPropertyDetail(p)}
-                        className="w-full border-b border-editorial-border pb-2 text-left text-[10px] font-mono uppercase tracking-wider text-editorial-black hover:text-contour-red transition-colors flex items-center justify-between"
+                        type="button"
+                        className="w-full border border-editorial-border bg-white px-3 py-2.5 text-left text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-black hover:border-editorial-black hover:bg-neutral-50 transition-colors flex items-center justify-between"
                       >
                         <span>Open full mandate record</span>
                         <ArrowUpRight className="w-3.5 h-3.5 text-contour-red" />
