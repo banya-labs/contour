@@ -457,7 +457,8 @@ function PropertiesCatalogContent() {
               dispatchTimestamp: "",
               reminderStatus: "QUEUED",
               deliveryChannel: "WHATSAPP_DIRECT",
-              matchPercentage: 100,
+              matchPercentage: inquiry.score ?? 0,
+              matchReasons: inquiry.reasons || [],
               customOfferText: "",
             })) as AlertMatchResult[];
             const photoCount = p.photos ? p.photos.length : 1;
@@ -1145,7 +1146,7 @@ function PropertiesCatalogContent() {
                             matches: ((p.matchingInquiries || []).map((inquiry: any) => ({
                               id: inquiry.id,
                               alert: { id: inquiry.id, organizationId: p.organizationId, clientName: inquiry.clientName, clientPhone: inquiry.clientPhone, suburb: inquiry.preferredSuburbs?.[0] || p.suburb, listingType: inquiry.lookingFor, maxPrice: inquiry.budgetMax || 0, currency: inquiry.currency, minBedrooms: 0, assignedAgentName: "", status: "ACTIVE", matchCount: 0, createdAt: "" },
-                              matchedProperty: p, whatsAppMessage: "", dispatchTimestamp: "", reminderStatus: "QUEUED", deliveryChannel: "WHATSAPP_DIRECT", matchPercentage: 100, customOfferText: "",
+                              matchedProperty: p, whatsAppMessage: "", dispatchTimestamp: "", reminderStatus: "QUEUED", deliveryChannel: "WHATSAPP_DIRECT", matchPercentage: inquiry.score ?? 0, matchReasons: inquiry.reasons || [], customOfferText: "",
                             })) as AlertMatchResult[]),
           })
         }

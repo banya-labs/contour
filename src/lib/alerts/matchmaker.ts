@@ -31,6 +31,7 @@ export type AlertMatchResult = {
   reminderStatus: "SENT" | "QUEUED" | "DELIVERED";
   deliveryChannel: "WHATSAPP_TWILIO" | "WHATSAPP_DIRECT" | "SMS";
   matchPercentage: number;
+  matchReasons?: string[];
   customOfferText: string;
 };
 

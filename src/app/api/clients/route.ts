@@ -76,6 +76,9 @@ const getHandler = createApiHandler({
         budgetMax: client.budgetMax ? Number(client.budgetMax) : null,
         preferredAreas: client.preferredSuburbs,
         propertyType: client.propertyType,
+        bedroomsMin: client.bedroomsMin,
+        bathroomsMin: client.bathroomsMin,
+        ...(client.matchingProfile as Record<string, unknown> | null || {}),
       }, matchingProperties as never).filter((result) => result.score > PROPERTY_MATCH_THRESHOLD).map((result) => {
         const property = matchingProperties.find((candidate) => candidate.id === result.propertyId)!;
         return {
