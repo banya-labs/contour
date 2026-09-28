@@ -5,7 +5,7 @@ import { Building2, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, Setting
 import { useState } from "react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { signOut, useSession } from "@/lib/auth-client";
-import { getControlPlanePrimaryItems, isControlPlaneItemActive } from "@/lib/admin-control-plane/navigation";
+import { CONTROL_PLANE_NAVIGATION, getControlPlanePrimaryItems, isControlPlaneItemActive } from "@/lib/admin-control-plane/navigation";
 
 const icons = { Overview: LayoutDashboard, Agencies: Building2, Subscriptions: CreditCard, Governance: Settings } as const;
 const primary = getControlPlanePrimaryItems().map((item) => ({ ...item, icon: icons[item.label] }));
