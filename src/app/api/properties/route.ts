@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { smartCache } from "@/lib/cache";
 import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
+import { PROPERTY_MATCH_THRESHOLD, scorePropertyForInquiry } from "@/lib/matching/score";
 import { propertySlugFromTitle, publicPropertyPath } from "@/lib/public-property";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";
@@ -345,28 +346,24 @@ const getHandler = createApiHandler({
         select: {
           id: true, clientName: true, clientPhone: true, lookingFor: true,
           currency: true, budgetMin: true, budgetMax: true, preferredSuburbs: true,
-          propertyType: true, propertyId: true, assignedAgentId: true,
+          propertyType: true, bedroomsMin: true, bathroomsMin: true, matchingProfile: true, propertyId: true, assignedAgentId: true,
         },
       });
 
       for (const property of properties) {
-        const matches = inquiries.filter((inquiry) => inquiryMatchesProperty(
-          {
+        const matches = inquiries.map((inquiry) => {
+          const result = scorePropertyForInquiry({
             lookingFor: inquiry.lookingFor,
             currency: inquiry.currency,
             budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
-            preferredSuburbs: inquiry.preferredSuburbs,
+            preferredAreas: inquiry.preferredSuburbs,
             propertyType: inquiry.propertyType,
-          },
-          {
-            listingType: property.listingType,
-            currency: property.currency,
-            askingPrice: property.askingPrice ? Number(property.askingPrice) : null,
-            rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null,
-            suburb: property.suburb,
-            propertyType: property.propertyType,
-          },
-        )).map((inquiry) => ({
+            bedroomsMin: inquiry.bedroomsMin,
+            bathroomsMin: inquiry.bathroomsMin,
+            ...(inquiry.matchingProfile as Record<string, unknown> | null || {}),
+          }, property as never);
+          return result.score > PROPERTY_MATCH_THRESHOLD ? { inquiry, score: result.score, reasons: result.reasons } : null;
+        }).filter((match): match is { inquiry: typeof inquiries[number]; score: number; reasons: string[] } => Boolean(match)).map(({ inquiry, score, reasons }) => ({
           id: inquiry.id,
           clientName: inquiry.clientName,
           clientPhone: inquiry.clientPhone,
@@ -376,6 +373,8 @@ const getHandler = createApiHandler({
           preferredSuburbs: inquiry.preferredSuburbs,
           assignedAgentId: inquiry.assignedAgentId,
           isAssigned: inquiry.propertyId === property.id,
+          score,
+          reasons,
         }));
 
         Object.assign(property, { matchingInquiries: matches, matchingInquiryCount: matches.length });

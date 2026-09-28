@@ -150,12 +150,13 @@ export default function PropertyMatchSummaryModal({
                         <div className="flex items-center gap-2">
                           <h5 className="font-bold text-sm text-ink-900">{match.alert.clientName}</h5>
                           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            Live match
+                            {Math.round(match.matchPercentage)}% match
                           </span>
                         </div>
                         <div className="text-xs text-ink-600 mt-0.5">
                           Budget: <strong className="text-ink-900 font-mono">{match.alert.currency} {match.alert.maxPrice ? match.alert.maxPrice.toLocaleString() : "Not specified"}</strong> • Area: <strong>{match.alert.suburb}</strong>
                         </div>
+                        {match.matchReasons?.length > 0 && <div className="text-[10px] text-ink-500 mt-1">{match.matchReasons.join(" • ")}</div>}
                       </div>
 
                       {/* Automated Reminder Status Badge with Exact Timestamp */}
