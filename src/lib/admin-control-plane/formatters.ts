@@ -28,3 +28,7 @@ export function formatAgencyOwner(owners: AdminOwner[]): string {
   if (owners.length > 1) return "Multiple owners";
   return `${owners[0].name} · ${owners[0].email}`;
 }
+
+export function formatActivityActor(actor: { name: string; email: string | null }): string {
+  return actor.email ? `${actor.name} · ${actor.email}` : actor.name;
+}
