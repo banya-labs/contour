@@ -2020,15 +2020,6 @@ function AgentKioskContent() {
                         </div>
                       </div>
 
-                      {/* Masked PII Notice */}
-                      <div className="bg-neutral-50 px-2.5 py-1.5 border border-editorial-border flex items-center justify-between text-[10px] text-editorial-muted font-mono">
-                        <span className="flex items-center gap-1 font-medium text-editorial-black">
-                          <Lock className="w-3 h-3 text-contour-red" />
-                          <span>Landlord PII Masked (Mandate Protected)</span>
-                        </span>
-                        <span>ID: {p.id.slice(0, 8)}</span>
-                      </div>
-
                       <button
                         onClick={() => setSelectedPropertyDetail(p)}
                         className="w-full border-b border-editorial-border pb-2 text-left text-[10px] font-mono uppercase tracking-wider text-editorial-black hover:text-contour-red transition-colors flex items-center justify-between"
@@ -2037,75 +2028,6 @@ function AgentKioskContent() {
                         <ArrowUpRight className="w-3.5 h-3.5 text-contour-red" />
                       </button>
 
-                      {/* Action Bar */}
-                      <div className="grid grid-cols-4 gap-1 pt-0.5">
-                        {/* 1-Click Client Link */}
-                        <button
-                          onClick={(e) => handleShareClientLink(p, e)}
-                          title="Copy Public Link for Client"
-                          className={`py-2 px-1 text-[10px] font-heading font-semibold uppercase tracking-wider border transition-all flex items-center justify-center gap-0.5 ${
-                            copiedPublicLinkId === p.id
-                              ? "bg-emerald-800 text-white border-emerald-800"
-                              : "bg-white hover:bg-neutral-50 text-editorial-black border-editorial-border"
-                          }`}
-                        >
-                          {copiedPublicLinkId === p.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-300" />
-                              <span>Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Share2 className="w-3 h-3 text-contour-red" />
-                              <span>Link</span>
-                            </>
-                          )}
-                        </button>
-
-                        {/* WhatsApp Pitch Text */}
-                        <button
-                          onClick={() => copyWhatsAppFlyer(p)}
-                          className={`py-2 px-1 text-[10px] font-heading font-semibold uppercase tracking-wider border transition-all flex items-center justify-center gap-0.5 ${
-                            isCopied
-                              ? "bg-editorial-black text-white border-editorial-black"
-                              : "bg-white hover:bg-neutral-50 text-editorial-black border-editorial-border"
-                          }`}
-                        >
-                          {isCopied ? (
-                            <>
-                              <Check className="w-3 h-3 text-contour-red" />
-                              <span>Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <MessageSquare className="w-3 h-3 text-contour-red" />
-                              <span>Pitch</span>
-                            </>
-                          )}
-                        </button>
-
-                        {/* Visual Swiss Flyer Generator */}
-                        <button
-                          onClick={() => setFlyerModalProperty(p)}
-                          title="Generate Swiss Editorial Flyer"
-                          className="py-2 px-1 text-[10px] font-heading font-semibold uppercase tracking-wider border border-editorial-border bg-white hover:bg-[#fff5f3] text-editorial-black transition-all flex items-center justify-center gap-0.5"
-                        >
-                          <Sparkles className="w-3 h-3 text-contour-red" />
-                          <span>Flyer</span>
-                        </button>
-
-                        {/* Match Buyers Button */}
-                        <button
-                          onClick={() => {
-                            setMatchedProperty(p);
-                            playNeutralTone();
-                          }}
-                          className="py-2 px-1 bg-editorial-black hover:bg-contour-red text-white text-[10px] font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-0.5 transition-colors"
-                        >
-                          <Users className="w-3 h-3" />
-                          <span>Buyers</span>
-                        </button>
-                      </div>
                     </div>
                   );
                 }))}
