@@ -146,7 +146,11 @@ function AgentKioskContent() {
   // Selection & Modal States
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [matchedProperty, setMatchedProperty] = useState<any | null>(null);
+  const [matchedInquiries, setMatchedInquiries] = useState<any[]>([]);
+  const [matchedInquiriesLoading, setMatchedInquiriesLoading] = useState(false);
+  const [matchedInquiriesError, setMatchedInquiriesError] = useState<string | null>(null);
   const [selectedInquiryMatches, setSelectedInquiryMatches] = useState<{ inquiry: any; matches: InquiryMatch[]; threshold: number } | null>(null);
+  const [selectedInquiryDetail, setSelectedInquiryDetail] = useState<any | null>(null);
   const [inquiryMatchesLoading, setInquiryMatchesLoading] = useState(false);
   const [inquiryMatchesError, setInquiryMatchesError] = useState<string | null>(null);
   const [selectedMapProperty, setSelectedMapProperty] = useState<any | null>(null);
@@ -173,6 +177,23 @@ function AgentKioskContent() {
       setInquiryMatchesError(error instanceof Error ? error.message : "Unable to load property matches.");
     } finally {
       setInquiryMatchesLoading(false);
+    }
+  };
+
+  const openPropertyMatches = async (property: any) => {
+    setMatchedProperty(property);
+    setMatchedInquiries([]);
+    setMatchedInquiriesError(null);
+    setMatchedInquiriesLoading(true);
+    try {
+      const response = await fetch(`/api/matching/unassigned?propertyId=${encodeURIComponent(property.id)}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to load inquiry matches.");
+      setMatchedInquiries(payload.matches || []);
+    } catch (error) {
+      setMatchedInquiriesError(error instanceof Error ? error.message : "Unable to load inquiry matches.");
+    } finally {
+      setMatchedInquiriesLoading(false);
     }
   };
 
@@ -1976,6 +1997,13 @@ function AgentKioskContent() {
                         </div>
                       </div>
 
+                      {Number(p.matchingInquiryCount || 0) > 0 && (
+                        <div className="flex items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-900">
+                          <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-emerald-700" /> {p.matchingInquiryCount} matching {p.matchingInquiryCount === 1 ? "inquiry" : "inquiries"}</span>
+                          <span className="text-emerald-700">Unassigned</span>
+                        </div>
+                      )}
+
                       {/* Property Specs Pill Grid */}
                       <div className="flex items-center gap-3 text-xs text-editorial-muted py-2 border-y border-editorial-border font-mono">
                         <div className="flex items-center gap-1">
@@ -2286,7 +2314,16 @@ function AgentKioskContent() {
                   return (
                     <div
                       key={c.id}
-                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        if ((event.target as HTMLElement).closest("button, a")) return;
+                        setSelectedInquiryDetail(c);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") setSelectedInquiryDetail(c);
+                      }}
+                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors cursor-pointer"
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -2403,14 +2440,7 @@ function AgentKioskContent() {
                             <span>WhatsApp</span>
                           </a>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditClient(c)}
-                          className="w-full py-2 px-3 bg-neutral-50 hover:bg-neutral-100 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-editorial-muted" />
-                          <span>Edit Client Details</span>
-                        </button>
+                        <p className="text-center text-[10px] font-mono uppercase tracking-wider text-editorial-muted">Tap inquiry for details and editing</p>
                       </div>
                     </div>
                   );
@@ -3617,7 +3647,7 @@ function AgentKioskContent() {
               </button>
               <button
                 onClick={() => {
-                  setMatchedProperty(selectedPropertyDetail);
+                  openPropertyMatches(selectedPropertyDetail);
                   setSelectedPropertyDetail(null);
                 }}
                 className="flex items-center justify-center gap-1.5 bg-editorial-black hover:bg-contour-red px-2.5 py-3 text-xs font-heading font-semibold uppercase tracking-wider text-white transition-colors"
@@ -3648,21 +3678,29 @@ function AgentKioskContent() {
             </div>
 
             <p className="text-xs text-editorial-muted">
-              Matched <span className="text-editorial-black font-bold font-mono">{clients.length} registered clients</span> with active budgets in {matchedProperty.suburb || "Lusaka"}:
+              Showing unassigned inquiries that match this property in {matchedProperty.suburb || "Lusaka"}:
             </p>
 
+            {matchedInquiriesLoading ? (
+              <div className="py-8 text-center text-xs text-editorial-muted">Checking unassigned inquiries...</div>
+            ) : matchedInquiriesError ? (
+              <div className="border border-red-200 bg-red-50 p-3 text-xs text-red-800">{matchedInquiriesError}</div>
+            ) : matchedInquiries.length === 0 ? (
+              <div className="border border-editorial-border bg-neutral-50 p-4 text-center text-xs text-editorial-muted">No unassigned inquiry matches this property yet.</div>
+            ) : (
             <div className="space-y-2.5">
-              {clients.map((c: any) => (
+              {matchedInquiries.map(({ inquiry, score, reasons }: any) => (
                 <div
-                  key={c.id}
+                  key={inquiry.id}
                   className="bg-neutral-50 p-3 border border-editorial-border flex items-center justify-between text-xs"
                 >
                   <div>
-                    <div className="font-heading font-semibold text-editorial-black">{c.name}</div>
-                    <div className="text-[11px] text-editorial-muted font-mono">{c.budget} • {c.preferredArea}</div>
+                    <div className="font-heading font-semibold text-editorial-black">{inquiry.clientName}</div>
+                    <div className="text-[11px] text-editorial-muted font-mono">{inquiry.clientPhone || "No phone"} • {inquiry.preferredSuburbs?.join(", ") || "Any area"}</div>
+                    <div className="mt-1 text-[10px] text-emerald-800 font-mono">{score}% match{reasons?.length ? ` • ${reasons.join(", ")}` : ""}</div>
                   </div>
                   <a
-                    href={`https://wa.me/${formatWhatsAppDigits(c.phone)}?text=${encodeURIComponent(generateWhatsAppFlyer(matchedProperty))}`}
+                    href={`https://wa.me/${formatWhatsAppDigits(inquiry.clientPhone || "")}?text=${encodeURIComponent(generateWhatsAppFlyer(matchedProperty))}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1 transition-colors"
@@ -3672,6 +3710,36 @@ function AgentKioskContent() {
                   </a>
                 </div>
               ))}
+            </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedInquiryDetail && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Inquiry details">
+          <div className="bg-white border border-editorial-border w-full max-w-md max-h-[86vh] overflow-y-auto p-5 space-y-4 text-editorial-black shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-start justify-between border-b border-editorial-border pb-3">
+              <div>
+                <span className="text-[10px] font-mono text-contour-red uppercase font-bold">Inquiry details</span>
+                <h3 className="text-base font-heading font-semibold mt-0.5">{selectedInquiryDetail.name}</h3>
+                <p className="text-[11px] text-editorial-muted font-mono mt-1">{selectedInquiryDetail.phone}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedInquiryDetail(null)} aria-label="Close inquiry details" className="p-1.5 text-editorial-muted hover:text-editorial-black"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="border border-editorial-border bg-neutral-50 p-3"><p className="text-[9px] uppercase font-mono text-editorial-muted">Type</p><p className="mt-1 font-semibold">{selectedInquiryDetail.lookingFor === "FOR_RENT" || selectedInquiryDetail.lookingFor === "RENT" ? "Tenant" : "Buyer"}</p></div>
+              <div className="border border-editorial-border bg-neutral-50 p-3"><p className="text-[9px] uppercase font-mono text-editorial-muted">Budget max</p><p className="mt-1 font-semibold">{selectedInquiryDetail.budget || "Not set"}</p></div>
+              <div className="border border-editorial-border bg-neutral-50 p-3 col-span-2"><p className="text-[9px] uppercase font-mono text-editorial-muted">Preferred areas</p><p className="mt-1 font-semibold">{selectedInquiryDetail.preferredArea || "Any area"}</p></div>
+            </div>
+            {selectedInquiryDetail.notes && <p className="text-xs text-editorial-muted italic bg-neutral-50 p-3 border border-editorial-border">&ldquo;{selectedInquiryDetail.notes}&rdquo;</p>}
+            <div className="flex items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 p-3 text-xs">
+              <span className="font-mono font-bold text-emerald-900">{Array.isArray(selectedInquiryDetail.matchingProperties) ? selectedInquiryDetail.matchingProperties.length : 0} matching properties</span>
+              <button type="button" onClick={() => openInquiryMatches(selectedInquiryDetail)} className="px-2.5 py-2 bg-white border border-emerald-300 text-[10px] font-heading font-semibold uppercase tracking-wider">View matches</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setSelectedInquiryDetail(null)} className="py-2.5 border border-editorial-border text-xs font-heading font-semibold uppercase tracking-wider">Close</button>
+              <button type="button" onClick={() => { handleOpenEditClient(selectedInquiryDetail); setSelectedInquiryDetail(null); }} className="py-2.5 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5"><Pencil className="w-3.5 h-3.5" /> Edit inquiry</button>
             </div>
           </div>
         </div>

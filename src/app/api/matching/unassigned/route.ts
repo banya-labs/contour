@@ -5,7 +5,8 @@ import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "@/lib/ma
 
 export const GET = createApiHandler({
   requirePermissions: ["leads.read"],
-  handler: async (_req, { organizationId }) => {
+  handler: async (req, { organizationId }) => {
+    const propertyId = new URL(req.url).searchParams.get("propertyId");
     const inquiries = await db.inquiry.findMany({
       where: { organizationId, propertyId: null, status: { not: "CLOSED" } },
       select: {
@@ -31,10 +32,16 @@ export const GET = createApiHandler({
         budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
         preferredAreas: inquiry.preferredSuburbs, propertyType: inquiry.propertyType,
       };
-      const best = scoreAllPropertiesForInquiry(profile as never, properties as never).find((result) => result.score > PROPERTY_MATCH_THRESHOLD);
-      if (!best) return [];
-      const property = properties.find((item) => item.id === best.propertyId);
-      return property ? [{ inquiry, property, score: best.score, reasons: best.reasons }] : [];
+      const ranked = scoreAllPropertiesForInquiry(profile as never, properties as never);
+      const candidates = propertyId
+        ? ranked.filter((result) => result.propertyId === propertyId)
+        : ranked.filter((result) => result.score > PROPERTY_MATCH_THRESHOLD).slice(0, 1);
+      return candidates
+        .filter((result) => result.score > PROPERTY_MATCH_THRESHOLD)
+        .flatMap((result) => {
+          const property = properties.find((item) => item.id === result.propertyId);
+          return property ? [{ inquiry, property, score: result.score, reasons: result.reasons }] : [];
+        });
     });
     return NextResponse.json({ success: true, matches });
   },
