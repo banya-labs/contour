@@ -5,9 +5,11 @@ import { Building2, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, Setting
 import { useState } from "react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { signOut, useSession } from "@/lib/auth-client";
+import { CONTROL_PLANE_NAVIGATION } from "@/lib/admin-control-plane/navigation";
 
-const primary = [{ label: "Overview", href: "/admin", icon: LayoutDashboard }, { label: "Agencies", href: "/admin/agencies", icon: Building2 }, { label: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard }];
-const settings = [{ label: "Users", href: "/admin/staff", icon: Users }, { label: "MCP Studio", href: "/admin/mcp", icon: KeyRound }];
+const icons = { Overview: LayoutDashboard, Agencies: Building2, Subscriptions: CreditCard, Governance: Settings } as const;
+const primary = CONTROL_PLANE_NAVIGATION.primary.map((item) => ({ ...item, icon: icons[item.label] }));
+const settings = CONTROL_PLANE_NAVIGATION.governance.map((item) => ({ ...item, icon: item.label === "Users" ? Users : KeyRound }));
 
 export function ControlPlaneTabs() {
   const pathname = usePathname(); const [open, setOpen] = useState(false);
