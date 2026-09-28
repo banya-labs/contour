@@ -11,6 +11,7 @@ interface RequestDocumentModalProps {
   onSuccess: () => void;
   properties: Array<{ id: string; title: string; suburb: string }>;
   context?: { inquiryId: string; propertyId?: string | null; clientName?: string | null };
+  initialRequest?: { title: string; message?: string };
 }
 
 export function RequestDocumentModal({
@@ -19,10 +20,11 @@ export function RequestDocumentModal({
   onSuccess,
   properties,
   context,
+  initialRequest,
 }: RequestDocumentModalProps) {
-  const [title, setTitle] = React.useState("Client Identification & Verification Documents");
+  const [title, setTitle] = React.useState(initialRequest?.title || "Client Identification & Verification Documents");
   const [message, setMessage] = React.useState(
-    "Please upload clear photos or PDF scans of your verification documents. These will be securely stored in our legal vault under the Zambia Data Protection Act."
+    initialRequest?.message || "Please upload clear photos or PDF scans of your verification documents. These will be securely stored in our legal vault under the Zambia Data Protection Act."
   );
   const [propertyId, setPropertyId] = React.useState(context?.propertyId || "");
   const [requiredTypes, setRequiredTypes] = React.useState<string[]>([]);
@@ -40,6 +42,13 @@ export function RequestDocumentModal({
     pin?: string;
   } | null>(null);
   const [copiedLink, setCopiedLink] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen || !initialRequest) return;
+    setTitle(initialRequest.title);
+    setMessage(initialRequest.message || "Please upload the requested document through the secure Contour portal.");
+    setCustomDocuments(initialRequest.title);
+  }, [initialRequest, isOpen]);
 
   const toggleType = (type: string) => {
     setRequiredTypes((prev) =>
