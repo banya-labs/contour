@@ -82,9 +82,9 @@ function PropertySalesContent() {
             const buyerNrcPassport = "Not captured";
             const ministryRef = `LUS/LAND/2026/${t.id.slice(-4).toUpperCase()}-A`;
 
-            let transferStatus = "PENDING_STATE_CONSENT";
-            if (t.status === "RECEIVED") transferStatus = "TRANSFER_COMPLETE";
-            else if (t.status === "EARNED" || t.status === "EXPECTED") transferStatus = "DEEDS_LODGED";
+            let transferStatus = t.transferStatus || "SALE_AGREED";
+            if (!t.transferStatus && t.status === "RECEIVED") transferStatus = "TRANSFER_COMPLETE";
+            else if (!t.transferStatus && (t.status === "EARNED" || t.status === "EXPECTED")) transferStatus = "TRANSFER_IN_PROGRESS";
 
             return {
               id: t.id,
@@ -587,7 +587,28 @@ function PropertySalesContent() {
           { label: "Ministry reference", value: selectedSale.ministryReference },
           { label: "Title deed reference", value: selectedSale.titleDeedReference },
         ] : []}
-      />
+      >
+        {selectedSale && selectedSale.transactionType === "PROPERTY_SALE" && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Transfer handover</p>
+              <p className="mt-1 text-xs text-editorial-muted">A Won sale is commercially agreed. Track conveyancing separately until transfer is complete.</p>
+            </div>
+            <select defaultValue={selectedSale.transferStatus || "SALE_AGREED"} onChange={async (event) => {
+              const response = await fetch(`/api/sales/${selectedSale.id}/transfer`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: event.target.value }) });
+              if (!response.ok) { setFormError((await response.json()).error || "Unable to update transfer status."); return; }
+              setSelectedSale({ ...selectedSale, transferStatus: event.target.value });
+              setRefreshNonce((value) => value + 1);
+            }} className="w-full border border-editorial-border p-2 text-xs">
+              <option value="SALE_AGREED">Sale agreed</option>
+              <option value="TRANSFER_IN_PROGRESS">Transfer in progress</option>
+              <option value="TRANSFER_COMPLETE">Transfer complete</option>
+              <option value="CANCELLED">Transfer cancelled</option>
+            </select>
+            <p className="text-[11px] text-editorial-muted">Only management can change this status. Completed transfers cannot be moved backwards.</p>
+          </div>
+        )}
+      </SelectedRowDetailsDialog>
 
       {/* Interactive Modal: Record Property Sale */}
       {isModalOpen && (

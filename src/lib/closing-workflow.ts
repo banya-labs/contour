@@ -43,6 +43,14 @@ export type ClosingDecision =
   | { allowed: true }
   | { allowed: false; reason: string };
 
+export function validateClosingEvidence(input: { evidenceType: ClosingEvidenceType; status: ClosingItemStatus; notes?: string | null; evidenceValue?: string | null; linkedDocumentId?: string | null }): string | null {
+  if (["SUBMITTED", "APPROVED"].includes(input.status) && input.evidenceType !== "DOCUMENT" && !input.notes?.trim()) return "Add evidence notes before submitting this requirement.";
+  if (input.evidenceType === "DOCUMENT" && input.status === "APPROVED" && !input.linkedDocumentId) return "Link a verified Vault document before approving this requirement.";
+  if (input.evidenceType === "BOOLEAN" && input.status === "APPROVED" && !["true", "false", "yes", "no"].includes((input.evidenceValue || "").trim().toLowerCase())) return "Enter Yes or No before approving this requirement.";
+  if (input.evidenceType === "AMOUNT" && input.status === "APPROVED" && (!input.evidenceValue?.trim() || !Number.isFinite(Number(input.evidenceValue)))) return "Enter a valid amount before approving this requirement.";
+  return null;
+}
+
 export const DEFAULT_CLOSING_REQUIREMENT_TEMPLATES: readonly ClosingRequirementTemplate[] = [
   { key: "BUYER_IDENTITY", label: "Buyer identity verified", description: "Verify the buyer's identity document.", category: "Identity", required: true, assigneeType: "AGENT", evidenceType: "DOCUMENT", sortOrder: 10, active: true },
   { key: "SELLER_AUTHORITY", label: "Seller authority confirmed", description: "Confirm the seller or landlord has authority to transact.", category: "Legal", required: true, assigneeType: "MANAGER", evidenceType: "DOCUMENT", sortOrder: 20, active: true },

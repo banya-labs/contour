@@ -11,6 +11,8 @@ interface UploadDocumentModalProps {
   onSuccess: () => void;
   properties: Array<{ id: string; title: string; suburb: string; status: string }>;
   defaultPropertyId?: string | null;
+  defaultTitle?: string;
+  onUploaded?: (documentId: string) => void;
 }
 
 export function UploadDocumentModal({
@@ -19,10 +21,12 @@ export function UploadDocumentModal({
   onSuccess,
   properties,
   defaultPropertyId,
+  defaultTitle,
+  onUploaded,
 }: UploadDocumentModalProps) {
   const [file, setFile] = React.useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
-  const [title, setTitle] = React.useState("");
+  const [title, setTitle] = React.useState(defaultTitle || "");
   const [docType, setDocType] = React.useState("TITLE_DEED");
   const [classification, setClassification] = React.useState("CONFIDENTIAL_PII");
   const [propertyId, setPropertyId] = React.useState<string>(defaultPropertyId || "");
@@ -40,6 +44,10 @@ export function UploadDocumentModal({
       setPropertyId(defaultPropertyId);
     }
   }, [defaultPropertyId]);
+
+  React.useEffect(() => {
+    if (defaultTitle) setTitle(defaultTitle);
+  }, [defaultTitle]);
 
   // Clean up object URL when file changes or unmounts
   React.useEffect(() => {
@@ -142,6 +150,7 @@ export function UploadDocumentModal({
       }
 
       setUploadStatus("success");
+      if (data.document?.id) onUploaded?.(data.document.id);
     } catch (err: unknown) {
       setUploadStatusMessage(err instanceof Error ? err.message : "Upload failed");
       setUploadStatus("failure");

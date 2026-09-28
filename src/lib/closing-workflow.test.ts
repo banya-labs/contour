@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canCloseDeal, getClosingReadiness, getDefaultClosingRequirementTemplates, resolveClosingTransactionType, validateClosingRequirementTemplate, type ClosingChecklistItemSnapshot } from "./closing-workflow";
+import { canCloseDeal, getClosingReadiness, getDefaultClosingRequirementTemplates, resolveClosingTransactionType, validateClosingEvidence, validateClosingRequirementTemplate, type ClosingChecklistItemSnapshot } from "./closing-workflow";
 
 describe("resolveClosingTransactionType", () => {
   it("maps rental inquiries to the rental placement closing mode", () => {
@@ -16,6 +16,11 @@ describe("resolveClosingTransactionType", () => {
 });
 
 describe("configurable closing workflow", () => {
+  it("validates structured evidence before approval", () => {
+    expect(validateClosingEvidence({ evidenceType: "BOOLEAN", status: "APPROVED", evidenceValue: "maybe", notes: "Checked" })).toContain("Yes or No");
+    expect(validateClosingEvidence({ evidenceType: "AMOUNT", status: "APPROVED", evidenceValue: "not money", notes: "Confirmed" })).toContain("valid amount");
+    expect(validateClosingEvidence({ evidenceType: "DOCUMENT", status: "APPROVED", notes: "Checked" })).toContain("verified Vault document");
+  });
   it("provides editable agency defaults without hardcoding the deal workflow", () => {
     const defaults = getDefaultClosingRequirementTemplates();
     expect(defaults.map((item) => item.key)).toEqual([

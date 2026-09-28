@@ -50,6 +50,7 @@ import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { ProfilePhoneEditor } from "@/components/settings/profile-phone-editor";
 import { PERMISSION_GROUPS, type PermissionGroup } from "@/lib/authorization-groups";
 import BillingPage from "@/app/(dashboard)/dashboard/billing/page";
+import Link from "next/link";
 
 const COLOR_SWATCHES = [
   { name: "Contour Red", hex: "#fa3600" },
@@ -562,6 +563,15 @@ function SettingsContent() {
           router.replace(`/dashboard/settings?tab=${tabId.toLowerCase()}`, { scroll: false });
         }}
       />
+
+      <section className="border border-editorial-border bg-white p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-widest font-bold text-contour-red">Sales operations</p>
+          <h2 className="font-heading font-bold text-base mt-1">Closing requirements</h2>
+          <p className="text-xs text-editorial-muted mt-1">Configure the checklist used before property-sale deals can be marked Won.</p>
+        </div>
+        <Link href="/dashboard/settings/closing-requirements" className="inline-flex items-center justify-center px-4 py-2 bg-editorial-black text-white text-xs font-heading font-bold uppercase tracking-wider hover:bg-contour-red">Manage requirements</Link>
+      </section>
 
       {activeTab === "BILLING" && <BillingPage />}
 

@@ -881,6 +881,13 @@ enum CommissionStatus {
   AGENT_PAID_OUT
 }
 
+enum SaleTransferStatus {
+  SALE_AGREED
+  TRANSFER_IN_PROGRESS
+  TRANSFER_COMPLETE
+  CANCELLED
+}
+
 model Transaction {
   id                     String           @id @default(cuid())
   organizationId         String
@@ -893,6 +900,14 @@ model Transaction {
   agentSplitPct          Decimal          @default(50.0) @db.Decimal(5, 2) // e.g. 50% to closing agent
   agentSplitAmount       Decimal          @db.Decimal(12, 2) // e.g. K50,000
   status                 CommissionStatus @default(EXPECTED)
+  transferStatus         SaleTransferStatus @default(SALE_AGREED)
+  transferAttorney       String?
+  transferReference      String?
+  transferNotes          String?          @db.Text
+  depositAmount          Decimal?         @db.Decimal(14, 2)
+  balanceAmount          Decimal?         @db.Decimal(14, 2)
+  transferStartedAt      DateTime?
+  transferCompletedAt    DateTime?
   closingAgentId         String
   inquiryId              String?          @unique
   closedAt               DateTime?
