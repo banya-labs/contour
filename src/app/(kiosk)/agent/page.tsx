@@ -150,6 +150,7 @@ function AgentKioskContent() {
   const [matchedInquiriesLoading, setMatchedInquiriesLoading] = useState(false);
   const [matchedInquiriesError, setMatchedInquiriesError] = useState<string | null>(null);
   const [selectedInquiryMatches, setSelectedInquiryMatches] = useState<{ inquiry: any; matches: InquiryMatch[]; threshold: number } | null>(null);
+  const [selectedInquiryDetail, setSelectedInquiryDetail] = useState<any | null>(null);
   const [inquiryMatchesLoading, setInquiryMatchesLoading] = useState(false);
   const [inquiryMatchesError, setInquiryMatchesError] = useState<string | null>(null);
   const [selectedMapProperty, setSelectedMapProperty] = useState<any | null>(null);
@@ -2313,7 +2314,16 @@ function AgentKioskContent() {
                   return (
                     <div
                       key={c.id}
-                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        if ((event.target as HTMLElement).closest("button, a")) return;
+                        setSelectedInquiryDetail(c);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") setSelectedInquiryDetail(c);
+                      }}
+                      className="bg-white border border-editorial-border p-4 flex flex-col justify-between space-y-3 hover:border-editorial-black/50 transition-colors cursor-pointer"
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -2430,14 +2440,7 @@ function AgentKioskContent() {
                             <span>WhatsApp</span>
                           </a>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditClient(c)}
-                          className="w-full py-2 px-3 bg-neutral-50 hover:bg-neutral-100 text-editorial-black text-xs font-heading font-semibold uppercase tracking-wider border border-editorial-border flex items-center justify-center gap-1.5 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-editorial-muted" />
-                          <span>Edit Client Details</span>
-                        </button>
+                        <p className="text-center text-[10px] font-mono uppercase tracking-wider text-editorial-muted">Tap inquiry for details and editing</p>
                       </div>
                     </div>
                   );
@@ -3709,6 +3712,35 @@ function AgentKioskContent() {
               ))}
             </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {selectedInquiryDetail && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Inquiry details">
+          <div className="bg-white border border-editorial-border w-full max-w-md max-h-[86vh] overflow-y-auto p-5 space-y-4 text-editorial-black shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-start justify-between border-b border-editorial-border pb-3">
+              <div>
+                <span className="text-[10px] font-mono text-contour-red uppercase font-bold">Inquiry details</span>
+                <h3 className="text-base font-heading font-semibold mt-0.5">{selectedInquiryDetail.name}</h3>
+                <p className="text-[11px] text-editorial-muted font-mono mt-1">{selectedInquiryDetail.phone}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedInquiryDetail(null)} aria-label="Close inquiry details" className="p-1.5 text-editorial-muted hover:text-editorial-black"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="border border-editorial-border bg-neutral-50 p-3"><p className="text-[9px] uppercase font-mono text-editorial-muted">Type</p><p className="mt-1 font-semibold">{selectedInquiryDetail.lookingFor === "FOR_RENT" || selectedInquiryDetail.lookingFor === "RENT" ? "Tenant" : "Buyer"}</p></div>
+              <div className="border border-editorial-border bg-neutral-50 p-3"><p className="text-[9px] uppercase font-mono text-editorial-muted">Budget max</p><p className="mt-1 font-semibold">{selectedInquiryDetail.budget || "Not set"}</p></div>
+              <div className="border border-editorial-border bg-neutral-50 p-3 col-span-2"><p className="text-[9px] uppercase font-mono text-editorial-muted">Preferred areas</p><p className="mt-1 font-semibold">{selectedInquiryDetail.preferredArea || "Any area"}</p></div>
+            </div>
+            {selectedInquiryDetail.notes && <p className="text-xs text-editorial-muted italic bg-neutral-50 p-3 border border-editorial-border">&ldquo;{selectedInquiryDetail.notes}&rdquo;</p>}
+            <div className="flex items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 p-3 text-xs">
+              <span className="font-mono font-bold text-emerald-900">{Array.isArray(selectedInquiryDetail.matchingProperties) ? selectedInquiryDetail.matchingProperties.length : 0} matching properties</span>
+              <button type="button" onClick={() => openInquiryMatches(selectedInquiryDetail)} className="px-2.5 py-2 bg-white border border-emerald-300 text-[10px] font-heading font-semibold uppercase tracking-wider">View matches</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setSelectedInquiryDetail(null)} className="py-2.5 border border-editorial-border text-xs font-heading font-semibold uppercase tracking-wider">Close</button>
+              <button type="button" onClick={() => { handleOpenEditClient(selectedInquiryDetail); setSelectedInquiryDetail(null); }} className="py-2.5 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5"><Pencil className="w-3.5 h-3.5" /> Edit inquiry</button>
+            </div>
           </div>
         </div>
       )}
