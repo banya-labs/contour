@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "@/lib/matching/score";
+import { buildInquiryMatchingProfile } from "@/lib/matching/inquiry-profile";
 
 export const GET = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -26,12 +27,7 @@ export const GET = createApiHandler({
       orderBy: { updatedAt: "desc" }, take: 500,
     });
     const matches = inquiries.flatMap((inquiry) => {
-      const profile = (inquiry.matchingProfile as Record<string, unknown> | null) || {
-        lookingFor: inquiry.lookingFor, currency: inquiry.currency,
-        budgetMin: inquiry.budgetMin ? Number(inquiry.budgetMin) : null,
-        budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
-        preferredAreas: inquiry.preferredSuburbs, propertyType: inquiry.propertyType,
-      };
+      const profile = buildInquiryMatchingProfile(inquiry);
       const ranked = scoreAllPropertiesForInquiry(profile as never, properties as never);
       const candidates = propertyId
         ? ranked.filter((result) => result.propertyId === propertyId)
