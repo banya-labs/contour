@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanLocationValues } from "@/lib/locations/normalize-location";
 
 export const CurrencyEnum = z.enum(["ZMW", "USD", "ZAR"]);
 export const OwnershipTypeEnum = z.enum(["COMPANY_OWNED", "MANAGED_ON_BEHALF"]);
@@ -168,7 +169,7 @@ export const createInquirySchema = z.object({
   budgetMin: z.number().positive().optional(),
   budgetMax: z.number().positive().optional(),
   currency: CurrencyEnum.default("ZMW"),
-  preferredSuburbs: z.array(z.string()).default([]),
+  preferredSuburbs: z.array(z.string().trim().max(80)).default([]).transform(cleanLocationValues),
   bedroomsMin: z.number().int().min(0).max(50).optional(),
   bathroomsMin: z.number().min(0).max(50).optional(),
   areaMinSqm: z.number().positive().max(100000).optional(),
@@ -206,7 +207,7 @@ export const updateInquirySchema = z.object({
   budgetMin: z.number().positive().optional().nullable(),
   budgetMax: z.number().positive().optional().nullable(),
   currency: CurrencyEnum.optional(),
-  preferredSuburbs: z.array(z.string()).optional(),
+  preferredSuburbs: z.array(z.string().trim().max(80)).transform(cleanLocationValues).optional(),
   bedroomsMin: z.number().int().min(0).max(50).optional().nullable(),
   bathroomsMin: z.number().min(0).max(50).optional().nullable(),
   areaMinSqm: z.number().positive().max(100000).optional().nullable(),
