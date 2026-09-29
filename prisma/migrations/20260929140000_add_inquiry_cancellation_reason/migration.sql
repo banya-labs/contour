@@ -12,5 +12,5 @@ BEGIN
 END
 $$;
 
-ALTER TABLE "Inquiry"
+ALTER TABLE "inquiry"
   ADD COLUMN IF NOT EXISTS "cancellationReason" TEXT;
