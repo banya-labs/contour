@@ -37,6 +37,7 @@ function ClientsCRMContent() {
   const [clients, setClients] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string; email?: string | null }>>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; roleKey?: string }>>([]);
+  const [propertyOptions, setPropertyOptions] = useState<Array<{ suburb: string; bedrooms: number | null; bathrooms: number | null; plotSizeSqm: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
@@ -55,7 +56,10 @@ function ClientsCRMContent() {
     phone: "",
     email: "",
     lookingFor: "",
-    preferredSuburbs: "",
+          preferredSuburbs: "",
+          bedroomsMin: "",
+          bathroomsMin: "",
+          areaMinSqm: "",
     budgetMax: "",
     currency: "ZMW" as "ZMW" | "USD",
     purpose: "BUY" as "BUY" | "RENT",
@@ -87,10 +91,12 @@ function ClientsCRMContent() {
           fetch("/api/clients"),
           fetch("/api/organization/agents"),
         ]);
-        const contactsRes = await fetch("/api/contacts");
+        const [contactsRes, propertiesRes] = await Promise.all([fetch("/api/contacts"), fetch("/api/properties?status=AVAILABLE", { cache: "no-store" })]);
         const data = await clientsRes.json();
         const agentsData = await agentsRes.json();
         const contactsData = await contactsRes.json();
+        const propertiesData = await propertiesRes.json();
+        if (propertiesData.success) setPropertyOptions(propertiesData.properties || []);
         if (contactsData.success) setContacts(contactsData.contacts || []);
 
         if (agentsData.success && agentsData.agents) {
@@ -118,6 +124,9 @@ function ClientsCRMContent() {
               email: c.email || c.clientEmail || "not-provided@client.zm",
               lookingFor: cleanNotes,
               preferredSuburbs: c.preferredSuburbs || [],
+              bedroomsMin: c.bedroomsMin ?? null,
+              bathroomsMin: c.bathroomsMin ? Number(c.bathroomsMin) : null,
+              areaMinSqm: c.areaMinSqm ? Number(c.areaMinSqm) : null,
               budgetMax: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : "No budget limit",
               rawBudgetMax: c.budgetMax ? Number(c.budgetMax) : null,
               currency: c.currency || "ZMW",
@@ -160,6 +169,9 @@ function ClientsCRMContent() {
       email: client.email && client.email !== "not-provided@client.zm" ? client.email : "",
       lookingFor: client.lookingFor || "",
       preferredSuburbs: Array.isArray(client.preferredSuburbs) ? client.preferredSuburbs.join(", ") : "",
+      bedroomsMin: client.bedroomsMin?.toString() || "",
+      bathroomsMin: client.bathroomsMin?.toString() || "",
+      areaMinSqm: client.areaMinSqm?.toString() || "",
       budgetMax: client.rawBudgetMax ? client.rawBudgetMax.toString() : "",
       currency: client.currency || "ZMW",
       purpose: client.purpose || "BUY",
@@ -226,6 +238,9 @@ function ClientsCRMContent() {
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
+          bedroomsMin: editFormData.bedroomsMin ? Number(editFormData.bedroomsMin) : null,
+          bathroomsMin: editFormData.bathroomsMin ? Number(editFormData.bathroomsMin) : null,
+          areaMinSqm: editFormData.areaMinSqm ? Number(editFormData.areaMinSqm) : null,
           notes: `[Source: ${editFormData.leadSource}] ${editFormData.lookingFor.trim()}`,
           leadSource: editFormData.leadSource,
           assignedAgentId: editFormData.assignedAgentId || null,
@@ -256,6 +271,9 @@ function ClientsCRMContent() {
               .split(",")
               .map((s) => s.trim())
               .filter(Boolean),
+            bedroomsMin: editFormData.bedroomsMin ? Number(editFormData.bedroomsMin) : null,
+            bathroomsMin: editFormData.bathroomsMin ? Number(editFormData.bathroomsMin) : null,
+            areaMinSqm: editFormData.areaMinSqm ? Number(editFormData.areaMinSqm) : null,
             budgetMax: budgetNum
               ? `${editFormData.currency === "USD" ? "$" : "K"} ${Number(budgetNum).toLocaleString()}`
               : "No budget limit",
@@ -314,6 +332,9 @@ function ClientsCRMContent() {
     email: "",
     lookingFor: "",
     preferredSuburbs: "",
+    bedroomsMin: "",
+    bathroomsMin: "",
+    areaMinSqm: "",
     budgetMax: "",
     currency: "ZMW" as "ZMW" | "USD",
     purpose: "BUY",
@@ -373,6 +394,9 @@ function ClientsCRMContent() {
       budgetMax: budgetNum,
       currency,
       preferredSuburbs: formData.preferredSuburbs.split(",").map((s) => s.trim()).filter(Boolean),
+      bedroomsMin: formData.bedroomsMin ? Number(formData.bedroomsMin) : undefined,
+      bathroomsMin: formData.bathroomsMin ? Number(formData.bathroomsMin) : undefined,
+      areaMinSqm: formData.areaMinSqm ? Number(formData.areaMinSqm) : undefined,
       notes: `[Source: ${formData.leadSource}] ${formData.lookingFor.trim()}`,
       assignedAgentId: formData.assignedAgentId || undefined,
       leadSource: formData.leadSource,
@@ -419,6 +443,9 @@ function ClientsCRMContent() {
             email: "",
             lookingFor: "",
             preferredSuburbs: "",
+            bedroomsMin: "",
+            bathroomsMin: "",
+            areaMinSqm: "",
             budgetMax: "",
             currency: "ZMW",
             purpose: "BUY",
@@ -684,13 +711,14 @@ function ClientsCRMContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Preferred Suburbs (Optional)</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.preferredSuburbs}
                     onChange={(e) => setFormData({ ...formData, preferredSuburbs: e.target.value })}
-                    placeholder="e.g. Kabulonga, Woodlands"
-                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
-                  />
+                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
+                  >
+                    <option value="">Any location</option>
+                    {[...new Set(propertyOptions.map((property) => property.suburb).filter(Boolean))].sort().map((suburb) => <option key={suburb} value={suburb}>{suburb}</option>)}
+                  </select>
                 </div>
 
                 <div>
@@ -704,6 +732,12 @@ function ClientsCRMContent() {
                     <option value="RENT">Rent</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bedrooms (Optional)</label><select value={formData.bedroomsMin} onChange={(e) => setFormData({ ...formData, bedroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5, 6].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
+                <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bathrooms (Optional)</label><select value={formData.bathroomsMin} onChange={(e) => setFormData({ ...formData, bathroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
+                <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Area m² (Optional)</label><select value={formData.areaMinSqm} onChange={(e) => setFormData({ ...formData, areaMinSqm: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[50, 100, 150, 200, 300, 500, 1000].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -916,13 +950,10 @@ function ClientsCRMContent() {
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
                     Preferred Suburbs
                   </label>
-                  <input
-                    type="text"
-                    value={editFormData.preferredSuburbs}
-                    onChange={(e) => setEditFormData({ ...editFormData, preferredSuburbs: e.target.value })}
-                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
-                    placeholder="e.g. Kabulonga, Woodlands"
-                  />
+                  <select value={editFormData.preferredSuburbs} onChange={(e) => setEditFormData({ ...editFormData, preferredSuburbs: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs">
+                    <option value="">Any location</option>
+                    {[...new Set(propertyOptions.map((property) => property.suburb).filter(Boolean))].sort().map((suburb) => <option key={suburb} value={suburb}>{suburb}</option>)}
+                  </select>
                 </div>
 
                 <div>
@@ -943,6 +974,12 @@ function ClientsCRMContent() {
                     <option value="OTHER">Other</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bedrooms (Optional)</label><select value={editFormData.bedroomsMin} onChange={(e) => setEditFormData({ ...editFormData, bedroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5, 6].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
+                <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bathrooms (Optional)</label><select value={editFormData.bathroomsMin} onChange={(e) => setEditFormData({ ...editFormData, bathroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
+                <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Area m² (Optional)</label><select value={editFormData.areaMinSqm} onChange={(e) => setEditFormData({ ...editFormData, areaMinSqm: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[50, 100, 150, 200, 300, 500, 1000].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
               </div>
 
               {/* Assigned Manager / Custody Agent */}

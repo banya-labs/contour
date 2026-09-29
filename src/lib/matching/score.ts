@@ -44,6 +44,11 @@ export function scorePropertyForInquiry(
     score += bathroomDelta >= 0 ? 5 : bathroomDelta === -1 ? 2 : 0;
     reasons.push(bathroomDelta >= 0 ? "bathroom requirement" : bathroomDelta === -1 ? "near bathroom requirement" : "bathrooms below requirement");
   } else score += 3;
+  if (inquiry.areaMinSqm != null) {
+    const areaDelta = (property.plotSizeSqm ?? 0) - inquiry.areaMinSqm;
+    score += areaDelta >= 0 ? 8 : areaDelta >= -20 ? 4 : 0;
+    reasons.push(areaDelta >= 0 ? "area requirement" : areaDelta >= -20 ? "near area requirement" : "area below requirement");
+  } else score += 2;
 
   const text = [...(metadata?.features || []), ...(metadata?.keywords || [])].map(normalise);
   const preferences = [...(inquiry.mustHave || []), ...(inquiry.niceToHave || []), ...(inquiry.keywords || [])].map(normalise);

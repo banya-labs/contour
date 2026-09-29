@@ -169,6 +169,9 @@ export const createInquirySchema = z.object({
   budgetMax: z.number().positive().optional(),
   currency: CurrencyEnum.default("ZMW"),
   preferredSuburbs: z.array(z.string()).default([]),
+  bedroomsMin: z.number().int().min(0).max(50).optional(),
+  bathroomsMin: z.number().min(0).max(50).optional(),
+  areaMinSqm: z.number().positive().max(100000).optional(),
   notes: z.string().max(1000).optional(),
   assignedAgentId: z.string().optional(),
   status: z.enum(["NEW_INQUIRY", "CONTACTED", "QUALIFIED", "VIEWING_SCHEDULED", "VIEWING_OR_OFFER", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER", "VERIFICATION_CLOSING", "CLOSED"]).optional(),
@@ -204,6 +207,9 @@ export const updateInquirySchema = z.object({
   budgetMax: z.number().positive().optional().nullable(),
   currency: CurrencyEnum.optional(),
   preferredSuburbs: z.array(z.string()).optional(),
+  bedroomsMin: z.number().int().min(0).max(50).optional().nullable(),
+  bathroomsMin: z.number().min(0).max(50).optional().nullable(),
+  areaMinSqm: z.number().positive().max(100000).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
 });
 

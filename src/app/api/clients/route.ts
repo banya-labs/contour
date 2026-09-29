@@ -64,7 +64,7 @@ const getHandler = createApiHandler({
 
     const matchingProperties = await db.property.findMany({
       where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
-      select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true, bedrooms: true, bathrooms: true, matchingMetadata: true },
+      select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true, bedrooms: true, bathrooms: true, plotSizeSqm: true, matchingMetadata: true },
       orderBy: { updatedAt: "desc" },
       take: 500,
     });
@@ -73,11 +73,12 @@ const getHandler = createApiHandler({
       matchingProperties: scoreAllPropertiesForInquiry({
         lookingFor: client.lookingFor,
         currency: client.currency,
-        budgetMax: client.budgetMax ? Number(client.budgetMax) : null,
+        budgetMax: client.budgetMax ? Number(client.budgetMax) : undefined,
         preferredAreas: client.preferredSuburbs,
-        propertyType: client.propertyType,
-        bedroomsMin: client.bedroomsMin,
-        bathroomsMin: client.bathroomsMin,
+        propertyType: client.propertyType ?? undefined,
+        bedroomsMin: client.bedroomsMin ?? undefined,
+        bathroomsMin: client.bathroomsMin ? Number(client.bathroomsMin) : undefined,
+        areaMinSqm: client.areaMinSqm ? Number(client.areaMinSqm) : undefined,
         ...(client.matchingProfile as Record<string, unknown> | null || {}),
       }, matchingProperties as never).filter((result) => result.score > PROPERTY_MATCH_THRESHOLD).map((result) => {
         const property = matchingProperties.find((candidate) => candidate.id === result.propertyId)!;
@@ -281,6 +282,9 @@ const postHandler = createApiHandler({
         budgetMax: body.budgetMax ? new Prisma.Decimal(body.budgetMax) : undefined,
         currency: resolvedPropertyCurrency || body.currency || "ZMW",
         preferredSuburbs: body.preferredSuburbs || [],
+        bedroomsMin: body.bedroomsMin,
+        bathroomsMin: body.bathroomsMin !== undefined ? new Prisma.Decimal(body.bathroomsMin) : undefined,
+        areaMinSqm: body.areaMinSqm !== undefined ? new Prisma.Decimal(body.areaMinSqm) : undefined,
         notes: body.notes,
         status: body.status || "CONTACTED",
         leadSource: body.leadSource || "OTHER",

@@ -8,6 +8,7 @@ export type MatchingMetadata = {
   nearbyAreas?: string[];
   bedroomsMin?: number;
   bathroomsMin?: number;
+  areaMinSqm?: number;
   price?: number;
   features?: string[];
   keywords?: string[];
@@ -22,6 +23,7 @@ export type InquiryMatchingProfile = {
   preferredAreas?: string[];
   bedroomsMin?: number;
   bathroomsMin?: number;
+  areaMinSqm?: number;
   mustHave?: string[];
   niceToHave?: string[];
   keywords?: string[];
@@ -38,6 +40,7 @@ export type MatchingCandidate = {
   rentalPrice: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
+  plotSizeSqm?: number | null;
   matchingMetadata: MatchingMetadata | null;
 };
 
