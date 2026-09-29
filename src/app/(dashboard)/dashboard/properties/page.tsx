@@ -82,7 +82,7 @@ function PropertiesCatalogContent() {
     async function loadProperties() {
       try {
         const [res, agentsRes] = await Promise.all([
-          fetch("/api/properties?status=ALL", { cache: "no-store" }),
+          fetch("/api/properties?status=AVAILABLE", { cache: "no-store" }),
           fetch("/api/organization/agents", { cache: "no-store" }),
         ]);
         const data = await res.json();

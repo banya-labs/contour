@@ -799,13 +799,16 @@ export const DELETE = createApiHandler({
         data: {
           organizationId: ctx.organizationId!,
           userId: ctx.userId,
-          action: "PROPERTY_DELETED",
+          action: "PROPERTY_ARCHIVED",
           entityType: "Property",
           entityId: property.id,
           details: { title: property.title, status: property.status },
         },
       });
-      await tx.property.delete({ where: { id: property.id } });
+      await tx.property.update({
+        where: { id: property.id },
+        data: { status: "ARCHIVED" },
+      });
     });
 
     smartCache.invalidateTag(ctx.organizationId!, "properties");
