@@ -32,6 +32,7 @@ import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-d
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 import { PageTabs } from "@/components/ui/page-tabs";
 import { InquiryLocationField } from "@/components/inquiries/inquiry-location-field";
+import { PROPERTY_TYPE_OPTIONS } from "@/lib/property-types";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -56,6 +57,7 @@ function ClientsCRMContent() {
     phone: "",
     email: "",
     lookingFor: "",
+    propertyType: "",
           preferredSuburbs: "",
           bedroomsMin: "",
           bathroomsMin: "",
@@ -166,6 +168,7 @@ function ClientsCRMContent() {
       phone: client.phone || "",
       email: client.email && client.email !== "not-provided@client.zm" ? client.email : "",
       lookingFor: client.lookingFor || "",
+      propertyType: client.propertyType || "",
       preferredSuburbs: Array.isArray(client.preferredSuburbs) ? client.preferredSuburbs.join(", ") : "",
       bedroomsMin: client.bedroomsMin?.toString() || "",
       bathroomsMin: client.bathroomsMin?.toString() || "",
@@ -215,6 +218,10 @@ function ClientsCRMContent() {
       setEditError("Valid phone number is required.");
       return;
     }
+    if (!editFormData.propertyType) {
+      setEditError("Property type is required.");
+      return;
+    }
 
     const budgetStr = editFormData.budgetMax.replace(/[^0-9.]/g, "");
     const budgetNum = parseFloat(budgetStr) || undefined;
@@ -230,6 +237,7 @@ function ClientsCRMContent() {
           clientPhone: editFormData.phone.trim(),
           clientEmail: editFormData.email.trim() || null,
           lookingFor: lookingForType,
+          propertyType: editFormData.propertyType,
           budgetMax: budgetNum,
           currency: editFormData.currency,
           preferredSuburbs: editFormData.preferredSuburbs
@@ -329,6 +337,7 @@ function ClientsCRMContent() {
     phone: "",
     email: "",
     lookingFor: "",
+    propertyType: "",
     preferredSuburbs: "",
     bedroomsMin: "",
     bathroomsMin: "",
@@ -375,6 +384,10 @@ function ClientsCRMContent() {
       setFormError("Property requirements are required.");
       return;
     }
+    if (!formData.propertyType) {
+      setFormError("Property type is required.");
+      return;
+    }
 
     const budgetStr = formData.budgetMax.replace(/[^0-9.]/g, "");
     const budgetNum = parseFloat(budgetStr) || undefined;
@@ -383,11 +396,13 @@ function ClientsCRMContent() {
 
     const clientPayload = {
       idempotencyKey: `client-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      creationSurface: "DESKTOP" as const,
       clientName: formData.name.trim(),
       contactId: formData.contactId,
       clientPhone: formData.phone.trim(),
       clientEmail: formData.email.trim() || undefined,
       lookingFor: lookingForType,
+      propertyType: formData.propertyType,
       propertyType: undefined,
       budgetMax: budgetNum,
       currency,
@@ -440,6 +455,7 @@ function ClientsCRMContent() {
             phone: "",
             email: "",
             lookingFor: "",
+            propertyType: "",
             preferredSuburbs: "",
             bedroomsMin: "",
             bathroomsMin: "",
@@ -681,6 +697,14 @@ function ClientsCRMContent() {
                 />
               </div>
 
+              <div>
+                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Property Type *</label>
+                <select value={formData.propertyType} onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })} required className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs">
+                  <option value="">Select property type...</option>
+                  {PROPERTY_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Budget Max (Optional)</label>
@@ -866,6 +890,14 @@ function ClientsCRMContent() {
                   className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Property Type *</label>
+                <select value={editFormData.propertyType} onChange={(e) => setEditFormData({ ...editFormData, propertyType: e.target.value })} required className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs">
+                  <option value="">Select property type...</option>
+                  {PROPERTY_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

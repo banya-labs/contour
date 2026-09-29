@@ -32,6 +32,7 @@ import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-c
 import TitleDeedOcrUploader from "@/components/properties/title-deed-ocr-uploader";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import LocationCoordinatePicker from "@/components/properties/location-coordinate-picker";
+import { PROPERTY_TYPE_OPTIONS } from "@/lib/property-types";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -147,6 +148,7 @@ function PropertiesCatalogContent() {
     title: "",
     listingType: "FOR_SALE",
     ownershipType: "MANAGED_ON_BEHALF",
+    propertyType: "",
     askingPrice: "",
     rentalPrice: "",
     currency: "ZMW",
@@ -231,6 +233,11 @@ function PropertiesCatalogContent() {
       return;
     }
 
+    if (!formData.propertyType) {
+      setFormError("Please select a property type before publishing.");
+      return;
+    }
+
     if (!formData.mandateDeclarationAgreed) {
       setFormError("Statutory Mandate & Title Warranty required: You must confirm that your agency holds an active mandate from the lawful owner before publishing.");
       return;
@@ -268,6 +275,7 @@ function PropertiesCatalogContent() {
         title: formData.title.trim(),
         listingType: formData.listingType,
         ownershipType: formData.ownershipType,
+        propertyType: formData.propertyType,
         askingPrice: askingPriceNum,
         rentalPrice: rentalPriceNum,
         currency: formData.currency,
@@ -723,6 +731,21 @@ function PropertiesCatalogContent() {
                     <option value="COMPANY_OWNED">Company-Owned Asset</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
+                  Property Type *
+                </label>
+                <select
+                  value={formData.propertyType}
+                  onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })}
+                  className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist"
+                  required
+                >
+                  <option value="">Select property type</option>
+                  {PROPERTY_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
