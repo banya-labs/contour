@@ -32,7 +32,7 @@ import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-d
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 import { PageTabs } from "@/components/ui/page-tabs";
 import { InquiryLocationField } from "@/components/inquiries/inquiry-location-field";
-import { PROPERTY_TYPE_OPTIONS } from "@/lib/property-types";
+import { PROPERTY_TYPE_OPTIONS, propertyTypeLabel } from "@/lib/property-types";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -123,6 +123,7 @@ function ClientsCRMContent() {
               phone: c.clientPhone,
               email: c.email || c.clientEmail || "not-provided@client.zm",
               lookingFor: cleanNotes,
+              propertyType: c.propertyType || null,
               preferredSuburbs: c.preferredSuburbs || [],
               bedroomsMin: c.bedroomsMin ?? null,
               bathroomsMin: c.bathroomsMin ? Number(c.bathroomsMin) : null,
@@ -434,6 +435,7 @@ function ClientsCRMContent() {
             phone: data.client.clientPhone,
             email: data.client.email || data.client.clientEmail || "not-provided@client.zm",
             lookingFor: cleanNotes,
+            propertyType: data.client.propertyType || null,
             preferredSuburbs: data.client.preferredSuburbs || [],
             budgetMax: `${data.client.currency === "USD" ? "$" : "K"} ${Number(data.client.budgetMax || 0).toLocaleString()}`,
             purpose: data.client.lookingFor === "FOR_RENT" ? "RENT" : "BUY",
@@ -573,7 +575,7 @@ function ClientsCRMContent() {
               {filteredClients.map((client) => (
                 <tr key={client.id} onClick={() => setSelectedClient(client)} className="cursor-pointer hover:bg-[#fff5f3]/40" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedClient(client); }}>
                   <td className="px-4 py-3"><div className="font-heading font-bold text-editorial-black">{client.name}</div><div className="text-[11px] text-editorial-muted">{client.phone} · {client.email || "No email"}</div></td>
-                  <td className="px-4 py-3"><div className="font-medium text-editorial-black">{client.lookingFor}</div><div className="text-[10px] text-editorial-muted">{client.purpose} · {client.leadSource}</div></td>
+                  <td className="px-4 py-3"><div className="font-medium text-editorial-black">{client.lookingFor}</div><div className="text-[10px] text-editorial-muted">{propertyTypeLabel(client.propertyType)} · {client.purpose} · {client.leadSource}</div></td>
                   <td className="px-4 py-3 font-mono font-bold">{client.budgetMax}</td>
                   <td className="px-4 py-3"><div className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold uppercase ${client.matchingProperties.length ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-neutral-50 text-editorial-muted border border-editorial-border"}`}><Sparkles className="w-3 h-3" />{client.matchingProperties.length} {client.matchingProperties.length === 1 ? "property" : "properties"}</div>{client.matchingProperties.length > 0 && <div className="mt-1 max-w-[220px] truncate text-[10px] text-editorial-muted" title={client.matchingProperties.map((property: any) => property.title).join(", ")}>{client.matchingProperties.map((property: any) => property.title).join(", ")}</div>}</td>
                   <td className="px-4 py-3"><span className="border border-editorial-border bg-editorial-paper px-2 py-1 text-[10px] font-mono font-bold uppercase">{client.status}</span></td>
@@ -596,6 +598,7 @@ function ClientsCRMContent() {
           { label: "Phone", value: selectedClient.phone },
           { label: "Email", value: selectedClient.email },
           { label: "Looking for", value: selectedClient.lookingFor },
+          { label: "Property type", value: propertyTypeLabel(selectedClient.propertyType) },
           { label: "Budget", value: selectedClient.budgetMax },
           { label: "Preferred suburbs", value: selectedClient.preferredSuburbs },
           { label: "Lead source", value: selectedClient.leadSource },
