@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
 import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "./score";
+import { buildInquiryMatchingProfile } from "./inquiry-profile";
 
 export async function createInquiryMatchNotifications(organizationId: string, inquiryId: string) {
   const inquiry = await db.inquiry.findFirst({ where: { id: inquiryId, organizationId, status: { not: "CLOSED" } } });
   if (!inquiry) return 0;
   const properties = await db.property.findMany({ where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } }, select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true, bedrooms: true, bathrooms: true, matchingMetadata: true, assignedAgentId: true } });
-  const profile = (inquiry.matchingProfile as Record<string, unknown> | null) || { lookingFor: inquiry.lookingFor, currency: inquiry.currency, budgetMin: inquiry.budgetMin ? Number(inquiry.budgetMin) : null, budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null, preferredAreas: inquiry.preferredSuburbs, propertyType: inquiry.propertyType };
+  const profile = buildInquiryMatchingProfile(inquiry);
   const scored = scoreAllPropertiesForInquiry(profile as never, properties as never);
   const matches = properties.filter((property) => scored.some((result) => result.propertyId === property.id && result.score > PROPERTY_MATCH_THRESHOLD));
   if (!matches.length) return 0;
