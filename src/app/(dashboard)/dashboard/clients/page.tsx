@@ -31,6 +31,7 @@ import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 import { PageTabs } from "@/components/ui/page-tabs";
+import { InquiryLocationField } from "@/components/inquiries/inquiry-location-field";
 
 function ClientsCRMContent() {
   const { data: session } = useSession();
@@ -709,17 +710,10 @@ function ClientsCRMContent() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Preferred Suburbs (Optional)</label>
-                  <select
-                    value={formData.preferredSuburbs}
-                    onChange={(e) => setFormData({ ...formData, preferredSuburbs: e.target.value })}
-                    className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs"
-                  >
-                    <option value="">Any location</option>
-                    {[...new Set(propertyOptions.map((property) => property.suburb).filter(Boolean))].sort().map((suburb) => <option key={suburb} value={suburb}>{suburb}</option>)}
-                  </select>
-                </div>
+                <InquiryLocationField
+                  value={formData.preferredSuburbs}
+                  onChange={(preferredSuburbs) => setFormData({ ...formData, preferredSuburbs })}
+                />
 
                 <div>
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Purpose</label>
@@ -946,15 +940,10 @@ function ClientsCRMContent() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
-                    Preferred Suburbs
-                  </label>
-                  <select value={editFormData.preferredSuburbs} onChange={(e) => setEditFormData({ ...editFormData, preferredSuburbs: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 rounded-none border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-mono text-xs">
-                    <option value="">Any location</option>
-                    {[...new Set(propertyOptions.map((property) => property.suburb).filter(Boolean))].sort().map((suburb) => <option key={suburb} value={suburb}>{suburb}</option>)}
-                  </select>
-                </div>
+                <InquiryLocationField
+                  value={editFormData.preferredSuburbs}
+                  onChange={(preferredSuburbs) => setEditFormData({ ...editFormData, preferredSuburbs })}
+                />
 
                 <div>
                   <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">
