@@ -17,7 +17,6 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
-import { PageTabs } from "@/components/ui/page-tabs";
 
 function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
@@ -345,16 +344,6 @@ function LeasesManagementContent() {
           </span>
         </MotionCard>
       </div>
-
-      {/* Rentals workspace tabs */}
-      <PageTabs
-        tabs={[
-          { id: "leases", label: "Leases", href: "/dashboard/leases", count: leases.length },
-          { id: "statements", label: "Statements", href: "/dashboard/leases?tab=statements" },
-        ]}
-        activeTab={activeTab}
-        className="mt-1"
-      />
 
       {/* Leases Table Card */}
       <div className="bg-white border border-editorial-border">
