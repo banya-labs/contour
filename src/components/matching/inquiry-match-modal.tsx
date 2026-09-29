@@ -1,4 +1,5 @@
 import { CheckCircle2, X } from "lucide-react";
+import { propertyTypeLabel } from "@/lib/property-types";
 
 export type InquiryMatch = {
   propertyId: string;
@@ -73,7 +74,7 @@ export function InquiryMatchModal({ inquiry, matches, threshold, loading, error,
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h4 className="text-sm font-heading font-semibold truncate">{match.property?.title || "Property"}</h4>
-                    <p className="text-[11px] text-editorial-muted font-mono">{match.property?.suburb || "Location pending"} • {formatPrice(match)}</p>
+                    <p className="text-[11px] text-editorial-muted font-mono">{match.property?.suburb || "Location pending"} • {propertyTypeLabel(match.property?.propertyType)} • {formatPrice(match)}</p>
                   </div>
                   <span className="shrink-0 text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-1">{match.score}%</span>
                 </div>
