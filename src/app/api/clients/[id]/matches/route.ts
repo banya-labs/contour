@@ -16,6 +16,7 @@ export const GET = createApiHandler({
       select: {
         id: true, lookingFor: true, currency: true, budgetMin: true, budgetMax: true,
         preferredSuburbs: true, propertyType: true, matchingProfile: true, propertyId: true,
+        bedroomsMin: true, bathroomsMin: true, areaMinSqm: true,
       },
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
@@ -24,7 +25,7 @@ export const GET = createApiHandler({
       select: {
         id: true, title: true, suburb: true, listingType: true, propertyType: true,
         currency: true, askingPrice: true, rentalPrice: true, bedrooms: true,
-        bathrooms: true, matchingMetadata: true,
+        bathrooms: true, plotSizeSqm: true, matchingMetadata: true,
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -36,6 +37,9 @@ export const GET = createApiHandler({
       budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
       preferredAreas: inquiry.preferredSuburbs,
       propertyType: inquiry.propertyType,
+      bedroomsMin: inquiry.bedroomsMin,
+      bathroomsMin: inquiry.bathroomsMin ? Number(inquiry.bathroomsMin) : undefined,
+      areaMinSqm: inquiry.areaMinSqm ? Number(inquiry.areaMinSqm) : undefined,
     };
     const ranked = scoreAllPropertiesForInquiry(profile as never, properties as never);
     const matches = ranked.map((result) => ({
