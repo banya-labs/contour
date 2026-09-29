@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canCloseDeal, getClosingReadiness, getDefaultClosingRequirementTemplates, resolveClosingTransactionType, validateClosingEvidence, validateClosingRequirementTemplate, type ClosingChecklistItemSnapshot } from "./closing-workflow";
+import { canOpenPipelineClosingWorkflow } from "./closing-workflow-ui";
 
 describe("resolveClosingTransactionType", () => {
   it("maps rental inquiries to the rental placement closing mode", () => {
@@ -16,6 +17,11 @@ describe("resolveClosingTransactionType", () => {
 });
 
 describe("configurable closing workflow", () => {
+  it("only exposes the pipeline trigger to management in the final stage", () => {
+    expect(canOpenPipelineClosingWorkflow("VERIFICATION_CLOSING", true)).toBe(true);
+    expect(canOpenPipelineClosingWorkflow("VERIFICATION_CLOSING", false)).toBe(false);
+    expect(canOpenPipelineClosingWorkflow("NEGOTIATING", true)).toBe(false);
+  });
   it("allows a human approval without optional supporting evidence", () => {
     expect(validateClosingEvidence({ evidenceType: "DOCUMENT", status: "APPROVED" })).toBeNull();
     expect(validateClosingEvidence({ evidenceType: "BOOLEAN", status: "APPROVED" })).toBeNull();

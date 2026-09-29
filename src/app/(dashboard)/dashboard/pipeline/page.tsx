@@ -14,6 +14,7 @@ import {
   User,
   Edit3,
   Trash2,
+  ClipboardCheck,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
@@ -26,6 +27,9 @@ import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
+import { authClient } from "@/lib/auth-client";
+import { isManagementRole } from "@/lib/authorization";
+import { canOpenPipelineClosingWorkflow } from "@/lib/closing-workflow-ui";
 import { mapLegacyPipelineState } from "@/lib/deal-workflow";
 import {
   emitWorkspaceMutation,
@@ -154,6 +158,9 @@ function DealPipelineContent() {
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
 
   const searchParams = useSearchParams();
+  const { data: session } = authClient.useSession();
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const isManagement = isManagementRole(userRole);
   const loadAllPipelineData = () => {
     void Promise.all([
       fetch("/api/clients"),
@@ -822,6 +829,16 @@ function DealPipelineContent() {
 
               {/* Touch Actions: Move Stage, Edit Deal, & WhatsApp */}
               <div className="space-y-2 pt-2 border-t border-editorial-border">
+                {canOpenPipelineClosingWorkflow(deal.stage, isManagement) && (
+                  <button
+                    type="button"
+                    onClick={() => setClosingWorkflowTarget(deal)}
+                    className="w-full py-2 px-2 border border-contour-red bg-[#fff5f3] hover:bg-contour-red hover:text-white text-contour-red flex items-center justify-center gap-1 font-heading text-[11px] font-semibold uppercase tracking-wider"
+                  >
+                    <ClipboardCheck className="w-3 h-3" />
+                    <span>Open closing workflow</span>
+                  </button>
+                )}
                 <select
                   value={deal.stage}
                   onChange={(e) => handleMoveStage(deal.id, e.target.value as Deal["stage"])}
@@ -1079,6 +1096,17 @@ function DealPipelineContent() {
                           <Trash2 className="w-2.5 h-2.5" /> Delete
                         </button>
                       </div>
+
+                      {canOpenPipelineClosingWorkflow(deal.stage, isManagement) && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setClosingWorkflowTarget(deal); }}
+                          className="w-full py-1.5 border border-contour-red bg-[#fff5f3] hover:bg-contour-red hover:text-white text-contour-red flex items-center justify-center gap-1 font-heading text-[10px] font-semibold uppercase tracking-wider"
+                        >
+                          <ClipboardCheck className="w-3 h-3" />
+                          <span>Open closing workflow</span>
+                        </button>
+                      )}
 
                       {stage.id === "CLOSED" && (
                         <div className="pt-2 border-t border-editorial-border">
