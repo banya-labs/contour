@@ -70,7 +70,7 @@ import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { InquiryMatchModal, type InquiryMatch } from "@/components/matching/inquiry-match-modal";
 import { publicPropertyPath } from "@/lib/public-property";
-import { PROPERTY_TYPE_OPTIONS } from "@/lib/property-types";
+import { PROPERTY_TYPE_OPTIONS, propertyTypeLabel } from "@/lib/property-types";
 import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, type ActivePipelineStage } from "@/lib/deal-workflow";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
@@ -1035,7 +1035,7 @@ function AgentKioskContent() {
 
     const enrichedNotes = [
       newClientRequestNotes ? newClientRequestNotes.trim() : "",
-      newClientPropertyType ? `Type: ${newClientPropertyType.replace(/_/g, " ")}` : "",
+      newClientPropertyType ? `Type: ${propertyTypeLabel(newClientPropertyType)}` : "",
       newClientMinBeds ? `Min ${newClientMinBeds} beds` : "",
       newClientAttachOffer && attachedOfferProperty ? `[Immediate Offer] ${clientCurrency} ${offerVal.toLocaleString()} for ${attachedOfferProperty.title} (${attachedOfferProperty.suburb})` : "",
     ].filter(Boolean).join(" | ");

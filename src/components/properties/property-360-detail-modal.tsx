@@ -296,7 +296,7 @@ export default function PropertyFullDetailModal({
       setEditFormData({
         title: property.title || "",
         listingType: property.listingType || "FOR_SALE",
-        propertyType: property.propertyType || "HOUSE",
+        propertyType: property.propertyType || "STANDALONE_HOUSE",
         suburb: property.suburb || "Kabulonga",
         city: property.city || "Lusaka",
         askingPrice: property.askingPrice !== undefined ? String(property.askingPrice) : "",
