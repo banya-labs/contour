@@ -262,7 +262,9 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Fetch dynamic agency datasets in parallel with cache-busting
       const [propsRes, leasesRes, clientsRes, salesRes] = await Promise.all([
-        fetch("/api/properties?status=ALL&limit=500", { cache: "no-store" }),
+        // The field app is an active inventory surface. Sold, rented, and under-offer
+        // records remain available to their operational records, but must not be pitched.
+        fetch("/api/properties?status=AVAILABLE&limit=500", { cache: "no-store" }),
         fetch("/api/leases", { cache: "no-store" }),
         fetch("/api/clients", { cache: "no-store" }),
         fetch("/api/sales", { cache: "no-store" }),
@@ -277,7 +279,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
 
       if (propsData.success && Array.isArray(propsData.properties)) {
         // Enforce POPIA compliance by stripping owner details on client
-        const safeProperties = propsData.properties.map((p: any) => {
+        const safeProperties = propsData.properties.filter((p: any) => p.status === "AVAILABLE").map((p: any) => {
           const { ownerName, ownerPhone, ownerEmail, ownerBankDetails, titleDeedNumber, ...publicFields } = p;
           return {
             ...publicFields,

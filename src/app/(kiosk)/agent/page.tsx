@@ -1207,6 +1207,7 @@ function AgentKioskContent() {
       setAgentDeals((previous) => [updated, ...previous.filter((deal) => deal.id !== updated.id)]);
       setStatusDeal(null);
       emitWorkspaceMutation(["agent", "pipeline", "clients", "dashboard"], currentDeal.id);
+      await syncData();
       playSuccessTone();
     } catch {
       setStatusError("No connection. The deal was not changed.");
