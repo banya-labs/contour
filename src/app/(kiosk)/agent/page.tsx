@@ -70,6 +70,7 @@ import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { InquiryMatchModal, type InquiryMatch } from "@/components/matching/inquiry-match-modal";
 import { publicPropertyPath } from "@/lib/public-property";
+import { PROPERTY_TYPE_OPTIONS } from "@/lib/property-types";
 import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, type ActivePipelineStage } from "@/lib/deal-workflow";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
@@ -613,6 +614,7 @@ function AgentKioskContent() {
   const [newPropSuburb, setNewPropSuburb] = useState("Kabulonga");
   const [newPropPrice, setNewPropPrice] = useState("");
   const [newPropType, setNewPropType] = useState<"SALE" | "RENT">("SALE");
+  const [newPropPropertyType, setNewPropPropertyType] = useState("");
   const [newPropCurrency, setNewPropCurrency] = useState<"ZMW" | "USD">("ZMW");
   const [newPropBeds, setNewPropBeds] = useState("4");
   const [newPropMandate, setNewPropMandate] = useState<"SOLE_MANDATE" | "OPEN_MANDATE" | "COMPANY_OWNED">("SOLE_MANDATE");
@@ -934,6 +936,10 @@ function AgentKioskContent() {
       setCaptureError("Select or type a suburb / area for this property.");
       return;
     }
+    if (!newPropPropertyType) {
+      setCaptureError("Select a property type for this property.");
+      return;
+    }
     if (!Number.isFinite(price) || price <= 0) {
       setCaptureError("Enter a property price greater than zero.");
       return;
@@ -948,7 +954,7 @@ function AgentKioskContent() {
       askingPrice: newPropType === "SALE" ? price : undefined,
       rentalPrice: newPropType === "RENT" ? price : undefined,
       currency: newPropCurrency,
-      propertyType: "STANDALONE_HOUSE",
+      propertyType: newPropPropertyType,
       listingType: newPropType === "SALE" ? "FOR_SALE" : "FOR_RENT",
       bedrooms: Number(newPropBeds),
       bathrooms: Math.max(1, Number(newPropBeds) - 1),
@@ -972,7 +978,8 @@ function AgentKioskContent() {
       setFieldSyncStatus(isOnline ? "SYNCING" : "QUEUED");
       playSuccessTone();
       setIntakeDrawer("NONE");
-      setNewPropTitle("");
+    setNewPropTitle("");
+    setNewPropPropertyType("");
       setNewPropPrice("");
       setNewPropPhotos([]);
       setNewPropFeaturedPhoto(undefined);
@@ -1030,6 +1037,7 @@ function AgentKioskContent() {
 
     const payload: any = {
       idempotencyKey: `pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      creationSurface: "PWA" as const,
       clientName: newClientName.trim(),
       clientPhone: normalizedClientPhone,
       budgetMax: finalBudget,
@@ -2959,6 +2967,14 @@ function AgentKioskContent() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1">Property Type *</label>
+                  <select required value={newPropPropertyType} onChange={(e) => setNewPropPropertyType(e.target.value)} className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none">
+                    <option value="">Select property type...</option>
+                    {PROPERTY_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
                     <label className="block text-editorial-black font-heading font-semibold mb-1">Price</label>
@@ -3106,13 +3122,8 @@ function AgentKioskContent() {
                         onChange={(e) => setNewClientPropertyType(e.target.value)}
                         className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
                       >
-                        <option value="">Any Type</option>
-                        <option value="STANDALONE_HOUSE">Standalone House</option>
-                        <option value="APARTMENT">Apartment</option>
-                        <option value="COMMERCIAL_OFFICE">Commercial Office</option>
-                        <option value="WAREHOUSE">Warehouse</option>
-                        <option value="VACANT_LAND_PLOT">Vacant Land Plot</option>
-                        <option value="FARM_AGRICULTURAL">Farm / Agricultural</option>
+                        <option value="">Select property type...</option>
+                        {PROPERTY_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
                     </div>
 

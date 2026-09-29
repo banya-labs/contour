@@ -40,7 +40,7 @@ export const PropertyStatusEnum = z.enum([
 export const createPropertySchema = z.object({
   title: z.string().min(3).max(120),
   ownershipType: OwnershipTypeEnum.default("MANAGED_ON_BEHALF"),
-  propertyType: PropertyTypeEnum.default("STANDALONE_HOUSE"),
+  propertyType: PropertyTypeEnum,
   listingType: ListingTypeEnum.default("FOR_SALE"),
   askingPrice: z.number().positive().optional(),
   rentalPrice: z.number().positive().optional(),
@@ -158,6 +158,7 @@ export const generateLandlordStatementSchema = z.object({
 });
 
 export const createInquirySchema = z.object({
+  creationSurface: z.enum(["DESKTOP", "PWA"]).optional(),
   existingInquiryId: z.string().optional(),
   contactId: z.string().optional(),
   idempotencyKey: z.string().min(8).max(120).optional(),
@@ -179,6 +180,10 @@ export const createInquirySchema = z.object({
   leadSource: LeadSourceEnum.default("OTHER"),
   propertyId: z.string().optional(),
   dealValue: z.number().positive().optional(),
+});
+
+export const createInquirySurfaceSchema = createInquirySchema.extend({
+  propertyType: PropertyTypeEnum,
 });
 
 export const updateInquirySchema = z.object({

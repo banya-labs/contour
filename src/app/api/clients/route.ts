@@ -104,6 +104,10 @@ const postHandler = createApiHandler({
   handler: async (req, ctx) => {
     const { organizationId, body, userId } = ctx;
 
+    if (body.creationSurface && !body.propertyType) {
+      return NextResponse.json({ success: false, error: "Property type is required for inquiries created from this surface." }, { status: 400 });
+    }
+
     if (body.status && body.status !== "NEW_INQUIRY") {
       return NextResponse.json({ success: false, error: "New opportunities must start at New Inquiry and progress through the pipeline." }, { status: 409 });
     }
