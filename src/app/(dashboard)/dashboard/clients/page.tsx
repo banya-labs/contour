@@ -38,7 +38,6 @@ function ClientsCRMContent() {
   const [clients, setClients] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string; email?: string | null }>>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; roleKey?: string }>>([]);
-  const [propertyOptions, setPropertyOptions] = useState<Array<{ suburb: string; bedrooms: number | null; bathrooms: number | null; plotSizeSqm: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
@@ -92,12 +91,10 @@ function ClientsCRMContent() {
           fetch("/api/clients"),
           fetch("/api/organization/agents"),
         ]);
-        const [contactsRes, propertiesRes] = await Promise.all([fetch("/api/contacts"), fetch("/api/properties?status=AVAILABLE", { cache: "no-store" })]);
+        const contactsRes = await fetch("/api/contacts");
         const data = await clientsRes.json();
         const agentsData = await agentsRes.json();
         const contactsData = await contactsRes.json();
-        const propertiesData = await propertiesRes.json();
-        if (propertiesData.success) setPropertyOptions(propertiesData.properties || []);
         if (contactsData.success) setContacts(contactsData.contacts || []);
 
         if (agentsData.success && agentsData.agents) {
