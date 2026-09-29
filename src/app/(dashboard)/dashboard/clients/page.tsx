@@ -403,7 +403,6 @@ function ClientsCRMContent() {
       clientEmail: formData.email.trim() || undefined,
       lookingFor: lookingForType,
       propertyType: formData.propertyType,
-      propertyType: undefined,
       budgetMax: budgetNum,
       currency,
       preferredSuburbs: formData.preferredSuburbs.split(",").map((s) => s.trim()).filter(Boolean),

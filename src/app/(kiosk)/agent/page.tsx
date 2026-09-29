@@ -1028,6 +1028,11 @@ function AgentKioskContent() {
     const clientCurrency = attachedOfferProperty ? (attachedOfferProperty.currency || "ZMW") : newClientCurrency;
     const finalBudget = newClientBudget ? Number(newClientBudget) : (newClientAttachOffer ? offerVal : undefined);
 
+    if (!newClientPropertyType) {
+      setCaptureError("Select a property type for this inquiry.");
+      return;
+    }
+
     const enrichedNotes = [
       newClientRequestNotes ? newClientRequestNotes.trim() : "",
       newClientPropertyType ? `Type: ${newClientPropertyType.replace(/_/g, " ")}` : "",
