@@ -9,6 +9,10 @@ export function getInquiryLocationMode(value: string, options: readonly string[]
   return options.some((option) => locationsEqual(option, value)) ? "option" : "custom";
 }
 
+export function getInquiryLocationDisplayValue(value: string, options: readonly string[] = LUSAKA_SUBURBS): string {
+  return options.find((option) => locationsEqual(option, value)) || value;
+}
+
 type InquiryLocationFieldProps = {
   value: string;
   onChange: (value: string) => void;
@@ -17,6 +21,7 @@ type InquiryLocationFieldProps = {
 
 export function InquiryLocationField({ value, onChange, disabled = false }: InquiryLocationFieldProps) {
   const [mode, setMode] = useState<LocationMode>(() => getInquiryLocationMode(value));
+  const selectValue = mode === "custom" ? "__CUSTOM__" : getInquiryLocationDisplayValue(value);
 
   useEffect(() => {
     setMode(getInquiryLocationMode(value));
@@ -35,7 +40,7 @@ export function InquiryLocationField({ value, onChange, disabled = false }: Inqu
       </label>
       <select
         id="inquiry-location"
-        value={mode === "custom" ? "__CUSTOM__" : value}
+        value={selectValue}
         onChange={(event) => {
           const nextValue = event.target.value;
           if (nextValue === "__CUSTOM__") {
