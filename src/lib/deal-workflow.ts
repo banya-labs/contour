@@ -157,7 +157,7 @@ export function mapLegacyPipelineState(
   status: InquiryStatus | string,
   outcome?: PipelineOutcome | string | null,
 ): { status: PipelineStage; outcome: PipelineOutcome | null } {
-  if (outcome === "WON" || outcome === "LOST") return { status: "CLOSED", outcome };
+  if (outcome === "WON" || outcome === "LOST" || outcome === "CANCELLED") return { status: "CLOSED", outcome };
 
   switch (status) {
     case "CONTACTED":

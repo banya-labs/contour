@@ -13,8 +13,8 @@ import { getClosingReadiness } from "@/lib/closing-workflow";
 
 const transitionSchema = z.object({
   targetStage: z.enum(["NEW_INQUIRY", "QUALIFIED", "VIEWING_OR_OFFER", "NEGOTIATING", "VERIFICATION_CLOSING", "CLOSED"]),
-  outcome: z.enum(["WON", "LOST"]).optional(),
-  reason: z.string().trim().min(10).max(2000).optional(),
+  outcome: z.enum(["WON", "LOST", "CANCELLED"]).optional(),
+  reason: z.string().trim().min(1).max(2000).optional(),
   overrideMissingRequirements: z.boolean().optional().default(false),
 });
 
@@ -70,6 +70,9 @@ export const POST = createApiHandler({
     if (targetStage === "CLOSED" && body.outcome === "LOST" && !body.reason) {
       return transitionError("A reason is required when marking an inquiry lost.", 400);
     }
+    if (targetStage === "CLOSED" && body.outcome === "CANCELLED" && !body.reason) {
+      return transitionError("A reason is required when cancelling an inquiry.", 400);
+    }
     if (targetStage === "CLOSED" && body.outcome === "WON") {
       if (!isManagementRole(contourRole)) return transitionError("Only management can close a deal as Won.", 403);
       const closingWorkflow = await db.closingWorkflow.findFirst({ where: { organizationId, inquiryId }, include: { items: true } });
@@ -121,6 +124,7 @@ export const POST = createApiHandler({
           ...(closed ? { outcome: body.outcome, closedAt: now, closedById: userId } : {}),
           ...(targetStage === "VERIFICATION_CLOSING" ? { managementCloseRequestedAt: now, managementCloseRequestedById: userId } : {}),
           ...(body.outcome === "LOST" ? { lostReason: body.reason, failedAtStage: inquiry.status } : {}),
+          ...(body.outcome === "CANCELLED" ? { cancellationReason: body.reason, failedAtStage: inquiry.status } : {}),
         },
         include: { property: { select: { id: true, status: true, title: true } } },
       });
