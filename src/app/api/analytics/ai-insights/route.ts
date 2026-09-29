@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { ContourReportPayload } from "@/lib/analytics/types";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,16 @@ export const POST = createApiHandler({
     const topLocation = demandByLocation[0]?.name || "Lusaka Prime Areas";
     const topType = demandByPropertyType[0]?.name || "3 Bedroom Residential";
     const bestSource = leadSourcePerformance[0]?.source || "Website";
+    const periodFrom = new Date(period.from);
+    const periodTo = new Date(period.to);
+
+    const saveSnapshot = async (status: "READY" | "ERROR", insights: unknown, errorMessage?: string) => {
+      await db.aiInsightSnapshot.upsert({
+        where: { organizationId_periodFrom_periodTo: { organizationId: ctx.organizationId!, periodFrom, periodTo } },
+        create: { organizationId: ctx.organizationId!, periodFrom, periodTo, status, insights: insights ? insights as object : undefined, errorMessage },
+        update: { status, insights: insights ? insights as object : undefined, errorMessage, generatedAt: new Date() },
+      });
+    };
 
     // System prompt enforcing zero hallucination
     const systemPrompt = `You are an elite Real Estate Operations Analyst and Chief Operating Officer for Southern African real estate platforms.
@@ -115,6 +126,7 @@ Generate the executive narrative JSON with these exact keys:
             // Clean markdown code fence if returned
             const cleanJson = rawContent.replace(/```json\n?|\n?```/g, "").trim();
             const parsed = JSON.parse(cleanJson);
+            await saveSnapshot("READY", parsed);
             return NextResponse.json({
               success: true,
               insights: parsed,
@@ -126,7 +138,7 @@ Generate the executive narrative JSON with these exact keys:
           console.warn("[OPENROUTER_ERROR]", aiResponse.status, errText);
         }
       } catch (e) {
-        console.warn("[OPENROUTER_FETCH_FAILED] Falling back to deterministic synthesis.", e);
+        console.warn("[OPENROUTER_FETCH_FAILED] AI provider request failed.", e);
       }
     }
 
@@ -155,53 +167,16 @@ Generate the executive narrative JSON with these exact keys:
         if (aiResponse.ok) {
           const aiJson = await aiResponse.json();
           const parsed = JSON.parse(aiJson.choices[0].message.content);
-          return NextResponse.json({ success: true, insights: parsed, engine: "OPENAI_GPT4O_MINI" });
+            await saveSnapshot("READY", parsed);
+            return NextResponse.json({ success: true, insights: parsed, engine: "OPENAI_GPT4O_MINI" });
         }
       } catch (e) {
-        console.warn("[AI_INSIGHTS_FALLBACK] OpenAI request failed, falling back to deterministic synthesis.", e);
+        console.warn("[OPENAI_INSIGHTS_FAILED] AI provider request failed.", e);
       }
     }
 
-    // High-fidelity deterministic fallback (Zero Hallucination guaranteed)
-    const deterministicInsights = {
-      executiveSummaryText: `${meta.companyName} recorded solid operational momentum during ${period.label}, registering ${executiveKpis.newInquiries} new client inquiries, ${viewings.completed} completed viewings, ${executiveKpis.activeNegotiations} active negotiations, and ${completedTransactions.length} completed transactions. Total gross transaction volume reached ${currency} ${financialKpis.totalTransactionValue.toLocaleString()}, delivering ${currency} ${financialKpis.companyCommission.toLocaleString()} in gross agency commission.`,
-      whatIsWorking: [
-        `Lead Velocity: Generated ${executiveKpis.newInquiries} new inquiries with strong channel attribution from ${bestSource}.`,
-        `Inventory Matching: Maintained a ${matching.matchRatePct}% match rate with ${matching.fullyMatched} inquiries successfully paired to property listings.`,
-        `Viewing Conversion: Completed ${viewings.completed} property viewings resulting in ${executiveKpis.activeNegotiations} active negotiations (${viewings.viewingToNegotiationPct}% viewing-to-negotiation conversion).`,
-        `Revenue Execution: Closed ${completedTransactions.length} deals generating ${currency} ${financialKpis.netCompanyCommission.toLocaleString()} in net company commission.`,
-      ],
-      whatNeedsAttention: [
-        `Unmatched Client Queue: ${matching.unmatched} qualified clients are actively waiting for suitable inventory in ${topLocation}.`,
-        `Deal Leakage: ${lostDealsSummary.totalDealsLost} deals fell through, representing ${currency} ${lostDealsSummary.totalPotentialValueLost.toLocaleString()} in lost transaction volume.`,
-        `Overdue Follow-ups: ${executiveKpis.followUpsDue} client follow-ups require immediate agent contact to prevent lead churn.`,
-        `Inventory Aging: ${staleProperties.length} properties have remained on the market for more than 90 days.`,
-        `Rental Arrears: ${currency} ${rentalPerformance.outstanding.toLocaleString()} in overdue rent across ${rentalPerformance.tenantsInArrearsCount} tenants requires formal recovery action.`,
-      ],
-      actionPlan: {
-        immediatePriority1: [
-          `Canvass and mandate new listings in ${topLocation} to satisfy the ${matching.unmatched} unmatched clients.`,
-          `Instruct field agents to clear all ${executiveKpis.followUpsDue} overdue follow-up tasks within 24 hours.`,
-          `Re-engage the ${executiveKpis.activeNegotiations} clients currently in negotiation with refreshed counter-terms.`,
-        ],
-        thisWeekPriority2: [
-          `Conduct formal price reduction reviews with landlords of the ${staleProperties.length} properties listed > 90 days.`,
-          `Dispatch automated WhatsApp arrears notices to the ${rentalPerformance.tenantsInArrearsCount} tenants in arrears.`,
-          `Review the ${lostDealsSummary.totalDealsLost} lost deal records to reinforce viewing negotiation protocols.`,
-        ],
-        nextMonthPriority3: [
-          `Focus agency mandate acquisition on ${topType} properties where demand is highest.`,
-          `Rebalance lead distribution to focus on ${bestSource}, our highest-converting acquisition channel.`,
-          `Conduct monthly performance reviews with agents to improve viewing-to-offer conversion rates.`,
-        ],
-      },
-      conclusionText: `${period.label} demonstrated strong demand and solid transaction closing capability. The immediate growth lever is matching the ${matching.unmatched} waiting clients by onboarding fresh inventory in ${topLocation} and converting the ${currency} ${pipelineFunnel.totalActivePipelineValue.toLocaleString()} active pipeline into closed transactions.`,
-    };
-
-    return NextResponse.json({
-      success: true,
-      insights: deterministicInsights,
-      engine: "DETERMINISTIC_EXECUTIVE_SYNTHESIS",
-    });
+    const errorMessage = "There was an error generating the AI results. Please ensure that your AI connection works fine.";
+    await saveSnapshot("ERROR", null, errorMessage);
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 502 });
   },
 });

@@ -43,7 +43,21 @@ function AnalyticsPrintContent() {
         const res = await fetch(url);
         const data = await res.json();
         if (data.success && data.report) {
-          setReport(data.report);
+          let reportWithInsights = data.report as ContourReportPayload;
+          try {
+            const insightsResponse = await fetch("/api/analytics/ai-insights", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ reportPayload: reportWithInsights }),
+            });
+            const insightsData = await insightsResponse.json();
+            if (insightsData.success && insightsData.insights) {
+              reportWithInsights = { ...reportWithInsights, aiNarrative: insightsData.insights };
+            }
+          } catch (insightsError) {
+            console.warn("AI insight enrichment unavailable; using data-derived report narrative.", insightsError);
+          }
+          setReport(reportWithInsights);
         }
       } catch (err) {
         console.error("Failed to load print report data", err);
@@ -296,7 +310,7 @@ function AnalyticsPrintContent() {
                   1. Executive Summary
                 </h2>
                 <p className="text-[11px] leading-relaxed text-neutral-800 mb-4">
-                  {report.aiNarrative.executiveSummaryText}
+                  {report.aiNarrative?.executiveSummaryText || "Information could not be generated as the AI connection failed."}
                 </p>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -849,7 +863,7 @@ function AnalyticsPrintContent() {
                   <div className="p-2 bg-[#FFF8F7] border-l-2 border-red-600">
                     <strong className="text-red-700 uppercase">Priority 1 - Immediate (24-48h):</strong>
                     <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
-                      {report.aiNarrative.actionPlan.immediatePriority1.map((item: string, i: number) => (
+                      {(report.aiNarrative?.actionPlan.immediatePriority1 || ["Information could not be generated as the AI connection failed."]).map((item: string, i: number) => (
                         <li key={i}>{item}</li>
                       ))}
                     </ul>
@@ -858,7 +872,7 @@ function AnalyticsPrintContent() {
                   <div className="p-2 bg-[#FFFDF5] border-l-2 border-amber-500">
                     <strong className="text-amber-800 uppercase">Priority 2 - This Week:</strong>
                     <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
-                      {report.aiNarrative.actionPlan.thisWeekPriority2.map((item: string, i: number) => (
+                      {(report.aiNarrative?.actionPlan.thisWeekPriority2 || ["Information could not be generated as the AI connection failed."]).map((item: string, i: number) => (
                         <li key={i}>{item}</li>
                       ))}
                     </ul>
@@ -867,7 +881,7 @@ function AnalyticsPrintContent() {
                   <div className="p-2 bg-[#F6F9F8] border-l-2 border-emerald-800">
                     <strong className="text-emerald-800 uppercase">Priority 3 - Next Month:</strong>
                     <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
-                      {report.aiNarrative.actionPlan.nextMonthPriority3.map((item: string, i: number) => (
+                      {(report.aiNarrative?.actionPlan.nextMonthPriority3 || ["Information could not be generated as the AI connection failed."]).map((item: string, i: number) => (
                         <li key={i}>{item}</li>
                       ))}
                     </ul>
@@ -881,7 +895,7 @@ function AnalyticsPrintContent() {
                   27. Management Conclusion & Verification
                 </h2>
                 <p className="text-[10.5px] leading-relaxed text-neutral-800 mb-4">
-                  {report.aiNarrative.conclusionText}
+                  {report.aiNarrative?.conclusionText || "Information could not be generated as the AI connection failed."}
                 </p>
 
                 <div className="pt-3 border-t border-neutral-300 grid grid-cols-2 gap-4 text-[9px] font-mono text-neutral-600">

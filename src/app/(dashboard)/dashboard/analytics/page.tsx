@@ -32,7 +32,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { ContourReportPayload } from "@/lib/analytics/types";
+import { ContourReportPayload, AiNarrative } from "@/lib/analytics/types";
 import { formatCurrency } from "@/lib/utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
@@ -45,7 +45,8 @@ export default function AnalyticsDashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [report, setReport] = useState<ContourReportPayload | null>(null);
-  const [aiNarrative, setAiNarrative] = useState<any>(null);
+  const [aiNarrative, setAiNarrative] = useState<AiNarrative | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
@@ -55,6 +56,10 @@ export default function AnalyticsDashboardPage() {
   const [wizardFrom, setWizardFrom] = useState<string>("");
   const [wizardTo, setWizardTo] = useState<string>("");
   const [wizardTitle, setWizardTitle] = useState<string>("Business Intelligence & Performance Report");
+  const [generationDialogOpen, setGenerationDialogOpen] = useState(false);
+  const [generationStage, setGenerationStage] = useState<"loading-report" | "generating-ai" | "ready" | "error">("loading-report");
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [generationInsights, setGenerationInsights] = useState<AiNarrative | null>(null);
 
   const fetchReport = async (p = preset, from = customFrom, to = customTo) => {
     setLoading(true);
@@ -69,14 +74,35 @@ export default function AnalyticsDashboardPage() {
       if (data.success && data.report) {
         setReport(data.report);
         setAiNarrative(data.report.aiNarrative);
+        setAiError(null);
+        if (!data.report.aiNarrative) void generateAiInsights(data.report);
       } else {
         setErrorMessage(data.error || "Failed to query analytics engine from database.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load analytics report", err);
-      setErrorMessage(err?.message || "Failed to load analytics report.");
+      setErrorMessage(err instanceof Error ? err.message : "Failed to load analytics report.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateAiInsights = async (reportPayload: ContourReportPayload) => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/analytics/ai-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportPayload }),
+      });
+      const data = await res.json();
+      if (data.success && data.insights) setAiNarrative(data.insights);
+      else setAiError(data.error || "There was an error generating the AI results. Please ensure that your AI connection works fine.");
+    } catch {
+      setAiError("There was an error generating the AI results. Please ensure that your AI connection works fine.");
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -94,21 +120,51 @@ export default function AnalyticsDashboardPage() {
 
   const handleRefreshAi = async () => {
     if (!report) return;
-    setAiLoading(true);
+    await generateAiInsights(report);
+  };
+
+  const handleGenerateDocument = async () => {
+    setIsWizardOpen(false);
+    setGenerationDialogOpen(true);
+    setGenerationStage("loading-report");
+    setGenerationError(null);
+    setGenerationInsights(null);
+
     try {
-      const res = await fetch("/api/analytics/ai-insights", {
+      let reportUrl = `/api/analytics/report?preset=${wizardPreset}`;
+      if (wizardPreset === "custom" && wizardFrom && wizardTo) {
+        reportUrl += `&from=${wizardFrom}&to=${wizardTo}`;
+      }
+      const reportResponse = await fetch(reportUrl);
+      const reportData = await reportResponse.json();
+      if (!reportData.success || !reportData.report) {
+        throw new Error(reportData.error || "Unable to prepare the selected report.");
+      }
+
+      setGenerationStage("generating-ai");
+      const aiResponse = await fetch("/api/analytics/ai-insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportPayload: report }),
+        body: JSON.stringify({ reportPayload: reportData.report }),
       });
-      const data = await res.json();
-      if (data.success && data.insights) {
-        setAiNarrative(data.insights);
+      const aiData = await aiResponse.json();
+      if (!aiResponse.ok || !aiData.success || !aiData.insights) {
+        throw new Error(aiData.error || "There was an error generating the AI results. Please ensure that your AI connection works fine.");
       }
-    } catch (err) {
-      console.error("Failed to generate AI insights", err);
-    } finally {
-      setAiLoading(false);
+
+      setGenerationInsights(aiData.insights as AiNarrative);
+      setGenerationStage("ready");
+      window.setTimeout(() => {
+        let url = `/dashboard/analytics/print?preset=${wizardPreset}&title=${encodeURIComponent(wizardTitle)}`;
+        if (wizardPreset === "custom" && wizardFrom && wizardTo) {
+          url += `&from=${wizardFrom}&to=${wizardTo}`;
+        }
+        setGenerationDialogOpen(false);
+        window.open(url, "_blank");
+      }, 900);
+    } catch (error: unknown) {
+      setGenerationStage("error");
+      setGenerationError(error instanceof Error ? error.message : "There was an error generating the AI results. Please ensure that your AI connection works fine.");
     }
   };
 
@@ -246,7 +302,7 @@ export default function AnalyticsDashboardPage() {
             </div>
 
             <p className="text-xs leading-relaxed text-[#1C1C1A]">
-              {aiNarrative?.executiveSummaryText || report.aiNarrative.executiveSummaryText}
+              {aiNarrative?.executiveSummaryText || aiError || "No AI insights have been generated yet. Refresh AI Insights to generate them."}
             </p>
 
             {/* Management Attention Required Alert Pill Row */}
@@ -617,12 +673,18 @@ export default function AnalyticsDashboardPage() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {!aiNarrative ? (
+                <div className="md:col-span-3 border border-[#ECE7DE] bg-[#FBF9F5] p-5 text-xs text-[#666158]">
+                  {aiError || "No AI insights have been generated yet. AI insights are being generated in the background."}
+                </div>
+              ) : null}
+              {aiNarrative ? <>
               <div className="bg-[#FFF8F7] border-l-2 border-[#DC2626] p-4 text-xs">
                 <div className="text-[10px] font-bold uppercase text-[#DC2626] tracking-wider mb-2">
                   Priority 1 • Immediate (24-48h)
                 </div>
                 <ul className="space-y-2 text-[#1C1C1A]">
-                  {(aiNarrative?.actionPlan?.immediatePriority1 || report.aiNarrative.actionPlan.immediatePriority1).map((a: string, i: number) => (
+                  {aiNarrative.actionPlan.immediatePriority1.map((a: string, i: number) => (
                     <li key={i} className="flex items-start gap-1.5">
                       <span className="text-[#DC2626] font-bold">•</span>
                       <span>{a}</span>
@@ -636,7 +698,7 @@ export default function AnalyticsDashboardPage() {
                   Priority 2 • This Week
                 </div>
                 <ul className="space-y-2 text-[#1C1C1A]">
-                  {(aiNarrative?.actionPlan?.thisWeekPriority2 || report.aiNarrative.actionPlan.thisWeekPriority2).map((a: string, i: number) => (
+                  {aiNarrative.actionPlan.thisWeekPriority2.map((a: string, i: number) => (
                     <li key={i} className="flex items-start gap-1.5">
                       <span className="text-[#C89B3C] font-bold">•</span>
                       <span>{a}</span>
@@ -650,7 +712,7 @@ export default function AnalyticsDashboardPage() {
                   Priority 3 • Next Month
                 </div>
                 <ul className="space-y-2 text-[#1C1C1A]">
-                  {(aiNarrative?.actionPlan?.nextMonthPriority3 || report.aiNarrative.actionPlan.nextMonthPriority3).map((a: string, i: number) => (
+                  {aiNarrative.actionPlan.nextMonthPriority3.map((a: string, i: number) => (
                     <li key={i} className="flex items-start gap-1.5">
                       <span className="text-[#16382B] font-bold">•</span>
                       <span>{a}</span>
@@ -658,12 +720,14 @@ export default function AnalyticsDashboardPage() {
                   ))}
                 </ul>
               </div>
+            </> : null}
+
             </div>
 
-            <div className="mt-4 pt-3 border-t border-[#ECE7DE] text-xs text-[#666158]">
+            {aiNarrative && <div className="mt-4 pt-3 border-t border-[#ECE7DE] text-xs text-[#666158]">
               <strong>Management Conclusion: </strong>
-              {aiNarrative?.conclusionText || report.aiNarrative.conclusionText}
-            </div>
+              {aiNarrative.conclusionText}
+            </div>}
           </div>
 
         </div>
@@ -785,20 +849,64 @@ export default function AnalyticsDashboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                let url = `/dashboard/analytics/print?preset=${wizardPreset}&title=${encodeURIComponent(wizardTitle)}`;
-                if (wizardPreset === "custom" && wizardFrom && wizardTo) {
-                  url += `&from=${wizardFrom}&to=${wizardTo}`;
-                }
-                setIsWizardOpen(false);
-                window.open(url, "_blank");
-              }}
+              onClick={() => void handleGenerateDocument()}
               className="flex items-center gap-1.5 px-4 py-2 bg-[#16382B] hover:bg-[#0F291E] text-white text-xs font-semibold rounded-none shadow transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Generate & Open Multi-Page PDF Viewer</span>
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={generationDialogOpen} onOpenChange={setGenerationDialogOpen}>
+        <DialogContent className="max-w-lg p-6 bg-white border border-[#ECE7DE] text-[#1C1C1A] rounded-none">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-[#16382B] mb-1">
+              <Sparkles className="w-5 h-5 text-[#C89B3C]" />
+              <DialogTitle className="text-base font-heading font-bold uppercase tracking-wide">
+                Preparing your executive report
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-[#666158]">
+              AI insights are generated first so the document contains the current reporting window, not stale or placeholder recommendations.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-4">
+            <div className={`flex items-center gap-2 text-xs ${generationStage === "loading-report" ? "text-[#16382B] font-semibold" : "text-emerald-700"}`}>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Report data prepared</span>
+            </div>
+            <div className={`flex items-center gap-2 text-xs ${generationStage === "generating-ai" ? "text-[#16382B] font-semibold" : generationStage === "error" ? "text-red-700" : "text-emerald-700"}`}>
+              {generationStage === "generating-ai" ? <Sparkles className="w-4 h-4 animate-pulse" /> : <CheckCircle2 className="w-4 h-4" />}
+              <span>{generationStage === "generating-ai" ? "Generating grounded AI insights…" : "AI insights generated"}</span>
+            </div>
+
+            {generationStage === "error" && (
+              <div className="border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                {generationError}
+              </div>
+            )}
+
+            {generationStage === "ready" && generationInsights && (
+              <div className="border border-emerald-200 bg-emerald-50 p-3 space-y-2 text-xs text-[#1C1C1A]">
+                <div className="font-semibold text-emerald-800">Insights ready. Opening the document preview…</div>
+                <p>{generationInsights.executiveSummaryText}</p>
+                <div className="font-semibold">Immediate priorities</div>
+                <ul className="list-disc pl-4 space-y-1">
+                  {generationInsights.actionPlan.immediatePriority1.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {generationStage === "error" && (
+            <div className="flex justify-end gap-2 border-t border-[#ECE7DE] pt-3">
+              <button type="button" onClick={() => setGenerationDialogOpen(false)} className="px-4 py-2 text-xs font-semibold text-[#666158]">Close</button>
+              <button type="button" onClick={() => void handleGenerateDocument()} className="px-4 py-2 text-xs font-semibold bg-[#16382B] text-white">Retry generation</button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

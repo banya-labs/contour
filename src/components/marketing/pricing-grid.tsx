@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { CornerMark } from "@/components/ui/corner-mark";
@@ -9,7 +9,7 @@ import { ease } from "@/lib/animation-variants";
 export function PricingGrid() {
   const [currency, setCurrency] = useState<"ZMW" | "USD">("ZMW");
 
-  const plans = [
+  const [plans, setPlans] = useState([
     {
       id: "starter",
       name: "STARTER BROKER",
@@ -43,7 +43,18 @@ export function PricingGrid() {
       cta: "Contact Sales →",
       href: "#contact",
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    void fetch("/api/subscription-tiers", { cache: "no-store" }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok || !data.success) return;
+      setPlans((current) => current.map((plan) => {
+        const catalog = data.tiers.find((tier: { id: string }) => tier.id === plan.id);
+        return catalog ? { ...plan, priceZMW: `K ${catalog.monthlyZmw.toLocaleString("en-US")}`, priceUSD: `$${catalog.monthlyUsd}` } : plan;
+      }));
+    });
+  }, []);
 
   type FeatureRow = {
     name: string;
