@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { createContourDatabase } from "./local-first/database";
 import { clearLocalFirstDatabase, getLocalFirstDatabase, readLocalFirstCache, setLocalFirstDatabase, writeLocalFirstCache } from "./local-first/cache";
 import type { LocalFirstIdentity } from "./local-first/types";
+import { filterActivePwaInquiries } from "./pwa-inquiries";
 
 // Types
 export interface OfflineOutboxItem {
@@ -266,7 +267,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
         // records remain available to their operational records, but must not be pitched.
         fetch("/api/properties?status=AVAILABLE&limit=500", { cache: "no-store" }),
         fetch("/api/leases", { cache: "no-store" }),
-        fetch("/api/clients", { cache: "no-store" }),
+        fetch("/api/clients?activeOnly=true", { cache: "no-store" }),
         fetch("/api/sales", { cache: "no-store" }),
       ]);
 
@@ -309,7 +310,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
 
       if (clientsData.success) {
         // Normalize CRM client fields from server while preserving all fields
-        const normalized = (clientsData.clients || []).map((c: any) => {
+        const normalized = filterActivePwaInquiries(clientsData.clients || []).map((c: any) => {
           const lockExpiresAt = c.exclusiveLockExpiresAt ? new Date(c.exclusiveLockExpiresAt) : null;
           const daysLeft = lockExpiresAt 
             ? Math.max(0, Math.ceil((lockExpiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))

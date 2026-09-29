@@ -20,12 +20,16 @@ const getHandler = createApiHandler({
     assignedAgentId: z.string().optional(),
     propertyId: z.string().optional(),
     search: z.string().optional(),
+    activeOnly: z.enum(["true", "false"]).optional(),
   }).partial(),
   handler: async (req, ctx) => {
     const { organizationId, userId, query } = ctx;
-    const { assigned, assignedAgentId, propertyId, search } = query;
+    const { assigned, assignedAgentId, propertyId, search, activeOnly } = query;
 
-    const whereClause: Prisma.InquiryWhereInput = { organizationId };
+    const whereClause: Prisma.InquiryWhereInput = {
+      organizationId,
+      ...(activeOnly === "true" ? { status: { notIn: ["CLOSED", "CLOSED_WON", "CLOSED_LOST"] } } : {}),
+    };
 
     if (assigned === "me" && userId) {
       whereClause.assignedAgentId = userId;

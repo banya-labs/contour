@@ -55,16 +55,16 @@ const getHandler = createApiHandler({
     // 2. Client Counts
     const [assignedClientsCount, totalOrgClientsCount] = await Promise.all([
       db.inquiry.count({
-        where: { organizationId, assignedAgentId: userId },
+        where: { organizationId, assignedAgentId: userId, status: { notIn: ["CLOSED", "CLOSED_WON", "CLOSED_LOST"] } },
       }),
       db.inquiry.count({
-        where: { organizationId },
+        where: { organizationId, status: { notIn: ["CLOSED", "CLOSED_WON", "CLOSED_LOST"] } },
       }),
     ]);
 
     // 3. Real CRM Inquiries assigned to this agent
     const assignedInquiries = await db.inquiry.findMany({
-      where: { organizationId, assignedAgentId: userId },
+      where: { organizationId, assignedAgentId: userId, status: { notIn: ["CLOSED", "CLOSED_WON", "CLOSED_LOST"] } },
       include: {
         property: {
           select: { id: true, title: true, suburb: true, askingPrice: true, rentalPrice: true, currency: true, agencyCommissionPct: true },
