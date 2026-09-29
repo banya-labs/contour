@@ -16,10 +16,10 @@ describe("resolveClosingTransactionType", () => {
 });
 
 describe("configurable closing workflow", () => {
-  it("validates structured evidence before approval", () => {
-    expect(validateClosingEvidence({ evidenceType: "BOOLEAN", status: "APPROVED", evidenceValue: "maybe", notes: "Checked" })).toContain("Yes or No");
-    expect(validateClosingEvidence({ evidenceType: "AMOUNT", status: "APPROVED", evidenceValue: "not money", notes: "Confirmed" })).toContain("valid amount");
-    expect(validateClosingEvidence({ evidenceType: "DOCUMENT", status: "APPROVED", notes: "Checked" })).toContain("verified Vault document");
+  it("allows a human approval without optional supporting evidence", () => {
+    expect(validateClosingEvidence({ evidenceType: "DOCUMENT", status: "APPROVED" })).toBeNull();
+    expect(validateClosingEvidence({ evidenceType: "BOOLEAN", status: "APPROVED" })).toBeNull();
+    expect(validateClosingEvidence({ evidenceType: "AMOUNT", status: "APPROVED" })).toBeNull();
   });
   it("provides editable agency defaults without hardcoding the deal workflow", () => {
     const defaults = getDefaultClosingRequirementTemplates();

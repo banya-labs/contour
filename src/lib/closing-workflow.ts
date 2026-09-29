@@ -44,10 +44,8 @@ export type ClosingDecision =
   | { allowed: false; reason: string };
 
 export function validateClosingEvidence(input: { evidenceType: ClosingEvidenceType; status: ClosingItemStatus; notes?: string | null; evidenceValue?: string | null; linkedDocumentId?: string | null }): string | null {
-  if (["SUBMITTED", "APPROVED"].includes(input.status) && input.evidenceType !== "DOCUMENT" && !input.notes?.trim()) return "Add evidence notes before submitting this requirement.";
-  if (input.evidenceType === "DOCUMENT" && input.status === "APPROVED" && !input.linkedDocumentId) return "Link a verified Vault document before approving this requirement.";
-  if (input.evidenceType === "BOOLEAN" && input.status === "APPROVED" && !["true", "false", "yes", "no"].includes((input.evidenceValue || "").trim().toLowerCase())) return "Enter Yes or No before approving this requirement.";
-  if (input.evidenceType === "AMOUNT" && input.status === "APPROVED" && (!input.evidenceValue?.trim() || !Number.isFinite(Number(input.evidenceValue)))) return "Enter a valid amount before approving this requirement.";
+  // Evidence is supporting context, not a prerequisite for a human decision.
+  // An approver may confirm an item from their own knowledge or attach evidence later.
   return null;
 }
 
