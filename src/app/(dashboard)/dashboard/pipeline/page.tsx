@@ -54,8 +54,9 @@ type Deal = {
   assignedAgentId?: string | null;
   daysInStage: number;
   stage: "NEW_INQUIRY" | "QUALIFIED" | "VIEWING_OR_OFFER" | "NEGOTIATING" | "VERIFICATION_CLOSING" | "CLOSED";
-  outcome?: "WON" | "LOST" | null;
+  outcome?: "WON" | "LOST" | "CANCELLED" | null;
   lostReason?: string | null;
+  cancellationReason?: string | null;
   closedAt?: string | null;
   leadSource?: string;
   notes?: string | null;
@@ -150,6 +151,9 @@ function DealPipelineContent() {
   const [closeOutcome, setCloseOutcome] = useState<"WON" | "LOST">("WON");
   const [selectedClosedDeal, setSelectedClosedDeal] = useState<Deal | null>(null);
   const [lostReason, setLostReason] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<Deal | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [isCancellingDeal, setIsCancellingDeal] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{ deal: Deal; targetStage: Deal["stage"] } | null>(null);
   const [closingWorkflowPrompt, setClosingWorkflowPrompt] = useState<Deal | null>(null);
   const [closingWorkflowTarget, setClosingWorkflowTarget] = useState<Deal | null>(null);
@@ -192,6 +196,7 @@ function DealPipelineContent() {
             stage: mapLegacyPipelineState(inquiry.status, inquiry.outcome).status,
             outcome: inquiry.outcome,
             lostReason: inquiry.lostReason,
+            cancellationReason: inquiry.cancellationReason,
             closedAt: inquiry.closedAt,
             leadSource: inquiry.leadSource,
             notes: inquiry.notes,
@@ -296,6 +301,33 @@ function DealPipelineContent() {
     setCloseTarget(deal);
     setCloseOutcome(deal.outcome === "LOST" ? "LOST" : "WON");
     setLostReason(deal.lostReason || "");
+  };
+
+  const openCancelModal = (deal: Deal) => {
+    setCancelTarget(deal);
+    setCancellationReason(deal.cancellationReason || "");
+  };
+
+  const handleCancelDeal = async () => {
+    if (!cancelTarget || !cancellationReason.trim()) return;
+    setIsCancellingDeal(true);
+    try {
+      const response = await fetch(`/api/clients/${cancelTarget.id}/transition`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetStage: "CLOSED", outcome: "CANCELLED", reason: cancellationReason.trim() }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        setFormError(result?.error || "Unable to cancel this inquiry.");
+        return;
+      }
+      setDeals((prev) => prev.map((deal) => deal.id === cancelTarget.id ? { ...deal, stage: "CLOSED", outcome: "CANCELLED", cancellationReason: cancellationReason.trim() } : deal));
+      emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], cancelTarget.id);
+      setCancelTarget(null);
+    } finally {
+      setIsCancellingDeal(false);
+    }
   };
 
   const openEditModal = (deal: Deal) => {
@@ -916,6 +948,7 @@ function DealPipelineContent() {
                         >
                           Edit Outcome
                         </button>
+                        {deal.stage !== "CLOSED" && <button type="button" onClick={(e) => { e.stopPropagation(); openCancelModal(deal); }} className="text-[10px] font-heading font-semibold uppercase tracking-wider text-amber-800 hover:text-amber-950 flex items-center gap-1 px-1.5 py-0.5 border border-transparent hover:border-amber-200 hover:bg-amber-50" title="Cancel inquiry"><X className="w-2.5 h-2.5" /><span>Cancel</span></button>}
                       </div>
                       {deal.lostReason && (
                         <p className="text-[11px] text-red-800 italic bg-white/70 p-1.5 border border-red-100">
@@ -1220,7 +1253,7 @@ function DealPipelineContent() {
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-heading font-bold uppercase tracking-wider border ${deal.outcome === "WON" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
                         {deal.outcome === "WON" ? <CheckCircle2 className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                        {deal.outcome === "WON" ? "Won" : "Lost"}
+                      {deal.outcome === "WON" ? "Won" : deal.outcome === "CANCELLED" ? "Cancelled" : "Lost"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-editorial-muted whitespace-nowrap">
@@ -1257,7 +1290,7 @@ function DealPipelineContent() {
           { label: "Lead source", value: selectedClosedDeal.leadSource?.replace(/_/g, " ") },
           { label: "Outcome", value: selectedClosedDeal.outcome },
           { label: "Closed", value: selectedClosedDeal.closedAt ? new Date(selectedClosedDeal.closedAt).toLocaleDateString("en-ZM") : "—" },
-          { label: "Lost reason", value: selectedClosedDeal.lostReason },
+          { label: selectedClosedDeal.outcome === "CANCELLED" ? "Cancellation reason" : "Lost reason", value: selectedClosedDeal.outcome === "CANCELLED" ? selectedClosedDeal.cancellationReason : selectedClosedDeal.lostReason },
         ] : []}
       />
 
@@ -1820,6 +1853,17 @@ function DealPipelineContent() {
                 {isKeyPending(pendingDealActions, `${pendingTransition.deal.id}:move`) ? "Checking…" : "Confirm move"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {cancelTarget && (
+        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full p-6 border border-amber-500 space-y-4">
+            <div className="flex items-center justify-between border-b border-editorial-border pb-3"><h3 className="font-heading font-bold text-sm uppercase tracking-wider">Cancel inquiry</h3><button type="button" onClick={() => setCancelTarget(null)} className="border border-editorial-border p-2" aria-label="Close"><X className="w-4 h-4" /></button></div>
+            <p className="text-xs text-editorial-muted">This will close {cancelTarget.clientName}&apos;s inquiry as cancelled. Record why it is being cancelled.</p>
+            <div><label htmlFor="cancellation-reason" className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Cancellation reason *</label><textarea id="cancellation-reason" value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} maxLength={2000} rows={4} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist" placeholder="Why is this inquiry being cancelled?" required /></div>
+            <div className="pt-3 flex justify-end gap-2 border-t border-editorial-border"><button type="button" onClick={() => setCancelTarget(null)} className="px-4 py-2 border border-editorial-border text-xs font-heading uppercase tracking-wider">Keep open</button><button type="button" disabled={isCancellingDeal || !cancellationReason.trim()} onClick={() => void handleCancelDeal()} className="px-4 py-2 bg-amber-700 disabled:opacity-40 text-white text-xs font-heading uppercase tracking-wider"><PendingButtonContent pending={isCancellingDeal} pendingLabel="Cancelling…">Cancel inquiry</PendingButtonContent></button></div>
           </div>
         </div>
       )}

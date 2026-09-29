@@ -948,6 +948,7 @@ enum InquiryStatus {
 enum PipelineOutcome {
   WON
   LOST
+  CANCELLED
 }
 
 enum ClosingWorkflowStatus {
@@ -1130,6 +1131,7 @@ model Inquiry {
   assignedAgentId              String?
   outcome                      PipelineOutcome?
   lostReason                   String?          @db.Text
+  cancellationReason           String?          @db.Text
   closedAt                     DateTime?
   closedById                   String?
   managementCloseRequestedAt   DateTime?
