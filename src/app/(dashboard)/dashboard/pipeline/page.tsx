@@ -24,10 +24,12 @@ import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
+import { AssignPropertyDialog } from "@/components/matching/assign-property-dialog";
+import type { MatchRow } from "@/lib/matching/client-types";
 import { authClient } from "@/lib/auth-client";
 import { isManagementRole } from "@/lib/authorization";
 import { canOpenPipelineClosingWorkflow } from "@/lib/closing-workflow-ui";
-import { mapLegacyPipelineState } from "@/lib/deal-workflow";
+import { mapLegacyPipelineState, requiresPropertyForTransition } from "@/lib/deal-workflow";
 import {
   emitWorkspaceMutation,
   mutationTouchesScope,
@@ -96,6 +98,10 @@ const STAGES = [
   { id: "VERIFICATION_CLOSING", label: "Verification & Closing", tag: "CLOSING" },
 ];
 
+function DealTerminalActions({ onLost, onCancel }: { onLost: () => void; onCancel: () => void }) {
+  return <div className="flex gap-2 border-t border-editorial-border pt-2"><button type="button" onClick={(event) => { event.stopPropagation(); onLost(); }} className="min-h-11 flex-1 border border-editorial-border px-2 py-2 text-[10px] font-heading font-bold text-red-700">Mark lost</button><button type="button" onClick={(event) => { event.stopPropagation(); onCancel(); }} className="min-h-11 flex-1 border border-editorial-border px-2 py-2 text-[10px] font-heading font-bold text-amber-800">Cancel inquiry</button></div>;
+}
+
 function DealPipelineContent() {
   // Deals are intentionally empty until they are loaded from a tenant-scoped
   // deal source. Never seed the pipeline with development/demo records.
@@ -137,6 +143,7 @@ function DealPipelineContent() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [isCancellingDeal, setIsCancellingDeal] = useState(false);
   const [pendingTransition, setPendingTransition] = useState<{ deal: Deal; targetStage: Deal["stage"] } | null>(null);
+  const [propertyAssignmentTarget, setPropertyAssignmentTarget] = useState<{ deal: Deal; targetStage: Deal["stage"] } | null>(null);
   const [closingWorkflowPrompt, setClosingWorkflowPrompt] = useState<Deal | null>(null);
   const [closingWorkflowTarget, setClosingWorkflowTarget] = useState<Deal | null>(null);
   const [transitionReason, setTransitionReason] = useState("");
@@ -262,6 +269,7 @@ function DealPipelineContent() {
   const closedDeals = deals.filter((deal) => deal.stage === "CLOSED");
 
   const openCloseModal = (deal: Deal) => {
+    setFormError("");
     setSelectedClosedDeal(null);
     setCloseTarget(deal);
     setCloseOutcome(deal.outcome === "LOST" ? "LOST" : "WON");
@@ -269,6 +277,7 @@ function DealPipelineContent() {
   };
 
   const openCancelModal = (deal: Deal) => {
+    setFormError("");
     setCancelTarget(deal);
     setCancellationReason(deal.cancellationReason || "");
   };
@@ -290,6 +299,8 @@ function DealPipelineContent() {
       setDeals((prev) => prev.map((deal) => deal.id === cancelTarget.id ? { ...deal, stage: "CLOSED", outcome: "CANCELLED", cancellationReason: cancellationReason.trim() } : deal));
       emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], cancelTarget.id);
       setCancelTarget(null);
+    } catch {
+      setFormError("Unable to connect. The inquiry was not cancelled.");
     } finally {
       setIsCancellingDeal(false);
     }
@@ -319,11 +330,17 @@ function DealPipelineContent() {
     setTransitionReason("");
     setFormError("");
     setPendingTransition({ deal, targetStage: nextStage });
+    if (requiresPropertyForTransition(nextStage) && !deal.propertyId) setPropertyAssignmentTarget({ deal, targetStage: nextStage });
   };
 
-  const confirmTransition = async () => {
+  const confirmTransition = async (assignedProperty?: MatchRow["property"]) => {
     if (!pendingTransition) return;
     const { deal, targetStage } = pendingTransition;
+    if (requiresPropertyForTransition(targetStage) && !deal.propertyId && !assignedProperty) {
+      setPropertyAssignmentTarget({ deal, targetStage });
+      return;
+    }
+    const progressingDeal = assignedProperty ? { ...deal, propertyId: assignedProperty.id, propertyTitle: assignedProperty.title, suburb: assignedProperty.suburb } : deal;
     const actionKey = `${deal.id}:move`;
     setPendingDealActions((state) => setKeyPending(state, actionKey, true));
     try {
@@ -335,21 +352,28 @@ function DealPipelineContent() {
       const result = await response.json().catch(() => null);
       if (!response.ok) {
         setFormError(result?.error || "Unable to update the pipeline stage.");
+        if (result?.code === "PROPERTY_REQUIRED") setPropertyAssignmentTarget({ deal: { ...deal, propertyId: null }, targetStage });
         return;
       }
       setDeals((prev) =>
-        prev.map((d) => (d.id === deal.id ? { ...d, stage: targetStage } : d)),
+        prev.map((d) => (d.id === deal.id ? { ...progressingDeal, stage: targetStage } : d)),
       );
       emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], deal.id);
       setPendingTransition(null);
-      if (targetStage === "VERIFICATION_CLOSING") setClosingWorkflowPrompt(deal);
+      if (targetStage === "VERIFICATION_CLOSING") setClosingWorkflowPrompt(progressingDeal);
+    } catch {
+      setFormError("Unable to connect. The inquiry did not progress.");
     } finally {
       setPendingDealActions((state) => setKeyPending(state, actionKey, false));
     }
   };
 
-  const handleCloseDeal = async () => {
+  const handleCloseDeal = async (propertyAssigned = false) => {
     if (!closeTarget || (closeOutcome === "LOST" && lostReason.trim().length < 10)) return;
+    if (requiresPropertyForTransition("CLOSED", closeOutcome) && !closeTarget.propertyId && !propertyAssigned) {
+      setPropertyAssignmentTarget({ deal: closeTarget, targetStage: "CLOSED" });
+      return;
+    }
     setIsClosingDeal(true);
     try {
       const response = await fetch(`/api/clients/${closeTarget.id}/transition`, {
@@ -363,7 +387,8 @@ function DealPipelineContent() {
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) {
-        setFormError("Unable to close this deal.");
+        setFormError(result?.error || "Unable to close this deal.");
+        if (result?.code === "PROPERTY_REQUIRED") setPropertyAssignmentTarget({ deal: { ...closeTarget, propertyId: null }, targetStage: "CLOSED" });
         return;
       }
       setDeals((prev) =>
@@ -384,6 +409,8 @@ function DealPipelineContent() {
         const encoded = encodeURIComponent(JSON.stringify(result.leasePrefill));
         window.location.assign(`/dashboard/leases?new=1&prefill=${encoded}`);
       }
+    } catch {
+      setFormError("Unable to connect. The outcome was not saved.");
     } finally {
       setIsClosingDeal(false);
     }
@@ -759,6 +786,7 @@ function DealPipelineContent() {
                 </div>
               </div>
 
+              {deal.stage !== "CLOSED" && isManagement && <DealTerminalActions onLost={() => { openCloseModal(deal); setCloseOutcome("LOST"); }} onCancel={() => openCancelModal(deal)} />}
               {deal.stage === "CLOSED" && (
                 <div className="pt-2 border-t border-editorial-border">
                   {deal.outcome === "WON" ? (
@@ -829,6 +857,8 @@ function DealPipelineContent() {
             return (
               <div
                 key={stage.id}
+                role="region"
+                aria-label={`${stage.label} deals`}
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, stage.id)}
@@ -980,6 +1010,7 @@ function DealPipelineContent() {
                         </button>
                       )}
 
+                      {isManagement && <DealTerminalActions onLost={() => { openCloseModal(deal); setCloseOutcome("LOST"); }} onCancel={() => openCancelModal(deal)} />}
                       {stage.id === "CLOSED" && (
                         <div className="pt-2 border-t border-editorial-border">
                           {deal.outcome === "WON" ? (
@@ -1368,7 +1399,22 @@ function DealPipelineContent() {
         </div>
       )}
 
-      {pendingTransition && (
+      {propertyAssignmentTarget && <AssignPropertyDialog
+        key={propertyAssignmentTarget.deal.id}
+        inquiryId={propertyAssignmentTarget.deal.id}
+        clientName={propertyAssignmentTarget.deal.clientName}
+        targetLabel={propertyAssignmentTarget.targetStage === "CLOSED" ? "Won" : STAGES.find((stage) => stage.id === propertyAssignmentTarget.targetStage)?.label || "the next stage"}
+        onClose={() => { setPropertyAssignmentTarget(null); setPendingTransition(null); }}
+        onAssigned={(property) => {
+          setPropertyAssignmentTarget(null);
+          const linkedDeal = { ...propertyAssignmentTarget.deal, propertyId: property.id, propertyTitle: property.title, suburb: property.suburb };
+          setDeals((previous) => previous.map((deal) => deal.id === linkedDeal.id ? { ...deal, propertyId: property.id, propertyTitle: property.title, suburb: property.suburb } : deal));
+          if (propertyAssignmentTarget.targetStage === "CLOSED") { setCloseTarget(linkedDeal); void handleCloseDeal(true); }
+          else { setPendingTransition((current) => current ? { ...current, deal: linkedDeal } : current); void confirmTransition(property); }
+        }}
+      />}
+
+      {pendingTransition && !propertyAssignmentTarget && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-geist">
           <div className="bg-white max-w-md w-full p-6 border border-editorial-border space-y-4">
             <div className="flex items-center justify-between border-b border-editorial-border pb-3">
@@ -1404,6 +1450,7 @@ function DealPipelineContent() {
           <div className="bg-white max-w-md w-full p-6 border border-amber-500 space-y-4">
             <div className="flex items-center justify-between border-b border-editorial-border pb-3"><h3 className="font-heading font-bold text-sm uppercase tracking-wider">Cancel inquiry</h3><button type="button" onClick={() => setCancelTarget(null)} className="border border-editorial-border p-2" aria-label="Close"><X className="w-4 h-4" /></button></div>
             <p className="text-xs text-editorial-muted">This will close {cancelTarget.clientName}&apos;s inquiry as cancelled. Record why it is being cancelled.</p>
+            {formError && <p role="alert" className="border border-red-200 bg-red-50 p-3 text-xs text-red-800">{formError}</p>}
             <div><label htmlFor="cancellation-reason" className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Cancellation reason *</label><textarea id="cancellation-reason" value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} maxLength={2000} rows={4} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist" placeholder="Why is this inquiry being cancelled?" required /></div>
             <div className="pt-3 flex justify-end gap-2 border-t border-editorial-border"><button type="button" onClick={() => setCancelTarget(null)} className="px-4 py-2 border border-editorial-border text-xs font-heading uppercase tracking-wider">Keep open</button><button type="button" disabled={isCancellingDeal || !cancellationReason.trim()} onClick={() => void handleCancelDeal()} className="px-4 py-2 bg-amber-700 disabled:opacity-40 text-white text-xs font-heading uppercase tracking-wider"><PendingButtonContent pending={isCancellingDeal} pendingLabel="Cancelling…">Cancel inquiry</PendingButtonContent></button></div>
           </div>
@@ -1425,6 +1472,7 @@ function DealPipelineContent() {
               </button>
             </div>
             <p className="text-xs text-editorial-muted">Record the outcome for {closeTarget.clientName}. A lost outcome requires a reason for future follow-up and reporting.</p>
+            {formError && <p role="alert" className="border border-red-200 bg-red-50 p-3 text-xs text-red-800">{formError}</p>}
             <div className="flex gap-2">
               <button type="button" onClick={() => setCloseOutcome("WON")} className={`flex-1 px-3 py-2 border text-xs font-heading uppercase tracking-wider ${closeOutcome === "WON" ? "border-emerald-700 bg-emerald-50 text-emerald-800" : "border-editorial-border"}`}>Won</button>
               <button type="button" onClick={() => setCloseOutcome("LOST")} className={`flex-1 px-3 py-2 border text-xs font-heading uppercase tracking-wider ${closeOutcome === "LOST" ? "border-red-700 bg-red-50 text-red-800" : "border-editorial-border"}`}>Lost</button>

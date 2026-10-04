@@ -7,14 +7,14 @@ import { isQualifyingMatch, MATCH_POLICY_VERSION, PROPERTY_MATCH_THRESHOLD, TERM
 import { inquiryVisibility, type MatchingScope } from "./visibility";
 import type { Prisma } from "@prisma/client";
 
-export const matchingQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20), view: z.enum(["qualifying", "near"]).default("qualifying") });
+export const matchingQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20), view: z.enum(["qualifying", "near", "all"]).default("qualifying") });
 export type MatchingQuery = z.infer<typeof matchingQuerySchema>;
 export const candidateSelect = { id: true, title: true, suburb: true, listingType: true, propertyType: true, currency: true, askingPrice: true, rentalPrice: true, bedrooms: true, bathrooms: true, plotSizeSqm: true, matchingMetadata: true, status: true } satisfies Prisma.PropertySelect;
 export const inquirySelect = { id: true, clientName: true, clientPhone: true, contactId: true, assignedAgentId: true, propertyId: true, status: true, lookingFor: true, currency: true, budgetMin: true, budgetMax: true, preferredSuburbs: true, propertyType: true, bedroomsMin: true, bathroomsMin: true, areaMinSqm: true, matchingProfile: true, contact: { select: { id: true, name: true, phone: true } } } satisfies Prisma.InquirySelect;
 import { MatchingError } from "./errors";
 export { MatchingError } from "./errors";
 function envelope<T extends { score: number; isMatch: boolean; propertyId: string; inquiry?: { id: string } }>(rows: T[], query: MatchingQuery) {
-  const sorted = rows.filter((row) => query.view === "near" ? !row.isMatch : row.isMatch).sort((a, b) => b.score - a.score || (a.inquiry?.id || a.propertyId).localeCompare(b.inquiry?.id || b.propertyId));
+  const sorted = rows.filter((row) => query.view === "all" || (query.view === "near" ? !row.isMatch : row.isMatch)).sort((a, b) => b.score - a.score || (a.inquiry?.id || a.propertyId).localeCompare(b.inquiry?.id || b.propertyId));
   return { results: sorted.slice((query.page - 1) * query.pageSize, query.page * query.pageSize), total: sorted.length, page: query.page, pageSize: query.pageSize, hasMore: query.page * query.pageSize < sorted.length, threshold: PROPERTY_MATCH_THRESHOLD, policyVersion: MATCH_POLICY_VERSION, calculatedAt: new Date().toISOString() };
 }
 export async function getPropertyInquiryMatches(scope: MatchingScope, propertyId: string, query: MatchingQuery) {

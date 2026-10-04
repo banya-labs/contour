@@ -24,6 +24,24 @@ describe("matching queries", () => {
     mocks.inquiry.findFirst.mockResolvedValue(null);
     await expect(getInquiryPropertyMatches(scope, "foreign", { page: 1, pageSize: 20, view: "qualifying" })).rejects.toThrow("Inquiry not found");
   });
+  it("all available view includes low and rejected scores, sorted descending with pagination", async () => {
+    mocks.inquiry.findFirst.mockResolvedValue({ id: "i", lookingFor: "FOR_SALE", currency: "ZMW", budgetMax: 100, preferredSuburbs: ["Roma"] });
+    mocks.property.findMany.mockResolvedValue([{ ...p, id: "rejected", currency: "USD" }, { ...p, id: "low", suburb: "Other", askingPrice: 300 }, { ...p, id: "best" }]);
+    const result = await getInquiryPropertyMatches(scope, "i", { page: 1, pageSize: 2, view: "all" });
+    expect(result.total).toBe(3);
+    expect(result.results.map((row) => row.propertyId)).toEqual(["best", "low"]);
+    expect(result.hasMore).toBe(true);
+    const last = await getInquiryPropertyMatches(scope, "i", { page: 2, pageSize: 2, view: "all" });
+    expect(last.results[0].propertyId).toBe("rejected");
+    expect(last.results[0].hardFailures.length).toBeGreaterThan(0);
+    expect(mocks.property.findMany.mock.calls[0][0].where).toEqual({ organizationId: "org", status: "AVAILABLE" });
+  });
+
+  it("all available view returns an empty page when inventory is empty", async () => {
+    mocks.inquiry.findFirst.mockResolvedValue({ id: "i", lookingFor: "FOR_SALE" });
+    mocks.property.findMany.mockResolvedValue([]);
+    expect(await getInquiryPropertyMatches(scope, "i", { page: 1, pageSize: 20, view: "all" })).toMatchObject({ total: 0, results: [], hasMore: false });
+  });
   it("summaries reuse scoped batches and invalidate after mutations", async () => {
     mocks.property.findMany.mockResolvedValue([p]);
     mocks.inquiry.findMany.mockResolvedValue([{ id: "i", clientName: "Buyer", lookingFor: "FOR_SALE", currency: "ZMW", budgetMax: 100, preferredSuburbs: ["Roma"] }]);

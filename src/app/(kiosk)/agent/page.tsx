@@ -72,6 +72,8 @@ import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { MatchNotificationInbox } from "@/components/matching/match-notification-inbox";
 import { MatchPreview } from "@/components/matching/match-preview";
 import { PropertyInquiryMatchView } from "@/components/matching/property-inquiry-match-view";
+import { AssignPropertyDialog } from "@/components/matching/assign-property-dialog";
+import type { MatchRow } from "@/lib/matching/client-types";
 import { buildInquiryCapturePayload } from "@/lib/crm/inquiry-capture";
 import { fetchAllPages } from "@/lib/fetch-pages";
 import { clearMatchCache } from "@/lib/matching/result-cache";
@@ -79,7 +81,7 @@ import type { PropertyType, ListingType } from "@prisma/client";
 import type { StrictRequirements } from "@/lib/matching/types";
 import { publicPropertyPath } from "@/lib/public-property";
 import { PROPERTY_TYPE_OPTIONS, propertyTypeLabel } from "@/lib/property-types";
-import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, type ActivePipelineStage } from "@/lib/deal-workflow";
+import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, requiresPropertyForTransition, type ActivePipelineStage, type PipelineStage } from "@/lib/deal-workflow";
 
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
@@ -233,6 +235,9 @@ function AgentKioskContent() {
   const [dealSearch, setDealSearch] = useState("");
   const [agentRefreshNonce, setAgentRefreshNonce] = useState(0);
   const [statusDeal, setStatusDeal] = useState<any | null>(null);
+  const [propertyAssignmentStage, setPropertyAssignmentStage] = useState<PipelineStage | null>(null);
+  const [terminalOutcome, setTerminalOutcome] = useState<"LOST" | "CANCELLED" | null>(null);
+  const [terminalReason, setTerminalReason] = useState("");
   const [statusError, setStatusError] = useState<string | null>(null);
   const [statusPending, setStatusPending] = useState(false);
 
@@ -824,6 +829,7 @@ function AgentKioskContent() {
 
         map.set(inq.id, {
           id: inq.id,
+          propertyId: inq.property?.id || inq.propertyId || null,
           propertyTitle: inq.property?.title || (inq.lookingFor === "FOR_RENT" ? "Rental Mandate" : "Purchase Mandate"),
           suburb: inq.property?.suburb || (inq.preferredSuburbs && inq.preferredSuburbs[0]) || inq.preferredArea || "Lusaka",
           clientName: inq.clientName || inq.name || "Client",
@@ -1180,7 +1186,7 @@ function AgentKioskContent() {
   };
 
   // Deal Stage Advancement with real-time server synchronization
-  const changeDealStatus = async (nextStage: ActivePipelineStage) => {
+  const changeDealStatus = async (nextStage: PipelineStage, assignedProperty?: MatchRow["property"], outcome?: "LOST" | "CANCELLED") => {
     const currentDeal = statusDeal;
     if (!currentDeal || currentDeal.stage === nextStage) return;
     if (currentDeal.id.startsWith("deal_")) {
@@ -1188,23 +1194,32 @@ function AgentKioskContent() {
       return;
     }
 
+    if (requiresPropertyForTransition(nextStage, outcome) && !currentDeal.propertyId && !assignedProperty) {
+      setPropertyAssignmentStage(nextStage);
+      return;
+    }
+    if (!isOnline) { setStatusError("Reconnect before changing deal status. The inquiry has not progressed."); return; }
+    if (outcome && terminalReason.trim().length < 10) { setStatusError("Record a reason of at least 10 characters."); return; }
     setStatusPending(true);
     setStatusError(null);
     try {
       const response = await fetch(`/api/clients/${currentDeal.id}/transition`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetStage: nextStage }),
+        body: JSON.stringify({ targetStage: nextStage, ...(outcome ? { outcome, reason: terminalReason.trim() } : {}) }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) {
         setStatusError(result?.error || "Contour could not update this deal.");
+        if (result?.code === "PROPERTY_REQUIRED") setPropertyAssignmentStage(nextStage);
         return;
       }
 
-      const updated = { ...currentDeal, stage: nextStage, stageLabel: getStageDefinition(nextStage).label, updatedAt: "Just now" };
-      setAgentDeals((previous) => [updated, ...previous.filter((deal) => deal.id !== updated.id)]);
+      const updated = { ...currentDeal, ...(assignedProperty ? { propertyId: assignedProperty.id, propertyTitle: assignedProperty.title, suburb: assignedProperty.suburb } : {}), stage: nextStage, stageLabel: getStageDefinition(nextStage).label, updatedAt: "Just now" };
+      setAgentDeals((previous) => nextStage === "CLOSED" ? previous.filter((deal) => deal.id !== updated.id) : [updated, ...previous.filter((deal) => deal.id !== updated.id)]);
       setStatusDeal(null);
+      setTerminalOutcome(null);
+      setTerminalReason("");
       emitWorkspaceMutation(["agent", "pipeline", "clients", "dashboard"], currentDeal.id);
       await syncData();
       playSuccessTone();
@@ -2524,7 +2539,7 @@ function AgentKioskContent() {
                     {/* Explicit mobile status action */}
                     <button
                       type="button"
-                      disabled={deal.stage === "CLOSED" || deal.stage === "VERIFICATION_CLOSING" || statusPending}
+                      disabled={deal.stage === "CLOSED" || statusPending}
                       onClick={() => {
                         setStatusDeal(deal);
                         setStatusError(null);
@@ -2542,16 +2557,16 @@ function AgentKioskContent() {
               )}
             </div>
 
-            {statusDeal && (
+            {statusDeal && !propertyAssignmentStage && (
               <div className="fixed inset-0 z-50 flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="mobile-status-title">
-                <div className="w-full max-w-md space-y-4 border border-editorial-border bg-white p-5 shadow-xl">
+                <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto space-y-4 border border-editorial-border bg-white p-5 shadow-xl">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Deal status</p>
                       <h3 id="mobile-status-title" className="mt-1 text-lg font-heading font-semibold text-editorial-black">Change status</h3>
                       <p className="mt-1 text-xs text-editorial-muted">Current: {statusDeal.stageLabel}. Choose where this deal is now.</p>
                     </div>
-                    <button type="button" onClick={() => setStatusDeal(null)} className="flex h-8 w-8 items-center justify-center border border-editorial-border" aria-label="Close status dialog"><X className="h-4 w-4" /></button>
+                    <button type="button" disabled={statusPending} onClick={() => { setStatusDeal(null); setTerminalOutcome(null); setTerminalReason(""); setStatusError(null); }} className="flex h-8 w-8 items-center justify-center border border-editorial-border" aria-label="Close status dialog"><X className="h-4 w-4" /></button>
                   </div>
 
                   <div className="space-y-2">
@@ -2575,8 +2590,13 @@ function AgentKioskContent() {
                     })}
                   </div>
 
+                  <div className="border-t border-editorial-border pt-3 space-y-3">
+                    <p className="text-xs text-editorial-muted">Lost and Cancelled do not require a property.</p>
+                    <div className="flex gap-2">{(["LOST", "CANCELLED"] as const).map((outcome) => <button key={outcome} type="button" disabled={statusPending} aria-pressed={terminalOutcome === outcome} onClick={() => { setTerminalOutcome(outcome); setStatusError(null); }} className="min-h-11 flex-1 border border-editorial-border px-3 py-2 text-xs font-heading font-bold">{outcome === "LOST" ? "Mark lost" : "Cancel inquiry"}</button>)}</div>
+                    {terminalOutcome && <><label className="block text-xs">{terminalOutcome === "LOST" ? "Lost reason" : "Cancellation reason"}<textarea value={terminalReason} onChange={(event) => setTerminalReason(event.target.value)} rows={3} maxLength={2000} className="mt-1 w-full border border-editorial-border p-2" placeholder="Explain why this inquiry is closing (at least 10 characters)." /></label><button type="button" disabled={statusPending || terminalReason.trim().length < 10} onClick={() => void changeDealStatus("CLOSED", undefined, terminalOutcome)} className="min-h-11 w-full bg-editorial-black px-4 py-2 text-xs font-heading font-bold text-white disabled:opacity-50">{terminalOutcome === "LOST" ? "Confirm lost" : "Confirm cancellation"}</button></>}
+                  </div>
                   {statusDeal.stage === "VERIFICATION_CLOSING" && (
-                    <p className="border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Management is responsible for verification and the final Won or Lost decision.</p>
+                    <p className="border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Management is responsible for verification and the final Won decision.</p>
                   )}
                   {statusError && <p className="border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">{statusError}</p>}
                   {statusPending && <p className="text-xs text-editorial-muted" role="status">Saving status…</p>}
@@ -3628,6 +3648,21 @@ function AgentKioskContent() {
         </div>
       )}
 
+      {propertyAssignmentStage && statusDeal && <AssignPropertyDialog
+        key={statusDeal.id}
+        inquiryId={statusDeal.id}
+        clientName={statusDeal.clientName}
+        targetLabel={getStageDefinition(propertyAssignmentStage).label}
+        isOnline={isOnline}
+        onClose={() => setPropertyAssignmentStage(null)}
+        onAssigned={(property) => {
+          const nextStage = propertyAssignmentStage;
+          setPropertyAssignmentStage(null);
+          setStatusDeal((current: typeof statusDeal) => current ? { ...current, propertyId: property.id, propertyTitle: property.title, suburb: property.suburb } : current);
+          clearMatchCache();
+          void changeDealStatus(nextStage, property);
+        }}
+      />}
       {selectedInquiryMatches && <PropertyInquiryMatchView key={selectedInquiryMatches.inquiry.id} kind="inquiries" id={selectedInquiryMatches.inquiry.id} title={selectedInquiryMatches.inquiry.name || selectedInquiryMatches.inquiry.clientName || "Inquiry"} isOnline={isOnline} onClose={() => setSelectedInquiryMatches(null)} onAttached={() => { clearMatchCache(); void syncData(); }} onOpenProperty={(id) => { setSelectedInquiryMatches(null); const property = properties.find((p: any) => p.id === id); if (property) setSelectedPropertyDetail(property); }} />}
 
 

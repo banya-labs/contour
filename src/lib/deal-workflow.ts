@@ -11,6 +11,10 @@ export const ACTIVE_PIPELINE_STAGE_CODES = [
 export type ActivePipelineStage = (typeof ACTIVE_PIPELINE_STAGE_CODES)[number];
 export type PipelineStage = ActivePipelineStage | "CLOSED";
 
+export function requiresPropertyForTransition(targetStage: PipelineStage, outcome?: PipelineOutcome | null): boolean {
+  return targetStage !== "NEW_INQUIRY" && !(targetStage === "CLOSED" && (outcome === "LOST" || outcome === "CANCELLED"));
+}
+
 export type PipelineRequirementContext = {
   hasClient: boolean;
   hasProperty: boolean;
@@ -130,6 +134,7 @@ export function canMovePipelineStage(input: {
   direction?: "forward" | "backward";
   reason?: string;
   isManagerOverride?: boolean;
+  outcome?: PipelineOutcome;
 }): TransitionDecision {
   const { currentStage, targetStage } = input;
 
@@ -143,10 +148,12 @@ export function canMovePipelineStage(input: {
     return { allowed: false, requiresReason: false, missingRequirements: [], reason: "Choose a different pipeline stage." };
   }
 
-  // Active pipeline stages are intentionally non-blocking. The popup is the
-  // human confirmation point; stage requirements are guidance, not gates.
-  // This also allows agents to correct a stage in either direction without
-  // inventing a note or completing work that has not happened yet.
+  if (requiresPropertyForTransition(targetStage, input.outcome) && !input.context.hasProperty) {
+    return { allowed: false, requiresReason: false, missingRequirements: ["linked property"], reason: "Assign a property before progressing this inquiry." };
+  }
+
+  // Other stage requirements remain guidance. Property assignment is the
+  // shared progression gate; Lost and Cancelled do not require a property.
   if (targetStage !== "CLOSED" && ACTIVE_PIPELINE_STAGE_CODES.includes(targetStage) && currentIndex !== undefined) {
     return { allowed: true, requiresReason: false, missingRequirements: [] };
   }

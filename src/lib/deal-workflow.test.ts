@@ -27,8 +27,8 @@ describe("simplified deal workflow", () => {
     expect(getNextStage("VERIFICATION_CLOSING")).toBe("CLOSED");
   });
 
-  it("allows any active stage move without requirements or a reason", () => {
-    expect(canMovePipelineStage({ currentStage: "NEW_INQUIRY", targetStage: "NEGOTIATING", context: emptyContext })).toMatchObject({ allowed: true });
+  it("allows active stage moves with a linked property and returning to new without one", () => {
+    expect(canMovePipelineStage({ currentStage: "NEW_INQUIRY", targetStage: "NEGOTIATING", context: { ...emptyContext, hasProperty: true } })).toMatchObject({ allowed: true });
     expect(canMovePipelineStage({ currentStage: "NEGOTIATING", targetStage: "NEW_INQUIRY", context: emptyContext })).toMatchObject({ allowed: true, requiresReason: false });
   });
 
@@ -49,10 +49,23 @@ describe("simplified deal workflow", () => {
     ["QUALIFIED", "NEW_INQUIRY"],
     ["VERIFICATION_CLOSING", "VIEWING_OR_OFFER"],
   ] as const)("allows %s to %s without stage requirements", (currentStage, targetStage) => {
-    expect(canMovePipelineStage({ currentStage, targetStage, context: emptyContext })).toMatchObject({
+    expect(canMovePipelineStage({ currentStage, targetStage, context: { ...emptyContext, hasProperty: true } })).toMatchObject({
       allowed: true,
       requiresReason: false,
       missingRequirements: [],
     });
+  });
+
+  it.each(["QUALIFIED", "VIEWING_OR_OFFER", "NEGOTIATING", "VERIFICATION_CLOSING"] as const)("blocks unassigned progression to %s even with a manager override", (targetStage) => {
+    expect(canMovePipelineStage({ currentStage: "NEW_INQUIRY", targetStage, context: emptyContext, isManagerOverride: true })).toMatchObject({ allowed: false, missingRequirements: ["linked property"] });
+  });
+
+  it.each(["LOST", "CANCELLED"] as const)("allows %s without a linked property", (outcome) => {
+    expect(canMovePipelineStage({ currentStage: "NEW_INQUIRY", targetStage: "CLOSED", outcome, context: emptyContext })).toMatchObject({ allowed: true });
+  });
+
+  it("requires a property for Won and for legacy active inquiries progressing again", () => {
+    expect(canMovePipelineStage({ currentStage: "NEW_INQUIRY", targetStage: "CLOSED", outcome: "WON", context: emptyContext })).toMatchObject({ allowed: false });
+    expect(canMovePipelineStage({ currentStage: "QUALIFIED", targetStage: "NEGOTIATING", context: emptyContext })).toMatchObject({ allowed: false });
   });
 });

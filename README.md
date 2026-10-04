@@ -61,6 +61,9 @@ pnpm test
 # Closing dialog stacking on desktop/mobile (isolated UI, mocked API)
 node scripts/test-closing-dialog-stacking.mjs
 
+# Property-required deal progression on dashboard and agent PWA (mocked API)
+node scripts/test-property-progression.mjs
+
 # Cross-tenant integration test against an isolated PostgreSQL database
 TEST_DATABASE_URL="postgresql://..." pnpm test -- tests/integration/dify-tenant-isolation.integration.test.ts
 ```

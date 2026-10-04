@@ -6,7 +6,10 @@ import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { smartCache } from "@/lib/cache";
 import { isManagementRole } from "@/lib/authorization";
-import { canMovePipelineStage, mapLegacyPipelineState, type PipelineRequirementContext, type PipelineStage } from "@/lib/deal-workflow";
+import { canMovePipelineStage, mapLegacyPipelineState, requiresPropertyForTransition, type PipelineRequirementContext, type PipelineStage } from "@/lib/deal-workflow";
+import { matchingScope } from "@/lib/matching/api";
+import { inquiryVisibility } from "@/lib/matching/visibility";
+import { MatchingError } from "@/lib/matching/errors";
 import { createPipelineTransitionAuditDetails } from "@/lib/pipeline-transition-audit";
 import { nextActionAfterClose } from "@/lib/lease-workflow";
 import { ensureClosingWorkflow } from "@/lib/closing-workflow-persistence";
@@ -26,14 +29,15 @@ function transitionError(message: string, status = 409, details?: Record<string,
 export const POST = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
   bodySchema: transitionSchema,
-  handler: async (_req, { body, params, organizationId, userId, contourRole }) => {
+  handler: async (_req, ctx) => {
+    const { body, params, organizationId, userId, contourRole } = ctx;
     const inquiryId = typeof params?.id === "string" ? params.id : undefined;
     if (!inquiryId || !organizationId || !userId) {
       return transitionError("Inquiry id and organization context are required.", 400);
     }
 
     const inquiry = await db.inquiry.findFirst({
-      where: { id: inquiryId, organizationId },
+      where: { ...inquiryVisibility(matchingScope(ctx)), id: inquiryId },
       select: {
         id: true,
         status: true,
@@ -74,6 +78,9 @@ export const POST = createApiHandler({
     if (targetStage === "CLOSED" && body.outcome === "CANCELLED" && !body.reason) {
       return transitionError("A reason is required when cancelling an inquiry.", 400);
     }
+    if (requiresPropertyForTransition(targetStage, body.outcome) && !inquiry.propertyId) {
+      return transitionError("Assign a property before progressing this inquiry.", 409, { code: "PROPERTY_REQUIRED", missingRequirements: ["linked property"] });
+    }
     if (targetStage === "CLOSED" && body.outcome === "WON") {
       if (!isManagementRole(contourRole)) return transitionError("Only management can close a deal as Won.", 403);
       const closingWorkflow = await db.closingWorkflow.findFirst({ where: { organizationId, inquiryId }, include: { items: true } });
@@ -105,6 +112,7 @@ export const POST = createApiHandler({
       context,
       reason: body.reason,
       isManagerOverride: body.overrideMissingRequirements,
+      outcome: body.outcome,
     });
     if (!decision.allowed) {
       return transitionError(decision.reason, 409, { missingRequirements: decision.missingRequirements });
@@ -119,7 +127,7 @@ export const POST = createApiHandler({
     let competingInquiriesClosed = 0;
     const updated = await db.$transaction(async (tx) => {
       const result = await tx.inquiry.update({
-        where: { id: inquiry.id },
+        where: { id: inquiry.id, organizationId, status: inquiry.status, propertyId: inquiry.propertyId, assignedAgentId: inquiry.assignedAgentId },
         data: {
           status: targetStage,
           ...(closed ? { outcome: body.outcome, closedAt: now, closedById: userId } : {}),
@@ -166,6 +174,11 @@ export const POST = createApiHandler({
       }
 
       return result;
+    }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new MatchingError("Inquiry or property assignment changed. Refresh and retry.", 409);
+      }
+      throw error;
     });
 
     await db.auditLog.create({

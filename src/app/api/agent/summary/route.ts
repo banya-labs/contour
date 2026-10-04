@@ -164,6 +164,7 @@ const getHandler = createApiHandler({
         return {
           id: inq.id,
           propertyTitle: inq.property?.title || `${inq.lookingFor === "FOR_RENT" ? "Rental" : "Purchase"} Mandate`,
+          propertyId: inq.propertyId,
           suburb: inq.property?.suburb || inq.preferredSuburbs?.[0] || "Lusaka",
           clientName: inq.clientName,
           value: formatCurrency(val, inq.currency),
