@@ -45,3 +45,18 @@ Screenshots are local, ignored verification artifacts:
 - The summary cache is process-local. Invalidation is immediate in that process; another application instance can retain summaries for the 30-second TTL. Do not describe this as distributed real-time invalidation.
 - Shared per-agent notification read receipts would require a separate additive schema change. Current UNREAD/READ status is preserved.
 - No production data, migrations, dependencies, push, or deployment were changed by this implementation.
+
+## Authorized release follow-up
+
+The user subsequently authorized fixing every typecheck error, pushing, merging and deploying, and explicitly waived another local production build.
+
+- Isolated release branch: `codex/matching-typecheck-release`. Integrated upstream main `96a16ad` through merge `0e5df4b`; unrelated dirty work in other checkouts was preserved.
+- Removed the already-disabled pipeline opportunity capture form and its unused state/handler. The existing New inquiry link remains the creation entry point.
+- Sale transfers now persist `transferStatus` without overwriting commission accounting `status`.
+- Rental closing reuses an existing Prisma transaction, or opens a transaction when supplied the root client.
+- Flyer export accepts the width/height rectangle fields it actually consumes. Optional match reasons and touched API response DTOs are typed explicitly.
+- Regression tests first reproduced the transfer-field and nested-transaction bugs, then passed after their fixes.
+- Full unit suite on the integrated release tree: 91 files passed, one existing file skipped; 295 tests passed, one skipped.
+- Full nonincremental typecheck passed after the behavior fixes. Targeted ESLint passed with one existing image-element advisory and no errors.
+- No new dependency or migration was introduced. Local production build was not rerun, as requested. Deployment still requires its normal server-side image build and startup checks.
+- Push, merge and deployed-runtime confirmation will be recorded separately; the earlier local-only scope and baseline typecheck caveats above describe the original implementation verification.

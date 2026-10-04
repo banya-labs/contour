@@ -1,7 +1,7 @@
 import { FLYER_CANVAS, FlyerAspectRatio } from "./flyer-render-model";
 
 export function getFlyerExportDimensions(
-  element: Pick<HTMLElement, "getBoundingClientRect">,
+  element: { getBoundingClientRect(): Pick<DOMRect, "width" | "height"> },
   aspectRatio: FlyerAspectRatio,
 ) {
   const bounds = element.getBoundingClientRect();

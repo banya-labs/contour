@@ -30,7 +30,7 @@ export function resolveRentalClosingContext(input: { lookingFor: string; propert
 
 export async function startRentalLease(client: DbClient, input: { inquiryId: string; organizationId: string; actorId: string; lease: RentalClosingInput }) {
   const parsed = rentalClosingInputSchema.parse(input.lease);
-  return client.$transaction(async (tx) => {
+  const run = async (tx: Prisma.TransactionClient) => {
     const inquiry = await tx.inquiry.findFirst({
       where: { id: input.inquiryId, organizationId: input.organizationId },
       select: { id: true, status: true, outcome: true, lookingFor: true, contactId: true, clientName: true, clientPhone: true, clientEmail: true, propertyId: true, currency: true, assignedAgentId: true, dealValue: true, property: { select: { id: true, listingType: true, status: true, agencyCommissionPct: true, rentalPrice: true } } },
@@ -65,5 +65,6 @@ export async function startRentalLease(client: DbClient, input: { inquiryId: str
     const commissionAmount = grossValue * commissionPct / 100;
     await tx.transaction.create({ data: { organizationId: input.organizationId, propertyId: inquiry.propertyId!, inquiryId: inquiry.id, transactionType: "RENTAL_PLACEMENT", grossValue: new Prisma.Decimal(grossValue), currency: inquiry.currency, agencyCommissionPct: new Prisma.Decimal(commissionPct), agencyCommissionAmount: new Prisma.Decimal(commissionAmount), agentSplitPct: new Prisma.Decimal(50), agentSplitAmount: new Prisma.Decimal(commissionAmount / 2), status: "EARNED", closingAgentId: inquiry.assignedAgentId || input.actorId, closedAt: now } });
     return lease;
-  });
+  };
+  return "$transaction" in client ? client.$transaction(run) : run(client);
 }
