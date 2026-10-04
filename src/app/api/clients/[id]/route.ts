@@ -6,16 +6,23 @@ import { updateInquirySchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { isManagementRole } from "@/lib/authorization";
+import { attachPropertyInTransaction } from "@/lib/matching/attach-property";
+import { matchingScope } from "@/lib/matching/api";
+import { inquiryVisibility, canManageMatching } from "@/lib/matching/visibility";
+import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
+import { visibleContactsWhere } from "@/lib/crm/contact-visibility";
 
 export const PATCH = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
   bodySchema: updateInquirySchema,
-  handler: async (_req, { body, params, organizationId, userId, contourRole }) => {
+  handler: async (_req, ctx) => {
+    const { body, params, organizationId, userId, contourRole } = ctx;
+    const scope = matchingScope(ctx);
     const inquiryId = typeof params?.id === "string" ? params.id : undefined;
     if (!inquiryId) return NextResponse.json({ success: false, error: "Inquiry id is required." }, { status: 400 });
 
     const inquiry = await db.inquiry.findFirst({
-      where: { id: inquiryId, organizationId: organizationId! },
+      where: { ...inquiryVisibility(scope), id: inquiryId },
       select: { id: true, status: true, outcome: true, clientName: true, propertyId: true, contactId: true },
     });
     if (!inquiry) return NextResponse.json({ success: false, error: "Inquiry not found." }, { status: 404 });
@@ -32,6 +39,7 @@ export const PATCH = createApiHandler({
       return NextResponse.json({ success: false, error: "Only management can close deals." }, { status: 403 });
     }
 
+    if (body.assignedAgentId && body.assignedAgentId !== userId && !canManageMatching(scope)) return NextResponse.json({ success: false, error: "Only management may assign another agent" }, { status: 403 });
     if (body.assignedAgentId) {
       const isDemoUser = body.assignedAgentId.startsWith("user_demo") || body.assignedAgentId.startsWith("usr_");
       if (!isDemoUser) {
@@ -52,7 +60,7 @@ export const PATCH = createApiHandler({
     }
 
     if (body.contactId) {
-      const contact = await db.contact.findFirst({ where: { id: body.contactId, organizationId: organizationId! }, select: { id: true } });
+      const contact = await db.contact.findFirst({ where: { AND: [await visibleContactsWhere(scope), { id: body.contactId }] }, select: { id: true } });
       if (!contact) return NextResponse.json({ success: false, error: "Selected contact was not found in this organization." }, { status: 400 });
     }
 
@@ -76,6 +84,7 @@ export const PATCH = createApiHandler({
     const clientEmail = body.clientEmail !== undefined ? (body.clientEmail || null) : body.email !== undefined ? (body.email || null) : undefined;
 
     const updated = await db.$transaction(async (tx) => {
+      if (body.propertyId !== undefined) await attachPropertyInTransaction(tx, scope, { inquiryId, propertyId: body.propertyId || null, expectedPropertyId: body.expectedPropertyId });
       const result = await tx.inquiry.update({
       where: { id: inquiry.id },
       data: {
@@ -90,6 +99,7 @@ export const PATCH = createApiHandler({
         ...(body.bathroomsMin !== undefined ? { bathroomsMin: body.bathroomsMin == null ? null : new Prisma.Decimal(body.bathroomsMin) } : {}),
         ...(body.areaMinSqm !== undefined ? { areaMinSqm: body.areaMinSqm == null ? null : new Prisma.Decimal(body.areaMinSqm) } : {}),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
+        ...(body.matchingProfile !== undefined ? { matchingProfile: body.matchingProfile } : {}),
         ...(body.lookingFor !== undefined ? { lookingFor: body.lookingFor } : {}),
         ...(body.propertyType !== undefined ? { propertyType: body.propertyType } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
@@ -105,7 +115,7 @@ export const PATCH = createApiHandler({
         ...(body.propertyId !== undefined ? { propertyId: body.propertyId || null } : {}),
         ...(body.contactId !== undefined ? { contactId: body.contactId } : {}),
         ...(body.dealValue != null ? { dealValue: new Prisma.Decimal(body.dealValue) } : {}),
-        ...(body.matchStatus !== undefined ? { matchStatus: body.matchStatus } : {}),
+        ...(body.propertyId !== undefined ? { matchStatus: body.propertyId ? "MATCHED" as const : "UNMATCHED" as const } : body.matchStatus !== undefined ? { matchStatus: body.matchStatus } : {}),
         ...(body.unmatchedReason !== undefined ? { unmatchedReason: body.unmatchedReason || null } : {}),
         ...(body.failedAtStage !== undefined && body.status === "CLOSED" && body.outcome === "LOST" ? { failedAtStage: body.failedAtStage } : {}),
       },
@@ -137,7 +147,7 @@ export const PATCH = createApiHandler({
         }
       }
       return result;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     await db.auditLog.create({
       data: {
@@ -154,6 +164,8 @@ export const PATCH = createApiHandler({
         },
       },
     });
+
+    await createInquiryMatchNotifications(organizationId!, inquiry.id);
 
     // Invalidate client, pipeline, and dashboard caches across all surfaces
     if (organizationId) {
@@ -185,14 +197,16 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
-  handler: async (_req, { params, organizationId, userId }) => {
+  handler: async (_req, ctx) => {
+    const { params, organizationId, userId } = ctx;
+    const scope = matchingScope(ctx);
     const inquiryId = typeof params?.id === "string" ? params.id : undefined;
     if (!inquiryId) {
       return NextResponse.json({ success: false, error: "Client ID is required." }, { status: 400 });
     }
 
     const inquiry = await db.inquiry.findFirst({
-      where: { id: inquiryId, organizationId: organizationId! },
+      where: { ...inquiryVisibility(scope), id: inquiryId },
       select: { id: true, clientName: true, clientPhone: true },
     });
     if (!inquiry) {

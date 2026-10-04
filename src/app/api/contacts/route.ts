@@ -35,14 +35,18 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
   bodySchema: contactSchema,
-  handler: async (_req, { organizationId, body }) => {
+  handler: async (_req, { organizationId, body, userId }) => {
     const phone = normalizeContactPhone(body.phone);
     const identityKey = buildContactIdentity(organizationId!, phone, body.name);
     const existing = await db.contact.findFirst({ where: { organizationId: organizationId!, identityKey }, select: { id: true } });
     if (existing) return NextResponse.json({ success: false, error: "A contact with this phone number already exists." }, { status: 409 });
-    const contact = await db.contact.create({
+    const contact = await db.$transaction(async (tx) => {
+    const created = await tx.contact.create({
       data: { organizationId: organizationId!, identityKey, name: body.name, phone, email: body.email || null, notes: body.notes || null },
       include: { _count: { select: { inquiries: true } } },
+    });
+    await tx.auditLog.create({ data: { organizationId: organizationId!, userId, action: "CONTACT_CREATED", entityType: "Contact", entityId: created.id, details: {} } });
+    return created;
     });
     return NextResponse.json({ success: true, contact }, { status: 201 });
   },

@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { createContourDatabase } from "./local-first/database";
 import { clearLocalFirstDatabase, getLocalFirstDatabase, readLocalFirstCache, setLocalFirstDatabase, writeLocalFirstCache } from "./local-first/cache";
 import type { LocalFirstIdentity } from "./local-first/types";
+import { authClient } from "./auth-client";
+import { fetchAllPages } from "./fetch-pages";
+import { clearMatchCache } from "./matching/result-cache";
 import { filterActivePwaInquiries } from "./pwa-inquiries";
 
 // Types
@@ -124,6 +127,7 @@ interface CachedPayload<T = any> {
  */
 export function clearLocalOfflineCache() {
   if (typeof window === "undefined") return;
+  clearMatchCache();
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -140,7 +144,7 @@ export function clearLocalOfflineCache() {
 }
 
 // Simulated IndexedDB storage helper with 24h TTL eviction
-function getLocalCache(key: string, defaultVal: any) {
+function readBrowserCache(key: string, defaultVal: any) {
   if (typeof window === "undefined") return defaultVal;
   try {
     const raw = localStorage.getItem(`powersync_cache_${key}`);
@@ -161,7 +165,7 @@ function getLocalCache(key: string, defaultVal: any) {
   }
 }
 
-function setLocalCache(key: string, data: any) {
+function writeBrowserCache(key: string, data: any) {
   if (typeof window === "undefined") return;
   try {
     const payload: CachedPayload = {
@@ -176,7 +180,25 @@ function setLocalCache(key: string, data: any) {
   }
 }
 
+let databaseScope = "";
 export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, isPending } = authClient.useSession();
+  const scope = session?.session.activeOrganizationId && session?.user.id ? `${session.session.activeOrganizationId}:${session.user.id}` : "";
+  if (isPending || !scope) return null;
+  return <ScopedPowerSyncProvider key={scope} scope={scope}>{children}</ScopedPowerSyncProvider>;
+}
+function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNode; scope: string }) {
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    const reset = (event: Event) => { if ((event as CustomEvent<{ scopes?: string[] }>).detail?.scopes?.includes("tenant-reset")) { active.current = false; setProperties([]); setClients([]); setLeases([]); setSales([]); setOutbox([]); } };
+    window.addEventListener("contour:workspace-mutated", reset);
+    return () => { active.current = false; window.removeEventListener("contour:workspace-mutated", reset); };
+  }, []);
+  const getLocalCache = <T,>(key: string, fallback: T): T => readBrowserCache(`${scope}:${key}`, fallback);
+  const setLocalCache = (key: string, value: unknown) => { if (active.current) writeBrowserCache(`${scope}:${key}`, value); };
+
+  const processingOutbox = useRef(false);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
   const [properties, setProperties] = useState<any[]>(() => getLocalCache("properties", []));
@@ -213,7 +235,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const syncData = async () => {
+  const syncData = useCallback(async () => {
     if (!isOnline) {
       setLoading(false);
       return;
@@ -237,18 +259,26 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
                 databaseKey,
                 expiresAt: new Date(claims.exp * 1000).toISOString(),
               };
+              if (`${claims.org_id}:${claims.sub}` !== scope || !active.current) return;
+              if (databaseScope !== scope) {
+                await clearLocalFirstDatabase();
+                databaseScope = scope;
+              }
+              if (!active.current) return;
               const database = getLocalFirstDatabase() || createContourDatabase(identity);
               if (!getLocalFirstDatabase()) {
                 await database.init();
+                if (!active.current) { await database.disconnectAndClear({ clearLocal: true }); return; }
                 setLocalFirstDatabase(database);
               }
               const [cachedProperties, cachedLeases, cachedClients, cachedSales, cachedOutbox] = await Promise.all([
-                readLocalFirstCache("properties", [] as any[]),
-                readLocalFirstCache("leases", [] as any[]),
-                readLocalFirstCache("clients", [] as any[]),
-                readLocalFirstCache("sales", [] as any[]),
-                readLocalFirstCache("outbox", [] as OfflineOutboxItem[]),
+                readLocalFirstCache(`${scope}:properties`, [] as any[]),
+                readLocalFirstCache(`${scope}:leases`, [] as any[]),
+                readLocalFirstCache(`${scope}:clients`, [] as any[]),
+                readLocalFirstCache(`${scope}:sales`, [] as any[]),
+                readLocalFirstCache(`${scope}:outbox`, [] as OfflineOutboxItem[]),
               ]);
+              if (!active.current) return;
               setProperties(cachedProperties);
               setLeases(cachedLeases);
               setClients(cachedClients);
@@ -265,19 +295,38 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
       const [propsRes, leasesRes, clientsRes, salesRes] = await Promise.all([
         // The field app is an active inventory surface. Sold, rented, and under-offer
         // records remain available to their operational records, but must not be pitched.
-        fetch("/api/properties?status=AVAILABLE&limit=500", { cache: "no-store" }),
+        fetchAllPages<Record<string, unknown>>("/api/properties?status=AVAILABLE&includeMatching=false", "properties").then((properties) => ({ ok: true, json: async () => ({ success: true, properties }) })),
         fetch("/api/leases", { cache: "no-store" }),
-        fetch("/api/clients?activeOnly=true", { cache: "no-store" }),
+        fetchAllPages<Record<string, unknown>>("/api/agent/inquiries", "clients").then((clients) => ({ ok: true, json: async () => ({ success: true, clients }) })),
         fetch("/api/sales", { cache: "no-store" }),
       ]);
 
       const [propsData, leasesData, clientsData, salesData] = await Promise.all([
-        propsRes.ok ? propsRes.json().catch(() => ({ success: false })) : { success: false },
+        propsRes.ok ? propsRes.json().catch(() => ({ success: false, properties: [] })) : { success: false, properties: [] },
         leasesRes.ok ? leasesRes.json().catch(() => ({ success: false })) : { success: false },
-        clientsRes.ok ? clientsRes.json().catch(() => ({ success: false })) : { success: false },
+        clientsRes.ok ? clientsRes.json().catch(() => ({ success: false, clients: [] })) : { success: false, clients: [] },
         salesRes.ok ? salesRes.json().catch(() => ({ success: false })) : { success: false },
       ]);
 
+      if (!active.current) return;
+      if (propsData.success && clientsData.success) {
+        const properties = propsData.properties || [], clients = clientsData.clients || [];
+        const batches = Math.max(Math.ceil(properties.length / 100), Math.ceil(clients.length / 100));
+        for (let batch = 0; batch < batches; batch++) {
+          const propertyIds = properties.slice(batch * 100, (batch + 1) * 100).map((p) => String(p.id)).join(",");
+          const inquiryIds = clients.slice(batch * 100, (batch + 1) * 100).map((c) => String(c.id)).join(",");
+          const response = await fetch(`/api/agent/matching/summaries?propertyIds=${encodeURIComponent(propertyIds)}&inquiryIds=${encodeURIComponent(inquiryIds)}`, { cache: "no-store" });
+          type Summary = { id: string; qualifyingCount: number; topMatches: Record<string, unknown>[] };
+          const summary: { success: boolean; error?: string; propertySummaries?: Summary[]; inquirySummaries?: Summary[] } = await response.json();
+          if (!response.ok || !summary.success) throw new Error(summary.error || "Unable to refresh matching summaries");
+          const ps = new Map((summary.propertySummaries || []).map((s) => [s.id, s] as const));
+          const ins = new Map((summary.inquirySummaries || []).map((s) => [s.id, s] as const));
+          for (const property of properties) { const s = ps.get(String(property.id)); if (s) { property.matchingInquiryCount = s.qualifyingCount; property.matchingInquiryPreview = s.topMatches; } }
+          for (const client of clients) { const s = ins.get(String(client.id)); if (s) { client.matchingPropertyCount = s.qualifyingCount; client.matchingProperties = s.topMatches; } }
+        }
+      }
+
+      if (!active.current) return;
       if (propsData.success && Array.isArray(propsData.properties)) {
         // Enforce POPIA compliance by stripping owner details on client
         const safeProperties = propsData.properties.filter((p: any) => p.status === "AVAILABLE").map((p: any) => {
@@ -362,9 +411,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
           }));
 
         // Exclude pending items already present in the server list by phone
-        const uniquePending = currentPending.filter(
-          (p) => !normalized.some((n: any) => n.phone?.replace(/\D/g, "") === p.phone?.replace(/\D/g, ""))
-        );
+        const uniquePending = currentPending.filter((p) => !normalized.some((n: any) => n.idempotencyKey === p.idempotencyKey));
 
         const mergedClients = [...uniquePending, ...normalized];
         setClients(mergedClients);
@@ -385,14 +432,16 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isOnline, scope]);
 
   const processOutbox = async (queueOverride?: OfflineOutboxItem[]) => {
     const queue = queueOverride ? [...queueOverride] : [...outbox];
-    if (queue.length === 0) return;
+    if (queue.length === 0 || processingOutbox.current) return;
+    processingOutbox.current = true;
     let successCount = 0;
     
     for (const item of queue) {
+      if (!active.current) break;
       try {
         const res = await fetch(item.endpoint, {
           method: "POST",
@@ -412,9 +461,11 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const remaining = queue.slice(successCount);
-    setOutbox(remaining);
-    setLocalCache("outbox", remaining);
+    processingOutbox.current = false;
+    if (!active.current) return;
+    if (successCount === 0) return;
+    const successfulIds = new Set(queue.slice(0, successCount).map((item) => item.id));
+    setOutbox((current) => { const remaining = current.filter((item) => !successfulIds.has(item.id)); setLocalCache("outbox", remaining); return remaining; });
     
     if (successCount > 0) {
       playSuccessTone();
@@ -462,6 +513,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
       });
     } else if (type === "INQUIRY") {
       const optimisticClient = {
+        ...payload,
         id: newItem.id,
         name: payload.clientName,
         phone: payload.clientPhone,
@@ -478,7 +530,7 @@ export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (isOnline) {
-      processOutbox(updatedOutbox);
+      void processOutbox(updatedOutbox);
     } else {
       playNeutralTone(); // play neutral tone for successful offline queueing
     }

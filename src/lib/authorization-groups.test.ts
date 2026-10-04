@@ -15,6 +15,7 @@ describe("authorization groups", () => {
       "pwa.listings.create",
       "pwa.listings.share",
       "pwa.inquiries.update",
+      "pwa.inquiries.read",
     ]);
     expect(ROLE_PRESETS.FIELD_AGENT).toEqual(FIELD_AGENT_BASELINE);
     expect(FIELD_AGENT_BASELINE).not.toContain("dashboard.read");

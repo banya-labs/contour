@@ -62,6 +62,7 @@ describe("organization authorization", () => {
     expect(roleHasPermission("BROKER_MANAGER", "dashboard.read")).toBe(true);
     expect(roleHasPermission("BROKER_MANAGER", "org.members.invite")).toBe(true);
     expect(roleHasPermission("ADMIN_STAFF", "dashboard.read")).toBe(true);
+    expect(roleHasPermission("ADMIN_STAFF", "pwa.inquiries.read")).toBe(true);
     expect(roleHasPermission("ADMIN_STAFF", "org.members.invite")).toBe(false);
   });
 

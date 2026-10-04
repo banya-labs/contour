@@ -7,7 +7,13 @@ import { isManagementRole } from "@/lib/authorization";
 import { z } from "zod";
 
 import { smartCache } from "@/lib/cache";
-import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
+import { buildInquiryMatchingProfile } from "@/lib/matching/inquiry-profile";
+import { buildPropertyMatchingCandidate } from "@/lib/matching/property-profile";
+import { isQualifyingMatch, TERMINAL_INQUIRY_STATUSES } from "@/lib/matching/policy";
+import { inquirySelect } from "@/lib/matching/service";
+import { inquiryVisibility } from "@/lib/matching/visibility";
+import { matchingScope } from "@/lib/matching/api";
+import { reconcileMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
 import { PROPERTY_MATCH_THRESHOLD, scorePropertyForInquiry } from "@/lib/matching/score";
 import { propertySlugFromTitle, publicPropertyPath } from "@/lib/public-property";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
@@ -23,6 +29,7 @@ const CORS_HEADERS = {
 const getHandler = createApiHandler({
   requireAuth: false,
   querySchema: z.object({
+    includeMatching: z.enum(["true", "false"]).optional(),
     org: z.string().optional(),
     search: z.string().optional(),
     suburb: z.string().optional(),
@@ -121,6 +128,8 @@ const getHandler = createApiHandler({
         { status: 400, headers: CORS_HEADERS }
       );
     }
+
+    if (userId && targetOrgId !== organizationId) return NextResponse.json({ success: false, error: "Workspace access denied" }, { status: 403 });
 
     // 2. Status filtering
     const allowedStatuses: PropertyStatus[] = ["AVAILABLE", "UNDER_OFFER", "RENTED", "SOLD"];
@@ -340,29 +349,16 @@ const getHandler = createApiHandler({
 
     // Matching is persisted inquiry/property data, not a client-side demo
     // alert store. Only expose match details to authenticated workspace users.
-    if (!isPublicRequest) {
+    if (!isPublicRequest && query.includeMatching !== "false" && (ctx.permissions?.includes("leads.read") || ctx.permissions?.includes("pwa.inquiries.read"))) {
       const inquiries = await db.inquiry.findMany({
-        where: { organizationId: targetOrgId, status: { not: "CLOSED" } },
-        select: {
-          id: true, clientName: true, clientPhone: true, lookingFor: true,
-          currency: true, budgetMin: true, budgetMax: true, preferredSuburbs: true,
-          propertyType: true, bedroomsMin: true, bathroomsMin: true, matchingProfile: true, propertyId: true, assignedAgentId: true,
-        },
+        where: { ...inquiryVisibility(matchingScope(ctx)), propertyId: null, status: { notIn: [...TERMINAL_INQUIRY_STATUSES] } },
+        select: inquirySelect,
       });
 
       for (const property of properties) {
         const matches = inquiries.map((inquiry) => {
-          const result = scorePropertyForInquiry({
-            lookingFor: inquiry.lookingFor,
-            currency: inquiry.currency,
-            budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
-            preferredAreas: inquiry.preferredSuburbs,
-            propertyType: inquiry.propertyType,
-            bedroomsMin: inquiry.bedroomsMin,
-            bathroomsMin: inquiry.bathroomsMin,
-            ...(inquiry.matchingProfile as Record<string, unknown> | null || {}),
-          }, property as never);
-          return result.score > PROPERTY_MATCH_THRESHOLD ? { inquiry, score: result.score, reasons: result.reasons } : null;
+          const result = scorePropertyForInquiry(buildInquiryMatchingProfile(inquiry), buildPropertyMatchingCandidate(property));
+          return property.status === "AVAILABLE" && isQualifyingMatch(result) ? { inquiry, score: result.score, reasons: result.reasons } : null;
         }).filter((match): match is { inquiry: typeof inquiries[number]; score: number; reasons: string[] } => Boolean(match)).map(({ inquiry, score, reasons }) => ({
           id: inquiry.id,
           clientName: inquiry.clientName,
@@ -624,22 +620,7 @@ const postHandler = createApiHandler({
     });
 
     // Invalidate tenant cache tags for instant UI consistency across all surfaces
-    if (property.status === "AVAILABLE" || property.status === "UNDER_OFFER") {
-      const inquiries = await db.inquiry.findMany({
-        where: { organizationId: organizationId!, status: { not: "CLOSED" } },
-        select: { id: true, clientName: true, assignedAgentId: true, lookingFor: true, currency: true, budgetMax: true, preferredSuburbs: true, propertyType: true },
-      });
-      const matches = inquiries.filter((inquiry) => inquiryMatchesProperty(
-        { lookingFor: inquiry.lookingFor, currency: inquiry.currency, budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null, preferredSuburbs: inquiry.preferredSuburbs, propertyType: inquiry.propertyType },
-        { listingType: property.listingType, currency: property.currency, askingPrice: property.askingPrice ? Number(property.askingPrice) : null, rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null, suburb: property.suburb, propertyType: property.propertyType },
-      ));
-      if (matches.length) {
-        await db.propertyMatchNotification.createMany({
-          data: matches.map((inquiry) => ({ organizationId: organizationId!, propertyId: property.id, inquiryId: inquiry.id, agentId: inquiry.assignedAgentId || property.assignedAgentId || null, title: `New property match for ${inquiry.clientName}`, message: `${property.title} in ${property.suburb} matches this client’s requirements.`, })),
-          skipDuplicates: true,
-        });
-      }
-    }
+    if (property.status === "AVAILABLE") await reconcileMatchNotifications(organizationId!, { propertyId: property.id });
 
     smartCache.invalidateTag(organizationId!, "properties", "/dashboard/properties");
     smartCache.invalidateTag(organizationId!, "properties", "/agent");
@@ -753,6 +734,8 @@ const patchHandler = createApiHandler({
       }
     });
 
+    await reconcileMatchNotifications(ctx.organizationId!, { propertyId: property.id });
+
     // Invalidate tenant cache tags across all surfaces
     if (ctx.organizationId) {
       smartCache.invalidateTag(ctx.organizationId, "properties", "/dashboard/properties");
@@ -811,6 +794,7 @@ export const DELETE = createApiHandler({
       });
     });
 
+    await reconcileMatchNotifications(ctx.organizationId!, { propertyId: property.id });
     smartCache.invalidateTag(ctx.organizationId!, "properties");
     smartCache.invalidateTag(ctx.organizationId!, "dashboard-metrics");
     return NextResponse.json({ success: true });

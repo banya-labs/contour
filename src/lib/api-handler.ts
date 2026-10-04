@@ -7,6 +7,7 @@ import { hasRequiredRole, roleHasPermission, resolveContourRole, type Permission
 import { auth, type Session } from "./auth";
 import { toAuthHeaders } from "./auth-headers";
 import { db } from "./db";
+import { MatchingError } from "./matching/errors";
 
 export type ApiContext = {
   params?: Record<string, string | string[]>;
@@ -19,8 +20,8 @@ export type ApiContext = {
 };
 
 export type ApiHandlerOptions<TBody, TQuery> = {
-  bodySchema?: z.ZodType<TBody>;
-  querySchema?: z.ZodType<TQuery>;
+  bodySchema?: z.ZodType<TBody, z.ZodTypeDef, unknown>;
+  querySchema?: z.ZodType<TQuery, z.ZodTypeDef, unknown>;
   requireAuth?: boolean;
   requireRoles?: string[];
   requirePermissions?: Permission[];
@@ -160,6 +161,8 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         query,
       });
     } catch (error: unknown) {
+      if (error instanceof MatchingError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+      if (error && typeof error === "object" && "code" in error && error.code === "P2034") return NextResponse.json({ success: false, error: "Record changed; refresh and retry" }, { status: 409 });
       logger.error({ err: error, path: req.nextUrl?.pathname }, "Unhandled API error");
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Internal Server Error" },

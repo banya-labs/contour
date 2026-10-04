@@ -126,6 +126,7 @@ function ClientsCRMContent() {
               phone: c.clientPhone,
               email: c.email || c.clientEmail || "not-provided@client.zm",
               lookingFor: cleanNotes,
+              matchingProfile: c.matchingProfile || {},
               propertyType: c.propertyType || null,
               preferredSuburbs: c.preferredSuburbs || [],
               bedroomsMin: c.bedroomsMin ?? null,
@@ -168,6 +169,7 @@ function ClientsCRMContent() {
 
   const openEditModal = (client: any) => {
     setEditingClient(client);
+    setEditStrict(client.matchingProfile?.strictRequirements || {});
     setEditError("");
     setEditFormData({
       name: client.name || "",
@@ -195,7 +197,12 @@ function ClientsCRMContent() {
       const response = await fetch(`/api/clients/${client.id}/matches`);
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || "Unable to calculate matches.");
-      setMatchResults(data);
+      const matches = [...data.matches];
+      for (let page = 2; (page - 1) * data.pageSize < data.total; page++) {
+        const next = await fetch(`/api/clients/${client.id}/matches?page=${page}&pageSize=${data.pageSize}`);
+        const payload = await next.json(); if (!next.ok || !payload.success) throw new Error(payload.error || "Unable to load matches"); matches.push(...payload.matches);
+      }
+      setMatchResults({ ...data, matches });
     } catch (error) {
       setMatchResults({ error: error instanceof Error ? error.message : "Unable to calculate matches." });
     } finally {
@@ -253,6 +260,7 @@ function ClientsCRMContent() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          matchingProfile: { ...(editingClient.matchingProfile || {}), strictRequirements: editStrict },
           clientName: editFormData.name.trim(),
           clientPhone: editFormData.phone.trim(),
           clientEmail: editFormData.email.trim() || null,
@@ -350,6 +358,9 @@ function ClientsCRMContent() {
     }
   };
 
+  const [editStrict, setEditStrict] = useState<import("@/lib/matching/types").StrictRequirements>({});
+  const [captureStrict, setCaptureStrict] = useState<import("@/lib/matching/types").StrictRequirements>({});
+
   // Form State
   const [formData, setFormData] = useState({
     contactId: "",
@@ -417,6 +428,7 @@ function ClientsCRMContent() {
     const clientPayload = {
       idempotencyKey: `client-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       creationSurface: "DESKTOP" as const,
+      matchingProfile: { strictRequirements: captureStrict },
       clientName: formData.name.trim(),
       contactId: formData.contactId,
       clientPhone: formData.phone.trim(),
@@ -467,6 +479,7 @@ function ClientsCRMContent() {
           };
           setClients([newClient, ...clients]);
           emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], newClient.id);
+          setCaptureStrict({});
           setIsModalOpen(false);
           setMatchingInquiry({ name: newClient.name, matches: data.client.matchingProperties || [] });
           setFormData({
@@ -775,6 +788,7 @@ function ClientsCRMContent() {
                 </div>
               </div>
 
+              <fieldset className="border p-2"><legend className="text-xs">Required criteria (unchecked = preference)</legend><div className="flex flex-wrap gap-3">{([['budgetMax','Budget'],['preferredAreas','Area'],['bedroomsMin','Bedrooms'],['bathroomsMin','Bathrooms'],['areaMinSqm','Plot size']] as const).map(([key,label]) => <label key={key} className="text-xs flex gap-1"><input type="checkbox" checked={captureStrict[key] || false} onChange={(e) => setCaptureStrict({ ...captureStrict, [key]: e.target.checked })} />{label}</label>)}</div></fieldset>
               <div className="grid grid-cols-3 gap-3">
                 <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bedrooms (Optional)</label><select value={formData.bedroomsMin} onChange={(e) => setFormData({ ...formData, bedroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5, 6].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
                 <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bathrooms (Optional)</label><select value={formData.bathroomsMin} onChange={(e) => setFormData({ ...formData, bathroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
@@ -1020,6 +1034,7 @@ function ClientsCRMContent() {
                 </div>
               </div>
 
+              <fieldset className="border p-2"><legend className="text-xs">Required criteria (unchecked = preference)</legend><div className="flex flex-wrap gap-3">{([['budgetMax','Budget'],['preferredAreas','Area'],['bedroomsMin','Bedrooms'],['bathroomsMin','Bathrooms'],['areaMinSqm','Plot size']] as const).map(([key,label]) => <label key={key} className="text-xs flex gap-1"><input type="checkbox" checked={editStrict[key] || false} onChange={(e) => setEditStrict({ ...editStrict, [key]: e.target.checked })} />{label}</label>)}</div></fieldset>
               <div className="grid grid-cols-3 gap-3">
                 <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bedrooms (Optional)</label><select value={editFormData.bedroomsMin} onChange={(e) => setEditFormData({ ...editFormData, bedroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5, 6].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>
                 <div><label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Bathrooms (Optional)</label><select value={editFormData.bathroomsMin} onChange={(e) => setEditFormData({ ...editFormData, bathroomsMin: e.target.value })} className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-xs"><option value="">Any</option>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}+</option>)}</select></div>

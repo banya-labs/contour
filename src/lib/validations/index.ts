@@ -157,7 +157,14 @@ export const generateLandlordStatementSchema = z.object({
   currency: CurrencyEnum.default("ZMW"),
 });
 
+export const matchingPreferencesSchema = z.object({
+  mustHave: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
+  niceToHave: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
+  keywords: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
+  strictRequirements: z.object({ budgetMax: z.boolean().optional(), preferredAreas: z.boolean().optional(), bedroomsMin: z.boolean().optional(), bathroomsMin: z.boolean().optional(), areaMinSqm: z.boolean().optional() }).optional(),
+});
 export const createInquirySchema = z.object({
+  matchingProfile: matchingPreferencesSchema.optional(),
   creationSurface: z.enum(["DESKTOP", "PWA"]).optional(),
   existingInquiryId: z.string().optional(),
   contactId: z.string().optional(),
@@ -187,6 +194,8 @@ export const createInquirySurfaceSchema = createInquirySchema.extend({
 });
 
 export const updateInquirySchema = z.object({
+  expectedPropertyId: z.string().nullable().optional(),
+  matchingProfile: matchingPreferencesSchema.optional(),
   contactId: z.string().optional(),
   // Pipeline fields
   status: z.enum(["NEW_INQUIRY", "CONTACTED", "QUALIFIED", "VIEWING_SCHEDULED", "VIEWING_OR_OFFER", "NEGOTIATING", "OFFER_MADE", "MANAGEMENT_HANDOVER", "VERIFICATION_CLOSING", "CLOSED"]).optional(),

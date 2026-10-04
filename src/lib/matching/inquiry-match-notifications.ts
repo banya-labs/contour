@@ -1,15 +1,26 @@
-import { db } from "@/lib/db";
-import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "./score";
+import { db } from "../db";
+import { candidateSelect, inquirySelect, invalidateMatchingSummaries } from "./service";
 import { buildInquiryMatchingProfile } from "./inquiry-profile";
-
-export async function createInquiryMatchNotifications(organizationId: string, inquiryId: string) {
-  const inquiry = await db.inquiry.findFirst({ where: { id: inquiryId, organizationId, status: { not: "CLOSED" } } });
-  if (!inquiry) return 0;
-  const properties = await db.property.findMany({ where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } }, select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true, bedrooms: true, bathrooms: true, matchingMetadata: true, assignedAgentId: true } });
-  const profile = buildInquiryMatchingProfile(inquiry);
-  const scored = scoreAllPropertiesForInquiry(profile as never, properties as never);
-  const matches = properties.filter((property) => scored.some((result) => result.propertyId === property.id && result.score > PROPERTY_MATCH_THRESHOLD));
-  if (!matches.length) return 0;
-  await db.propertyMatchNotification.createMany({ data: matches.map((property) => ({ organizationId, propertyId: property.id, inquiryId, agentId: inquiry.assignedAgentId || property.assignedAgentId, title: `New property match for ${inquiry.clientName}`, message: `${property.title} in ${property.suburb} matches this client’s requirements.` })), skipDuplicates: true });
-  return matches.length;
+import { buildPropertyMatchingCandidate } from "./property-profile";
+import { scorePropertyForInquiry } from "./score";
+import { isQualifyingMatch, TERMINAL_INQUIRY_STATUSES } from "./policy";
+export async function reconcileMatchNotifications(organizationId: string, changed: { inquiryId?: string; propertyId?: string }) {
+  invalidateMatchingSummaries(organizationId);
+  const [inquiries, properties] = await Promise.all([
+    db.inquiry.findMany({ where: { organizationId, ...(changed.inquiryId ? { id: changed.inquiryId } : {}), propertyId: null, status: { notIn: [...TERMINAL_INQUIRY_STATUSES] } }, select: inquirySelect }),
+    db.property.findMany({ where: { organizationId, ...(changed.propertyId ? { id: changed.propertyId } : {}), status: "AVAILABLE" }, select: { ...candidateSelect, assignedAgentId: true } }),
+  ]);
+  const candidates = properties.map((property) => ({ property, candidate: buildPropertyMatchingCandidate(property) }));
+  let count = 0;
+  for (const inquiry of inquiries) {
+    const profile = buildInquiryMatchingProfile(inquiry);
+    for (const { property, candidate } of candidates) {
+      if (!isQualifyingMatch(scorePropertyForInquiry(profile, candidate))) continue;
+      const agentId = inquiry.assignedAgentId || property.assignedAgentId || null;
+      await db.propertyMatchNotification.upsert({ where: { propertyId_inquiryId: { propertyId: property.id, inquiryId: inquiry.id } }, create: { organizationId, propertyId: property.id, inquiryId: inquiry.id, agentId, title: `New property match for ${inquiry.clientName}`, message: `${property.title} in ${property.suburb} fits this inquiry.` }, update: { agentId } });
+      count++;
+    }
+  }
+  return count;
 }
+export function createInquiryMatchNotifications(organizationId: string, inquiryId: string) { return reconcileMatchNotifications(organizationId, { inquiryId }); }

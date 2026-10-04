@@ -10,8 +10,16 @@ import type { ApiRouteContext } from "@/lib/api-handler";
 import { isPropertyAvailableForNewOpportunity } from "@/lib/property-lifecycle";
 import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
 import { getOrCreateContact } from "@/lib/crm/contact-service";
-import { PROPERTY_MATCH_THRESHOLD, scoreAllPropertiesForInquiry } from "@/lib/matching/score";
-import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
+import { scoreAllPropertiesForInquiry } from "@/lib/matching/score";
+import { buildInquiryMatchingProfile } from "@/lib/matching/inquiry-profile";
+import { buildPropertyMatchingCandidate } from "@/lib/matching/property-profile";
+import { isActiveInquiry, isQualifyingMatch, TERMINAL_INQUIRY_STATUSES } from "@/lib/matching/policy";
+import { candidateSelect } from "@/lib/matching/service";
+import { matchingScope } from "@/lib/matching/api";
+import { inquiryVisibility, canManageMatching } from "@/lib/matching/visibility";
+import { attachPropertyInTransaction } from "@/lib/matching/attach-property";
+import { visibleContactsWhere } from "@/lib/crm/contact-visibility";
+
 
 const getHandler = createApiHandler({
   requirePermissions: ["leads.read"],
@@ -67,32 +75,23 @@ const getHandler = createApiHandler({
     });
 
     const matchingProperties = await db.property.findMany({
-      where: { organizationId, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
+      where: { organizationId, status: "AVAILABLE" },
       select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true, bedrooms: true, bathrooms: true, plotSizeSqm: true, matchingMetadata: true },
       orderBy: { updatedAt: "desc" },
-      take: 500,
     });
+    const candidates = matchingProperties.map(buildPropertyMatchingCandidate);
+    const propertiesById = new Map(matchingProperties.map((property) => [property.id, property]));
     const clientsWithMatches = clients.map((client) => ({
       ...client,
-      matchingProperties: scoreAllPropertiesForInquiry({
-        lookingFor: client.lookingFor,
-        currency: client.currency,
-        budgetMax: client.budgetMax ? Number(client.budgetMax) : undefined,
-        preferredAreas: client.preferredSuburbs,
-        propertyType: client.propertyType ?? undefined,
-        bedroomsMin: client.bedroomsMin ?? undefined,
-        bathroomsMin: client.bathroomsMin ? Number(client.bathroomsMin) : undefined,
-        areaMinSqm: client.areaMinSqm ? Number(client.areaMinSqm) : undefined,
-        ...(client.matchingProfile as Record<string, unknown> | null || {}),
-      }, matchingProperties as never).filter((result) => result.score > PROPERTY_MATCH_THRESHOLD).map((result) => {
-        const property = matchingProperties.find((candidate) => candidate.id === result.propertyId)!;
+      matchingProperties: client.propertyId || !isActiveInquiry(client.status) ? [] : scoreAllPropertiesForInquiry(buildInquiryMatchingProfile(client), candidates).filter(isQualifyingMatch).map((result) => {
+        const property = propertiesById.get(result.propertyId)!;
         return {
         id: property.id,
         title: property.title,
         suburb: property.suburb,
         listingType: property.listingType,
         currency: property.currency,
-        price: property.listingType === "FOR_RENT" ? property.rentalPrice : property.askingPrice,
+        price: result.effectivePrice,
         score: result.score,
       };
       }),
@@ -107,6 +106,9 @@ const postHandler = createApiHandler({
   bodySchema: createInquirySchema,
   handler: async (req, ctx) => {
     const { organizationId, body, userId } = ctx;
+    const scope = matchingScope(ctx);
+    if (body.creationSurface && !body.contactId) return NextResponse.json({ success: false, error: "Select a contact before creating an inquiry" }, { status: 400 });
+    if (!canManageMatching(scope) && body.assignedAgentId && body.assignedAgentId !== userId) return NextResponse.json({ success: false, error: "Only management can assign another agent" }, { status: 403 });
 
     if (body.creationSurface && !body.propertyType) {
       return NextResponse.json({ success: false, error: "Property type is required for inquiries created from this surface." }, { status: 400 });
@@ -120,7 +122,7 @@ const postHandler = createApiHandler({
     }
 
     if (body.idempotencyKey) {
-      const existing = await db.inquiry.findFirst({ where: { organizationId: organizationId!, idempotencyKey: body.idempotencyKey }, include: { property: true, assignedAgent: true } });
+      const existing = await db.inquiry.findFirst({ where: { ...inquiryVisibility(scope), idempotencyKey: body.idempotencyKey }, include: { property: true, assignedAgent: true } });
       if (existing) return NextResponse.json({ success: true, client: existing, deduplicated: true });
     }
 
@@ -148,12 +150,12 @@ const postHandler = createApiHandler({
 
     let validPropertyId: string | undefined = undefined;
     let resolvedPropertyValue: number | undefined;
-    let resolvedPropertyCurrency: "ZMW" | "USD" | undefined;
     if (body.propertyId) {
       const property = await db.property.findFirst({
         where: { id: body.propertyId, organizationId: organizationId! },
         select: { id: true, status: true, askingPrice: true, rentalPrice: true, currency: true },
       });
+      if (!property) return NextResponse.json({ success: false, error: "Property not found" }, { status: 404 });
       if (property) {
         if (!isPropertyAvailableForNewOpportunity(property.status)) {
           return NextResponse.json({ success: false, error: "This property has already been sold and cannot be attached to a new deal." }, { status: 409 });
@@ -161,37 +163,6 @@ const postHandler = createApiHandler({
         validPropertyId = property.id;
         const propertyValue = body.lookingFor === "FOR_RENT" ? property.rentalPrice : property.askingPrice;
         resolvedPropertyValue = propertyValue == null ? undefined : Number(propertyValue);
-        resolvedPropertyCurrency = property.currency;
-      }
-    }
-
-    // Resolve an inquiry to the best currently marketable property when the
-    // client came in without a specific listing. Closed inventory is never a
-    // candidate for a new pipeline relationship.
-    if (!validPropertyId) {
-      const candidates = await db.property.findMany({
-        where: {
-          organizationId: organizationId!,
-          status: { not: "SOLD" },
-          listingType: body.lookingFor === "FOR_RENT" ? { in: ["FOR_RENT", "BOTH"] } : { in: ["FOR_SALE", "BOTH"] },
-          ...(body.propertyType ? { propertyType: body.propertyType } : {}),
-          ...(body.preferredSuburbs?.length ? { suburb: { in: body.preferredSuburbs, mode: "insensitive" } } : {}),
-        },
-        select: { id: true, askingPrice: true, rentalPrice: true, currency: true },
-        orderBy: { createdAt: "desc" },
-        take: 25,
-      });
-      const budgetMax = body.budgetMax;
-      const match = candidates.find((property) => {
-        if (!budgetMax) return true;
-        const price = body.lookingFor === "FOR_RENT" ? property.rentalPrice : property.askingPrice;
-        return price == null || Number(price) <= budgetMax * 1.1;
-      });
-      validPropertyId = match?.id;
-      if (match) {
-        const propertyValue = body.lookingFor === "FOR_RENT" ? match.rentalPrice : match.askingPrice;
-        resolvedPropertyValue = propertyValue == null ? undefined : Number(propertyValue);
-        resolvedPropertyCurrency = match.currency;
       }
     }
 
@@ -199,11 +170,12 @@ const postHandler = createApiHandler({
     const exclusiveLockExpiresAt = new Date();
     exclusiveLockExpiresAt.setDate(exclusiveLockExpiresAt.getDate() + lockDurationDays);
 
-    const clientPhone = normalizePhoneNumber(body.clientPhone);
+    let clientPhone = normalizePhoneNumber(body.clientPhone);
     let contactId = body.contactId;
     if (contactId) {
-      const contact = await db.contact.findFirst({ where: { id: contactId, organizationId: organizationId! }, select: { id: true } });
+      const contact = await db.contact.findFirst({ where: { AND: [await visibleContactsWhere(scope), { id: contactId }] }, select: { id: true, name: true, phone: true, email: true } });
       if (!contact) return NextResponse.json({ success: false, error: "The selected contact was not found in this workspace." }, { status: 400 });
+      body.clientName = contact.name; clientPhone = contact.phone; body.clientEmail = contact.email || undefined;
     } else {
       const contact = await getOrCreateContact(db, { organizationId: organizationId!, name: body.clientName, phone: clientPhone, email: body.clientEmail });
       contactId = contact.id;
@@ -215,16 +187,17 @@ const postHandler = createApiHandler({
     // identity signal, not an inquiry-level idempotency key.
     if (body.existingInquiryId) {
       const existingInquiry = await db.inquiry.findFirst({
-        where: { id: body.existingInquiryId, organizationId: organizationId! },
-        select: { id: true, status: true },
+        where: { ...inquiryVisibility(scope), id: body.existingInquiryId },
+        select: { id: true, status: true, propertyId: true },
       });
 
       if (!existingInquiry) {
         return NextResponse.json({ success: false, error: "The selected client opportunity was not found." }, { status: 404 });
       }
 
-      if (existingInquiry.status !== "CLOSED") {
-        const updated = await db.inquiry.update({
+      if (!TERMINAL_INQUIRY_STATUSES.some((status) => status === existingInquiry.status)) {
+        const updated = await db.$transaction(async (tx) => {
+          await tx.inquiry.update({
           where: { id: existingInquiry.id },
           data: {
             clientName: body.clientName.trim(),
@@ -232,12 +205,10 @@ const postHandler = createApiHandler({
             clientPhone,
             clientEmail: body.clientEmail?.trim() || null,
             lookingFor: body.lookingFor || "FOR_SALE",
-            currency: resolvedPropertyCurrency || body.currency || "ZMW",
+            currency: body.currency || "ZMW",
             notes: body.notes || null,
             status: body.status || existingInquiry.status,
             leadSource: body.leadSource || "OTHER",
-            propertyId: validPropertyId || null,
-            matchStatus: validPropertyId ? "MATCHED" : "UNMATCHED",
             dealValue: resolvedPropertyValue !== undefined
               ? new Prisma.Decimal(resolvedPropertyValue)
               : body.dealValue !== undefined
@@ -251,6 +222,9 @@ const postHandler = createApiHandler({
             property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } },
           },
         });
+          await attachPropertyInTransaction(tx, scope, { inquiryId: existingInquiry.id, propertyId: validPropertyId || null, expectedPropertyId: existingInquiry.propertyId });
+          return tx.inquiry.findUniqueOrThrow({ where: { id: existingInquiry.id }, include: { assignedAgent: { select: { name: true, phone: true } }, property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } } } });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         if (organizationId) {
           smartCache.invalidateTag(organizationId, "clients", "/dashboard/clients");
@@ -260,24 +234,14 @@ const postHandler = createApiHandler({
           smartCache.invalidateTag(organizationId, "agent-summary", "/agent");
         }
 
+        await createInquiryMatchNotifications(organizationId!, updated.id);
         return NextResponse.json({ success: true, client: updated, attached: true });
       }
       // Closed inquiries remain historical; create a new opportunity below.
     }
 
-    const recentDuplicate = await db.inquiry.findFirst({
-      where: {
-        organizationId: organizationId!,
-        clientPhone,
-        ...(validPropertyId ? { propertyId: validPropertyId } : {}),
-        status: { not: "CLOSED" },
-        createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    if (validPropertyId && recentDuplicate) return NextResponse.json({ success: true, client: recentDuplicate, deduplicated: true });
-
-    const client = await db.inquiry.create({
+    const client = await db.$transaction(async (tx) => {
+    const created = await tx.inquiry.create({
       data: {
         organizationId: organizationId!,
         contactId: contactId!,
@@ -288,16 +252,17 @@ const postHandler = createApiHandler({
         propertyType: body.propertyType,
         budgetMin: body.budgetMin ? new Prisma.Decimal(body.budgetMin) : undefined,
         budgetMax: body.budgetMax ? new Prisma.Decimal(body.budgetMax) : undefined,
-        currency: resolvedPropertyCurrency || body.currency || "ZMW",
+        currency: body.currency || "ZMW",
         preferredSuburbs: body.preferredSuburbs || [],
         bedroomsMin: body.bedroomsMin,
         bathroomsMin: body.bathroomsMin !== undefined ? new Prisma.Decimal(body.bathroomsMin) : undefined,
         areaMinSqm: body.areaMinSqm !== undefined ? new Prisma.Decimal(body.areaMinSqm) : undefined,
         notes: body.notes,
-        status: body.status || "CONTACTED",
+        matchingProfile: body.matchingProfile,
+        status: body.status || "NEW_INQUIRY",
         leadSource: body.leadSource || "OTHER",
-        propertyId: validPropertyId,
-        matchStatus: validPropertyId ? "MATCHED" : "UNMATCHED",
+        propertyId: null,
+        matchStatus: "UNMATCHED",
         dealValue: resolvedPropertyValue !== undefined
           ? new Prisma.Decimal(resolvedPropertyValue)
           : body.dealValue !== undefined
@@ -324,20 +289,27 @@ const postHandler = createApiHandler({
         },
       },
     });
+    if (validPropertyId) {
+      await attachPropertyInTransaction(tx, scope, { inquiryId: created.id, propertyId: validPropertyId, expectedPropertyId: null });
+      return tx.inquiry.findUniqueOrThrow({ where: { id: created.id }, include: { assignedAgent: { select: { name: true, phone: true } }, property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } } } });
+    }
+    return created;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch(async (error: unknown) => {
+      if (body.idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const saved = await db.inquiry.findFirst({ where: { ...inquiryVisibility(scope), idempotencyKey: body.idempotencyKey }, include: { assignedAgent: { select: { name: true, phone: true } }, property: { select: { id: true, title: true, suburb: true, agencyCommissionPct: true } } } });
+        if (saved) return saved;
+      }
+      throw error;
+    });
     await createInquiryMatchNotifications(organizationId!, client.id);
 
     const availableProperties = await db.property.findMany({
-      where: { organizationId: organizationId!, status: { in: ["AVAILABLE", "UNDER_OFFER"] } },
-      select: { id: true, title: true, suburb: true, listingType: true, currency: true, askingPrice: true, rentalPrice: true, propertyType: true },
+      where: { organizationId: organizationId!, status: "AVAILABLE" },
+      select: candidateSelect,
       orderBy: { updatedAt: "desc" },
-      take: 500,
     });
-    const matchingProperties = availableProperties
-      .filter((property) => inquiryMatchesProperty(
-        { lookingFor: client.lookingFor, currency: client.currency, budgetMax: client.budgetMax ? Number(client.budgetMax) : null, preferredSuburbs: client.preferredSuburbs, propertyType: client.propertyType },
-        { listingType: property.listingType, currency: property.currency, askingPrice: property.askingPrice ? Number(property.askingPrice) : null, rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null, suburb: property.suburb, propertyType: property.propertyType },
-      ))
-      .map((property) => ({ id: property.id, title: property.title, suburb: property.suburb, listingType: property.listingType, currency: property.currency, price: property.listingType === "FOR_RENT" ? property.rentalPrice : property.askingPrice }));
+    const propertiesById = new Map(availableProperties.map((property) => [property.id, property]));
+    const matchingProperties = client.propertyId ? [] : scoreAllPropertiesForInquiry(buildInquiryMatchingProfile(client), availableProperties.map(buildPropertyMatchingCandidate)).filter(isQualifyingMatch).map((result) => ({ ...propertiesById.get(result.propertyId)!, score: result.score, price: result.effectivePrice }));
 
     // Invalidate client, pipeline, and dashboard caches across all surfaces
     if (organizationId) {

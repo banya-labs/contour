@@ -4,7 +4,13 @@ import { Prisma } from "@prisma/client";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { isManagementRole } from "@/lib/authorization";
-import { inquiryMatchesProperty } from "@/lib/matching/inquiry-property-match";
+import { buildInquiryMatchingProfile } from "@/lib/matching/inquiry-profile";
+import { buildPropertyMatchingCandidate } from "@/lib/matching/property-profile";
+import { isQualifyingMatch, TERMINAL_INQUIRY_STATUSES } from "@/lib/matching/policy";
+import { inquirySelect } from "@/lib/matching/service";
+import { inquiryVisibility } from "@/lib/matching/visibility";
+import { matchingScope } from "@/lib/matching/api";
+import { scorePropertyForInquiry } from "@/lib/matching/score";
 
 // ── GET /api/vault/documents ─────────────────────────────────────────────────
 export const GET = createApiHandler({
@@ -76,7 +82,8 @@ export const GET = createApiHandler({
             title: true,
             suburb: true,
             status: true,
-            titleDeedNumber: true,
+            bedrooms: true, bathrooms: true, plotSizeSqm: true, matchingMetadata: true,
+        titleDeedNumber: true,
           },
         },
         documentRequest: {
@@ -104,6 +111,7 @@ export const GET = createApiHandler({
         askingPrice: true,
         rentalPrice: true,
         propertyType: true,
+        bedrooms: true, bathrooms: true, plotSizeSqm: true, matchingMetadata: true,
         titleDeedNumber: true,
         assignedAgentId: true,
         assignedAgent: {
@@ -119,40 +127,12 @@ export const GET = createApiHandler({
       orderBy: { createdAt: "desc" },
     });
 
-    const inquiries = await db.inquiry.findMany({
-      where: { organizationId: orgId, status: { not: "CLOSED" } },
-      select: {
-        id: true,
-        clientName: true,
-        lookingFor: true,
-        currency: true,
-        budgetMax: true,
-        preferredSuburbs: true,
-        propertyType: true,
-      },
+    const inquiries = await db.inquiry.findMany({ where: { organizationId: orgId, propertyId: null, status: { notIn: [...TERMINAL_INQUIRY_STATUSES] } }, select: inquirySelect });
+    const profiles = inquiries.map((inquiry) => ({ inquiry, profile: buildInquiryMatchingProfile(inquiry) }));
+    const propertiesWithMatches = properties.map((property) => {
+      const candidate = buildPropertyMatchingCandidate(property);
+      return { ...property, matchingInquiries: property.status !== "AVAILABLE" ? [] : profiles.flatMap(({ inquiry, profile }) => { const result = scorePropertyForInquiry(profile, candidate); return isQualifyingMatch(result) ? [{ id: inquiry.id, clientName: inquiry.clientName, lookingFor: inquiry.lookingFor, score: result.score }] : []; }) };
     });
-    const propertiesWithMatches = properties.map((property) => ({
-      ...property,
-      matchingInquiries: inquiries
-        .filter((inquiry) => inquiryMatchesProperty(
-          {
-            lookingFor: inquiry.lookingFor,
-            currency: inquiry.currency,
-            budgetMax: inquiry.budgetMax ? Number(inquiry.budgetMax) : null,
-            preferredSuburbs: inquiry.preferredSuburbs,
-            propertyType: inquiry.propertyType,
-          },
-          {
-            listingType: property.listingType,
-            currency: property.currency,
-            askingPrice: property.askingPrice ? Number(property.askingPrice) : null,
-            rentalPrice: property.rentalPrice ? Number(property.rentalPrice) : null,
-            suburb: property.suburb,
-            propertyType: property.propertyType,
-          },
-        ))
-        .map((inquiry) => ({ id: inquiry.id, clientName: inquiry.clientName, lookingFor: inquiry.lookingFor })),
-    }));
 
     // 5. Fetch all organization members with vault grants for collaborator management
     const membersRaw = await db.user.findMany({

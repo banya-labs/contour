@@ -25,6 +25,7 @@ export const FIELD_AGENT_BASELINE: readonly Permission[] = [
   "pwa.listings.create",
   "pwa.listings.share",
   "pwa.inquiries.update",
+  "pwa.inquiries.read",
 ];
 
 export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
