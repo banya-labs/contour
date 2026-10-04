@@ -68,7 +68,15 @@ import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
-import { InquiryMatchModal, type InquiryMatch } from "@/components/matching/inquiry-match-modal";
+
+import { MatchNotificationInbox } from "@/components/matching/match-notification-inbox";
+import { MatchPreview } from "@/components/matching/match-preview";
+import { PropertyInquiryMatchView } from "@/components/matching/property-inquiry-match-view";
+import { buildInquiryCapturePayload } from "@/lib/crm/inquiry-capture";
+import { fetchAllPages } from "@/lib/fetch-pages";
+import { clearMatchCache } from "@/lib/matching/result-cache";
+import type { PropertyType, ListingType } from "@prisma/client";
+import type { StrictRequirements } from "@/lib/matching/types";
 import { publicPropertyPath } from "@/lib/public-property";
 import { PROPERTY_TYPE_OPTIONS, propertyTypeLabel } from "@/lib/property-types";
 import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, type ActivePipelineStage } from "@/lib/deal-workflow";
@@ -134,6 +142,8 @@ function AgentKioskContent() {
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", notes: "" });
   const [contactSaveError, setContactSaveError] = useState("");
   const [contactSaving, setContactSaving] = useState(false);
+  const [returnToInquiry, setReturnToInquiry] = useState(false);
+  const [contactsError, setContactsError] = useState("");
   const [selectedContact, setSelectedContact] = useState<any | null>(null);
   const [contactDetailLoading, setContactDetailLoading] = useState(false);
   const [propertyViewMode, setPropertyViewMode] = useState<"LIST" | "MAP">("LIST");
@@ -147,13 +157,8 @@ function AgentKioskContent() {
   // Selection & Modal States
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [matchedProperty, setMatchedProperty] = useState<any | null>(null);
-  const [matchedInquiries, setMatchedInquiries] = useState<any[]>([]);
-  const [matchedInquiriesLoading, setMatchedInquiriesLoading] = useState(false);
-  const [matchedInquiriesError, setMatchedInquiriesError] = useState<string | null>(null);
-  const [selectedInquiryMatches, setSelectedInquiryMatches] = useState<{ inquiry: any; matches: InquiryMatch[]; threshold: number } | null>(null);
+  const [selectedInquiryMatches, setSelectedInquiryMatches] = useState<{ inquiry: any; matches: unknown[]; threshold: number } | null>(null);
   const [selectedInquiryDetail, setSelectedInquiryDetail] = useState<any | null>(null);
-  const [inquiryMatchesLoading, setInquiryMatchesLoading] = useState(false);
-  const [inquiryMatchesError, setInquiryMatchesError] = useState<string | null>(null);
   const [selectedMapProperty, setSelectedMapProperty] = useState<any | null>(null);
   const [selectedPropertyDetail, setSelectedPropertyDetail] = useState<any | null>(null);
   const [intakeDrawer, setIntakeDrawer] = useState<IntakeType>("NONE");
@@ -165,38 +170,21 @@ function AgentKioskContent() {
   const [earningsDate, setEarningsDate] = useState<Date | null>(null);
   const [flyerModalProperty, setFlyerModalProperty] = useState<any | null>(null);
 
-  const openInquiryMatches = async (inquiry: any) => {
+  const openInquiryMatches = (inquiry: any) => {
     setSelectedInquiryMatches({ inquiry, matches: [], threshold: 70 });
-    setInquiryMatchesLoading(true);
-    setInquiryMatchesError(null);
-    try {
-      const response = await fetch(`/api/clients/${encodeURIComponent(inquiry.id)}/matches`);
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to load property matches.");
-      setSelectedInquiryMatches({ inquiry, matches: payload.matches || [], threshold: payload.threshold ?? 70 });
-    } catch (error) {
-      setInquiryMatchesError(error instanceof Error ? error.message : "Unable to load property matches.");
-    } finally {
-      setInquiryMatchesLoading(false);
-    }
   };
-
-  const openPropertyMatches = async (property: any) => {
+  const openPropertyMatches = (property: any) => {
     setMatchedProperty(property);
-    setMatchedInquiries([]);
-    setMatchedInquiriesError(null);
-    setMatchedInquiriesLoading(true);
-    try {
-      const response = await fetch(`/api/matching/unassigned?propertyId=${encodeURIComponent(property.id)}`);
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to load inquiry matches.");
-      setMatchedInquiries(payload.matches || []);
-    } catch (error) {
-      setMatchedInquiriesError(error instanceof Error ? error.message : "Unable to load inquiry matches.");
-    } finally {
-      setMatchedInquiriesLoading(false);
-    }
+    const url = new URL(window.location.href); url.searchParams.set("matchPropertyId", property.id); window.history.replaceState(null, "", url);
   };
+  const closePropertyMatches = () => {
+    setMatchedProperty(null);
+    const url = new URL(window.location.href); url.searchParams.delete("matchPropertyId"); window.history.replaceState(null, "", url);
+  };
+  useEffect(() => {
+    const id = new URL(window.location.href).searchParams.get("matchPropertyId");
+    if (id && properties.length) { const property = properties.find((p: any) => p.id === id); if (property) setMatchedProperty(property); }
+  }, [properties]);
 
   useEffect(() => {
     setEarningsDate(new Date());
@@ -508,12 +496,12 @@ function AgentKioskContent() {
   }, [earningsPeriod, session, syncData, agentRefreshNonce]);
 
   useEffect(() => {
-    if (activeTab !== "CLIENTS" || (clientSubTab !== "CONTACTS" && intakeDrawer !== "CLIENT")) return;
+    if ((activeTab !== "CLIENTS" || clientSubTab !== "CONTACTS") && intakeDrawer !== "CLIENT") return;
     setContactsLoading(true);
-    void fetch(`/api/contacts?search=${encodeURIComponent(contactSearch)}`, { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => { if (data.success) setContacts(Array.isArray(data.contacts) ? data.contacts : []); })
-      .catch(() => setContacts([]))
+    setContactsError("");
+    void fetchAllPages<AgentContact>(`/api/agent/contacts?search=${encodeURIComponent(contactSearch)}`, "contacts")
+      .then(setContacts)
+      .catch((error) => { setContactsError(error.message || "Unable to load contacts"); setContacts([]); })
       .finally(() => setContactsLoading(false));
   }, [activeTab, clientSubTab, contactSearch, intakeDrawer]);
 
@@ -533,6 +521,7 @@ function AgentKioskContent() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to save contact.");
       setContactEditorOpen(false);
+      if (returnToInquiry) { setSelectedInquiryContactId(data.contact.id); setNewClientName(data.contact.name); setNewClientPhone(data.contact.phone); setClientSubTab("INQUIRIES"); setIntakeDrawer("CLIENT"); setReturnToInquiry(false); }
       setContacts((current) => editingContact ? current.map((contact) => contact.id === editingContact.id ? { ...contact, ...data.contact } : contact) : [data.contact, ...current]);
     } catch (error) { setContactSaveError(error instanceof Error ? error.message : "Unable to save contact."); } finally { setContactSaving(false); }
   };
@@ -540,10 +529,12 @@ function AgentKioskContent() {
   const openContactDetail = async (contact: AgentContact) => {
     setContactDetailLoading(true);
     try {
-      const response = await fetch(`/api/contacts/${contact.id}`, { cache: "no-store" });
+      const response = await fetch(`/api/agent/contacts/${contact.id}`, { cache: "no-store" });
       const data = await response.json();
-      if (response.ok && data.success) setSelectedContact(data.contact);
-    } finally { setContactDetailLoading(false); }
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to open contact");
+      const inquiries = await fetchAllPages(`/api/agent/contacts/${contact.id}`, "inquiries");
+      setSelectedContact({ ...data.contact, inquiries });
+    } catch (error) { setContactsError(error instanceof Error ? error.message : "Unable to open contact"); } finally { setContactDetailLoading(false); }
   };
 
   useEffect(() => {
@@ -644,6 +635,11 @@ function AgentKioskContent() {
   const [newClientLookingFor, setNewClientLookingFor] = useState<"FOR_SALE" | "FOR_RENT">("FOR_SALE");
   const [newClientPropertyType, setNewClientPropertyType] = useState("");
   const [newClientMinBeds, setNewClientMinBeds] = useState("");
+  const [newClientMinBaths, setNewClientMinBaths] = useState("");
+  const [newClientMinArea, setNewClientMinArea] = useState("");
+  const [newClientBudgetMin, setNewClientBudgetMin] = useState("");
+  const [newClientStrict, setNewClientStrict] = useState<StrictRequirements>({});
+  const [newInquiryKey, setNewInquiryKey] = useState(() => `pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [newClientRequestNotes, setNewClientRequestNotes] = useState("");
   const [newClientAttachOffer, setNewClientAttachOffer] = useState(false);
   const [newClientOfferPropertyId, setNewClientOfferPropertyId] = useState("");
@@ -993,6 +989,7 @@ function AgentKioskContent() {
   // Submit Intake: New Client (Search Request & Optional Immediate Offer)
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedInquiryContactId) { setCaptureError("Select a contact before creating an inquiry."); return; }
     if (newClientName.trim().length < 2) {
       setCaptureError("Enter the client or company name.");
       return;
@@ -1041,7 +1038,7 @@ function AgentKioskContent() {
     ].filter(Boolean).join(" | ");
 
     const payload: any = {
-      idempotencyKey: `pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      idempotencyKey: newInquiryKey,
       creationSurface: "PWA" as const,
       clientName: newClientName.trim(),
       clientPhone: normalizedClientPhone,
@@ -1052,28 +1049,16 @@ function AgentKioskContent() {
       lookingFor: attachedOfferProperty ? (attachedOfferProperty.listingType || "FOR_SALE") : newClientLookingFor,
       propertyType: newClientPropertyType ? newClientPropertyType : undefined,
       notes: enrichedNotes || undefined,
-      status: newClientAttachOffer ? "OFFER_MADE" : "NEW_INQUIRY",
+      status: "NEW_INQUIRY",
       propertyId: newClientAttachOffer && attachedOfferProperty ? attachedOfferProperty.id : undefined,
       dealValue: newClientAttachOffer && offerVal > 0 ? offerVal : undefined,
       exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       contactId: selectedInquiryContactId || undefined,
     };
 
-    if (newClientAttachOffer && attachedOfferProperty) {
-      const newDeal = {
-        id: `deal_${Date.now()}`,
-        propertyTitle: attachedOfferProperty.title,
-        suburb: attachedOfferProperty.suburb || "Lusaka",
-        clientName: newClientName.trim(),
-        value: `${clientCurrency === "USD" ? "$" : "K"} ${offerVal.toLocaleString()}`,
-        stage: "OFFER_MADE",
-        stageLabel: "Formal Offer Submitted",
-        agentSplitEst: `${clientCurrency === "USD" ? "$" : "K"} ${(offerVal * 0.025).toLocaleString()} (50% Split)`,
-        lockDaysRemaining: 30,
-        updatedAt: "Just now",
-      };
-      setAgentDeals((prev) => [newDeal, ...prev]);
-    }
+    try {
+      Object.assign(payload, buildInquiryCapturePayload({ lookingFor: newClientLookingFor as ListingType, propertyType: newClientPropertyType as PropertyType, currency: newClientCurrency, budgetMin: newClientBudgetMin, budgetMax: newClientBudget, bedroomsMin: newClientMinBeds, bathroomsMin: newClientMinBaths, areaMinSqm: newClientMinArea, preferredSuburbs: newClientSuburb ? [newClientSuburb] : [], notes: enrichedNotes, idempotencyKey: newInquiryKey, assignedAgentId: session?.user.id, matchingProfile: { strictRequirements: newClientStrict } }, contacts.find((contact) => contact.id === selectedInquiryContactId) || null));
+    } catch (error) { setCaptureError(error instanceof Error ? error.message : "Check the inquiry requirements."); return; }
 
     setPendingCapture("CLIENT");
     setFieldSyncStatus("SAVING_LOCAL");
@@ -1088,6 +1073,7 @@ function AgentKioskContent() {
     setNewClientRequestNotes("");
     setNewClientPropertyType("");
     setNewClientMinBeds("");
+    setNewClientMinBaths(""); setNewClientMinArea(""); setNewClientBudgetMin(""); setNewClientStrict({}); setNewInquiryKey(`pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     setNewClientAttachOffer(false);
     setNewClientOfferPropertyId("");
     setNewClientOfferAmount("");
@@ -1541,7 +1527,7 @@ function AgentKioskContent() {
                 className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-editorial-black border border-editorial-border font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-2xs hover:border-editorial-black"
               >
                 <Plus className="w-3.5 h-3.5 text-[#E57A1A]" />
-                <span>Client</span>
+                <span>Inquiry</span>
               </button>
 
               <button
@@ -1879,13 +1865,13 @@ function AgentKioskContent() {
 
                       <button
                         onClick={() => {
-                          setMatchedProperty(selectedMapProperty);
+                          openPropertyMatches(selectedMapProperty);
                           playNeutralTone();
                         }}
                         className="py-2.5 px-3 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
                       >
                         <Users className="w-3.5 h-3.5" />
-                        <span>Match Buyers</span>
+                        <span>{selectedMapProperty.listingType === "FOR_RENT" ? "Match renters" : "Match buyers"}</span>
                       </button>
                     </div>
                   </div>
@@ -2013,7 +1999,7 @@ function AgentKioskContent() {
 
                       {Number(p.matchingInquiryCount || 0) > 0 && (
                         <div className="flex items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-900">
-                          <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-emerald-700" /> {p.matchingInquiryCount} matching {p.matchingInquiryCount === 1 ? "inquiry" : "inquiries"}</span>
+                          <button type="button" onClick={(event) => { event.stopPropagation(); openPropertyMatches(p); }} className="flex items-center gap-1.5 underline"><Sparkles className="h-3.5 w-3.5 text-emerald-700" /> {p.matchingInquiryCount} matching {p.listingType === "FOR_RENT" ? "renters" : p.listingType === "BOTH" ? "inquiries" : "buyers"}</button>
                           <span className="text-emerald-700">Unassigned</span>
                         </div>
                       )}
@@ -2051,6 +2037,8 @@ function AgentKioskContent() {
           </div>
         )}
 
+        {activeTab === "QUEUE" && <MatchNotificationInbox isOnline={isOnline} revision={agentRefreshNonce + outboxCount} onOpen={(id) => { const property = properties.find((p: any) => p.id === id); if (property) openPropertyMatches(property); }} />}
+
         {/* ================= TAB 2: CLIENTS ================= */}
         {activeTab === "CLIENTS" && (
           <div className="space-y-4">
@@ -2062,8 +2050,9 @@ function AgentKioskContent() {
               <div className="flex items-center justify-between bg-white p-4 border border-editorial-border"><div><h2 className="text-xs font-mono font-bold uppercase tracking-wider text-contour-red">Organization contacts</h2><p className="text-[11px] text-editorial-muted mt-0.5">Reusable people records connected to multiple inquiries.</p></div><button type="button" onClick={() => openContactEditor()} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-heading font-semibold uppercase tracking-wider"><Plus className="inline w-3 h-3 mr-1" />Add contact</button></div>
               <div className="relative"><Search className="w-3.5 h-3.5 text-editorial-muted absolute left-3.5 top-1/2 -translate-y-1/2" /><input value={contactSearch} onChange={(event) => setContactSearch(event.target.value)} placeholder="Search contacts by name, phone, or email..." className="w-full bg-white border border-editorial-border pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-editorial-black" /></div>
               {contactsLoading ? <div className="bg-white border border-editorial-border p-8 text-center text-xs text-editorial-muted">Loading contacts…</div> : contacts.length === 0 ? <div className="bg-white border border-dashed border-editorial-border p-8 text-center text-xs text-editorial-muted">No contacts found.</div> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{contacts.map((contact) => <article key={contact.id} className="bg-white border border-editorial-border p-4 space-y-2 cursor-pointer hover:border-editorial-black" onClick={() => void openContactDetail(contact)}><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-heading font-semibold">{contact.name}</h3><p className="text-xs text-editorial-muted font-mono">{contact.phone}</p></div><button type="button" onClick={(event) => { event.stopPropagation(); openContactEditor(contact); }} className="text-[10px] font-mono uppercase text-contour-red">Edit</button></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="pt-2 border-t border-editorial-border text-[10px] font-mono uppercase text-editorial-muted">{contact._count?.inquiries || 0} inquiries · View details</div></article>)}</div>}
+              {contactsError && <p role="alert" className="text-xs text-red-700">{contactsError}</p>}
               {contactDetailLoading && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-editorial-black/40 text-xs text-white">Loading contact…</div>}
-              {selectedContact && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center" onClick={() => setSelectedContact(null)}><section className="w-full max-w-lg space-y-4 border border-editorial-black bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact detail</p><h3 className="font-heading text-lg font-bold">{selectedContact.name}</h3><p className="text-xs text-editorial-muted">{selectedContact.phone} · {selectedContact.email || "No email"}</p></div><button type="button" onClick={() => setSelectedContact(null)} aria-label="Close contact details"><X className="w-4 h-4" /></button></div><div><p className="mb-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-muted">Related inquiries ({selectedContact.inquiries?.length || 0})</p>{selectedContact.inquiries?.length ? <div className="space-y-2">{selectedContact.inquiries.map((inquiry: any) => <div key={inquiry.id} className="border border-editorial-border p-3"><p className="text-sm font-heading font-semibold">{inquiry.property?.title || "Unassigned inquiry"}</p><p className="text-[11px] text-editorial-muted">{inquiry.lookingFor === "FOR_RENT" ? "Rental inquiry" : "Purchase inquiry"} · {inquiry.status}</p></div>)}</div> : <p className="border border-dashed border-editorial-border p-4 text-xs text-editorial-muted">No inquiries linked yet.</p>}</div></section></div>}
+              {selectedContact && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center" onClick={() => setSelectedContact(null)}><section className="w-full max-w-lg space-y-4 border border-editorial-black bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact detail</p><h3 className="font-heading text-lg font-bold">{selectedContact.name}</h3><p className="text-xs text-editorial-muted">{selectedContact.phone} · {selectedContact.email || "No email"}</p></div><button type="button" onClick={() => setSelectedContact(null)} aria-label="Close contact details"><X className="w-4 h-4" /></button></div><div><button type="button" className="border px-3 py-2 mb-3 text-xs" onClick={() => { setSelectedInquiryContactId(selectedContact.id); setNewClientName(selectedContact.name); setNewClientPhone(selectedContact.phone); setSelectedContact(null); setClientSubTab("INQUIRIES"); setIntakeDrawer("CLIENT"); }}>Add inquiry</button><p className="mb-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-muted">Related inquiries ({selectedContact.inquiries?.length || 0})</p>{selectedContact.inquiries?.length ? <div className="space-y-2">{selectedContact.inquiries.map((inquiry: any) => <div key={inquiry.id} className="border border-editorial-border p-3"><p className="text-sm font-heading font-semibold">{inquiry.property?.title || "Unassigned inquiry"}</p><p className="text-[11px] text-editorial-muted">{inquiry.lookingFor === "FOR_RENT" ? "Rental inquiry" : "Purchase inquiry"} · {inquiry.status}</p></div>)}</div> : <p className="border border-dashed border-editorial-border p-4 text-xs text-editorial-muted">No inquiries linked yet.</p>}</div></section></div>}
               {contactEditorOpen && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center"><form onSubmit={saveContact} className="w-full max-w-md space-y-4 border border-editorial-black bg-white p-5 shadow-2xl"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact registry</p><h3 className="font-heading font-bold uppercase">{editingContact ? "Edit contact" : "Add contact"}</h3></div><button type="button" onClick={() => setContactEditorOpen(false)} aria-label="Close contact editor"><X className="w-4 h-4" /></button></div>{contactSaveError && <p className="border border-red-200 bg-red-50 p-2 text-xs text-red-700">{contactSaveError}</p>}<input required minLength={2} value={contactForm.name} onChange={(event) => setContactForm({ ...contactForm, name: event.target.value })} placeholder="Full name" className="w-full border border-editorial-border px-3 py-2 text-xs" /><PhoneNumberInput value={contactForm.phone} onChange={(phone) => setContactForm({ ...contactForm, phone })} label="Phone number" required /><input type="email" value={contactForm.email} onChange={(event) => setContactForm({ ...contactForm, email: event.target.value })} placeholder="Email (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" /><textarea value={contactForm.notes} onChange={(event) => setContactForm({ ...contactForm, notes: event.target.value })} placeholder="Notes (optional)" rows={3} className="w-full border border-editorial-border px-3 py-2 text-xs" /><button type="submit" disabled={contactSaving} className="w-full bg-editorial-black px-4 py-2 text-xs font-heading font-semibold uppercase text-white disabled:opacity-50">{contactSaving ? "Saving…" : editingContact ? "Save changes" : "Save contact"}</button></form></div>}
             </div> : <>
             
@@ -2082,7 +2071,7 @@ function AgentKioskContent() {
                 className="px-3.5 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Client</span>
+                <span>Add inquiry</span>
               </button>
             </div>
 
@@ -2236,7 +2225,7 @@ function AgentKioskContent() {
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Register New Client</span>
+                        <span>Add inquiry</span>
                       </button>
                     </div>
                   );
@@ -2316,7 +2305,7 @@ function AgentKioskContent() {
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-900">
                             <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
-                            {visibleMatches.length ? `${visibleMatches.length} match${visibleMatches.length === 1 ? "" : "es"} found` : "Find matching properties"}
+                            {visibleMatches.length ? `${c.matchingPropertyCount ?? visibleMatches.length} matches found` : "Find matching properties"}
                           </div>
                           <button
                             type="button"
@@ -2873,7 +2862,7 @@ function AgentKioskContent() {
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>Client</span>
+                <span>Inquiry</span>
               </button>
               <button
                 type="button"
@@ -2954,6 +2943,7 @@ function AgentKioskContent() {
                         }}
                         className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
                       >
+                        <option value="">Any area</option>
                         {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
@@ -3035,21 +3025,24 @@ function AgentKioskContent() {
               <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
                 <div className="border border-editorial-border bg-neutral-50/50 p-3">
                   <label className="block text-editorial-black font-heading font-semibold mb-1">Contact record</label>
-                  <select value={selectedInquiryContactId} onChange={(event) => { const contact = contacts.find((candidate) => candidate.id === event.target.value); setSelectedInquiryContactId(event.target.value); if (contact) { setNewClientName(contact.name); setNewClientPhone(contact.phone); } }} className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none focus:border-editorial-black">
-                    <option value="">Create or link a new contact</option>
+                  <select required value={selectedInquiryContactId} onChange={(event) => { const contact = contacts.find((candidate) => candidate.id === event.target.value); setSelectedInquiryContactId(event.target.value); if (contact) { setNewClientName(contact.name); setNewClientPhone(contact.phone); } }} className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none focus:border-editorial-black">
+                    <option value="">Select an existing contact…</option>
                     {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.phone}</option>)}
                   </select>
-                  <p className="mt-1 text-[10px] text-editorial-muted">Linking an existing contact allows multiple inquiries under one person.</p>
+                  <button type="button" onClick={() => { setReturnToInquiry(true); setActiveTab("CLIENTS"); setClientSubTab("CONTACTS"); setIntakeDrawer("NONE"); openContactEditor(); }} className="text-xs underline mt-2">Create contact</button>
+                  {contactsError && <p role="alert" className="text-xs text-red-700">{contactsError}</p>}
+                  <p className="mt-1 text-[10px] text-editorial-muted">Select the person this request belongs to. One contact can have multiple inquiries.</p>
                 </div>
                 <div>
                   <label className="block text-editorial-black font-heading font-semibold mb-1">
-                    Client Full Name <span className="text-contour-red">*</span>
+                    Contact name <span className="text-contour-red">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Mwamba & Sons Holdings"
                     value={newClientName}
+                    readOnly
                     onChange={(e) => setNewClientName(e.target.value)}
                     className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none focus:border-editorial-black"
                   />
@@ -3059,12 +3052,7 @@ function AgentKioskContent() {
                   <label className="block text-editorial-black font-heading font-semibold mb-1">
                     WhatsApp Phone Number <span className="text-contour-red">*</span>
                   </label>
-                  <PhoneNumberInput
-                    value={newClientPhone}
-                    onChange={setNewClientPhone}
-                    label=""
-                    required
-                  />
+                  <input value={newClientPhone} readOnly aria-label="Selected contact phone" className="w-full border px-3 py-2 bg-neutral-50" />
                 </div>
 
                 {/* Optional Search Criteria & Request Accordion/Box */}
@@ -3112,6 +3100,7 @@ function AgentKioskContent() {
                         onChange={(e) => setNewClientSuburb(e.target.value)}
                         className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
                       >
+                        <option value="">Any area</option>
                         {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
@@ -3144,6 +3133,12 @@ function AgentKioskContent() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="text-[11px]">Budget min<input type="number" min="1" value={newClientBudgetMin} onChange={(e) => setNewClientBudgetMin(e.target.value)} className="w-full border p-2" /></label>
+                    <label className="text-[11px]">Min bathrooms<input type="number" min="0" step="0.5" value={newClientMinBaths} onChange={(e) => setNewClientMinBaths(e.target.value)} className="w-full border p-2" /></label>
+                    <label className="text-[11px]">Min plot size m²<input type="number" min="1" value={newClientMinArea} onChange={(e) => setNewClientMinArea(e.target.value)} className="w-full border p-2" /></label>
+                  </div>
+                  <fieldset className="border p-2"><legend className="text-[11px]">Required criteria (unchecked = preference)</legend><div className="flex flex-wrap gap-3">{([['budgetMax','Budget'],['preferredAreas','Area'],['bedroomsMin','Bedrooms'],['bathroomsMin','Bathrooms'],['areaMinSqm','Plot size']] as const).map(([key,label]) => <label key={key} className="text-[11px] flex gap-1"><input type="checkbox" checked={newClientStrict[key] || false} onChange={(e) => setNewClientStrict({ ...newClientStrict, [key]: e.target.checked })} />{label}</label>)}</div></fieldset>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-2">
                       <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Budget Max</label>
@@ -3192,7 +3187,7 @@ function AgentKioskContent() {
                       className="w-4 h-4 text-editorial-black rounded border-editorial-border focus:ring-0"
                     />
                     <span className="font-heading font-semibold text-editorial-black text-xs">
-                      Attach an Immediate Offer to a House (Optional)
+                      Attach a property and capture offer details (optional)
                     </span>
                   </label>
 
@@ -3257,7 +3252,7 @@ function AgentKioskContent() {
                   disabled={pendingCapture === "CLIENT"}
                   className="w-full py-3 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider transition-all mt-2 flex items-center justify-center gap-1.5"
                 >
-                  <PendingButtonContent pending={pendingCapture === "CLIENT"} pendingLabel="Saving client…">{newClientAttachOffer ? "Lock Client & Submit Offer to Pipeline" : "Lock & Register Client"}</PendingButtonContent>
+                  <PendingButtonContent pending={pendingCapture === "CLIENT"} pendingLabel="Saving inquiry…">{newClientAttachOffer ? "Add inquiry with property" : "Add inquiry"}</PendingButtonContent>
                 </button>
               </form>
             )}
@@ -3352,7 +3347,7 @@ function AgentKioskContent() {
                     <div className="space-y-2 bg-neutral-50 p-3 border border-editorial-border">
                       <div>
                         <label className="block text-editorial-black font-heading font-semibold mb-1">
-                          Client Full Name <span className="text-contour-red">*</span>
+                          Contact name <span className="text-contour-red">*</span>
                         </label>
                         <input
                           type="text"
@@ -3549,6 +3544,8 @@ function AgentKioskContent() {
               );
             })()}
 
+            <MatchPreview propertyId={selectedPropertyDetail.id} listingType={selectedPropertyDetail.listingType} isOnline={isOnline} onOpen={() => openPropertyMatches(selectedPropertyDetail)} />
+
             {/* 1-Tap Swiss Visual Flyer Button */}
             <button
               onClick={() => {
@@ -3593,68 +3590,14 @@ function AgentKioskContent() {
                 className="flex items-center justify-center gap-1.5 bg-editorial-black hover:bg-contour-red px-2.5 py-3 text-xs font-heading font-semibold uppercase tracking-wider text-white transition-colors"
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>Buyers</span>
+                <span>{selectedPropertyDetail.listingType === "FOR_RENT" ? "Renters" : "Buyers"}</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ================= MODAL: MATCH REGISTERED BUYERS ================= */}
-      {matchedProperty && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-editorial-border w-full max-w-md p-5 space-y-4 text-editorial-black max-h-[85vh] overflow-y-auto animate-in zoom-in-95 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
-              <div>
-                <span className="text-[10px] font-mono text-contour-red uppercase font-bold">Reverse Matchmaker</span>
-                <h3 className="text-sm font-heading font-semibold text-editorial-black mt-0.5">{matchedProperty.title}</h3>
-              </div>
-              <button
-                onClick={() => setMatchedProperty(null)}
-                className="p-1.5 text-editorial-muted hover:text-editorial-black rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-editorial-muted">
-              Showing unassigned inquiries that match this property in {matchedProperty.suburb || "Lusaka"}:
-            </p>
-
-            {matchedInquiriesLoading ? (
-              <div className="py-8 text-center text-xs text-editorial-muted">Checking unassigned inquiries...</div>
-            ) : matchedInquiriesError ? (
-              <div className="border border-red-200 bg-red-50 p-3 text-xs text-red-800">{matchedInquiriesError}</div>
-            ) : matchedInquiries.length === 0 ? (
-              <div className="border border-editorial-border bg-neutral-50 p-4 text-center text-xs text-editorial-muted">No unassigned inquiry matches this property yet.</div>
-            ) : (
-            <div className="space-y-2.5">
-              {matchedInquiries.map(({ inquiry, score, reasons }: any) => (
-                <div
-                  key={inquiry.id}
-                  className="bg-neutral-50 p-3 border border-editorial-border flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="font-heading font-semibold text-editorial-black">{inquiry.clientName}</div>
-                    <div className="text-[11px] text-editorial-muted font-mono">{inquiry.clientPhone || "No phone"} • {inquiry.preferredSuburbs?.join(", ") || "Any area"}</div>
-                    <div className="mt-1 text-[10px] text-emerald-800 font-mono">{score}% match{reasons?.length ? ` • ${reasons.join(", ")}` : ""}</div>
-                  </div>
-                  <a
-                    href={`https://wa.me/${formatWhatsAppDigits(inquiry.clientPhone || "")}?text=${encodeURIComponent(generateWhatsAppFlyer(matchedProperty))}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1 transition-colors"
-                  >
-                    <Send className="w-3 h-3" />
-                    <span>Pitch</span>
-                  </a>
-                </div>
-              ))}
-            </div>
-            )}
-          </div>
-        </div>
-      )}
+      {matchedProperty && <PropertyInquiryMatchView key={matchedProperty.id} id={matchedProperty.id} title={matchedProperty.title} isOnline={isOnline} onClose={closePropertyMatches} onAttached={() => { clearMatchCache(); void syncData(); }} pitch={generateWhatsAppFlyer(matchedProperty)} onOpenInquiry={(inquiry) => { closePropertyMatches(); setSelectedInquiryDetail({ ...inquiry, name: inquiry.clientName, phone: inquiry.clientPhone }); }} onOpenContact={(id) => { closePropertyMatches(); setActiveTab("CLIENTS"); setClientSubTab("CONTACTS"); void openContactDetail({ id, name: "", phone: "" }); }} />}
 
       {selectedInquiryDetail && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Inquiry details">
@@ -3674,7 +3617,7 @@ function AgentKioskContent() {
             </div>
             {selectedInquiryDetail.notes && <p className="text-xs text-editorial-muted italic bg-neutral-50 p-3 border border-editorial-border">&ldquo;{selectedInquiryDetail.notes}&rdquo;</p>}
             <div className="flex items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 p-3 text-xs">
-              <span className="font-mono font-bold text-emerald-900">{Array.isArray(selectedInquiryDetail.matchingProperties) ? selectedInquiryDetail.matchingProperties.length : 0} matching properties</span>
+              <span className="font-mono font-bold text-emerald-900">{selectedInquiryDetail.matchingPropertyCount ?? (Array.isArray(selectedInquiryDetail.matchingProperties) ? selectedInquiryDetail.matchingProperties.length : 0)} matching properties</span>
               <button type="button" onClick={() => openInquiryMatches(selectedInquiryDetail)} className="px-2.5 py-2 bg-white border border-emerald-300 text-[10px] font-heading font-semibold uppercase tracking-wider">View matches</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -3685,17 +3628,8 @@ function AgentKioskContent() {
         </div>
       )}
 
-      <InquiryMatchModal
-        inquiry={selectedInquiryMatches?.inquiry || null}
-        matches={selectedInquiryMatches?.matches || []}
-        threshold={selectedInquiryMatches?.threshold || 70}
-        loading={inquiryMatchesLoading}
-        error={inquiryMatchesError}
-        onClose={() => {
-          setSelectedInquiryMatches(null);
-          setInquiryMatchesError(null);
-        }}
-      />
+      {selectedInquiryMatches && <PropertyInquiryMatchView key={selectedInquiryMatches.inquiry.id} kind="inquiries" id={selectedInquiryMatches.inquiry.id} title={selectedInquiryMatches.inquiry.name || selectedInquiryMatches.inquiry.clientName || "Inquiry"} isOnline={isOnline} onClose={() => setSelectedInquiryMatches(null)} onAttached={() => { clearMatchCache(); void syncData(); }} onOpenProperty={(id) => { setSelectedInquiryMatches(null); const property = properties.find((p: any) => p.id === id); if (property) setSelectedPropertyDetail(property); }} />}
+
 
       {/* ================= MODAL: DIGITAL COMMISSION SLIP ================= */}
       {selectedCommissionSlip && (
@@ -3869,7 +3803,7 @@ function AgentKioskContent() {
             <div className="flex items-center justify-between border-b border-editorial-border pb-3">
               <div className="flex items-center gap-2">
                 <Pencil className="w-4 h-4 text-contour-red" />
-                <h3 className="text-sm font-heading font-bold uppercase tracking-wider">Edit Client Profile</h3>
+                <h3 className="text-sm font-heading font-bold uppercase tracking-wider">Edit inquiry requirements</h3>
               </div>
               <button
                 type="button"
@@ -3889,12 +3823,12 @@ function AgentKioskContent() {
             <form onSubmit={handleSaveClientEdit} className="space-y-3 text-xs">
               <div>
                 <label className="block text-editorial-black font-heading font-semibold mb-1">
-                  Client Full Name *
+                  Contact name *
                 </label>
                 <input
                   type="text"
                   required
-                  value={editClientName}
+                  value={editClientName} readOnly
                   onChange={(e) => setEditClientName(e.target.value)}
                   placeholder="e.g. Kondwani Phiri"
                   className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
@@ -3905,14 +3839,9 @@ function AgentKioskContent() {
                 <label className="block text-editorial-black font-heading font-semibold mb-1">
                   Phone Number (WhatsApp Ready) *
                 </label>
-                <PhoneNumberInput
-                  value={editClientPhone}
-                  onChange={setEditClientPhone}
-                  label=""
-                  required
-                />
+                <input value={editClientPhone} readOnly className="w-full border p-2" aria-label="Contact phone" />
                 <p className="mt-1 text-[10px] text-editorial-muted font-mono">
-                  Normalized automatically with Zambia country code (+260) for 1-click WhatsApp.
+                  Edit contact details from the Contacts tab.
                 </p>
               </div>
 

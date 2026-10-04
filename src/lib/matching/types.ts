@@ -14,6 +14,7 @@ export type MatchingMetadata = {
   keywords?: string[];
 };
 
+export type StrictRequirements = Partial<Record<"budgetMax" | "preferredAreas" | "bedroomsMin" | "bathroomsMin" | "areaMinSqm", boolean>>;
 export type InquiryMatchingProfile = {
   lookingFor?: ListingType;
   propertyType?: PropertyType;
@@ -25,6 +26,7 @@ export type InquiryMatchingProfile = {
   bathroomsMin?: number;
   areaMinSqm?: number;
   mustHave?: string[];
+  strictRequirements?: StrictRequirements;
   niceToHave?: string[];
   keywords?: string[];
 };
@@ -49,4 +51,7 @@ export type MatchResult = {
   score: number;
   reasons: string[];
   hardFailures: string[];
+  effectivePrice: number | null;
+  unmetPreferences: string[];
+  missingData: string[];
 };

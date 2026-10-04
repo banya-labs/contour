@@ -1,3 +1,4 @@
+import { invalidateMatchingSummaries } from "@/lib/matching/service";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -182,6 +183,7 @@ export const POST = createApiHandler({
       },
     });
 
+    invalidateMatchingSummaries(organizationId);
     for (const tag of ["clients", "pipeline", "dashboard-metrics", "dashboard-action-queue", "agent-summary"] as const) {
       smartCache.invalidateTag(organizationId, tag, tag === "pipeline" ? "/dashboard/pipeline" : tag === "agent-summary" ? "/agent" : undefined);
     }

@@ -2,11 +2,9 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  TrendingUp,
   Clock,
   Plus,
   X,
-  Sparkles,
   MessageSquare,
   CheckCircle2,
   Lock,
@@ -16,16 +14,13 @@ import {
   Trash2,
   ClipboardCheck,
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
-import { NumberTicker } from "@/components/ui/animate/number-ticker";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
-import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
@@ -76,19 +71,21 @@ type AvailableProperty = {
   status?: string;
 };
 
+type PipelineInquiry = Pick<Deal, "id" | "clientName" | "clientPhone" | "clientEmail" | "propertyId" | "assignedAgentId" | "outcome" | "lostReason" | "cancellationReason" | "closedAt" | "leadSource" | "notes"> & {
+  status: string;
+  updatedAt: string;
+  currency?: Deal["currency"];
+  dealValue?: number | string | null;
+  preferredSuburbs?: string[];
+  property?: AvailableProperty | null;
+  assignedAgent?: { id: string; name: string } | null;
+};
+
 type OrganizationAgent = {
   id: string;
   name: string;
   email?: string;
   role?: string;
-};
-
-type ExistingClient = {
-  id: string;
-  contactId?: string | null;
-  clientName: string;
-  clientPhone: string;
-  clientEmail?: string | null;
 };
 
 const STAGES = [
@@ -105,28 +102,12 @@ function DealPipelineContent() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [agents, setAgents] = useState<OrganizationAgent[]>([]);
   const [availableProperties, setAvailableProperties] = useState<AvailableProperty[]>([]);
-  const [existingClients, setExistingClients] = useState<ExistingClient[]>([]);
 
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
   // Pipeline creation is owned by CRM inquiries; this page only displays and manages them.
-  const [clientSelectionMode, setClientSelectionMode] = useState<"existing" | "new">("new");
   const [formError, setFormError] = useState("");
-  const [formData, setFormData] = useState({
-    selectedExistingClientId: "",
-    clientName: "",
-    clientPhone: "",
-    clientEmail: "",
-    propertyId: "",
-    assignedAgentId: "",
-    dealValue: "",
-    currency: "ZMW" as "ZMW" | "USD",
-    leadSource: "WALK_IN",
-    stage: "NEW_INQUIRY" as Deal["stage"],
-    notes: "",
-  });
-
   // Edit Deal (Reassign Property / Agent / Value / Stage) Modal State
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -139,7 +120,6 @@ function DealPipelineContent() {
   });
   const [editError, setEditError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [isClosingDeal, setIsClosingDeal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
   const [isDeletingDeal, setIsDeletingDeal] = useState(false);
@@ -163,7 +143,6 @@ function DealPipelineContent() {
 
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
 
-  const searchParams = useSearchParams();
   const { data: session } = authClient.useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const isManagement = isManagementRole(userRole);
@@ -180,7 +159,7 @@ function DealPipelineContent() {
 
         if (dealsData.success) {
           const rawClients = dealsData.clients || [];
-          const mappedDeals: Deal[] = rawClients.map((inquiry: any) => ({
+          const mappedDeals: Deal[] = rawClients.map((inquiry: PipelineInquiry) => ({
             id: inquiry.id,
             clientName: inquiry.clientName,
             clientPhone: inquiry.clientPhone,
@@ -205,23 +184,6 @@ function DealPipelineContent() {
           }));
           setDeals(mappedDeals);
 
-          // Extract distinct client contacts for quick client selection in new deals
-          const clientsMap = new Map<string, ExistingClient>();
-          rawClients.forEach((c: any) => {
-            if (c.clientName && c.clientPhone) {
-              const key = `${c.clientName.trim().toLowerCase()}_${c.clientPhone.trim()}`;
-              if (!clientsMap.has(key)) {
-                clientsMap.set(key, {
-                  id: c.id,
-                  contactId: c.contactId || c.contact?.id || null,
-                  clientName: c.clientName,
-                  clientPhone: c.clientPhone,
-                  clientEmail: c.clientEmail,
-                });
-              }
-            }
-          });
-          setExistingClients(Array.from(clientsMap.values()));
         }
 
         if (agentsData.success) {
@@ -230,7 +192,7 @@ function DealPipelineContent() {
 
         if (propsData.success && Array.isArray(propsData.properties)) {
           setAvailableProperties(
-            propsData.properties.map((p: any) => ({
+            propsData.properties.map((p: Omit<AvailableProperty, "askingPrice" | "rentalPrice" | "agencyCommissionPct"> & { askingPrice?: number | string | null; rentalPrice?: number | string | null; agencyCommissionPct?: number | string | null }) => ({
               id: p.id,
               title: p.title,
               suburb: p.suburb,
@@ -493,133 +455,6 @@ function DealPipelineContent() {
     }
   };
 
-  const handleCreateDeal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError("");
-
-    let clientName = formData.clientName.trim();
-    let clientPhone = formData.clientPhone.trim();
-    let clientEmail = formData.clientEmail.trim();
-
-    if (clientSelectionMode === "existing") {
-      const chosen = existingClients.find((c) => c.id === formData.selectedExistingClientId);
-      if (!chosen) {
-        setFormError("Please select an existing client from the list.");
-        return;
-      }
-      clientName = chosen.clientName;
-      clientPhone = chosen.clientPhone;
-      clientEmail = chosen.clientEmail || "";
-    } else {
-      if (!clientName || clientName.length < 3) {
-        setFormError("Client name is required (minimum 3 characters).");
-        return;
-      }
-      if (!clientPhone || clientPhone.length < 7) {
-        setFormError("Valid client phone is required (minimum 7 digits).");
-        return;
-      }
-    }
-
-    const valNum = parseFloat(formData.dealValue);
-    if (!valNum || valNum <= 0) {
-      setFormError("Deal value must be greater than 0.");
-      return;
-    }
-
-    if (!formData.propertyId) {
-      setFormError("Select a property before adding an inquiry to the pipeline.");
-      return;
-    }
-
-    const matchedProp = availableProperties.find((p) => p.id === formData.propertyId);
-    const matchedAgent = agents.find((a) => a.id === formData.assignedAgentId);
-
-    setIsCreatingDeal(true);
-    try {
-    const response = await fetch("/api/clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        idempotencyKey: `deal-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        clientName,
-        clientPhone,
-        clientEmail: clientEmail || undefined,
-        existingInquiryId: clientSelectionMode === "existing" ? formData.selectedExistingClientId : undefined,
-        contactId: clientSelectionMode === "existing" ? (existingClients.find((client) => client.id === formData.selectedExistingClientId)?.contactId || undefined) : undefined,
-        lookingFor: "FOR_SALE",
-        currency: formData.currency,
-        assignedAgentId: formData.assignedAgentId || undefined,
-        propertyId: formData.propertyId || undefined,
-        dealValue: valNum,
-        status: formData.stage,
-        leadSource: formData.leadSource,
-        notes: formData.notes || undefined,
-      }),
-    });
-
-    if (!response.ok) {
-      const errJson = await response.json().catch(() => ({}));
-      setFormError(errJson.error || "Unable to create this pipeline opportunity.");
-      return;
-    }
-
-    const result = await response.json();
-    const inquiry = result.client;
-
-    const newDeal: Deal = {
-      id: inquiry.id,
-      clientName: inquiry.clientName,
-      clientPhone: inquiry.clientPhone,
-      clientEmail: inquiry.clientEmail,
-      propertyId: formData.propertyId || null,
-      propertyTitle: matchedProp ? matchedProp.title : "Unassigned property",
-      suburb: matchedProp?.suburb?.trim() || inquiry.preferredSuburbs?.find((area: string) => area.trim())?.trim() || "Location not specified",
-      dealValue: valNum,
-      currency: formData.currency,
-      agencyCommissionPct: Number(matchedProp?.agencyCommissionPct ?? 5),
-      agencyCommission: valNum * (Number(matchedProp?.agencyCommissionPct ?? 5) / 100),
-      agentName: matchedAgent ? matchedAgent.name : "Unassigned",
-      assignedAgentId: formData.assignedAgentId || null,
-      daysInStage: 0,
-      stage: inquiry.status || formData.stage,
-      leadSource: formData.leadSource,
-      notes: formData.notes,
-    };
-
-    setDeals((current) => [newDeal, ...current.filter((deal) => deal.id !== newDeal.id)]);
-    emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], newDeal.id);
-
-    // Keep existing clients list refreshed
-    setExistingClients((prev) => {
-      const exists = prev.some((c) => c.clientPhone === clientPhone);
-      if (!exists) {
-        return [{ id: inquiry.id, clientName, clientPhone, clientEmail }, ...prev];
-      }
-      return prev;
-    });
-
-    setIsModalOpen(false);
-    setFormData({
-      selectedExistingClientId: "",
-      clientName: "",
-      clientPhone: "",
-      clientEmail: "",
-      propertyId: "",
-      assignedAgentId: "",
-      dealValue: "",
-      currency: "ZMW",
-      leadSource: "WALK_IN",
-      stage: "NEW_INQUIRY",
-      notes: "",
-    });
-    } catch {
-      setFormError("Network error while creating this pipeline opportunity.");
-    } finally {
-      setIsCreatingDeal(false);
-    }
-  };
-
   const handleDeleteDeal = async () => {
     if (!deleteTarget) return;
     setIsDeletingDeal(true);
@@ -633,7 +468,6 @@ function DealPipelineContent() {
       }
       setDeals((current) => current.filter((deal) => deal.id !== deleteTarget.id));
       emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent"], deleteTarget.id);
-      setExistingClients((current) => current.filter((client) => client.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch {
       setDeleteError("Network error while deleting this deal opportunity.");
@@ -956,7 +790,7 @@ function DealPipelineContent() {
                       </div>
                       {deal.lostReason && (
                         <p className="text-[11px] text-red-800 italic bg-white/70 p-1.5 border border-red-100">
-                          "{deal.lostReason}"
+                          &quot;{deal.lostReason}&quot;
                         </p>
                       )}
                     </div>
@@ -1176,7 +1010,7 @@ function DealPipelineContent() {
                               </div>
                               {deal.lostReason && (
                                 <p className="text-[9px] text-red-800 italic bg-white/70 p-1 border border-red-100 line-clamp-2">
-                                  "{deal.lostReason}"
+                                  &quot;{deal.lostReason}&quot;
                                 </p>
                               )}
                             </div>
@@ -1318,303 +1152,6 @@ function DealPipelineContent() {
                 {isDeletingDeal ? "Deleting…" : "Confirm Delete"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Interactive Modal: New Deal Opportunity */}
-      {false && isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-geist">
-          <div className="bg-white max-w-lg w-full p-6 border border-editorial-border space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-editorial-border pb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-contour-red" />
-                <h3 className="font-heading font-bold text-sm text-editorial-black uppercase tracking-wider">
-                  Create Deal Opportunity
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {formError && (
-              <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">
-                ⚠️ {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateDeal} className="space-y-3.5 text-xs">
-              {/* Client Selection Section - Deal is locked to this client */}
-              <div className="space-y-2 border border-editorial-border p-3 bg-neutral-50">
-                <div className="flex items-center justify-between">
-                  <label className="font-heading font-semibold uppercase tracking-wider text-editorial-black text-[11px] flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-contour-red" /> Client Association (Locked) *
-                  </label>
-                  <div className="flex border border-editorial-border bg-white text-[10px] font-heading font-semibold uppercase">
-                    <button
-                      type="button"
-                      onClick={() => setClientSelectionMode("existing")}
-                      className={`px-2 py-1 transition-colors ${clientSelectionMode === "existing" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"}`}
-                    >
-                      Existing
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClientSelectionMode("new")}
-                      className={`px-2 py-1 transition-colors ${clientSelectionMode === "new" ? "bg-editorial-black text-white" : "text-editorial-muted hover:text-editorial-black"}`}
-                    >
-                      + New Client
-                    </button>
-                  </div>
-                </div>
-
-                {clientSelectionMode === "existing" ? (
-                  <div>
-                    <select
-                      value={formData.selectedExistingClientId}
-                      onChange={(e) => {
-                        const cId = e.target.value;
-                        const matched = existingClients.find((c) => c.id === cId);
-                        setFormData({
-                          ...formData,
-                          selectedExistingClientId: cId,
-                          clientName: matched?.clientName || "",
-                          clientPhone: matched?.clientPhone || "",
-                          clientEmail: matched?.clientEmail || "",
-                        });
-                      }}
-                      className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                      required
-                    >
-                      <option value="">Select an existing client...</option>
-                      {existingClients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.clientName} ({c.clientPhone})
-                        </option>
-                      ))}
-                    </select>
-                    {existingClients.length === 0 && (
-                      <p className="text-[10px] text-editorial-muted mt-1">
-                        No existing clients found yet. Switch to "+ New Client" to register.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-heading uppercase text-editorial-muted mb-0.5">
-                          Client Full Name *
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. John Banda"
-                          value={formData.clientName}
-                          onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                          className="w-full bg-white px-3 py-1.5 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-heading uppercase text-editorial-muted mb-0.5">
-                          Client Phone *
-                        </label>
-                        <PhoneNumberInput
-                          value={formData.clientPhone}
-                          onChange={(clientPhone) => setFormData({ ...formData, clientPhone })}
-                          label=""
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-heading uppercase text-editorial-muted mb-0.5">
-                        Client Email (Optional)
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="e.g. john@example.com"
-                        value={formData.clientEmail}
-                        onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-                        className="w-full bg-white px-3 py-1.5 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                      />
-                    </div>
-                  </div>
-                )}
-                <p className="text-[10px] text-editorial-muted italic">
-                  Note: A deal is permanently locked to this client once created.
-                </p>
-              </div>
-
-              {/* Property Target Selection */}
-              <div>
-                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1 flex items-center justify-between">
-                  <span>Property Target *</span>
-                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">required for pipeline</span>
-                </label>
-                <select
-                  value={formData.propertyId}
-                  onChange={(e) => {
-                    const propertyId = e.target.value;
-                    const property = availableProperties.find((candidate) => candidate.id === propertyId);
-                    const propertyValue = property?.askingPrice ?? property?.rentalPrice;
-                    setFormData({
-                      ...formData,
-                      propertyId,
-                      dealValue: propertyValue != null ? String(propertyValue) : "",
-                      currency: property?.currency || formData.currency,
-                    });
-                  }}
-                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                >
-                  <option value="">Select a property...</option>
-                  {availableProperties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} ({p.suburb || "Lusaka"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Pipeline Stage
-                  </label>
-                  <select
-                    value={formData.stage}
-                    onChange={(e) => setFormData({ ...formData, stage: e.target.value as Deal["stage"] })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                  >
-                    <option value="NEW_INQUIRY">New enquiry</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Lead Source
-                  </label>
-                  <select
-                    value={formData.leadSource}
-                    onChange={(e) => setFormData({ ...formData, leadSource: e.target.value })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                  >
-                    <option value="WALK_IN">Walk-in Client</option>
-                    <option value="WHATSAPP">WhatsApp Direct</option>
-                    <option value="WEBSITE">Website Ingest</option>
-                    <option value="CLIENT_REFERRAL">Client Referral</option>
-                    <option value="PHONE">Phone Call</option>
-                    <option value="SOCIAL_MEDIA">Social Media</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Closing Agent Selection */}
-              <div>
-                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1 flex items-center justify-between">
-                  <span>Assigned Agent (Org Member)</span>
-                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">can reassign later</span>
-                </label>
-                <select
-                  value={formData.assignedAgentId}
-                  onChange={(e) => setFormData({ ...formData, assignedAgentId: e.target.value })}
-                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                >
-                  <option value="">Unassigned</option>
-                  {agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.name} {agent.role ? `(${agent.role})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Deal Value *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.dealValue}
-                    readOnly
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none focus:border-editorial-black font-geist"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Currency
-                  </label>
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value as "ZMW" | "USD" })}
-                    className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
-                  >
-                    <option value="ZMW">ZMW (K)</option>
-                    <option value="USD">USD ($)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="p-3 bg-neutral-50 border border-editorial-border flex items-center justify-between">
-                <span className="text-editorial-muted font-heading text-xs uppercase tracking-wider">
-                  Expected {availableProperties.find((p) => p.id === formData.propertyId)?.agencyCommissionPct ?? 5}% Agency Fee:
-                </span>
-                <span className="font-geist font-bold text-contour-red text-sm">
-                  {formatCurrency(
-                    (parseFloat(formData.dealValue) || 0) * ((availableProperties.find((p) => p.id === formData.propertyId)?.agencyCommissionPct ?? 5) / 100),
-                    formData.currency,
-                  )}
-                </span>
-              </div>
-
-              <div>
-                <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                  Notes / Requirements (Optional)
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={2}
-                  placeholder="Specific requirements, preferred payment structure, etc."
-                  className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist text-xs"
-                />
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-editorial-border">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={isCreatingDeal}
-                  className="px-4 py-2 border border-editorial-border text-editorial-black hover:bg-neutral-50 text-xs font-heading font-semibold uppercase tracking-wider"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingDeal}
-                  aria-busy={isCreatingDeal}
-                  className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
-                >
-                  <PendingButtonContent
-                    pending={isCreatingDeal}
-                    pendingLabel="Creating deal…"
-                    icon={<Sparkles className="h-3.5 w-3.5 text-contour-red" />}
-                  >
-                    Create Opportunity
-                  </PendingButtonContent>
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

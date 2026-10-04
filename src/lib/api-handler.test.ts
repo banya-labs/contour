@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   getTenantContext: vi.fn(),
+  findOrganization: vi.fn(),
+  findPayment: vi.fn(),
 }));
 
 vi.mock("./auth", () => ({
@@ -16,8 +18,8 @@ vi.mock("./tenant-context", () => ({
 
 vi.mock("./db", () => ({
   db: {
-    organization: { findUnique: vi.fn() },
-    payment: { findFirst: vi.fn() },
+    organization: { findUnique: mocks.findOrganization },
+    payment: { findFirst: mocks.findPayment },
   },
 }));
 
@@ -30,6 +32,8 @@ import { createApiHandler } from "./api-handler";
 describe("createApiHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.findOrganization.mockResolvedValue({ subscriptionStatus: "active", accountStatus: "ACTIVE" });
+    mocks.findPayment.mockResolvedValue({ id: "paid" });
     mocks.getSession.mockResolvedValue({ user: { id: "user-1", role: "FIELD_AGENT" } });
     mocks.getTenantContext.mockResolvedValue({
       session: { user: { id: "user-1", role: "FIELD_AGENT" } },
@@ -52,5 +56,15 @@ describe("createApiHandler", () => {
     expect(await response.json()).toEqual({ contourRole: "BROKER_MANAGER" });
     expect(mocks.getSession).toHaveBeenCalledTimes(1);
     expect(mocks.getTenantContext).toHaveBeenCalledWith(expect.any(NextRequest), expect.objectContaining({ user: { id: "user-1", role: "FIELD_AGENT" } }));
+  });
+  it("admits scoped PWA read access without granting desktop CRM access", async () => {
+    mocks.getTenantContext.mockResolvedValue({ session: { user: { id: "user-1", role: "FIELD_AGENT" } }, userId: "user-1", organizationId: "org-1", contourRole: "FIELD_AGENT", permissions: ["pwa.inquiries.read"] });
+    const scoped = createApiHandler({ requirePermissions: ["pwa.inquiries.read"], handler: async () => NextResponse.json({ success: true }) });
+    const desktop = createApiHandler({ requirePermissions: ["leads.read"], handler: async () => NextResponse.json({ success: true }) });
+    const request = new NextRequest("http://localhost/api/agent/inquiries");
+    const scopedResponse = await scoped(request, { params: Promise.resolve({}) });
+    expect(await scopedResponse.json()).toEqual({ success: true });
+    expect(scopedResponse.status).toBe(200);
+    expect((await desktop(request, { params: Promise.resolve({}) })).status).toBe(403);
   });
 });

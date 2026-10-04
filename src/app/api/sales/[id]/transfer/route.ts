@@ -23,7 +23,8 @@ export const PATCH = createApiHandler({
     const existing = await db.transaction.findFirst({ where: { id, organizationId, transactionType: "PROPERTY_SALE" } });
     if (!existing) return NextResponse.json({ success: false, error: "Property sale not found." }, { status: 404 });
     if (existing.transferStatus === "TRANSFER_COMPLETE" && body.status !== "TRANSFER_COMPLETE") return NextResponse.json({ success: false, error: "Completed transfers cannot be moved backwards." }, { status: 409 });
-    const updated = await db.transaction.update({ where: { id }, data: { ...body, transferStartedAt: body.status === "TRANSFER_IN_PROGRESS" && !existing.transferStartedAt ? new Date() : existing.transferStartedAt, transferCompletedAt: body.status === "TRANSFER_COMPLETE" ? new Date() : existing.transferCompletedAt } });
+    const { status: transferStatus, ...details } = body;
+    const updated = await db.transaction.update({ where: { id }, data: { ...details, transferStatus, transferStartedAt: body.status === "TRANSFER_IN_PROGRESS" && !existing.transferStartedAt ? new Date() : existing.transferStartedAt, transferCompletedAt: body.status === "TRANSFER_COMPLETE" ? new Date() : existing.transferCompletedAt } });
     return NextResponse.json({ success: true, transaction: updated });
   },
 });

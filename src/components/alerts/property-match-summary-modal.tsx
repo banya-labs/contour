@@ -8,15 +8,9 @@ import {
   MessageSquare,
   PhoneCall,
   CheckCircle2,
-  Clock,
-  Send,
   Copy,
   Check,
-  Building2,
-  MapPin,
   ExternalLink,
-  ShieldCheck,
-  UserCheck,
   Share2,
 } from "lucide-react";
 import { AlertMatchResult } from "@/lib/alerts/matchmaker";
@@ -25,7 +19,18 @@ import { formatCurrency } from "@/lib/utils";
 type PropertyMatchSummaryModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  property: any;
+  property: {
+    title: string;
+    listingType?: string;
+    askingPrice?: number | null;
+    rentalPrice?: number | null;
+    currency?: string | null;
+    suburb?: string | null;
+    featuredPhoto?: string | null;
+    photos?: string[];
+    assignedAgent?: { name?: string | null } | null;
+    assignedAgentName?: string | null;
+  };
   matches: AlertMatchResult[];
 };
 
@@ -156,7 +161,7 @@ export default function PropertyMatchSummaryModal({
                         <div className="text-xs text-ink-600 mt-0.5">
                           Budget: <strong className="text-ink-900 font-mono">{match.alert.currency} {match.alert.maxPrice ? match.alert.maxPrice.toLocaleString() : "Not specified"}</strong> • Area: <strong>{match.alert.suburb}</strong>
                         </div>
-                        {match.matchReasons?.length > 0 && <div className="text-[10px] text-ink-500 mt-1">{match.matchReasons.join(" • ")}</div>}
+                        {(match.matchReasons?.length ?? 0) > 0 && <div className="text-[10px] text-ink-500 mt-1">{match.matchReasons?.join(" • ")}</div>}
                       </div>
 
                       {/* Automated Reminder Status Badge with Exact Timestamp */}
@@ -188,7 +193,7 @@ export default function PropertyMatchSummaryModal({
                         </button>
                       </div>
                       <p className="text-ink-800 whitespace-pre-line font-sans text-xs italic">
-                        "{match.customOfferText || `Hi ${match.alert.clientName}, this property matches your recorded requirements.`}"
+                        &quot;{match.customOfferText || `Hi ${match.alert.clientName}, this property matches your recorded requirements.`}&quot;
                       </p>
                     </div>
 

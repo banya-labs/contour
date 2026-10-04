@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchAllPages } from "@/lib/fetch-pages";
 import React, { useState, useEffect, useRef } from "react";
 import {
   Building2,
@@ -268,8 +269,8 @@ export default function PropertyFullDetailModal({
         if (error instanceof DOMException && error.name === "AbortError") return;
         setPropertyInquiries([]);
       });
-      fetch("/api/matching/unassigned", { cache: "no-store", signal: controller.signal })
-        .then((res) => res.ok ? res.json() : null)
+      fetchAllPages<{ inquiry: { id: string; clientName: string }; score: number; reasons: string[]; property?: { id?: string } }>(`/api/matching/unassigned?propertyId=${encodeURIComponent(property.id)}`, "matches")
+        .then((matches) => controller.signal.aborted ? null : ({ success: true, matches }))
         .then((data) => {
           if (data?.success) {
             setUnassignedMatches((data.matches || []).filter((match: { property?: { id?: string } }) => match.property?.id === property.id));
@@ -383,8 +384,7 @@ export default function PropertyFullDetailModal({
       const clientsData = clientsResponse.ok ? await clientsResponse.json() : null;
       setPropertyInquiries(Array.isArray(clientsData?.clients) ? clientsData.clients : []);
 
-      const matchesResponse = await fetch("/api/matching/unassigned", { cache: "no-store" });
-      const matchesData = matchesResponse.ok ? await matchesResponse.json() : null;
+      const matchesData = { matches: await fetchAllPages<{ inquiry: { id: string; clientName: string }; score: number; reasons: string[]; property?: { id?: string } }>(`/api/matching/unassigned?propertyId=${encodeURIComponent(property.id)}`, "matches") };
       setUnassignedMatches((matchesData?.matches || []).filter((match: { property?: { id?: string } }) => match.property?.id === property.id));
     } catch (error) {
       console.error("Failed to refresh property 360:", error);
@@ -927,7 +927,7 @@ export default function PropertyFullDetailModal({
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#FA3600]">New match notification</p>
                       <p className="font-heading font-bold text-sm text-[#1C1C1A] mt-0.5">{unassignedMatches.length} client {unassignedMatches.length === 1 ? "inquiry matches" : "inquiries match"} this property</p>
-                      <p className="text-xs text-[#73716B] mt-1">Open Matching Buyers to review the inquiry and assign this property to move it to Contacted.</p>
+                      <p className="text-xs text-[#73716B] mt-1">Open Matching Buyers to review the inquiry and attach this property; contact is recorded separately.</p>
                       <button type="button" onClick={() => onOpenMatchingBuyers(property)} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1C1C1A] hover:bg-[#FA3600] text-white text-[10px] font-heading font-bold uppercase tracking-wider">Review {unassignedMatches.length} Match{unassignedMatches.length === 1 ? "" : "es"}</button>
                     </div>
                   </div>
