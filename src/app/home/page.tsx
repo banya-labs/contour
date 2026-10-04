@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     canonical: `${siteUrl}/home`,
   },
   openGraph: {
-    title: "Contour — Run Your Real Estate Agency. Chase Nothing.",
+    title: "Contour - Run Your Real Estate Agency. Chase Nothing.",
     description:
       "The premier real estate operations and field agent operating system for Lusaka and Southern Africa.",
     url: `${siteUrl}/home`,

@@ -170,6 +170,7 @@ model Organization {
   visits                      PropertyVisit[]
   auditLogs                   AuditLog[]
   aiUsageLogs                 AiUsageLog[]
+  aiInsightSnapshots          AiInsightSnapshot[]
   vaultDocuments              VaultDocument[]
   vaultAccessGrants           VaultAccessGrant[]
   documentRequests            DocumentRequest[]
@@ -1101,6 +1102,10 @@ model SubscriptionTier {
   annualZmw   Decimal  @db.Decimal(12, 2)
   monthlyUsd  Decimal  @db.Decimal(12, 2)
   annualUsd   Decimal  @db.Decimal(12, 2)
+  maxAgents   Int      @default(0)
+  maxListings Int      @default(0)
+  maxRentalUnits Int   @default(0)
+  features    String[] @default([])
   active      Boolean  @default(true)
   updatedById String?
   createdAt   DateTime @default(now())
@@ -1283,6 +1288,24 @@ model AiUsageLog {
 
   @@index([organizationId, createdAt])
   @@map("ai_usage_log")
+}
+
+model AiInsightSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String
+  periodFrom     DateTime
+  periodTo       DateTime
+  status         String
+  insights       Json?
+  errorMessage   String?
+  generatedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, periodFrom, periodTo])
+  @@index([organizationId, updatedAt])
+  @@map("ai_insight_snapshot")
 }
 
 // -----------------------------------------------------------------------------

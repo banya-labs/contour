@@ -163,7 +163,7 @@ export default function PrivacyPolicyPage() {
         <section className="space-y-3">
           <h2 className="text-base font-heading font-bold uppercase tracking-wider text-editorial-black flex items-center gap-2">
             <span className="text-contour-red font-mono text-sm">06.</span>
-            Your Data Subject Rights (Sections 28–33)
+            Your Data Subject Rights (Sections 28-33)
           </h2>
           <p className="text-editorial-black">
             As a data subject in Zambia, you possess the legal right to:
@@ -200,7 +200,7 @@ export default function PrivacyPolicyPage() {
             Authorized Cloud Subprocessors & Cross-Border Transfer Adequacy
           </h2>
           <p className="text-editorial-black">
-            Contour engages vetted cloud infrastructure subprocessors under strict confidentiality and data protection addendums complying with Sections 34–36 of the Zambia DPA 2021:
+            Contour engages vetted cloud infrastructure subprocessors under strict confidentiality and data protection addendums complying with Sections 34-36 of the Zambia DPA 2021:
           </p>
           <div className="border border-editorial-border overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">

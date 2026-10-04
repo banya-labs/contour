@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Search, Users, X } from "lucide-react";
+import { Pencil, Plus, Search, Users, X } from "lucide-react";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 type Contact = { id: string; name: string; phone: string; email?: string | null; notes?: string | null; _count?: { inquiries: number } };
 
@@ -11,8 +12,11 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Contact | null>(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
+  const searchParams = useSearchParams();
 
   const loadContacts = async () => {
     const response = await fetch(`/api/contacts?search=${encodeURIComponent(search)}`);
@@ -21,16 +25,39 @@ export default function ContactsPage() {
   };
   useEffect(() => { void loadContacts(); }, [search]);
 
-  const createContact = async (event: React.FormEvent) => {
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ name: "", phone: "", email: "", notes: "" });
+    setError("");
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") openCreate();
+  }, [searchParams]);
+
+  const openEdit = (contact: Contact) => {
+    setEditing(contact);
+    setForm({ name: contact.name, phone: contact.phone, email: contact.email || "", notes: contact.notes || "" });
+    setError("");
+    setOpen(true);
+  };
+
+  const saveContact = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
-    const response = await fetch("/api/contacts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    const data = await response.json();
-    if (!response.ok) { setError(data.error || "Unable to create contact."); return; }
-    setContacts((current) => [data.contact, ...current]);
-    setForm({ name: "", phone: "", email: "", notes: "" });
-    setOpen(false);
-    window.location.reload();
+    setSaving(true);
+    try {
+      const response = await fetch(editing ? `/api/contacts/${editing.id}` : "/api/contacts", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const data = await response.json();
+      if (!response.ok) { setError(data.error || `Unable to ${editing ? "update" : "create"} contact.`); return; }
+      if (editing) setContacts((current) => current.map((contact) => contact.id === editing.id ? { ...contact, ...data.contact } : contact));
+      else setContacts((current) => [data.contact, ...current]);
+      setOpen(false);
+      setEditing(null);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return <main className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist text-editorial-black">
@@ -40,15 +67,15 @@ export default function ContactsPage() {
         <h1 className="font-serif text-xl sm:text-3xl font-bold text-editorial-black tracking-tight mt-0.5 sm:mt-1">Contacts</h1>
         <p className="text-xs text-editorial-neutral mt-0.5 sm:mt-1">Reusable clients connected to their inquiries and property opportunities.</p>
       </div>
-      <button onClick={() => setOpen(true)} className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 self-start sm:self-auto"><Plus className="w-3.5 h-3.5 text-editorial-red" /> <span>Add Contact</span></button>
+      <button onClick={openCreate} className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-none bg-editorial-black hover:bg-black text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 self-start sm:self-auto"><Plus className="w-3.5 h-3.5 text-editorial-red" /> <span>Add Contact</span></button>
     </header>
     <div className="flex border-b border-editorial-border">
       <Link href="/dashboard/clients" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider text-editorial-muted">Inquiries</Link>
       <Link href="/dashboard/clients?tab=contacts" aria-current="page" className="px-4 py-2 text-xs font-heading font-semibold uppercase tracking-wider border-b-2 border-contour-red">Contacts</Link>
     </div>
     <div className="bg-white rounded-none p-3 sm:p-4 border border-editorial-border flex items-center gap-2"><Search className="w-4 h-4 text-editorial-neutral shrink-0" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search contacts by name, phone, or email" className="w-full bg-transparent text-xs text-editorial-black placeholder:text-editorial-neutral focus:outline-none" /></div>
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{contacts.map((contact) => <article key={contact.id} className="border border-editorial-border bg-white p-4 space-y-3"><div className="flex items-start justify-between"><div><h2 className="font-heading font-bold uppercase tracking-tight">{contact.name}</h2><p className="text-xs text-editorial-muted">{contact.phone}</p></div><Users className="w-4 h-4 text-contour-red" /></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="border-t border-editorial-border pt-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{contacts.map((contact) => <article key={contact.id} className="border border-editorial-border bg-white p-4 space-y-3"><div className="flex items-start justify-between gap-3"><div><h2 className="font-heading font-bold uppercase tracking-tight">{contact.name}</h2><p className="text-xs text-editorial-muted">{contact.phone}</p></div><div className="flex items-center gap-2"><Users className="w-4 h-4 text-contour-red" /><button type="button" onClick={() => openEdit(contact)} aria-label={`Edit ${contact.name}`} className="text-editorial-muted hover:text-editorial-black"><Pencil className="w-3.5 h-3.5" /></button></div></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="border-t border-editorial-border pt-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>
     {contacts.length === 0 && <div className="border border-dashed border-editorial-border p-10 text-center text-xs text-editorial-muted">No contacts found. Add a contact before recording an inquiry.</div>}
-    {open && <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"><form onSubmit={createContact} className="bg-white border border-editorial-black p-5 w-full max-w-md space-y-4"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><h2 className="font-heading font-bold uppercase">Add Contact</h2><button type="button" onClick={() => setOpen(false)}><X className="w-4 h-4" /></button></div>{error && <p className="p-2 bg-red-50 border border-red-200 text-xs text-red-700">{error}</p>}<input required minLength={2} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Full name" className="w-full border border-editorial-border px-3 py-2 text-xs" /><PhoneNumberInput value={form.phone} onChange={(phone) => setForm({ ...form, phone })} label="Phone number" required /><input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" /><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Notes (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" rows={3} /><button className="w-full bg-editorial-black text-white px-4 py-2 text-xs font-heading font-semibold uppercase">Save Contact</button></form></div>}
+    {open && <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"><form onSubmit={saveContact} className="bg-white border border-editorial-black p-5 w-full max-w-md space-y-4"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><h2 className="font-heading font-bold uppercase">{editing ? "Edit Contact" : "Add Contact"}</h2><button type="button" onClick={() => setOpen(false)}><X className="w-4 h-4" /></button></div>{error && <p className="p-2 bg-red-50 border border-red-200 text-xs text-red-700">{error}</p>}<input required minLength={2} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Full name" className="w-full border border-editorial-border px-3 py-2 text-xs" /><PhoneNumberInput value={form.phone} onChange={(phone) => setForm({ ...form, phone })} label="Phone number" required /><input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" /><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Notes (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" rows={3} /><button disabled={saving} className="w-full bg-editorial-black disabled:opacity-50 text-white px-4 py-2 text-xs font-heading font-semibold uppercase">{saving ? "Saving..." : editing ? "Update Contact" : "Save Contact"}</button></form></div>}
   </main>;
 }

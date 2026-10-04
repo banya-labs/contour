@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -13,7 +13,7 @@ import {
   TriangleAlert,
   Sparkles,
 } from "lucide-react";
-import { CONTOUR_PLANS, getPlanPrice, type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
+import { type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { ContourTransitionScreen } from "@/components/ui/contour-transition-screen";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
@@ -43,6 +43,7 @@ type BillingData = {
     provider: string;
   }>;
 };
+type CatalogPlan = { id: "starter" | "growth" | "enterprise"; name: string; badge: string; description: string; monthlyZmw: number; annualZmw: number; monthlyUsd: number; annualUsd: number; features: string[] };
 
 const date = (value: string | null | undefined) =>
   value
@@ -51,7 +52,7 @@ const date = (value: string | null | undefined) =>
         month: "short",
         year: "numeric",
       })
-    : "—";
+    : "-";
 
 export default function BillingPage() {
   const [billing, setBilling] = useState<BillingData | null>(null);
@@ -62,6 +63,7 @@ export default function BillingPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkoutHandoff, setCheckoutHandoff] = useState(false);
+  const [plans, setPlans] = useState<CatalogPlan[]>([]);
 
   const loadBilling = async () => {
     setLoading(true);
@@ -79,15 +81,18 @@ export default function BillingPage() {
 
   useEffect(() => {
     void loadBilling();
+    void fetch("/api/subscription-tiers", { cache: "no-store" }).then(async (response) => {
+      const data = await response.json();
+      if (response.ok && data.success) setPlans(data.tiers);
+    });
   }, []);
 
-  const currentPlan = billing?.subscription.planId ? CONTOUR_PLANS[billing.subscription.planId] : null;
+  const currentPlan = billing?.subscription.planId ? plans.find((plan) => plan.id === billing.subscription.planId) || null : null;
   const status = billing?.subscription.status?.toLowerCase() || "trialing";
   const trialActive = status === "trialing";
   const trialEnded =
     status === "expired" ||
     (!currentPlan && billing ? new Date(billing.subscription.trialEndsAt).getTime() < Date.now() : false);
-  const plans = useMemo(() => Object.values(CONTOUR_PLANS), []);
   const nextPayment = billing?.subscription.nextPayment;
 
   const checkout = async (planId: "starter" | "growth" | "enterprise") => {
@@ -306,7 +311,10 @@ export default function BillingPage() {
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {plans.map((plan) => {
               const active = currentPlan?.id === plan.id;
-              const price = getPlanPrice(plan.id, cycle, currency);
+              const amount = currency === "USD"
+                ? (cycle === "ANNUAL" ? plan.annualUsd : plan.monthlyUsd)
+                : (cycle === "ANNUAL" ? plan.annualZmw : plan.monthlyZmw);
+              const price = { formatted: `${currency === "USD" ? "$" : "K"} ${amount.toLocaleString("en-US")}` };
 
               return (
                 <article
@@ -419,7 +427,7 @@ export default function BillingPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-[11px] sm:text-xs text-editorial-muted">
-                      {CONTOUR_PLANS[payment.planId]?.name || payment.planId} · {payment.billingCycle.toLowerCase()} ·{" "}
+                      {plans.find((plan) => plan.id === payment.planId.toLowerCase())?.name || payment.planId} · {payment.billingCycle.toLowerCase()} ·{" "}
                       {date(payment.completedAt || payment.createdAt)}
                     </p>
                     {payment.failureReason && (

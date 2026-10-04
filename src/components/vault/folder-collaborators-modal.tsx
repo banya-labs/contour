@@ -244,7 +244,7 @@ export function FolderCollaboratorsModal({
                 </option>
                 {availableToAdd.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.role.replace("_", " ")}) — {m.email}
+                    {m.name} ({m.role.replace("_", " ")}) - {m.email}
                   </option>
                 ))}
               </select>

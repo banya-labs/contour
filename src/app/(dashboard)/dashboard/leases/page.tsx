@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   KeyRound,
@@ -17,7 +16,6 @@ import { MotionCard } from "@/components/ui/animate/motion-card";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
-import StatementsPage from "@/app/(dashboard)/dashboard/statements/page";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 
 function LeasesManagementContent() {
@@ -29,10 +27,17 @@ function LeasesManagementContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreatingLease, setIsCreatingLease] = useState(false);
   const [selectedLease, setSelectedLease] = useState<any | null>(null);
+  const [leaseAction, setLeaseAction] = useState<"TERMINATE" | "RELIST" | null>(null);
+  const [leaseActionReason, setLeaseActionReason] = useState("");
+  const [leaseActionError, setLeaseActionError] = useState("");
+  const [isSubmittingLeaseAction, setIsSubmittingLeaseAction] = useState(false);
+  const [statementMonth, setStatementMonth] = useState(new Date().getMonth() + 1);
+  const [statementYear, setStatementYear] = useState(new Date().getFullYear());
+  const [statementError, setStatementError] = useState("");
+  const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const searchParams = useSearchParams();
-  const activeTab = searchParams?.get("tab") === "statements" ? "statements" : "leases";
   useEffect(() => {
     if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
       setIsModalOpen(true);
@@ -230,7 +235,41 @@ function LeasesManagementContent() {
 
   const arrearsLeases = leases.filter((l) => l.status === "IN_ARREARS");
 
-  return activeTab === "statements" ? <StatementsPage /> : (
+  const submitLeaseAction = async () => {
+    if (!selectedLease || !leaseAction) return;
+    if (leaseAction === "TERMINATE" && !leaseActionReason.trim()) { setLeaseActionError("A reason is required to cancel this lease."); return; }
+    setIsSubmittingLeaseAction(true); setLeaseActionError("");
+    try {
+      const response = await fetch(`/api/leases/${selectedLease.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: leaseAction, reason: leaseActionReason.trim() || undefined }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Unable to update the lease.");
+      setSelectedLease(null); setLeaseAction(null); setLeaseActionReason(""); setRefreshNonce((value) => value + 1);
+      window.dispatchEvent(new CustomEvent(WORKSPACE_MUTATION_EVENT, { detail: { scopes: ["leases", "properties", "dashboard"], entityId: selectedLease.id } }));
+    } catch (error) { setLeaseActionError(error instanceof Error ? error.message : "Unable to update the lease."); }
+    finally { setIsSubmittingLeaseAction(false); }
+  };
+
+  const previewStatement = (statement: any) => {
+    const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=900");
+    if (!popup) { setStatementError("Allow pop-ups to preview or download the statement."); return; }
+    const money = (value: unknown) => formatCurrency(Number(value || 0), statement.currency);
+    popup.document.write(`<!doctype html><html><head><title>Landlord Statement</title><style>body{font-family:Arial,sans-serif;color:#1c1c1a;margin:0;padding:48px;background:#f3f1ec}main{max-width:780px;margin:auto;background:#fff;padding:48px;border:1px solid #d8d4cc}header{display:flex;justify-content:space-between;border-bottom:2px solid #fa3600;padding-bottom:24px;margin-bottom:28px}img{width:150px}.meta{font-size:12px;color:#666;line-height:1.7}.line{display:flex;justify-content:space-between;border-bottom:1px solid #e5e2dc;padding:12px 0;font-size:14px}.total{font-size:20px;font-weight:bold;color:#087443;border-top:2px solid #087443;margin-top:14px;padding-top:16px}@media print{body{background:#fff;padding:0}main{border:0;padding:24px}}</style></head><body><main><header><div><img src="${window.location.origin}/brand/contour-wordmark.svg" alt="Contour"/><p class="meta">LANDLORD REMITTANCE STATEMENT</p><h1>${statement.property?.title || "Managed property"}</h1></div><div class="meta"><strong>${statement.statementMonth}/${statement.statementYear}</strong><br/>${statement.property?.suburb || ""}<br/>Landlord: ${statement.landlordName || "Landlord"}</div></header><div class="line"><span>Rent due</span><strong>${money(statement.rentDue)}</strong></div><div class="line"><span>Gross rent collected</span><strong>${money(statement.grossRentCollected)}</strong></div><div class="line"><span>Agency fee deducted</span><strong>- ${money(statement.agencyFeeDeducted)}</strong></div><div class="line"><span>Maintenance deducted</span><strong>- ${money(statement.maintenanceDeducted)}</strong></div><div class="line"><span>Closing arrears</span><strong>${money(statement.arrearsClosing)}</strong></div><div class="total">Net landlord payout <span style="float:right">${money(statement.netLandlordPayout)}</span></div><p class="meta" style="margin-top:42px">Generated by Contour from the recorded rent ledger and maintenance expenses.</p><script>window.onload=()=>window.print()</script></main></body></html>`);
+    popup.document.close();
+  };
+
+  const generateStatement = async () => {
+    if (!selectedLease?.propertyId) return;
+    setIsGeneratingStatement(true); setStatementError("");
+    try {
+      const response = await fetch("/api/statements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: selectedLease.propertyId, statementMonth, statementYear, currency: selectedLease.currency || "ZMW" }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Unable to generate statement.");
+      previewStatement(data.statement);
+    } catch (error) { setStatementError(error instanceof Error ? error.message : "Unable to generate statement."); }
+    finally { setIsGeneratingStatement(false); }
+  };
+
+  return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
       {reminderError && (
         <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">{reminderError}</div>
@@ -304,12 +343,6 @@ function LeasesManagementContent() {
             Up-to-date rent payments
           </span>
         </MotionCard>
-      </div>
-
-      {/* Rentals workspace tabs */}
-      <div className="flex gap-1 border-b border-editorial-border pb-2">
-        <Link href="/dashboard/leases" aria-current="page" className="px-3 py-2 text-xs font-heading font-semibold bg-editorial-black text-white">Leases</Link>
-        <Link href="/dashboard/leases?tab=statements" className="px-3 py-2 text-xs font-heading font-semibold text-editorial-muted hover:text-editorial-black">Statements</Link>
       </div>
 
       {/* Leases Table Card */}
@@ -495,7 +528,7 @@ function LeasesManagementContent() {
         onClose={() => setSelectedLease(null)}
         eyebrow="Rental lease"
         title={selectedLease?.property?.title || selectedLease?.propertyTitle || "Lease agreement"}
-        subtitle={selectedLease ? `${selectedLease.tenantName || "Tenant"} · ${selectedLease.status || "—"}` : undefined}
+        subtitle={selectedLease ? `${selectedLease.tenantName || "Tenant"} · ${selectedLease.status || "-"}` : undefined}
         details={selectedLease ? [
           { label: "Tenant", value: selectedLease.tenantName },
           { label: "Tenant phone", value: selectedLease.tenantPhone },
@@ -503,10 +536,14 @@ function LeasesManagementContent() {
           { label: "Monthly rent", value: formatCurrency(Number(selectedLease.monthlyRent || 0), selectedLease.currency) },
           { label: "Deposit", value: formatCurrency(Number(selectedLease.depositAmount || 0), selectedLease.currency) },
           { label: "Management fee", value: `${selectedLease.managementFeePercent || 0}%` },
-          { label: "Lease term", value: `${selectedLease.leaseStartDate ? new Date(selectedLease.leaseStartDate).toLocaleDateString() : "—"} → ${selectedLease.leaseEndDate ? new Date(selectedLease.leaseEndDate).toLocaleDateString() : "—"}` },
+          { label: "Lease term", value: `${selectedLease.leaseStartDate ? new Date(selectedLease.leaseStartDate).toLocaleDateString() : "-"} → ${selectedLease.leaseEndDate ? new Date(selectedLease.leaseEndDate).toLocaleDateString() : "-"}` },
           { label: "Status", value: selectedLease.status?.replace(/_/g, " ") },
         ] : []}
-      />
+      >
+        {selectedLease && <div className="space-y-4"><div className="border-t border-editorial-border pt-4"><p className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted mb-2">Landlord statement</p><div className="grid grid-cols-2 gap-2"><select value={statementMonth} onChange={(event) => setStatementMonth(Number(event.target.value))} className="border border-editorial-border px-2 py-2 text-xs"><option value={1}>January</option><option value={2}>February</option><option value={3}>March</option><option value={4}>April</option><option value={5}>May</option><option value={6}>June</option><option value={7}>July</option><option value={8}>August</option><option value={9}>September</option><option value={10}>October</option><option value={11}>November</option><option value={12}>December</option></select><input type="number" value={statementYear} onChange={(event) => setStatementYear(Number(event.target.value))} className="border border-editorial-border px-2 py-2 text-xs" /></div>{statementError && <p className="mt-2 border border-red-200 bg-red-50 p-2 text-xs text-red-800">{statementError}</p>}<button type="button" disabled={isGeneratingStatement} onClick={() => void generateStatement()} className="mt-2 w-full border border-editorial-black bg-editorial-black px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-white disabled:opacity-50"><PendingButtonContent pending={isGeneratingStatement} pendingLabel="Generating statement…">Preview / download statement</PendingButtonContent></button><p className="mt-2 text-[10px] text-editorial-muted">The statement opens in a branded print preview. Choose Save as PDF or print from the browser dialog.</p></div><div className="flex flex-wrap gap-2 border-t border-editorial-border pt-4">{selectedLease.status !== "TERMINATED" && <button type="button" onClick={() => { setLeaseAction("TERMINATE"); setLeaseActionReason(""); setLeaseActionError(""); }} className="border border-red-300 bg-red-50 px-3 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-red-800">Cancel contract</button>}{selectedLease.status === "TERMINATED" && <button type="button" onClick={() => { setLeaseAction("RELIST"); setLeaseActionReason(""); setLeaseActionError(""); }} className="border border-emerald-300 bg-emerald-50 px-3 py-2 text-[10px] font-heading font-bold uppercase tracking-wider text-emerald-800">Return property to market</button>}</div></div>}
+      </SelectedRowDetailsDialog>
+
+      {leaseAction && selectedLease && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"><div className="w-full max-w-md space-y-4 border border-editorial-border bg-white p-6"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><h3 className="font-heading text-sm font-bold uppercase tracking-wider">{leaseAction === "TERMINATE" ? "Cancel lease contract" : "Return property to market"}</h3><button type="button" onClick={() => setLeaseAction(null)} aria-label="Close"><X className="h-4 w-4" /></button></div><p className="text-xs text-editorial-muted">{leaseAction === "TERMINATE" ? "This ends the active contract and makes the property available for a new mandate. Record the reason." : "Confirm that this property should be available for new rental enquiries."}</p>{leaseAction === "TERMINATE" && <textarea value={leaseActionReason} onChange={(event) => setLeaseActionReason(event.target.value)} rows={4} maxLength={2000} placeholder="Reason for cancelling the contract *" className="w-full border border-editorial-border p-2 text-xs" required />}{leaseActionError && <p className="border border-red-200 bg-red-50 p-2 text-xs text-red-800">{leaseActionError}</p>}<div className="flex justify-end gap-2 border-t border-editorial-border pt-3"><button type="button" onClick={() => setLeaseAction(null)} className="border border-editorial-border px-3 py-2 text-xs uppercase">Keep contract</button><button type="button" disabled={isSubmittingLeaseAction || (leaseAction === "TERMINATE" && !leaseActionReason.trim())} onClick={() => void submitLeaseAction()} className="bg-editorial-black px-3 py-2 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"><PendingButtonContent pending={isSubmittingLeaseAction} pendingLabel="Saving…">Confirm</PendingButtonContent></button></div></div></div>}
 
       {/* Interactive Modal: New Lease Agreement */}
       {isModalOpen && (

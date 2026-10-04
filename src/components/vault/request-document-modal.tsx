@@ -251,7 +251,7 @@ export function RequestDocumentModal({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-editorial-muted">
-                  Standard Documents (Optional — Click to Select)
+                  Standard Documents (Optional - Click to Select)
                 </label>
                 {requiredTypes.length > 0 && (
                   <button

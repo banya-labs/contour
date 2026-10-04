@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -18,12 +18,12 @@ export function PricingMatrix() {
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [currency, setCurrency] = useState<"ZMW" | "USD">("ZMW");
 
-  const plans = [
+  const [plans, setPlans] = useState([
     {
       id: "starter",
       name: "Starter Broker",
       badge: "Boutique & Solo",
-      description: "For boutique agencies & solo principals (1–3 agents).",
+      description: "For boutique agencies & solo principals (1-3 agents).",
       monthlyZmw: 1200,
       annualZmw: 960,
       monthlyUsd: 49,
@@ -44,7 +44,7 @@ export function PricingMatrix() {
       id: "growth",
       name: "Growth Agency",
       badge: "Most Popular ⭐",
-      description: "For scaling mid-sized brokerages (4–15 agents).",
+      description: "For scaling mid-sized brokerages (4-15 agents).",
       monthlyZmw: 3200,
       annualZmw: 2560,
       monthlyUsd: 129,
@@ -84,7 +84,18 @@ export function PricingMatrix() {
       ctaText: "Contact Sales",
       popular: false,
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    void fetch("/api/subscription-tiers", { cache: "no-store" }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok || !data.success) return;
+      setPlans((current) => current.map((plan) => {
+        const catalog = data.tiers.find((tier: { id: string }) => tier.id === plan.id);
+        return catalog ? { ...plan, name: catalog.name, description: catalog.description, badge: catalog.badge, monthlyZmw: catalog.monthlyZmw, annualZmw: catalog.annualZmw, monthlyUsd: catalog.monthlyUsd, annualUsd: catalog.annualUsd, features: catalog.features } : plan;
+      }));
+    });
+  }, []);
 
   return (
     <div className="w-full">

@@ -41,7 +41,7 @@ const updateStatementStatusSchema = z.object({
 });
 
 const postHandler = createApiHandler({
-  requirePermissions: ["statements.read"],
+  requirePermissions: ["leases.manage"],
   bodySchema: z.union([updateStatementStatusSchema, generateLandlordStatementSchema]),
   handler: async (req, ctx) => {
     const { organizationId, body, userId } = ctx;
@@ -78,8 +78,8 @@ const postHandler = createApiHandler({
     });
     if (!property) return NextResponse.json({ success: false, error: "Select an active rental property." }, { status: 404 });
 
-    const duplicate = await db.landlordStatement.findFirst({ where: { organizationId, propertyId: body.propertyId, statementMonth: body.statementMonth, statementYear: body.statementYear } });
-    if (duplicate) return NextResponse.json({ success: false, error: "A statement already exists for this property and month." }, { status: 409 });
+    const duplicate = await db.landlordStatement.findFirst({ where: { organizationId, propertyId: body.propertyId, statementMonth: body.statementMonth, statementYear: body.statementYear }, include: { property: { select: { title: true, suburb: true } } } });
+    if (duplicate) return NextResponse.json({ success: true, existing: true, statement: duplicate });
 
     const payments = await db.rentPayment.findMany({
       where: { organizationId: organizationId!, lease: { propertyId: body.propertyId }, periodMonth: body.statementMonth, periodYear: body.statementYear, status: "CONFIRMED" },

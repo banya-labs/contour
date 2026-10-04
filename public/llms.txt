@@ -1,4 +1,4 @@
-# Contour — Real Estate Operations & Field Agent OS
+# Contour - Real Estate Operations & Field Agent OS
 > Built for Southern African Real Estate Brokerages & Property Managers.
 
 ## Machine Interface Contract:

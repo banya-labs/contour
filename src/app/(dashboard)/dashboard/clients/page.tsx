@@ -625,7 +625,7 @@ function ClientsCRMContent() {
         onClose={() => setSelectedClient(null)}
         eyebrow="Client CRM record"
         title={selectedClient?.name || "Client"}
-        subtitle={selectedClient ? `${selectedClient.status || "—"} · ${selectedClient.purpose || "—"}` : undefined}
+        subtitle={selectedClient ? `${selectedClient.status || "-"} · ${selectedClient.purpose || "-"}` : undefined}
         details={selectedClient ? [
           { label: "Phone", value: selectedClient.phone },
           { label: "Email", value: selectedClient.email },

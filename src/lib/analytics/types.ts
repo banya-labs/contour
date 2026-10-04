@@ -359,7 +359,7 @@ export type ContourReportPayload = {
     currency: string;
   };
 
-  // 24, 25, 27: AI-synthesized narrative sections (initialized with deterministic defaults, enriched via AI route)
+  // 24, 25, 27: AI-synthesized narrative sections. Null until AI generates them.
   aiNarrative: {
     executiveSummaryText: string;
     whatIsWorking: string[];
@@ -370,5 +370,7 @@ export type ContourReportPayload = {
       nextMonthPriority3: string[];
     };
     conclusionText: string;
-  };
+  } | null;
 };
+
+export type AiNarrative = NonNullable<ContourReportPayload["aiNarrative"]>;

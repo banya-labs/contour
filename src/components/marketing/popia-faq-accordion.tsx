@@ -22,7 +22,7 @@ const FAQS: FaqItem[] = [
     id: "faq-1",
     question: "How does Contour function in the field during ZESCO load-shedding?",
     answer:
-      "Contour's Field Companion (/kiosk) is built as an offline-first Progressive Web App (PWA) powered by PowerSync and local SQLite WASM. All property specs, stand boundaries, landmark directions, and client contacts are cached locally on the agent's smartphone, allowing full offline operation during 8–12 hour power outages in Lusaka, Ndola, or Harare.",
+      "Contour's Field Companion (/kiosk) is built as an offline-first Progressive Web App (PWA) powered by PowerSync and local SQLite WASM. All property specs, stand boundaries, landmark directions, and client contacts are cached locally on the agent's smartphone, allowing full offline operation during 8-12 hour power outages in Lusaka, Ndola, or Harare.",
   },
   {
     id: "faq-2",

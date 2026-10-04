@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Contour — Real Estate Operations & Field Agent OS";
+export const alt = "Contour - Real Estate Operations & Field Agent OS";
 export const size = {
   width: 1200,
   height: 630,

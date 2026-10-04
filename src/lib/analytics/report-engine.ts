@@ -183,7 +183,7 @@ export class ContourReportEngine {
 
       let recommendation = "Continue monitoring";
       if (inqCount === 0 && visCount === 0) recommendation = "Review listing & boost marketing";
-      else if (inqCount > 3 && visCount > 2 && negCount === 0) recommendation = "Review price — resistance during viewings";
+      else if (inqCount > 3 && visCount > 2 && negCount === 0) recommendation = "Review price - resistance during viewings";
       else if (visCount === 0 && inqCount > 0) recommendation = "Audit photos and accessibility";
 
       return {
@@ -702,7 +702,7 @@ export class ContourReportEngine {
         agentId: u.id,
         name: u.name,
         email: u.email,
-        phone: u.phone || "—",
+        phone: u.phone || "-",
         inquiries: inqCount,
         matches: matchCount,
         viewings: userVisits.length,
@@ -1132,7 +1132,8 @@ export class ContourReportEngine {
         activePipeline: totalActivePipelineValue,
         currency,
       },
-      aiNarrative: {
+      aiNarrative: null,
+      /*
         executiveSummaryText: `${companyName} recorded robust operational velocity during ${periodLabel}, generating ${currency} ${grossCommission.toLocaleString()} in gross commission across ${completedTransactions.length} completed transactions. With ${totalNewInquiries} new client inquiries and an active deal pipeline of ${currency} ${totalActivePipelineValue.toLocaleString()}, the agency maintains solid market positioning.`,
         whatIsWorking: [
           `Lead Generation: Recorded ${totalNewInquiries} inquiries with strong conversion from ${highestConvertingLeadSource} channels.`,
@@ -1149,23 +1150,23 @@ export class ContourReportEngine {
         ],
         actionPlan: {
           immediatePriority1: [
-            "Review unmatched inquiries and mandate agents to canvass off-market inventory in top suburbs.",
-            "Clear all overdue client follow-up tasks to prevent lead cooling.",
-            "Update terms on all active negotiations to push towards written offers.",
+            `Contact the ${unmatchedCount} unmatched clients and source ${topType} inventory in ${topLocation}.`,
+            `Clear the ${followUpsDueCount} overdue follow-up tasks before the next reporting cycle.`,
+            `Move the ${negotiatingCount} active negotiations toward written offers and record the next action for each.`,
           ],
           thisWeekPriority2: [
-            "Initiate price reduction conversations with landlords of properties listed over 90 days.",
-            "Send formal arrears notices to tenants overdue by more than 7 days.",
-            "Audit viewing presentation checklists for agents with drop-offs at viewing stage.",
+            `Review pricing and marketing plans for all ${staleProperties.length} properties listed for more than 90 days.`,
+            `Recover ${currency} ${outstandingArrears.toLocaleString()} in rental arrears across ${arrearsTenants.length} tenants.`,
+            `Investigate the ${lostDealsCount} lost deals and the ${viewingToNegotiationPct}% viewing-to-negotiation conversion rate.`,
           ],
           nextMonthPriority3: [
-            `Acquire additional listing mandates specifically for ${topType} in ${topLocation}.`,
-            "Conduct monthly agent pipeline reviews to rebalance inquiry allocations.",
-            "Optimize marketing spend toward top-performing lead acquisition channels.",
+            `Acquire more ${topType} mandates in ${topLocation}, where demand is currently strongest.`,
+            `Rebalance acquisition activity toward ${highestConvertingLeadSource}, the top-performing lead source.`,
+            `Set a monthly conversion improvement target above the current ${matchRatePct}% matching rate and ${viewingToNegotiationPct}% viewing-to-negotiation rate.`,
           ],
         },
         conclusionText: `${periodLabel} demonstrated solid operational output and commercial momentum. The primary growth opportunity for the upcoming cycle is converting the ${unmatchedCount} unmatched clients by acquiring targeted residential inventory and preventing pipeline drop-offs between viewing and negotiation.`,
-      },
+      }, */
     };
   }
 }

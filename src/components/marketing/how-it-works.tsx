@@ -25,7 +25,7 @@ const WORKFLOW_DATA: Record<WorkflowKey, WorkflowStep[]> = {
     {
       step: "02",
       title: "MANAGE",
-      desc: "Track every viewing. Monitor every offer. WhatsApp follows up automatically — you don't chase, Contour does.",
+      desc: "Track every viewing. Monitor every offer. WhatsApp follows up automatically - you don't chase, Contour does.",
       illustrationType: "viewing",
     },
     {

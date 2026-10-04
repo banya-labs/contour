@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { ContourReportEngine } from "@/lib/analytics/report-engine";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export const GET = createApiHandler({
       fromDate = new Date(fromParam);
       toDate = new Date(toParam);
       toDate.setHours(23, 59, 59, 999);
-      label = `${fromParam} – ${toParam}`;
+      label = `${fromParam} - ${toParam}`;
     } else {
       // Default: this_month
       fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -62,11 +63,24 @@ export const GET = createApiHandler({
         label
       );
 
+      const snapshot = await db.aiInsightSnapshot.findUnique({
+        where: {
+          organizationId_periodFrom_periodTo: {
+            organizationId: organizationId!,
+            periodFrom: new Date(report.period.from),
+            periodTo: new Date(report.period.to),
+          },
+        },
+      });
+      report.aiNarrative = snapshot?.status === "READY" && snapshot.insights
+        ? snapshot.insights as typeof report.aiNarrative
+        : null;
+
       return NextResponse.json({ success: true, report });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[ANALYTICS_REPORT_ERROR]", err);
       return NextResponse.json(
-        { success: false, error: err?.message || "Failed to generate business intelligence report." },
+        { success: false, error: err instanceof Error ? err.message : "Failed to generate business intelligence report." },
         { status: 500 }
       );
     }

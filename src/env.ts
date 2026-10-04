@@ -4,7 +4,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().url().default("postgresql://postgres:postgres@localhost:5432/contour_db"),
-    // No default — must be set explicitly. Use: openssl rand -base64 32
+    // No default - must be set explicitly. Use: openssl rand -base64 32
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
     GOOGLE_CLIENT_ID: z.string().optional(),

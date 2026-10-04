@@ -32,7 +32,7 @@ import {
   RectangleVertical,
 } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
-import html2canvas from "html2canvas";
+import { toCanvas } from "html-to-image";
 import QRCode from "qrcode";
 import { formatCurrency } from "@/lib/utils";
 import { formatPhoneDisplay } from "@/lib/phone-utils";
@@ -40,6 +40,7 @@ import { getAgencySettings, AgencySettings } from "@/lib/settings/agency-setting
 import { publicPropertyPath } from "@/lib/public-property";
 import { resolveFlyerContact, FlyerContactSource } from "./flyer-contact";
 import { FLYER_CANVAS } from "@/lib/flyer-render-model";
+import { getFlyerExportDimensions } from "@/lib/flyer-export";
 
 async function waitForFlyerAssets(root: HTMLElement): Promise<number> {
   const images = Array.from(root.querySelectorAll("img"));
@@ -75,7 +76,7 @@ export type FlyerTemplate = "SWISS_LIGHT" | "SWISS_DARK" | "NAVY_EDITORIAL" | "G
 export type FlyerAspectRatio = keyof typeof FLYER_CANVAS;
 
 function formatFlyerPrice(value: number | null | undefined): string {
-  return value == null ? "—" : new Intl.NumberFormat("en-US").format(value).replace(/,/g, " ");
+  return value == null ? "-" : new Intl.NumberFormat("en-US").format(value).replace(/,/g, " ");
 }
 
 function FlyerFooter({
@@ -102,7 +103,7 @@ function FlyerFooter({
           <div className="truncate font-heading text-[10px] font-bold uppercase tracking-wide">For more information and viewings, contact</div>
           <div className="truncate font-heading text-[14px] font-extrabold leading-tight text-white">{contactName}</div>
           <div className="truncate font-mono text-[15px] font-extrabold leading-tight text-white">{formatPhoneDisplay(contactPhone) || "number unavailable"}</div>
-          <div className="truncate text-[8px] font-mono text-neutral-300">ZIEA No. {zieaNumber || "—"}</div>
+          <div className="truncate text-[8px] font-mono text-neutral-300">ZIEA No. {zieaNumber || "-"}</div>
         </div>
       </div>
       <div className="flex items-center bg-[#fa3600] px-4 font-heading text-[10px] font-bold uppercase tracking-wider text-white">
@@ -265,7 +266,7 @@ export default function SocialMediaCardGeneratorModal({
       website: agencySettings?.website,
     },
   );
-  const logoUrl = organizationLogoUrl.trim();
+  const logoUrl = organizationLogoUrl.trim() || agencySettings?.logoUrl?.trim() || "";
 
   const photos = property.photos && property.photos.length > 0
     ? property.photos
@@ -293,7 +294,7 @@ export default function SocialMediaCardGeneratorModal({
 
   const isDark = template === "SWISS_DARK" || template === "NAVY_EDITORIAL";
 
-  // Real-Photo PNG Generation via html2canvas
+  // Real-Photo PNG Generation via html-to-image
   const handleDownloadCard = async () => {
     setDownloadError(null);
     setDownloadSuccess(false);
@@ -312,37 +313,25 @@ export default function SocialMediaCardGeneratorModal({
       }
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-      const canvasWidth = cardRef.current.getBoundingClientRect().width;
-      const exportScale = FLYER_CANVAS[aspectRatio].width / canvasWidth;
-      const canvas = await html2canvas(cardRef.current, {
-        // Export dimensions are a contract, not a side effect of the modal's
-        // responsive preview width. This guarantees 1080x1350, 1080x1080,
-        // or 1080x1920 for every download.
-        scale: exportScale,
-        useCORS: true,
-        allowTaint: false,
+      const capture = getFlyerExportDimensions(cardRef.current, aspectRatio);
+      const canvas = await toCanvas(cardRef.current, {
+        width: capture.width,
+        height: capture.sourceHeight,
+        canvasWidth: capture.canvasWidth,
+        canvasHeight: capture.canvasHeight,
+        pixelRatio: 1,
         backgroundColor: isDark ? "#282828" : "#ffffff",
-        logging: false,
-        imageTimeout: 5000,
-        width: cardRef.current.clientWidth,
-        height: cardRef.current.clientHeight,
-        scrollX: 0,
-        scrollY: 0,
       });
 
       const expectedCanvas = FLYER_CANVAS[aspectRatio];
-      // Browser layout widths can be fractional, so html2canvas may round its
-      // bitmap a few pixels short. Normalize to the export contract instead of
-      // treating harmless raster rounding as a failed download.
-      const exportCanvas = document.createElement("canvas");
-      exportCanvas.width = expectedCanvas.width;
-      exportCanvas.height = expectedCanvas.height;
-      const exportContext = exportCanvas.getContext("2d");
-      if (!exportContext) throw new Error("The flyer export canvas could not be created.");
-      exportContext.drawImage(canvas, 0, 0, expectedCanvas.width, expectedCanvas.height);
+      if (canvas.width !== expectedCanvas.width || canvas.height !== expectedCanvas.height) {
+        throw new Error(
+          `Flyer export size mismatch: expected ${expectedCanvas.width}x${expectedCanvas.height}, received ${canvas.width}x${canvas.height}`,
+        );
+      }
 
       const blob = await new Promise<Blob>((resolve, reject) => {
-        exportCanvas.toBlob((value) => {
+        canvas.toBlob((value) => {
           if (value) resolve(value);
           else reject(new Error("The flyer image could not be encoded."));
         }, "image/png");
@@ -359,7 +348,7 @@ export default function SocialMediaCardGeneratorModal({
       setDownloadSuccess(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "The flyer could not be downloaded. Please try again.";
-      console.error("[FlyerModal] HTML2Canvas compilation failed:", err);
+      console.error("[FlyerModal] HTML-to-image compilation failed:", err);
       setDownloadError(message);
     } finally {
       setIsDownloading(false);

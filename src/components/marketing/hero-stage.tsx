@@ -12,7 +12,7 @@ export function HeroStage() {
 
   React.useEffect(() => {
     // Small delay ensures the initial hidden state renders first, then the
-    // animation fires — giving us the visible "sun rises from behind building" effect.
+    // animation fires - giving us the visible "sun rises from behind building" effect.
     const timer = setTimeout(() => setHasMounted(true), 120);
     return () => clearTimeout(timer);
   }, []);
@@ -68,7 +68,7 @@ export function HeroStage() {
   //
   // Layer stack (bottom → top):
   //   z-0  Dawn atmosphere gradient (warm amber/orange sky)
-  //   z-10 Sun circle — visible through PNG's transparent sky pixels
+  //   z-10 Sun circle - visible through PNG's transparent sky pixels
   //   z-20 HERO.png (transparent sky lets the sun show through)
   //   z-30 Text content overlay
   // ─────────────────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ export function HeroStage() {
         <div
           className="relative w-full aspect-[16/9] min-h-[560px] max-h-[820px] flex items-center overflow-hidden"
           style={{
-            // Dawn sky gradient — warm amber near the horizon, pale cream at top.
+            // Dawn sky gradient - warm amber near the horizon, pale cream at top.
             // This colour shows through the PNG's transparent sky pixels.
             background:
               "linear-gradient(to bottom, #FDF6ED 0%, #FDEBD0 30%, #FDD09A 55%, #F9A55A 70%, #F0793A 80%, #E85C20 88%, #D94810 95%, #C73A08 100%)",
@@ -117,14 +117,14 @@ export function HeroStage() {
               }}
               style={{ transform: "translate(50%, -50%)" }}
             >
-              {/* Sun disc — flat editorial-red circle */}
+              {/* Sun disc - flat editorial-red circle */}
               <div
                 className="rounded-full bg-editorial-red w-[200px] h-[200px] sm:w-[330px] sm:h-[330px]"
               />
             </motion.div>
           </motion.div>
 
-          {/* ── Layer 2: HERO.png — transparent sky reveals sun & sky behind ── */}
+          {/* ── Layer 2: HERO.png - transparent sky reveals sun & sky behind ── */}
           <div className="absolute inset-0 z-20 pointer-events-none">
             <Image
               src="/images/HERO.png"
@@ -185,7 +185,7 @@ export function HeroStage() {
       {/* ── Key System Aspects Strip ── */}
       <div className="w-full border-t border-b border-editorial-black bg-white">
         <div className="max-w-[1400px] mx-auto border-x border-editorial-black">
-          {/* Mobile View: Single compact row infinite marquee (< md) — 50% slower flow (duration 32s) */}
+          {/* Mobile View: Single compact row infinite marquee (< md) - 50% slower flow (duration 32s) */}
           <div className="md:hidden overflow-hidden py-3 bg-white flex whitespace-nowrap select-none">
             <motion.div
               className="flex items-center gap-6 shrink-0 pr-6"

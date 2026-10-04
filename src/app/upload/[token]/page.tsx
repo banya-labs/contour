@@ -348,7 +348,7 @@ export default function ClientUploadPortalPage() {
               <input
                 type="text"
                 autoFocus
-                placeholder="Enter 4–8 digit PIN"
+                placeholder="Enter 4-8 digit PIN"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 className="w-full text-center text-lg tracking-widest font-mono py-2.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 focus:ring-2 focus:ring-amber-500 outline-none"

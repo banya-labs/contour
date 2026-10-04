@@ -27,7 +27,7 @@ export const POST = createApiHandler({
       data: {
         organizationId,
         propertyId,
-        title: `Survey evidence — ${property.title}`,
+        title: `Survey evidence - ${property.title}`,
         docType: "SITE_SURVEY_DIAGRAM",
         classification: "RESTRICTED_MANAGEMENT",
         objectKey,

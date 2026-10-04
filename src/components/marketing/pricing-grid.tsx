@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { CornerMark } from "@/components/ui/corner-mark";
@@ -9,14 +9,14 @@ import { ease } from "@/lib/animation-variants";
 export function PricingGrid() {
   const [currency, setCurrency] = useState<"ZMW" | "USD">("ZMW");
 
-  const plans = [
+  const [plans, setPlans] = useState([
     {
       id: "starter",
       name: "STARTER BROKER",
       priceZMW: "K 1,200",
       priceUSD: "$49",
       period: "/mo",
-      tagline: "For boutique agencies & solo principals (1–3 agents)",
+      tagline: "For boutique agencies & solo principals (1-3 agents)",
       isAgency: false,
       cta: "Start Free Trial →",
       href: "/sign-up",
@@ -27,7 +27,7 @@ export function PricingGrid() {
       priceZMW: "K 3,200",
       priceUSD: "$129",
       period: "/mo",
-      tagline: "For scaling mid-sized brokerages (4–15 agents)",
+      tagline: "For scaling mid-sized brokerages (4-15 agents)",
       isAgency: true,
       cta: "Start Free Trial →",
       href: "/sign-up",
@@ -43,7 +43,18 @@ export function PricingGrid() {
       cta: "Contact Sales →",
       href: "#contact",
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    void fetch("/api/subscription-tiers", { cache: "no-store" }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok || !data.success) return;
+      setPlans((current) => current.map((plan) => {
+        const catalog = data.tiers.find((tier: { id: string }) => tier.id === plan.id);
+        return catalog ? { ...plan, priceZMW: `K ${catalog.monthlyZmw.toLocaleString("en-US")}`, priceUSD: `$${catalog.monthlyUsd}` } : plan;
+      }));
+    });
+  }, []);
 
   type FeatureRow = {
     name: string;
@@ -56,7 +67,7 @@ export function PricingGrid() {
     // Quotas & Capacities
     { name: "Active Listings Cap", starter: "Up to 50", growth: "Up to 250", enterprise: "Unlimited" },
     { name: "Managed Rental Units", starter: "20 units", growth: "100 units", enterprise: "Unlimited" },
-    { name: "Agent Seat Licenses", starter: "1–3 agents", growth: "4–15 agents", enterprise: "Unlimited" },
+    { name: "Agent Seat Licenses", starter: "1-3 agents", growth: "4-15 agents", enterprise: "Unlimited" },
 
     // Core Brokerage Operations
     { name: "Interactive Lusaka Leaflet property map", starter: true, growth: true, enterprise: true },
@@ -293,7 +304,7 @@ export function PricingGrid() {
                   ) : row.starter ? (
                     <span className="text-editorial-black font-bold text-sm">✓</span>
                   ) : (
-                    <span className="text-neutral-300">—</span>
+                    <span className="text-neutral-300">-</span>
                   )}
                 </div>
 
@@ -306,7 +317,7 @@ export function PricingGrid() {
                   ) : row.growth ? (
                     <span className="text-editorial-red font-bold text-base">✓</span>
                   ) : (
-                    <span className="text-neutral-600">—</span>
+                    <span className="text-neutral-600">-</span>
                   )}
                 </div>
 
@@ -319,7 +330,7 @@ export function PricingGrid() {
                   ) : row.enterprise ? (
                     <span className="text-editorial-black font-bold text-sm">✓</span>
                   ) : (
-                    <span className="text-neutral-300">—</span>
+                    <span className="text-neutral-300">-</span>
                   )}
                 </div>
               </div>

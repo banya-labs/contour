@@ -176,8 +176,6 @@ function LandlordStatementsContent() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
-      <PageTabs tabs={[{ id: "leases", label: "Active Leases", href: "/dashboard/leases" }, { id: "statements", label: "Landlord Statements", href: "/dashboard/leases?tab=statements", count: statements.length }]} activeTab="statements" />
-      {formSuccess && <div className="border border-emerald-300 bg-emerald-50 p-2.5 text-xs text-emerald-800">{formSuccess}</div>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>
@@ -217,6 +215,16 @@ function LandlordStatementsContent() {
         </div>
       </div>
 
+      <PageTabs
+        tabs={[
+          { id: "leases", label: "Active Leases", href: "/dashboard/leases" },
+          { id: "statements", label: "Landlord Statements", href: "/dashboard/leases?tab=statements", count: statements.length },
+        ]}
+        activeTab="statements"
+        className="mt-1"
+      />
+      {formSuccess && <div className="border border-emerald-300 bg-emerald-50 p-2.5 text-xs text-emerald-800">{formSuccess}</div>}
+
       {/* Statements List */}
       <div className="space-y-4">
         {loading ? (
@@ -230,13 +238,6 @@ function LandlordStatementsContent() {
         ) : (
           statements.map((stmt) => {
             const isAuthorized = stmt.status === "PAID_OUT";
-            const actionLabel = stmt.status === "DRAFT"
-              ? "Approve statement"
-              : stmt.status === "APPROVED_BY_MANAGER"
-              ? "Send to landlord"
-              : stmt.status === "SENT_TO_LANDLORD"
-              ? "Confirm paid out"
-              : null;
             const monthStr = `${MONTHS[stmt.statementMonth - 1]} ${stmt.statementYear}`;
 
             return (
@@ -324,7 +325,7 @@ function LandlordStatementsContent() {
                         pendingLabel="Authorising statement…"
                         icon={<Lock className="h-3.5 w-3.5" />}
                       >
-                        {actionLabel}
+                        Authorize &amp; Disburse Remittance
                       </PendingButtonContent>
                     </button>
                   ) : (

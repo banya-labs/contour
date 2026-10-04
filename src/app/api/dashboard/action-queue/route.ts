@@ -49,9 +49,9 @@ const getHandler = createApiHandler({
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
-          // 3. NEW_INQUIRY clients not yet contacted
+          // 3. NEW_INQUIRY clients that still need assignment
           db.inquiry.findMany({
-            where: { organizationId, status: "NEW_INQUIRY" },
+            where: { organizationId, status: "NEW_INQUIRY", assignedAgentId: null },
             orderBy: { createdAt: "asc" },
             take: 2,
           }),

@@ -252,7 +252,7 @@ export async function POST(req: NextRequest) {
       vaultDoc = await db.vaultDocument.create({
         data: {
           organizationId,
-          title: `Title Deed — ${uploadFileName}`,
+          title: `Title Deed - ${uploadFileName}`,
           docType: DocumentType.TITLE_DEED,
           classification: SecurityLevel.RESTRICTED_MANAGEMENT,
           objectKey,

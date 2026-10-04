@@ -78,7 +78,7 @@ function PropertySalesContent() {
         if (salesData.success && salesData.transactions) {
           const normalized = salesData.transactions.map((t: any) => {
             const buyerName = t.inquiry?.clientName || "Buyer details pending";
-            const buyerContact = t.inquiry?.clientPhone || "—";
+            const buyerContact = t.inquiry?.clientPhone || "-";
             const buyerNrcPassport = "Not captured";
             const ministryRef = `LUS/LAND/2026/${t.id.slice(-4).toUpperCase()}-A`;
 
@@ -306,14 +306,6 @@ function PropertySalesContent() {
 
   return activeTab === "commissions" ? <CommissionsPage /> : (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
-      <PageTabs
-        tabs={[
-          { id: "sales", label: "Sales Register", count: sales.length },
-          { id: "commissions", label: "Commissions" },
-        ]}
-        activeTab={activeTab}
-        onChange={(tabId) => router.push(tabId === "commissions" ? "/dashboard/sales?tab=commissions" : "/dashboard/sales")}
-      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>
@@ -380,6 +372,16 @@ function PropertySalesContent() {
           </span>
         </MotionCard>
       </div>
+
+      <PageTabs
+        tabs={[
+          { id: "sales", label: "Sales Register", count: sales.length },
+          { id: "commissions", label: "Commissions" },
+        ]}
+        activeTab={activeTab}
+        onChange={(tabId) => router.push(tabId === "commissions" ? "/dashboard/sales?tab=commissions" : "/dashboard/sales")}
+        className="mt-1"
+      />
 
       {/* Search & Status Filter */}
       <div className="bg-white p-3 border border-editorial-border flex flex-wrap items-center justify-between gap-3">
@@ -572,7 +574,7 @@ function PropertySalesContent() {
         onClose={() => setSelectedSale(null)}
         eyebrow="Closed property sale"
         title={selectedSale?.propertyTitle || "Property sale"}
-        subtitle={selectedSale ? `${selectedSale.suburb || "—"} · ${selectedSale.closedAt || "No closing date"}` : undefined}
+        subtitle={selectedSale ? `${selectedSale.suburb || "-"} · ${selectedSale.closedAt || "No closing date"}` : undefined}
         details={selectedSale ? [
           { label: "Buyer", value: selectedSale.buyerName },
           { label: "Buyer contact", value: selectedSale.buyerContact },

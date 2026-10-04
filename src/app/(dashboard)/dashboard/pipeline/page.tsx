@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { MotionCard } from "@/components/ui/animate/motion-card";
 import { NumberTicker } from "@/components/ui/animate/number-ticker";
@@ -27,6 +28,7 @@ import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
+import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 import { authClient } from "@/lib/auth-client";
 import { isManagementRole } from "@/lib/authorization";
 import { canOpenPipelineClosingWorkflow } from "@/lib/closing-workflow-ui";
@@ -700,6 +702,8 @@ function DealPipelineContent() {
         </Link>
       </div>
 
+      <UnassignedMatchPanel />
+
       {/* Velocity Intelligence Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <MotionCard withCorners className="p-3 sm:p-4">
@@ -1257,7 +1261,7 @@ function DealPipelineContent() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-editorial-muted whitespace-nowrap">
-                      {deal.closedAt ? new Date(deal.closedAt).toLocaleDateString("en-ZM", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                      {deal.closedAt ? new Date(deal.closedAt).toLocaleDateString("en-ZM", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-3">
@@ -1283,13 +1287,13 @@ function DealPipelineContent() {
           { label: "Client", value: selectedClosedDeal.clientName },
           { label: "Phone", value: selectedClosedDeal.clientPhone },
           { label: "Email", value: selectedClosedDeal.clientEmail },
-          { label: "Property", value: `${selectedClosedDeal.propertyTitle || "—"} · ${selectedClosedDeal.suburb || "—"}` },
+          { label: "Property", value: `${selectedClosedDeal.propertyTitle || "-"} · ${selectedClosedDeal.suburb || "-"}` },
           { label: "Deal value", value: formatCurrency(selectedClosedDeal.dealValue, selectedClosedDeal.currency) },
           { label: "Agency commission", value: formatCurrency(selectedClosedDeal.agencyCommission, selectedClosedDeal.currency) },
           { label: "TO / Agent", value: selectedClosedDeal.agentName || "Unassigned" },
           { label: "Lead source", value: selectedClosedDeal.leadSource?.replace(/_/g, " ") },
           { label: "Outcome", value: selectedClosedDeal.outcome },
-          { label: "Closed", value: selectedClosedDeal.closedAt ? new Date(selectedClosedDeal.closedAt).toLocaleDateString("en-ZM") : "—" },
+          { label: "Closed", value: selectedClosedDeal.closedAt ? new Date(selectedClosedDeal.closedAt).toLocaleDateString("en-ZM") : "-" },
           { label: selectedClosedDeal.outcome === "CANCELLED" ? "Cancellation reason" : "Lost reason", value: selectedClosedDeal.outcome === "CANCELLED" ? selectedClosedDeal.cancellationReason : selectedClosedDeal.lostReason },
         ] : []}
       />
