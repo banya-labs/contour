@@ -58,6 +58,9 @@ pnpm build
 # Unit and route regression tests
 pnpm test
 
+# Closing dialog stacking on desktop/mobile (isolated UI, mocked API)
+node scripts/test-closing-dialog-stacking.mjs
+
 # Cross-tenant integration test against an isolated PostgreSQL database
 TEST_DATABASE_URL="postgresql://..." pnpm test -- tests/integration/dify-tenant-isolation.integration.test.ts
 ```

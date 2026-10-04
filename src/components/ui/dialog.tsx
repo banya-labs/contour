@@ -5,7 +5,18 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root;
+const DialogLayerContext = React.createContext<number | null>(null);
+
+// Portals escape layout stacking contexts. React context preserves nesting so
+// a child dialog and its backdrop always sit above the dialog that opened it.
+function Dialog({ layer, ...props }: React.ComponentProps<typeof DialogPrimitive.Root> & { layer?: number }) {
+  const parentLayer = React.useContext(DialogLayerContext);
+  return (
+    <DialogLayerContext.Provider value={layer ?? (parentLayer === null ? 50 : parentLayer + 10)}>
+      <DialogPrimitive.Root {...props} />
+    </DialogLayerContext.Provider>
+  );
+}
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
@@ -13,9 +24,10 @@ const DialogClose = DialogPrimitive.Close;
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
+>(({ className, style, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
+    style={{ ...style, zIndex: React.useContext(DialogLayerContext) ?? 50 }}
     className={cn(
       "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
@@ -28,11 +40,12 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, style, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      style={{ ...style, zIndex: React.useContext(DialogLayerContext) ?? 50 }}
       className={cn(
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-editorial-border bg-white p-6 shadow-2xl duration-150 rounded-none text-editorial-black font-geist data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className

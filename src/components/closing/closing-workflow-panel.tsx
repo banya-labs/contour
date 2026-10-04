@@ -5,6 +5,7 @@ import { Check, FileUp, Link2 } from "lucide-react";
 import { StartLeaseDialog } from "./start-lease-dialog";
 import { RequestDocumentModal } from "@/components/vault/request-document-modal";
 import { UploadDocumentModal } from "@/components/vault/upload-document-modal";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 type WorkflowItem = {
   id: string;
@@ -191,28 +192,20 @@ export function ClosingWorkflowPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <section className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-editorial-border shadow-xl">
+    <Dialog open layer={80} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto p-0 block" onPointerDownOutside={(event) => event.preventDefault()}>
         <header className="p-5 border-b border-editorial-border flex items-start justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-widest font-bold text-contour-red">
               Verification & Closing
             </p>
-            <h2 className="font-heading text-lg font-bold mt-1">
+            <DialogTitle className="font-heading text-lg font-bold mt-1 normal-case">
               Closing requirements
-            </h2>
-            <p className="text-xs text-editorial-muted mt-1">
+            </DialogTitle>
+            <DialogDescription className="text-xs text-editorial-muted mt-1">
               Complete the agency requirements before closing this deal.
-            </p>
+            </DialogDescription>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-editorial-muted hover:text-editorial-black"
-            aria-label="Close closing workflow"
-          >
-            ×
-          </button>
         </header>
         {error && (
           <p className="m-4 p-3 border border-red-300 bg-red-50 text-xs text-red-800">
@@ -513,7 +506,7 @@ export function ClosingWorkflowPanel({
               defaultTitle={evidenceItem.label}
             />
           )}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

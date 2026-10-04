@@ -262,6 +262,7 @@ function DealPipelineContent() {
   const closedDeals = deals.filter((deal) => deal.stage === "CLOSED");
 
   const openCloseModal = (deal: Deal) => {
+    setSelectedClosedDeal(null);
     setCloseTarget(deal);
     setCloseOutcome(deal.outcome === "LOST" ? "LOST" : "WON");
     setLostReason(deal.lostReason || "");
