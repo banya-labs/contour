@@ -1,4 +1,5 @@
 import { CheckCircle2, X } from "lucide-react";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { propertyTypeLabel } from "@/lib/property-types";
 
 export type InquiryMatch = {
@@ -58,7 +59,7 @@ export function InquiryMatchModal({ inquiry, matches, threshold, loading, error,
         </div>
 
         {loading ? (
-          <div className="py-10 text-center text-xs text-editorial-muted">Checking active properties...</div>
+          <SectionPendingState label="Checking active properties…" />
         ) : error ? (
           <div className="border border-red-200 bg-red-50 p-3 text-xs text-red-800">{error}</div>
         ) : qualifyingMatches.length === 0 ? (

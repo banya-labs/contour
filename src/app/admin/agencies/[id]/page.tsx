@@ -7,6 +7,7 @@ import { AgencySubscriptionEditor } from "@/components/admin/agency-subscription
 import { AgencySupportActions } from "@/components/admin/agency-support-actions";
 import { AgencyAccountActions } from "@/components/admin/agency-account-actions";
 import { formatActivityActor, formatAgencyOwner, formatSubscriptionState } from "@/lib/admin-control-plane/formatters";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 type Agency = {
   id: string;
@@ -28,8 +29,11 @@ export default function AdminAgencyDetailPage({ params }: { params: Promise<{ id
   const [agency, setAgency] = useState<Agency | null>(null);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [message, setMessage] = useState("Loading agency…");
+  const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
 
   async function load(id: string) {
+    setLoading(true);
     setMessage("Loading agency…");
     try {
       const [agencyResponse, activityResponse] = await Promise.all([
@@ -51,18 +55,19 @@ export default function AdminAgencyDetailPage({ params }: { params: Promise<{ id
       setAgency(null);
       setActivity([]);
       setMessage("Unable to load agency. Check your connection and try again.");
-    }
+    } finally { setLoading(false); }
   }
 
-  useEffect(() => { void params.then(({ id }) => load(id)); }, [params]);
+  useEffect(() => { void params.then(({ id }) => load(id)).catch(() => { setMessage("Unable to load agency."); setLoading(false); }); }, [params, retry]);
 
   if (message && !agency) {
-    return <main className="min-h-screen bg-editorial-bg px-4 py-6"><Link href="/admin/agencies" className="inline-flex items-center gap-2 text-xs font-bold uppercase"><ArrowLeft className="h-4 w-4" /> Agency directory</Link><p className="mt-6 text-sm text-editorial-muted">{message}</p></main>;
+    return <main className="min-h-screen bg-editorial-bg px-4 py-6"><Link href="/admin/agencies" className="inline-flex items-center gap-2 text-xs font-bold uppercase"><ArrowLeft className="h-4 w-4" /> Agency directory</Link>{loading ? <SectionPendingState label="Loading agency details…" /> : <p role="alert" className="mt-6 text-sm text-editorial-muted">{message} <button type="button" onClick={() => setRetry(value => value + 1)} className="underline">Retry</button></p>}</main>;
   }
   if (!agency) return null;
 
   const ownerText = formatAgencyOwner(agency.owners);
   return <main className="min-h-screen bg-editorial-bg px-4 py-6 font-geist text-editorial-black sm:px-8"><div className="mx-auto max-w-7xl space-y-7">
+    {loading && <SectionPendingState compact label="Refreshing agency details…" />}
     <Link href="/admin/agencies" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-editorial-muted hover:text-editorial-red"><ArrowLeft className="h-4 w-4" /> Agency directory</Link>
     <header className="flex flex-col gap-4 border-b border-editorial-border pb-6 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-editorial-red">Platform operations // agency</p><h1 className="mt-2 font-heading text-4xl font-bold uppercase">{agency.name}</h1><p className="mt-2 font-mono text-xs text-editorial-muted">/{agency.slug} · Created {new Date(agency.createdAt).toLocaleDateString()}</p></div><div className="flex flex-wrap items-center gap-3"><span className="border border-editorial-border bg-white px-3 py-2 text-xs font-bold uppercase">{agency.accountStatus}</span><AgencySupportActions organizationId={agency.id} agencyName={agency.name} /></div></header><section className="border border-editorial-border bg-white p-5"><p className="label">Agency account controls</p><div className="mt-3"><AgencyAccountActions organizationId={agency.id} accountStatus={agency.accountStatus} onSaved={() => void load(agency.id)} /></div></section>
     {message && <p className="text-sm text-editorial-muted">{message}</p>}

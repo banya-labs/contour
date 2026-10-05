@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Download, Printer, ZoomIn, ZoomOut, ArrowLeft } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { OperationProgress } from "@/components/ui/operation-progress";
 import { prepareStatement, snapshotSchema, statementUrl, type GenerationInput, type StatementSnapshot } from "@/lib/statements/document";
 import { landlordSnapshot } from "@/lib/statements/legacy-landlord";
 
@@ -24,6 +25,7 @@ export function statementPages(snapshot: StatementSnapshot, rowsPerPage = 8, mer
 export function StatementViewer({ documentId, legacyLandlord = false }: { documentId: string; legacyLandlord?: boolean }) {
   const [saved, setSaved] = useState<Saved | null>(null), [error, setError] = useState(""), [loading, setLoading] = useState(true), [retry, setRetry] = useState(0), [busy, setBusy] = useState(false), [progress, setProgress] = useState(""), [zoom, setZoom] = useState(100);
   const pagesRef = useRef<HTMLDivElement>(null), lock = useRef(false);
+  const [pdfProgress, setPdfProgress] = useState<{ completed: number; total: number } | null>(null);
   const legacyInput = useRef<{ propertyId: string; statementMonth: number; statementYear: number; currency: string } | null>(null);
   const [rowsPerPage, setRowsPerPage] = useState(8), [mergeFirst, setMergeFirst] = useState(true);
   const [detailsPerPage, setDetailsPerPage] = useState(8), [layoutReady, setLayoutReady] = useState(false);
@@ -59,14 +61,17 @@ export function StatementViewer({ documentId, legacyLandlord = false }: { docume
       await Promise.all([...pagesRef.current.querySelectorAll("img")].map(img => img.decode().catch(() => undefined)));
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
       const pages = [...pagesRef.current.querySelectorAll<HTMLElement>(".statement-paper")];
+      setPdfProgress({ completed: 0, total: pages.length });
       for (let i = 0; i < pages.length; i++) {
         setProgress(`Rendering page ${i + 1} of ${pages.length}…`);
         const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true, logging: false, backgroundColor: "#fff", onclone: doc => { doc.querySelectorAll<HTMLElement>(".statement-paper").forEach(p => { p.style.transform = "none"; }); } });
         if (i) pdf.addPage(); pdf.addImage(canvas.toDataURL("image/jpeg", .95), "JPEG", 0, 0, 210, 297, undefined, "FAST");
+        setPdfProgress({ completed: i + 1, total: pages.length });
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       }
       pdf.save(`${saved.snapshot.title.replace(/[^a-zA-Z0-9]/g, "_")}_${saved.id}_v${saved.revision}.pdf`);
     } catch { setError("Unable to download this PDF. Retry, or use Print to save a PDF in your browser."); }
-    finally { setBusy(false); setProgress(""); lock.current = false; }
+    finally { setBusy(false); setProgress(""); setPdfProgress(null); lock.current = false; }
   };
   const regenerate = async () => {
     if (!saved || (!saved.generationInput && !legacyInput.current) || lock.current) return; lock.current = true; setBusy(true); setError(""); setProgress("Generating a fresh revision…");
@@ -87,6 +92,7 @@ export function StatementViewer({ documentId, legacyLandlord = false }: { docume
       <div className="flex flex-wrap items-center gap-2"><div className="hidden items-center sm:flex"><button aria-label="Zoom out" className="min-h-11 px-2" onClick={() => setZoom(v => Math.max(30, v - 10))}><ZoomOut className="h-4 w-4" /></button><span className="text-xs">{zoom}%</span><button aria-label="Zoom in" className="min-h-11 px-2" onClick={() => setZoom(v => Math.min(150, v + 10))}><ZoomIn className="h-4 w-4" /></button></div><button disabled={busy || !layoutReady} className="min-h-11 bg-emerald-600 px-4 text-sm font-semibold disabled:opacity-60" onClick={() => void download()}><Download className="mr-2 inline h-4 w-4" />{busy ? progress : "Download PDF"}</button><button disabled={busy || !layoutReady} className="min-h-11 bg-[#16382B] px-4 text-sm font-semibold disabled:opacity-60" onClick={() => window.print()}><Printer className="mr-2 inline h-4 w-4" />Print statement</button>{(saved.generationInput || legacyInput.current) && <button disabled={busy} className="min-h-11 border border-white/30 px-3 text-xs disabled:opacity-60" onClick={() => void regenerate()}>Generate updated revision</button>}</div>
     </nav>
     {error && <p role="alert" className="bg-red-50 p-3 text-sm text-red-800 print:hidden">{error}</p>}
+    {(busy || !layoutReady) && <div className="bg-[#1E2023] text-white print:hidden"><OperationProgress label={busy ? progress || "Preparing statement…" : "Fitting statement pages…"} completed={pdfProgress?.completed} total={pdfProgress?.total} /></div>}
     <div className="statement-scroll flex-1 overflow-auto p-4 sm:p-8"><div ref={pagesRef} className="statement-pages">
       {pages.map((page, i) => <div className="statement-wrap mx-auto mb-8" key={i} style={{ width: `${210 * zoom / 100}mm`, height: `${297 * zoom / 100}mm` }}><div className="statement-paper flex flex-col bg-white p-[18mm] shadow-xl" style={{ width: "210mm", height: "297mm", transform: `scale(${zoom / 100})`, transformOrigin: "top left", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
         <header className="flex items-start justify-between gap-6 border-b-2 border-[#16382B] pb-5"><div className="min-w-0"><div className="flex h-12 items-center">{snapshot.organization.logo && snapshot.organization.logo !== failedLogo ? <Image src={snapshot.organization.logo} alt={`${snapshot.organization.name} logo`} width={176} height={48} unoptimized crossOrigin="anonymous" onError={() => setFailedLogo(snapshot.organization.logo)} className="max-h-12 object-contain" /> : <ContourLogo iconOnly size="lg" className="!text-[48px]" />}</div><h2 className="mt-3 break-words text-lg font-semibold text-[#16382B]">{snapshot.organization.name}</h2><p className="mt-2 whitespace-pre-wrap text-xs text-[#666158]">{[snapshot.organization.address, snapshot.organization.phone, snapshot.organization.email].filter(Boolean).join("\n")}</p></div><p className="max-w-[65mm] text-right text-xs text-[#666158]">{snapshot.period}<br />As of {new Date(snapshot.asOf).toLocaleString("en-GB")}</p></header>

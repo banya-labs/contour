@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticateDifyRequest } from "@/lib/dify-auth";
+import { authenticateDifyRequest, checkDirectMachineIpLimit } from "@/lib/dify-auth";
 import { inquiryToolSchema } from "@/lib/ai-tool-schemas";
 import { getOrCreateCorrelationId } from "@/lib/correlation";
 import { getOrCreateContact } from "@/lib/crm/contact-service";
@@ -13,6 +13,8 @@ import { getOrCreateContact } from "@/lib/crm/contact-service";
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateError = await checkDirectMachineIpLimit(req);
+    if (rateError) return rateError;
     const body = await req.json().catch(() => ({}));
     const parsed = inquiryToolSchema.safeParse(body);
     if (!parsed.success) {
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest) {
         antiPoachingLockExpiry: antiPoachingExpiry.toISOString(),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const correlationId = getOrCreateCorrelationId(req);
     console.error("Dify Inquiry Ingestion Tool Error:", { correlationId, error });
     return NextResponse.json(

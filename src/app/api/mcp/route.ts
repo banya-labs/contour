@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticateDifyRequest } from "@/lib/dify-auth";
-import { s3Storage, StorageCategory } from "@/lib/storage/s3";
+import { summarizeMachineCommission } from "@/lib/machine-permissions";
+import { authenticateDifyRequest, machineVisibleDocuments } from "@/lib/dify-auth";
+import { s3Storage } from "@/lib/storage/s3";
 import { createInquirySchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import crypto from "crypto";
@@ -211,7 +212,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { jsonrpc, method, params, id } = body;
+    const { method, params, id } = parsedRequest.data;
 
     // 1. MCP Initialization Handshake
     if (method === "initialize") {
@@ -256,9 +257,11 @@ export async function POST(req: NextRequest) {
 
     // 3. Tool Execution
     if (method === "tools/call") {
-      const { name, arguments: args } = params || {};
+      const name = params?.name;
+      let args: Record<string, unknown> = params?.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments) ? params.arguments as Record<string, unknown> : {};
 
       const toolSchema = typeof name === "string" ? aiToolSchemas[name as AiToolName] : undefined;
+      if (!toolSchema) return NextResponse.json({ jsonrpc: "2.0", error: { code: -32601, message: "Unknown tool" }, id }, { status: 400 });
       if (toolSchema) {
         const parsedArguments = toolSchema.safeParse(args || {});
         if (!parsedArguments.success) {
@@ -274,10 +277,11 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+        args = parsedArguments.data;
       }
 
       // Authenticate & scope to tenant organization
-      const { context, errorResponse } = await authenticateDifyRequest(req, args?.organization_id);
+      const { context, errorResponse } = await authenticateDifyRequest(req, typeof args.organization_id === "string" ? args.organization_id : undefined, name as import("@/lib/machine-permissions").MachineOperation);
       if (errorResponse) {
         const errorData = await errorResponse.json();
         return NextResponse.json(
@@ -329,15 +333,16 @@ export async function POST(req: NextRequest) {
 
       // TOOL: search_properties
       if (name === "search_properties") {
+        const propertyArgs = aiToolSchemas.search_properties.parse(args);
         const properties = await db.property.findMany({
             where: {
               organizationId: tenantOrgId,
               status: "AVAILABLE",
-              ...(args?.suburb ? { suburb: { contains: args.suburb, mode: "insensitive" } } : {}),
-              ...(args?.listingType ? { listingType: args.listingType } : {}),
-              ...(args?.bedrooms ? { bedrooms: { gte: Number(args.bedrooms) } } : {}),
+              ...(propertyArgs.suburb ? { suburb: { contains: propertyArgs.suburb, mode: "insensitive" } } : {}),
+              ...(propertyArgs.listingType ? { listingType: propertyArgs.listingType } : {}),
+              ...(propertyArgs.bedrooms ? { bedrooms: { gte: propertyArgs.bedrooms } } : {}),
             },
-            take: Math.min(Math.max(Number(args?.limit || 10), 1), 50),
+            take: propertyArgs.limit,
             orderBy: { createdAt: "desc" },
           });
 
@@ -375,8 +380,10 @@ export async function POST(req: NextRequest) {
         const leases = await db.lease.findMany({
             where: { organizationId: tenantOrgId, status: "IN_ARREARS" },
             include: { property: true },
+            take: 101,
+            orderBy: { id: "asc" },
           });
-        const arrears = leases.map((l) => ({
+        const arrears = leases.slice(0, 100).map((l) => ({
             tenantName: l.tenantName,
             tenantPhone: l.tenantPhone,
             property: l.property.title,
@@ -392,7 +399,7 @@ export async function POST(req: NextRequest) {
             content: [
               {
                 type: "text",
-                text: JSON.stringify({ tenant: tenantOrgId, count: arrears.length, arrears }, null, 2),
+                text: JSON.stringify({ tenant: tenantOrgId, count: arrears.length, truncated: leases.length > 100, arrears }, null, 2),
               },
             ],
           },
@@ -402,47 +409,16 @@ export async function POST(req: NextRequest) {
 
       // TOOL: get_revenue_commission
       if (name === "get_revenue_commission") {
-        const transactions = await db.transaction.findMany({
+        const transactions = await db.transaction.groupBy({
+          by: ["currency", "status"],
           where: { organizationId: tenantOrgId },
+          _sum: { grossValue: true, agencyCommissionAmount: true, agentSplitAmount: true },
+          _count: { _all: true },
         });
-        let totalGrossZmw = 0;
-        let totalGrossUsd = 0;
-        let earnedAgencyCommissionZmw = 0;
-        let earnedAgencyCommissionUsd = 0;
-        let agentSplitsPaidZmw = 0;
-        let agentSplitsPaidUsd = 0;
-        let pipelineExpectedZmw = 0;
-
-        for (const transaction of transactions) {
-          const gross = Number(transaction.grossValue);
-          const commission = Number(transaction.agencyCommissionAmount);
-          const split = Number(transaction.agentSplitAmount);
-          const isEarned = ["EARNED", "RECEIVED", "AGENT_PAID_OUT"].includes(transaction.status);
-
-          if (transaction.currency === "USD") {
-            if (isEarned) {
-              totalGrossUsd += gross;
-              earnedAgencyCommissionUsd += commission;
-              agentSplitsPaidUsd += split;
-            }
-          } else if (isEarned) {
-            totalGrossZmw += gross;
-            earnedAgencyCommissionZmw += commission;
-            agentSplitsPaidZmw += split;
-          } else if (transaction.status === "EXPECTED") {
-            pipelineExpectedZmw += commission;
-          }
-        }
-
         const metrics = {
-          totalGrossVolume: `$ ${totalGrossUsd.toLocaleString()} + K ${totalGrossZmw.toLocaleString()}`,
-          earnedAgencyCommission: `$ ${earnedAgencyCommissionUsd.toLocaleString()} + K ${earnedAgencyCommissionZmw.toLocaleString()}`,
-          agentSplitsPaid: `$ ${agentSplitsPaidUsd.toLocaleString()} + K ${agentSplitsPaidZmw.toLocaleString()}`,
-          pipelineExpectedCommission: `K ${pipelineExpectedZmw.toLocaleString()}`,
+          ...summarizeMachineCommission(transactions),
           agencyCommissionRate: "Per-property contracted rate",
           closingAgentSplitRate: "50% of Agency Fee",
-          closedDealsCount: transactions.filter((transaction) => transaction.status !== "EXPECTED").length,
-          pipelineDealsCount: transactions.filter((transaction) => transaction.status === "EXPECTED").length,
         };
 
         return NextResponse.json({
@@ -461,17 +437,19 @@ export async function POST(req: NextRequest) {
 
       // TOOL: get_property_documents
       if (name === "get_property_documents") {
+        const documentArgs = aiToolSchemas.get_property_documents.parse(args);
         const documents = await db.vaultDocument.findMany({
           where: {
             organizationId: tenantOrgId,
-            propertyId: args?.propertyId || undefined,
-            docType: args?.category || undefined,
+            propertyId: documentArgs.propertyId || undefined,
+            docType: documentArgs.category || undefined,
             isDeleted: false,
           },
           orderBy: { createdAt: "desc" },
           take: 50,
         });
-        const docs = await Promise.all(documents.map(async (document) => ({
+        const visibleDocuments = await machineVisibleDocuments(context!, documents);
+        const docs = await Promise.all(visibleDocuments.map(async (document) => ({
           id: document.id,
           fileName: document.originalFileName,
           category: document.docType,
@@ -488,7 +466,7 @@ export async function POST(req: NextRequest) {
               userId: context?.userId || null,
               action: "MCP_AI_RETRIEVE_MINIO_DOCUMENTS",
               entityType: "DocumentVault",
-              entityId: args?.propertyId || "all_docs",
+              entityId: documentArgs.propertyId || "all_docs",
               details: {
                 retrievedCount: docs.length,
                 categories: docs.map((d) => d.category),
@@ -587,7 +565,7 @@ export async function POST(req: NextRequest) {
       { jsonrpc: "2.0", error: { code: -32600, message: "Invalid JSON-RPC request" }, id },
       { status: 400 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     const correlationId = getOrCreateCorrelationId(req);
     console.error("MCP request failed:", { correlationId, error });
     return NextResponse.json(

@@ -53,6 +53,7 @@ export default function DashboardMapPage() {
       try {
         const res = await fetch("/api/properties");
         const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Unable to load map properties.");
         if (data.success && data.properties && data.properties.length > 0) {
           const mapped: PropertyMapItem[] = data.properties
             .map((p: any) => ({

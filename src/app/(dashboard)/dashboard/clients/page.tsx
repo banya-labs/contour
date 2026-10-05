@@ -42,6 +42,7 @@ function ClientsCRMContent() {
   const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string; email?: string | null }>>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; roleKey?: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = usePageUrlState<string>("search", "");
   const [filterAssigned, setFilterAssigned] = usePageUrlState<"ALL" | "ASSIGNED">("assigned", "ALL", ["ALL", "ASSIGNED"]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -78,6 +79,7 @@ function ClientsCRMContent() {
   });
   const [editError, setEditError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isCreatingInquiry, setIsCreatingInquiry] = useState(false);
 
   // Delete Client State
   const [deletingClient, setDeletingClient] = useState<any | null>(null);
@@ -95,6 +97,7 @@ function ClientsCRMContent() {
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true); setLoadError("");
       try {
         const [clientsRes, agentsRes] = await Promise.all([
           fetch("/api/clients"),
@@ -104,6 +107,7 @@ function ClientsCRMContent() {
         const data = await clientsRes.json();
         const agentsData = await agentsRes.json();
         const contactsData = await contactsRes.json();
+        if (!clientsRes.ok || !data.success || !agentsRes.ok || !agentsData.success || !contactsRes.ok || !contactsData.success) throw new Error(data.error || agentsData.error || contactsData.error || "Unable to load CRM choices.");
         if (contactsData.success) setContacts(contactsData.contacts || []);
 
         if (agentsData.success && agentsData.agents) {
@@ -154,7 +158,7 @@ function ClientsCRMContent() {
           setClients(normalized);
         }
       } catch (err) {
-        console.error("Failed to load CRM clients:", err);
+        setLoadError(err instanceof Error ? err.message : "Unable to load CRM clients.");
       } finally {
         setLoading(false);
       }
@@ -223,7 +227,7 @@ function ClientsCRMContent() {
   }, [selectedClient]);
 
   const handleCancelInquiry = async () => {
-    if (!cancellationTarget || !cancellationReason.trim()) return;
+    if (!cancellationTarget || !cancellationReason.trim() || isCancelling) return;
     setIsCancelling(true);
     try {
       const response = await fetch(`/api/clients/${cancellationTarget.id}/transition`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetStage: "CLOSED", outcome: "CANCELLED", reason: cancellationReason.trim() }) });
@@ -233,7 +237,7 @@ function ClientsCRMContent() {
       emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], cancellationTarget.id);
       setRefreshNonce((value) => value + 1);
       setSelectedClient(null);
-    } finally { setIsCancelling(false); }
+    } catch (cause) { setEditError(cause instanceof Error ? cause.message : "Unable to cancel inquiry. Please try again."); } finally { setIsCancelling(false); }
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -401,6 +405,7 @@ function ClientsCRMContent() {
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCreatingInquiry) return;
     setFormError("");
 
     if (!formData.name.trim() || formData.name.trim().length < 3) {
@@ -451,6 +456,7 @@ function ClientsCRMContent() {
       status: "NEW_INQUIRY",
     };
 
+    setIsCreatingInquiry(true);
     fetch("/api/clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -510,7 +516,7 @@ function ClientsCRMContent() {
       })
       .catch((err) => {
         setFormError(`Failed to save client: ${err.message}`);
-      });
+      }).finally(() => setIsCreatingInquiry(false));
   };
 
   if (activeTab === "contacts") {
@@ -519,6 +525,8 @@ function ClientsCRMContent() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist">
+      {loadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{loadError} <button type="button" disabled={loading} onClick={() => setRefreshNonce(value => value + 1)} className="underline">Retry</button></p>}
+      {cancellationTarget && editError && <p role="alert" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] border border-red-300 bg-red-50 p-3 text-sm text-red-800">{editError}</p>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-editorial-border pb-4 sm:pb-6">
         <div>
@@ -644,7 +652,7 @@ function ClientsCRMContent() {
           ...(selectedClient.outcome === "CANCELLED" ? [{ label: "Cancellation reason", value: selectedClient.cancellationReason }] : []),
           { label: "Notes", value: selectedClient.notes },
         ] : []}
-        children={selectedClient ? <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a></div><div className="border-t border-editorial-border pt-3 space-y-2"><div className="flex items-center justify-between"><p className="text-[10px] font-mono font-bold uppercase tracking-wider">Property matching results</p><span className="text-[10px] text-editorial-muted">Actual matches are over 70%</span></div>{matchesLoading ? <p className="text-xs text-editorial-muted">Testing all available properties…</p> : matchResults?.error ? <p className="text-xs text-red-700">{matchResults.error}</p> : <div className="max-h-64 overflow-y-auto space-y-1">{matchResults?.matches?.length ? matchResults.matches.map((match: any) => <div key={match.property.id} className={`flex items-center justify-between gap-3 border p-2 ${match.isMatch ? "border-emerald-300 bg-emerald-50" : "border-editorial-border bg-neutral-50"}`}><div className="min-w-0"><p className="text-xs font-semibold truncate">{match.property.title}</p><p className="text-[10px] text-editorial-muted truncate">{match.property.suburb} · {match.hardFailures?.length ? `Does not fit: ${match.hardFailures.join(", ")}` : match.reasons.join(", ") || "Criteria evaluated"}</p></div><span className={`shrink-0 text-xs font-mono font-bold ${match.isMatch ? "text-emerald-700" : "text-editorial-muted"}`}>{match.score}%{match.isMatch ? " Match" : ""}</span></div>) : <p className="text-xs text-editorial-muted">No available or under-offer properties were found.</p>}</div>}</div></div> : undefined}
+        children={selectedClient ? <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a></div><div className="border-t border-editorial-border pt-3 space-y-2"><div className="flex items-center justify-between"><p className="text-[10px] font-mono font-bold uppercase tracking-wider">Property matching results</p><span className="text-[10px] text-editorial-muted">Actual matches are over 70%</span></div>{matchesLoading ? <SectionPendingState compact label="Testing all available properties…" /> : matchResults?.error ? <p role="alert" className="text-xs text-red-700">{matchResults.error} <button type="button" onClick={() => void loadMatches(selectedClient)} className="underline">Retry matching</button></p> : <div className="max-h-64 overflow-y-auto space-y-1">{matchResults?.matches?.length ? matchResults.matches.map((match: any) => <div key={match.property.id} className={`flex items-center justify-between gap-3 border p-2 ${match.isMatch ? "border-emerald-300 bg-emerald-50" : "border-editorial-border bg-neutral-50"}`}><div className="min-w-0"><p className="text-xs font-semibold truncate">{match.property.title}</p><p className="text-[10px] text-editorial-muted truncate">{match.property.suburb} · {match.hardFailures?.length ? `Does not fit: ${match.hardFailures.join(", ")}` : match.reasons.join(", ") || "Criteria evaluated"}</p></div><span className={`shrink-0 text-xs font-mono font-bold ${match.isMatch ? "text-emerald-700" : "text-editorial-muted"}`}>{match.score}%{match.isMatch ? " Match" : ""}</span></div>) : <p className="text-xs text-editorial-muted">No available or under-offer properties were found.</p>}</div>}</div></div> : undefined}
       />
 
       {selectedClient && selectedClient.status !== "CLOSED" && <button type="button" onClick={() => { setCancellationTarget(selectedClient); setCancellationReason(""); }} className="fixed bottom-6 right-6 z-40 px-3 py-2 border border-amber-300 bg-amber-50 text-amber-900 text-[10px] font-mono font-bold uppercase shadow-lg">Cancel selected inquiry</button>}
@@ -663,6 +671,7 @@ function ClientsCRMContent() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isCreatingInquiry}
                 className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
                 title="Close"
               >
@@ -838,16 +847,19 @@ function ClientsCRMContent() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isCreatingInquiry}
                   className="px-4 py-2 rounded-none border border-editorial-border text-editorial-black hover:bg-editorial-paper font-mono text-xs uppercase tracking-wider"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={isCreatingInquiry}
+                  aria-busy={isCreatingInquiry}
                   className="px-5 py-2 rounded-none bg-editorial-black hover:bg-black text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-editorial-red" />
-                  <span>Register &amp; Lock Client</span>
+                  <PendingButtonContent pending={isCreatingInquiry} pendingLabel="Registering inquiry…">Register &amp; Lock Client</PendingButtonContent>
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getBillingAccessState, getTrialEnd } from "./billing-access";
+import { getOrganizationBillingEntitlement } from "./billing-entitlement";
 import { logger } from "./logger";
 import { getTenantContext, type TenantContext } from "./tenant-context";
 import { hasRequiredRole, roleHasPermission, resolveContourRole, type Permission } from "./authorization";
@@ -8,6 +8,7 @@ import { auth, type Session } from "./auth";
 import { toAuthHeaders } from "./auth-headers";
 import { db } from "./db";
 import { MatchingError } from "./matching/errors";
+import { VaultSecurityError } from "./storage/vault-security";
 
 export type ApiContext = {
   params?: Record<string, string | string[]>;
@@ -101,12 +102,7 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         if (organization?.accountStatus && organization.accountStatus !== "ACTIVE") {
           return NextResponse.json({ error: "Workspace is not currently available.", code: "WORKSPACE_ACCOUNT_RESTRICTED", accountStatus: organization.accountStatus }, { status: 423 });
         }
-        const successfulPayment = await db.payment.findFirst({
-          where: { organizationId: organizationId!, status: "SUCCESS" },
-          select: { id: true },
-        });
-        const trialEndsAt = organization?.trialEndsAt || (organization ? getTrialEnd(organization.createdAt) : null);
-        const accessState = getBillingAccessState({ subscriptionStatus: organization?.subscriptionStatus, trialEndsAt, hasSuccessfulPayment: Boolean(successfulPayment) || Boolean(organization?.lencoSubscriptionId) });
+        const { accessState } = await getOrganizationBillingEntitlement(organizationId!);
         if (accessState === "TRIAL_EXPIRED") {
           return NextResponse.json(
             { error: "Trial ended. Choose a paid tier to continue.", code: "SUBSCRIPTION_REQUIRED" },
@@ -161,11 +157,12 @@ export function createApiHandler<TBody = unknown, TQuery = unknown>(
         query,
       });
     } catch (error: unknown) {
+      if (error instanceof VaultSecurityError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });
       if (error instanceof MatchingError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });
       if (error && typeof error === "object" && "code" in error && error.code === "P2034") return NextResponse.json({ success: false, error: "Record changed; refresh and retry" }, { status: 409 });
       logger.error({ err: error, path: req.nextUrl?.pathname }, "Unhandled API error");
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Internal Server Error" },
+        { error: "Unable to complete this request. Please retry or contact support." },
         { status: 500 }
       );
     }

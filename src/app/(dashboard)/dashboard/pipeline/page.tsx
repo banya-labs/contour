@@ -21,6 +21,7 @@ import { formatWhatsAppDigits } from "@/lib/phone-utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
 import { ClosedDealResultDialog } from "@/components/closing/closed-deal-result-dialog";
@@ -116,6 +117,8 @@ function DealPipelineContent() {
 
   // Pipeline creation is owned by CRM inquiries; this page only displays and manages them.
   const [formError, setFormError] = useState("");
+  const [loadingPipeline, setLoadingPipeline] = useState(true);
+  const [pipelineLoadError, setPipelineLoadError] = useState("");
   // Edit Deal (Reassign Property / Agent / Value / Stage) Modal State
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -157,6 +160,7 @@ function DealPipelineContent() {
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const isManagement = isManagementRole(userRole);
   const loadAllPipelineData = () => {
+    setLoadingPipeline(true); setPipelineLoadError("");
     void Promise.all([
       fetch("/api/clients"),
       fetch("/api/organization/agents"),
@@ -166,6 +170,7 @@ function DealPipelineContent() {
         const dealsData = await dealsResponse.json();
         const agentsData = await agentsResponse.json();
         const propsData = await propsResponse.json();
+        if (!dealsResponse.ok || !dealsData.success || !agentsResponse.ok || !agentsData.success || !propsResponse.ok || !propsData.success) throw new Error(dealsData.error || agentsData.error || propsData.error || "Unable to load the pipeline.");
 
         if (dealsData.success) {
           const rawClients = dealsData.clients || [];
@@ -216,7 +221,8 @@ function DealPipelineContent() {
           );
         }
       })
-      .catch(() => setFormError("Unable to load the pipeline. Please refresh and try again."));
+      .catch((cause: unknown) => setPipelineLoadError(cause instanceof Error ? cause.message : "Unable to load the pipeline."))
+      .finally(() => setLoadingPipeline(false));
   };
 
   useEffect(() => {
@@ -540,6 +546,8 @@ function DealPipelineContent() {
 
   return (
     <div className="p-4 sm:p-8 pb-32 space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
+      {loadingPipeline && <SectionPendingState compact label="Loading pipeline choices and deals…" />}
+      {pipelineLoadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{pipelineLoadError} <button type="button" disabled={loadingPipeline} onClick={loadAllPipelineData} className="underline">Retry</button></p>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-editorial-border">
         <div>

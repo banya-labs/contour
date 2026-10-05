@@ -1,4 +1,5 @@
 import { db } from "./db";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { getNextBillingPeriod, type BillingCycle } from "./billing-periods";
 
 export async function recordSettledSubscription(input: {
@@ -10,10 +11,12 @@ export async function recordSettledSubscription(input: {
   amount: number;
   currency: "ZMW" | "USD";
   settledAt?: Date;
-}): Promise<void> {
+}, client: PrismaClient | Prisma.TransactionClient = db): Promise<void> {
+  const existingInvoice = await client.invoice.findUnique({ where: { number: `INV-${input.reference}` }, select: { status: true, paymentId: true } });
+  if (existingInvoice?.status === "PAID" && existingInvoice.paymentId === input.paymentId) return;
   const settledAt = input.settledAt || new Date();
   const period = getNextBillingPeriod(settledAt, input.billingCycle);
-  const subscription = await db.subscription.upsert({
+  const subscription = await client.subscription.upsert({
     where: { organizationId_status: { organizationId: input.organizationId, status: "active" } },
     create: {
       organizationId: input.organizationId,
@@ -33,7 +36,7 @@ export async function recordSettledSubscription(input: {
       canceledAt: null,
     },
   });
-  await db.invoice.upsert({
+  await client.invoice.upsert({
     where: { number: `INV-${input.reference}` },
     create: {
       organizationId: input.organizationId,

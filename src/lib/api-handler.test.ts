@@ -23,6 +23,8 @@ vi.mock("./db", () => ({
   },
 }));
 
+vi.mock("./billing-entitlement", () => ({ getOrganizationBillingEntitlement: vi.fn().mockResolvedValue({ accessState: "PAID" }) }));
+
 vi.mock("./logger", () => ({
   logger: { error: vi.fn() },
 }));
@@ -30,6 +32,12 @@ vi.mock("./logger", () => ({
 import { createApiHandler } from "./api-handler";
 
 describe("createApiHandler", () => {
+  it("does not disclose internal failure details", async () => {
+    const handler = createApiHandler({ handler: async () => { throw new Error("private database connection detail"); } });
+    const response = await handler(new NextRequest("http://localhost/api/onboarding/profile"), { params: Promise.resolve({}) });
+    expect(response.status).toBe(500);
+    expect(JSON.stringify(await response.json())).not.toContain("private database connection detail");
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.findOrganization.mockResolvedValue({ subscriptionStatus: "active", accountStatus: "ACTIVE" });

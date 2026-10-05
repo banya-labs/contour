@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticateDifyRequest } from "@/lib/dify-auth";
+import { authenticateDifyRequest, machineVisibleDocuments, checkDirectMachineIpLimit } from "@/lib/dify-auth";
 import { propertyDocumentsToolSchema } from "@/lib/ai-tool-schemas";
 import { getOrCreateCorrelationId } from "@/lib/correlation";
 import { s3Storage } from "@/lib/storage/s3";
@@ -16,6 +16,8 @@ import { s3Storage } from "@/lib/storage/s3";
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateError = await checkDirectMachineIpLimit(req);
+    if (rateError) return rateError;
     const body = await req.json().catch(() => ({}));
     const parsed = propertyDocumentsToolSchema.safeParse(body);
     if (!parsed.success) {
@@ -41,8 +43,9 @@ export async function POST(req: NextRequest) {
     });
 
     // 3. Generate 15-minute POPIA presigned download URLs for MinIO S3
+    const visibleDocuments = await machineVisibleDocuments(context!, documents);
     const docsWithPresignedUrls = await Promise.all(
-      documents.map(async (doc) => {
+      visibleDocuments.map(async (doc) => {
         const presignedUrl = await s3Storage.getPresignedDownloadUrl(doc.objectKey, 900);
         return {
           id: doc.id,
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
       documents: docsWithPresignedUrls,
       popiaNotice: "Presigned URLs expire in 15 minutes. All document retrievals are logged in the immutable audit trail.",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const correlationId = getOrCreateCorrelationId(req);
     console.error("Dify Document Tool Error:", { correlationId, error });
     return NextResponse.json(

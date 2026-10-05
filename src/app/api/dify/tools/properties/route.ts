@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { authenticateDifyRequest } from "@/lib/dify-auth";
+import { authenticateDifyRequest, checkDirectMachineIpLimit } from "@/lib/dify-auth";
 import { searchPropertiesToolSchema } from "@/lib/ai-tool-schemas";
 import { getOrCreateCorrelationId } from "@/lib/correlation";
 
@@ -13,6 +13,8 @@ import { getOrCreateCorrelationId } from "@/lib/correlation";
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateError = await checkDirectMachineIpLimit(req);
+    if (rateError) return rateError;
     const body = await req.json().catch(() => ({}));
     const parsed = searchPropertiesToolSchema.safeParse(body);
     if (!parsed.success) {

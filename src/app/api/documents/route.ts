@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { getTenantContext } from "@/lib/tenant-context";
-import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
+import { assertVaultAccess, verifiedVaultMetadata, VaultSecurityError } from "@/lib/storage/vault-security";
 
 // ── GET /api/documents ─────────────────────────────────────────────────────
 // Returns all VaultDocument records from Neon, newest first.
@@ -14,11 +14,10 @@ export async function GET(_req: NextRequest) {
     if (!tenant) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const role = resolveContourRole(tenant.session.user.role ?? undefined, "member", tenant.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
-    if (!roleHasPermission(role, "vault.read")) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (!tenant.permissions.includes("vault.read")) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
 
     const documents = await db.vaultDocument.findMany({
-      where: { organizationId: tenant.organizationId },
+      where: { organizationId: tenant.organizationId, isDeleted: false },
       include: {
         property: {
           select: { id: true, title: true, suburb: true },
@@ -27,11 +26,13 @@ export async function GET(_req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, documents });
-  } catch (error: any) {
+    const visible = [];
+    for (const doc of documents) { try { await assertVaultAccess(tenant, doc, "read"); visible.push(doc); } catch (error) { if (!(error instanceof VaultSecurityError)) throw error; } }
+    return NextResponse.json({ success: true, documents: visible });
+  } catch (error: unknown) {
     console.error("GET /api/documents error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch vault documents", details: error.message },
+      { success: false, error: "Failed to fetch vault documents" },
       { status: 500 }
     );
   }
@@ -63,8 +64,7 @@ export async function POST(req: NextRequest) {
     if (!tenant) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const role = resolveContourRole(tenant.session.user.role ?? undefined, "member", tenant.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
-    if (!roleHasPermission(role, "vault.upload")) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (!tenant.permissions.includes("vault.upload")) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
 
     const body = await req.json();
     const parsed = createDocSchema.safeParse(body);
@@ -78,6 +78,8 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
+    await assertVaultAccess(tenant, { organizationId: tenant.organizationId, propertyId: data.propertyId || null, objectKey: data.objectKey }, "upload");
+    const metadata = await verifiedVaultMetadata(tenant.organizationId, data.objectKey);
     const doc = await db.vaultDocument.create({
       data: {
         organizationId: tenant.organizationId,
@@ -87,12 +89,12 @@ export async function POST(req: NextRequest) {
         classification: data.classification,
         objectKey: data.objectKey,
         originalFileName: data.originalFileName,
-        fileSize: data.fileSize,
-        mimeType: data.mimeType,
+        fileSize: metadata.fileSize,
+        mimeType: metadata.mimeType,
         fileType: data.fileType,
         registryFolio: data.registryFolio || null,
         uploadedBy: tenant.userId,
-        isVerified: true,
+        isVerified: false,
       },
       include: {
         property: { select: { id: true, title: true, suburb: true } },
@@ -118,10 +120,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, document: doc }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof VaultSecurityError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("POST /api/documents error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to save document record", details: error.message },
+      { success: false, error: "Failed to save document record" },
       { status: 500 }
     );
   }

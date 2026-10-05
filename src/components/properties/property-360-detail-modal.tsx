@@ -125,6 +125,9 @@ export default function PropertyFullDetailModal({
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [mediaError, setMediaError] = useState("");
+  const [savingPhotos, setSavingPhotos] = useState(false);
+  const [copyingLink, setCopyingLink] = useState(false);
 
   // Real Organization Agents State
   const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; phone?: string; email?: string; roleKey?: string }>>([]);
@@ -187,14 +190,15 @@ export default function PropertyFullDetailModal({
       setLoadingAgents(true);
       try {
         const res = await fetch("/api/organization/agents");
+        if (!res.ok) throw new Error("Unable to load agents.");
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.agents) && isMounted) {
             setOrgAgents(data.agents);
           }
         }
-      } catch (err) {
-        console.error("Failed to load organization agents:", err);
+      } catch {
+        setMediaError("Unable to load agents. Close and reopen this property to retry.");
       } finally {
         if (isMounted) setLoadingAgents(false);
       }
@@ -211,6 +215,7 @@ export default function PropertyFullDetailModal({
     setLoadingDocs(true);
     try {
       const res = await fetch("/api/vault/documents");
+      if (!res.ok) throw new Error("Unable to load vault documents.");
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.documents)) {
@@ -223,8 +228,8 @@ export default function PropertyFullDetailModal({
           writeCachedVaultCount(property, propertyDocs.length);
         }
       }
-    } catch (err) {
-      console.error("Failed to load property vault documents:", err);
+    } catch {
+      setMediaError("Unable to load vault documents. Select Refresh to retry.");
     } finally {
       setLoadingDocs(false);
     }
@@ -332,14 +337,16 @@ export default function PropertyFullDetailModal({
       : [];
 
   // Share Public Link
-  const handleSharePropertyLink = () => {
+  const handleSharePropertyLink = async () => {
+    if (copyingLink) return; setCopyingLink(true); setMediaError(""); try {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
     const publicUrl = `${origin}${publicPropertyPath(property.organization?.slug || property.organizationSlug || "organization", property.slug || property.id)}`;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(publicUrl).catch(() => {});
+      await navigator.clipboard.writeText(publicUrl);
     }
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
+    } catch { setMediaError("Unable to copy link. Please try again."); } finally { setCopyingLink(false); }
   };
 
   const handleRefresh = async () => {
@@ -351,6 +358,7 @@ export default function PropertyFullDetailModal({
         loadVaultDocuments(),
       ]);
       const propertiesData = propertiesResponse.ok ? await propertiesResponse.json() : null;
+      if (!propertiesResponse.ok || !propertiesData?.success) throw new Error("Unable to refresh property.");
       const refreshedProperty = propertiesData?.properties?.find((item: { id: string }) => item.id === property.id);
       if (refreshedProperty && onUpdateProperty) {
         onUpdateProperty(refreshedProperty);
@@ -358,12 +366,13 @@ export default function PropertyFullDetailModal({
 
       const clientsResponse = await fetch(`/api/clients?propertyId=${encodeURIComponent(property.id)}`, { cache: "no-store" });
       const clientsData = clientsResponse.ok ? await clientsResponse.json() : null;
+      if (!clientsResponse.ok || !clientsData?.success) throw new Error("Unable to refresh property inquiries.");
       setPropertyInquiries(Array.isArray(clientsData?.clients) ? clientsData.clients : []);
 
       const matchesData = { matches: await fetchAllPages<{ inquiry: { id: string; clientName: string }; score: number; reasons: string[]; property?: { id?: string } }>(`/api/matching/unassigned?propertyId=${encodeURIComponent(property.id)}`, "matches") };
       setUnassignedMatches((matchesData?.matches || []).filter((match: { property?: { id?: string } }) => match.property?.id === property.id));
-    } catch (error) {
-      console.error("Failed to refresh property 360:", error);
+    } catch {
+      setMediaError("Unable to refresh property details. Select Refresh to retry.");
     } finally {
       setIsRefreshing(false);
     }
@@ -519,63 +528,32 @@ export default function PropertyFullDetailModal({
     }
   };
 
-  // Download Vault Document
+  // Download the original vault document, keeping feedback through body transfer.
   const handleDownloadDoc = async (doc: any) => {
+    if (downloadingDocId) return;
     setDownloadingDocId(doc.id);
+    setMediaError("");
     try {
-      const res = await fetch(`/api/vault/documents/${doc.id}/download?direct=true`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${(doc.title || doc.name || "document").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        return;
+      const response = await fetch(`/api/vault/documents/${doc.id}/download?direct=true`);
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || "Unable to download document. Please try again.");
       }
-    } catch (err) {
-      console.warn("Direct download fallback triggered:", err);
-    }
-
-    // Client-side fallback PDF
-    try {
-      const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      pdf.setFillColor(28, 28, 26);
-      pdf.rect(0, 0, 210, 24, "F");
-      pdf.setFillColor(250, 54, 0);
-      pdf.circle(18, 12, 4, "F");
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(16);
-      pdf.setTextColor(255, 255, 255);
-      pdf.text("CONTOUR", 26, 14);
-      pdf.setFontSize(8);
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(200, 200, 200);
-      pdf.text("LEGAL CUSTODY & VAULT ARCHIVE", 80, 14);
-
-      pdf.setFontSize(16);
-      pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(28, 28, 26);
-      pdf.text(doc.title || doc.name || "Property Document", 15, 40);
-
-      pdf.setFontSize(9);
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(120, 120, 120);
-      pdf.text(`Property: ${property.title} | Suburb: ${formatPropertyLocation(property)}`, 15, 48);
-
-      pdf.setDrawColor(220, 220, 220);
-      pdf.line(15, 53, 195, 53);
-
-      pdf.save(`${(doc.title || doc.name || "document").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = doc.originalFileName || `${(doc.title || doc.name || "document").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (cause) {
+      setMediaError(cause instanceof Error ? cause.message : "Unable to download document. Please try again.");
     } finally {
       setDownloadingDocId(null);
     }
   };
-
   // Submit Document Request
   const handleCreateDocumentRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -660,6 +638,8 @@ export default function PropertyFullDetailModal({
     <>
       <div className="fixed inset-0 z-[2200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 lg:p-6 font-sans">
       <div className="bg-[#FCFBF9] border-0 sm:border border-[#E6E4DF] shadow-2xl flex flex-col overflow-hidden w-full max-w-5xl h-screen sm:h-[92vh] max-h-screen sm:max-h-[92vh]">
+        {mediaError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{mediaError}</p>}
+        {copyingLink && <SectionPendingState compact label="Copying listing link…" />}{savingPhotos && <SectionPendingState compact label="Saving listing photos…" />}
         
         {/* TOP COMPACT HEADER */}
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 bg-white border-b border-[#E6E4DF] flex items-center justify-between gap-2 shrink-0 sticky top-0 z-20">
@@ -1355,7 +1335,10 @@ export default function PropertyFullDetailModal({
                           photos={photos}
                           featuredPhoto={property.featuredPhoto}
                           propertyId={property.id}
+                          disabled={savingPhotos}
                           onChange={async (updatedPhotos, updatedCover) => {
+                            if (savingPhotos) return;
+                            setSavingPhotos(true); setMediaError("");
                             const updatedProp = {
                               ...property,
                               photos: updatedPhotos,
@@ -1364,7 +1347,7 @@ export default function PropertyFullDetailModal({
                             if (onUpdateProperty) onUpdateProperty(updatedProp);
 
                             try {
-                              await fetch("/api/properties", {
+                              const response = await fetch("/api/properties", {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -1373,8 +1356,14 @@ export default function PropertyFullDetailModal({
                                   featuredPhoto: updatedCover,
                                 }),
                               });
+                              if (!response.ok) {
+                                const data = await response.json().catch(() => null);
+                                throw new Error(data?.error || "Unable to save photos.");
+                              }
                             } catch (err) {
-                              console.warn("Failed to patch photo update:", err);
+                              setMediaError(err instanceof Error ? err.message : "Unable to save photos. Please retry the change.");
+                            } finally {
+                              setSavingPhotos(false);
                             }
                           }}
                         />
@@ -1725,7 +1714,7 @@ export default function PropertyFullDetailModal({
                             event.stopPropagation();
                             handleDownloadDoc(doc);
                           }}
-                          disabled={downloadingDocId === doc.id}
+                          disabled={Boolean(downloadingDocId)}
                           className="px-3 py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
                         >
                           {downloadingDocId === doc.id ? (

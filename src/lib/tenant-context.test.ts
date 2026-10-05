@@ -16,6 +16,14 @@ vi.mock("./db", () => ({
 import { getTenantContext } from "./tenant-context";
 
 describe("tenant context", () => {
+  it("fails closed when membership authorization data cannot be read", async () => {
+    findUnique.mockClear();
+    getSession.mockResolvedValueOnce({ user: { id: "user-a", role: "SUPER_ADMIN" }, session: { activeOrganizationId: "org-a" } });
+    findUnique.mockRejectedValueOnce(new Error("Authorization lookup unavailable"));
+    await expect(getTenantContext(new Request("http://localhost") as never)).resolves.toBeNull();
+    expect(findUnique).toHaveBeenCalledTimes(1);
+    findUnique.mockClear();
+  });
   it("returns no context without an authenticated session", async () => {
     getSession.mockResolvedValueOnce(null);
 

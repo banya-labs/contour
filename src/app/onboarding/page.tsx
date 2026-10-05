@@ -74,9 +74,11 @@ function OnboardingContent() {
 
   const [transitionStage, setTransitionStage] =
     useState<AuthTransitionStage>("IDLE");
+  const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function checkInvitationsAndMembership(manualTrigger = false) {
+    if (isCheckingInvite || isClaimingInvite || shouldBlockAuthSurface(transitionStage)) return;
     if (manualTrigger) {
       setIsCheckingInvite(true);
       setInviteStatusMessage(null);
@@ -95,6 +97,7 @@ function OnboardingContent() {
       // invitation must be supplied explicitly from its invite URL/code.
       // Otherwise preserve the active organization for multi-tenant accounts.
       const result = await authClient.organization.list();
+      if (result.error) throw new Error(result.error.message || "Unable to check agency access.");
       if (result.data && result.data.length > 0) {
         const activeOrganizationId = session?.session?.activeOrganizationId;
         const activeOrganization = result.data.find((organization) => organization.id === activeOrganizationId) || (result.data.length === 1 ? result.data[0] : null);
@@ -111,6 +114,7 @@ function OnboardingContent() {
         // Never show the new-workspace form when this account already has
         // memberships. A stale `flow=new_agency` URL must not create another
         // organization on every sign-in.
+        setTransitionStage("ERROR");
         setView("NO_ORGANIZATION_DECISION");
         return;
       }
@@ -129,6 +133,8 @@ function OnboardingContent() {
         setView("CREATE_WORKSPACE");
       }
     } catch {
+      setTransitionStage("ERROR");
+      setError("Unable to check agency access. Check your connection and retry.");
       if (!isNewAgencyFlow) {
         setView("NO_ORGANIZATION_DECISION");
         if (manualTrigger) {
@@ -160,7 +166,7 @@ function OnboardingContent() {
   // Handle explicit invite code or URL submission
   async function handleClaimInvite(e: FormEvent) {
     e.preventDefault();
-    if (!inviteInput.trim()) return;
+    if (isClaimingInvite || !inviteInput.trim()) return;
 
     setIsClaimingInvite(true);
     setTransitionStage("CLAIMING_INVITATION");
@@ -186,7 +192,8 @@ function OnboardingContent() {
 
       if (data.organizationId) {
         setTransitionStage("ACTIVATING_ORGANIZATION");
-        await authClient.organization.setActive({ organizationId: data.organizationId });
+        const activation = await authClient.organization.setActive({ organizationId: data.organizationId });
+      if (activation.error) throw new Error(activation.error.message || "Unable to activate the invited agency.");
       }
 
       const target = data.destination || (data.roleKey === "FIELD_AGENT" ? "/agent" : redirectUrl);
@@ -205,9 +212,17 @@ function OnboardingContent() {
 
   // Handle Sign Out to switch to another account
   async function handleSignOut() {
-    await signOut();
-    router.replace(`/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`);
-    router.refresh();
+    if (signingOut) return;
+    setSigningOut(true);
+    setError(null);
+    try {
+      const result = await signOut();
+      if (result.error) throw new Error(result.error.message || "Unable to sign out.");
+      router.replace(`/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to sign out. Please try again.");
+    } finally { setSigningOut(false); }
   }
 
   function handleNameChange(value: string) {
@@ -226,6 +241,7 @@ function OnboardingContent() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (shouldBlockAuthSurface(transitionStage)) return;
     setError(null);
     if (!regulatoryDeclarationAgreed) {
       setError("Please accept the statutory declaration to activate this workspace.");
@@ -233,15 +249,18 @@ function OnboardingContent() {
     }
 
     setTransitionStage("CREATING_WORKSPACE");
+    try {
 
     // Re-check immediately before the mutation so a stale onboarding tab or
     // repeated callback cannot create a second workspace for an existing user.
     const memberships = await authClient.organization.list();
+    if (memberships.error) throw new Error(memberships.error.message || "Unable to check agency membership.");
     if (!shouldCreateWorkspace(memberships.data?.length || 0)) {
       const activeOrganizationId = session?.session?.activeOrganizationId;
       const organization = memberships.data?.find((item) => item.id === activeOrganizationId) || (memberships.data?.length === 1 ? memberships.data[0] : null);
       if (organization) {
-        await authClient.organization.setActive({ organizationId: organization.id });
+        const activation = await authClient.organization.setActive({ organizationId: organization.id });
+        if (activation.error) throw new Error(activation.error.message || "Unable to activate the agency.");
         router.replace(redirectUrl);
         router.refresh();
         return;
@@ -308,6 +327,10 @@ function OnboardingContent() {
 
     setTransitionStage("NAVIGATING");
     navigateToWorkspace();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Workspace setup failed. Check your connection and try again.");
+      setTransitionStage("ERROR");
+    }
   }
 
   // 1. Initial State: Checking memberships
@@ -370,6 +393,8 @@ function OnboardingContent() {
             </p>
           </div>
 
+          {error && <p role="alert" className="mt-4 border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
+          {signingOut && <SectionPendingState label="Signing out…" />}
           {/* Intent Clarification & Two Branch Paths */}
           <div className="mt-8 space-y-6">
             {/* PATH 1: Field Agent / Agency Team Member */}
@@ -514,6 +539,7 @@ function OnboardingContent() {
             <button
               type="button"
               onClick={handleSignOut}
+              disabled={signingOut}
               className="flex items-center gap-2 hover:text-editorial-black transition-colors text-[11px] font-mono"
             >
               <LogOut className="h-3.5 w-3.5" />

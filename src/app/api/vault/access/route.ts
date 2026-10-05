@@ -78,6 +78,10 @@ export const POST = createApiHandler({
     const orgId = organizationId!;
     const data = body;
 
+    const member = await db.member.findFirst({ where: { organizationId: orgId, userId: data.userId, status: "active" }, select: { id: true } });
+    if (!member) return NextResponse.json({ error: "Active workspace member required" }, { status: 400 });
+    const properties = await db.property.count({ where: { organizationId: orgId, id: { in: [...new Set(data.propertyIds)] } } });
+    if (properties !== new Set(data.propertyIds).size) return NextResponse.json({ error: "Property does not belong to workspace" }, { status: 400 });
     const grant = await db.vaultAccessGrant.upsert({
       where: {
         organizationId_userId: {

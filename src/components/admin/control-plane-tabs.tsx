@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Building2, CreditCard, KeyRound, LayoutDashboard, LogOut, Menu, Settings, Users, X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { signOut, useSession } from "@/lib/auth-client";
 import { CONTROL_PLANE_NAVIGATION, getControlPlanePrimaryItems, isControlPlaneItemActive } from "@/lib/admin-control-plane/navigation";
@@ -28,4 +29,21 @@ export function ControlPlaneTabs() {
 
 function SidebarHeader() { return <div className="mb-8 shrink-0 border-b border-editorial-border pb-5"><div className="flex items-center justify-between"><ContourLogo size="md" /><span className="border border-editorial-border bg-editorial-paper px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-editorial-muted">Admin</span></div><p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-editorial-red">Platform operations</p><h2 className="mt-1 text-lg font-bold uppercase tracking-tight">Control Plane</h2></div>; }
 
-function SidebarFooter({ onSignOut }: { onSignOut?: () => void }) { const { data: session } = useSession(); return <div className="mt-auto border-t border-editorial-border pt-4"><p className="truncate px-3 text-[10px] font-bold uppercase tracking-wider text-editorial-muted">{session?.user?.name || "Platform user"}</p><p className="truncate px-3 pt-1 text-[10px] text-editorial-muted">{session?.user?.email || "Authenticated account"}</p><button type="button" onClick={async () => { await signOut(); onSignOut?.(); window.location.assign("/login"); }} className="mt-3 inline-flex w-full items-center gap-2 px-3 py-3 text-xs font-bold uppercase tracking-wider text-editorial-muted hover:bg-editorial-paper hover:text-editorial-red"><LogOut className="h-4 w-4" aria-hidden="true" /> Log out</button></div>; }
+function SidebarFooter({ onSignOut }: { onSignOut?: () => void }) {
+  const { data: session } = useSession();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const inFlight = useRef(false);
+  const logout = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true; setPending(true); setError("");
+    try {
+      const result = await signOut();
+      if (result.error) throw new Error(result.error.message || "Unable to log out.");
+      onSignOut?.(); window.location.assign("/login");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to log out. Please try again.");
+    } finally { inFlight.current = false; setPending(false); }
+  };
+  return <div className="mt-auto border-t border-editorial-border pt-4"><p className="truncate px-3 text-[10px] font-bold uppercase tracking-wider text-editorial-muted">{session?.user?.name || "Platform user"}</p><p className="truncate px-3 pt-1 text-[10px] text-editorial-muted">{session?.user?.email || "Authenticated account"}</p><button type="button" disabled={pending} aria-busy={pending} onClick={() => void logout()} className="mt-3 inline-flex w-full items-center gap-2 px-3 py-3 text-xs font-bold uppercase tracking-wider text-editorial-muted hover:bg-editorial-paper hover:text-editorial-red"><PendingButtonContent pending={pending} pendingLabel="Logging out…" icon={<LogOut className="h-4 w-4" aria-hidden="true" />}>Log out</PendingButtonContent></button>{error && <p role="alert" className="px-3 text-xs text-red-700">{error}</p>}</div>;
+}

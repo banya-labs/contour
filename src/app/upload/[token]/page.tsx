@@ -1,4 +1,5 @@
 "use client";
+import { OperationProgress } from "@/components/ui/operation-progress";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -69,6 +70,7 @@ export default function ClientUploadPortalPage() {
 
   // Submission state
   const [uploading, setUploading] = useState(false);
+  const [completedFiles, setCompletedFiles] = useState(0);
   const [uploadProgress, setUploadProgress] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [uploadedFileRecords, setUploadedFileRecords] = useState<UploadedFileRecord[]>([]);
@@ -148,7 +150,9 @@ export default function ClientUploadPortalPage() {
       return;
     }
 
+    if (uploading) return;
     setUploading(true);
+    setCompletedFiles(0);
     setError(null);
 
     try {
@@ -163,7 +167,7 @@ export default function ClientUploadPortalPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "presign",
+            action: "presign", pin,
             filename: file.name,
             mimeType: file.type || "application/octet-stream",
             category: request?.requiredTypes[0] || "NRC_PASSPORT_ID",
@@ -186,6 +190,7 @@ export default function ClientUploadPortalPage() {
           throw new Error(`Secure storage rejected ${file.name} (${storageRes.status})`);
         }
 
+        setCompletedFiles(i + 1);
         newUploadedFileRecords.push({
           title: request?.title || file.name.replace(/\.[^/.]+$/, ""),
           objectKey: presignData.objectKey,
@@ -218,7 +223,7 @@ export default function ClientUploadPortalPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "complete",
+          action: "complete", pin,
           files: uploadedFileRecords,
           consent: {
             name: clientName,
@@ -250,7 +255,7 @@ export default function ClientUploadPortalPage() {
     );
   }
 
-  if (error || !request) {
+  if (!request) {
     return (
       <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center p-4">
         <div className="max-w-md w-full p-6 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-md text-center space-y-4">
@@ -544,6 +549,8 @@ export default function ClientUploadPortalPage() {
             >
               <PendingButtonContent pending={uploading} pendingLabel={uploadProgress || `Uploading ${selectedFiles[0]?.name || "document"}…`}>{uploadedFileRecords.length > 0 ? "Upload These Files" : "Upload Documents Safely"}</PendingButtonContent>
             </button>
+            {uploading && <OperationProgress label={uploadProgress || "Finalizing upload…"} completed={selectedFiles.length ? completedFiles : undefined} total={selectedFiles.length || undefined} />}
+            {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
           </form>
         )}
       </div>

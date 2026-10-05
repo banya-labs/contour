@@ -14,18 +14,21 @@ export default function DocumentAccessControlPage() {
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [savedUserId, setSavedUserId] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [error, setError] = useState("");
 
   const fetchGrants = async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/vault/access");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to load vault access.");
       if (res.ok) {
         setMembers(data.members || []);
         setProperties(data.properties || []);
       }
     } catch (err) {
-      console.error("Failed to load access grants:", err);
+      setError(err instanceof Error ? err.message : "Unable to load vault access.");
     } finally {
       setLoading(false);
     }
@@ -44,13 +47,19 @@ export default function DocumentAccessControlPage() {
   }, []);
 
   const handleUpdate = async (userId: string, accessLevel: string, propertyIds: string[] = []) => {
+    if (savingUserId) return;
     setSavingUserId(userId);
+    setError("");
     try {
       const res = await fetch("/api/vault/access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, accessLevel, propertyIds }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Unable to update vault access.");
+      }
       if (res.ok) {
         setSavedUserId(userId);
         setMembers((prev) =>
@@ -66,7 +75,7 @@ export default function DocumentAccessControlPage() {
         setTimeout(() => setSavedUserId(null), 1500);
       }
     } catch (err) {
-      console.error("Update failed:", err);
+      setError(err instanceof Error ? err.message : "Unable to update vault access. Please try again.");
     } finally {
       setSavingUserId(null);
     }
@@ -91,6 +100,7 @@ export default function DocumentAccessControlPage() {
         </div>
       </div>
 
+      {error && <div role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error} <button type="button" disabled={loading || Boolean(savingUserId)} onClick={() => void fetchGrants()} className="underline">Reload access grants</button></div>}
       {loading ? (
         <div className="p-12 text-center text-xs text-stone-400 flex flex-col items-center justify-center gap-2">
           <SectionPendingState label="Loading vault access…" compact />
@@ -140,6 +150,7 @@ export default function DocumentAccessControlPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     type="button"
+                    disabled={Boolean(savingUserId)}
                     onClick={() => handleUpdate(member.id, "FULL_VAULT", [])}
                     className={`p-3 rounded-lg border text-left transition-all ${
                       grant.accessLevel === "FULL_VAULT"
@@ -155,6 +166,7 @@ export default function DocumentAccessControlPage() {
 
                   <button
                     type="button"
+                    disabled={Boolean(savingUserId)}
                     onClick={() => handleUpdate(member.id, "ASSIGNED_ONLY", [])}
                     className={`p-3 rounded-lg border text-left transition-all ${
                       grant.accessLevel === "ASSIGNED_ONLY"
@@ -170,6 +182,7 @@ export default function DocumentAccessControlPage() {
 
                   <button
                     type="button"
+                    disabled={Boolean(savingUserId)}
                     onClick={() => handleUpdate(member.id, "SPECIFIC_FOLDERS", grant.propertyIds || [])}
                     className={`p-3 rounded-lg border text-left transition-all ${
                       grant.accessLevel === "SPECIFIC_FOLDERS"
@@ -200,6 +213,7 @@ export default function DocumentAccessControlPage() {
                           >
                             <input
                               type="checkbox"
+                              disabled={Boolean(savingUserId)}
                               checked={isChecked}
                               onChange={() => {
                                 const updated = isChecked

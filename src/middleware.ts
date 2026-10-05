@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { getBillingAccessState, getTrialEnd } from "@/lib/billing-access";
+import { getOrganizationBillingEntitlement } from "@/lib/billing-entitlement";
 import { CORRELATION_HEADER, getOrCreateCorrelationId } from "@/lib/correlation";
 import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
 import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
 import { checkRateLimit } from "@/lib/rate-limiter";
-import { getControlPlaneAccessDestination, hasControlPlaneAccess, hasPersistedControlPlaneAccess } from "@/lib/control-plane";
+import { getControlPlaneAccessDestination, getPlatformActor } from "@/lib/control-plane";
 import { toAuthHeaders } from "@/lib/auth-headers";
+import { usesRouteAuthentication } from "@/lib/route-authentication";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -40,6 +41,10 @@ function isPublicPath(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  // Historical vault mirrors must never be served as public static assets.
+  if (request.nextUrl.pathname.toLowerCase().startsWith("/uploads/vault/")) {
+    return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
   // Zero-touch bypass for binary & multipart upload endpoints to prevent stream proxy corruption
   if (
     request.nextUrl.pathname === "/api/properties/upload-image" ||
@@ -131,7 +136,7 @@ export async function middleware(request: NextRequest) {
   }
 
 
-  if (isPublicPath(request.nextUrl.pathname)) {
+  if (isPublicPath(request.nextUrl.pathname) || usesRouteAuthentication(request.nextUrl.pathname)) {
     return createForwardResponse();
   }
 
@@ -171,8 +176,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    const persistedStaff = await hasPersistedControlPlaneAccess(session.user.id);
-    const destination = getControlPlaneAccessDestination(true, hasControlPlaneAccess(session.user.email, persistedStaff));
+    const actor = await getPlatformActor(session.user.id, session.user.email);
+    const destination = getControlPlaneAccessDestination(true, Boolean(actor));
     if (destination) {
       return NextResponse.redirect(new URL(destination, request.url));
     }
@@ -206,12 +211,7 @@ export async function middleware(request: NextRequest) {
         response.headers.set(CORRELATION_HEADER, correlationId);
         return response;
       }
-      const successfulPayment = await db.payment.findFirst({
-        where: { organizationId: tenant.organizationId, status: "SUCCESS" },
-        select: { id: true },
-      });
-      const trialEndsAt = organization?.trialEndsAt || (organization ? getTrialEnd(organization.createdAt) : null);
-      const accessState = getBillingAccessState({ subscriptionStatus: organization?.subscriptionStatus, trialEndsAt, hasSuccessfulPayment: Boolean(successfulPayment) || Boolean(organization?.lencoSubscriptionId) });
+      const { accessState } = await getOrganizationBillingEntitlement(tenant.organizationId);
       if (accessState === "TRIAL_EXPIRED") {
         const response = NextResponse.redirect(new URL("/dashboard/billing?required=1", request.url));
         response.headers.set(CORRELATION_HEADER, correlationId);
@@ -241,6 +241,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   runtime: "nodejs",
   matcher: [
+    "/uploads/vault/:path*",
     "/((?!_next|api/properties/upload-image|api/storage/upload|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
   ],
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, FileUp, Link2 } from "lucide-react";
 import { StartLeaseDialog } from "./start-lease-dialog";
 import { RequestDocumentModal } from "@/components/vault/request-document-modal";
@@ -8,6 +8,8 @@ import { UploadDocumentModal } from "@/components/vault/upload-document-modal";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ClosedDealResultDialog } from "./closed-deal-result-dialog";
 import type { ClosedDealResult } from "@/lib/closed-deal-result";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 type WorkflowItem = {
   id: string;
@@ -66,6 +68,7 @@ export function ClosingWorkflowPanel({
     blocked: number;
   }>({ ready: false, pending: 0, blocked: 0 });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [lostReason, setLostReason] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -76,8 +79,11 @@ export function ClosingWorkflowPanel({
   const [showStartLease, setShowStartLease] = useState(false);
   const [showRequestDocuments, setShowRequestDocuments] = useState(false);
   const [evidenceItem, setEvidenceItem] = useState<WorkflowItem | null>(null);
+  const evidenceLinkTask = useRef<Promise<void> | null>(null);
 
   const load = async () => {
+    setLoading(true); setError("");
+    try {
     const response = await fetch(`/api/clients/${inquiryId}/closing-workflow`, {
       cache: "no-store",
     });
@@ -87,16 +93,21 @@ export function ClosingWorkflowPanel({
     setWorkflow(data.workflow);
     setReadiness(data.readiness);
     setDeal(data.deal);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load closing workflow.");
+    } finally { setLoading(false); }
   };
   useEffect(() => {
-    void load().catch((e) => setError(e.message));
+    void load();
   }, [inquiryId]);
 
   const updateItem = async (
     item: WorkflowItem,
     status: "SUBMITTED" | "APPROVED" | "REJECTED",
     notes?: string,
+    linkedDocumentId?: string,
   ) => {
+    if (pendingKey || loading) return;
     setPendingKey(item.key);
     setError("");
     try {
@@ -109,6 +120,7 @@ export function ClosingWorkflowPanel({
             status,
             notes: notes || item.notes || undefined,
             evidenceValue: evidenceValues[item.key] || undefined,
+            linkedDocumentId,
             rejectionReason:
               status === "REJECTED"
                 ? notes || "Manager requested correction."
@@ -141,6 +153,7 @@ export function ClosingWorkflowPanel({
   };
 
   const closeWon = async () => {
+    if (pendingKey || loading) return;
     setPendingKey("__close__");
     setError("");
     try {
@@ -161,6 +174,7 @@ export function ClosingWorkflowPanel({
   };
 
   const closeLost = async () => {
+    if (pendingKey || loading) return;
     if (lostReason.trim().length < 10) {
       setError(
         "Provide at least 10 characters explaining why the deal was lost.",
@@ -197,8 +211,8 @@ export function ClosingWorkflowPanel({
   }
 
   return (
-    <Dialog open layer={80} onOpenChange={(open) => { if (!open && pendingKey !== "__close__") onClose(); }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto p-0 block" onPointerDownOutside={(event) => event.preventDefault()} onEscapeKeyDown={(event) => { if (pendingKey === "__close__") event.preventDefault(); }}>
+    <Dialog open layer={80} onOpenChange={(open) => { if (!open && !pendingKey) onClose(); }}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto p-0 block" onPointerDownOutside={(event) => event.preventDefault()} onEscapeKeyDown={(event) => { if (pendingKey) event.preventDefault(); }}>
         <header className="p-5 border-b border-editorial-border flex items-start justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-widest font-bold text-contour-red">
@@ -213,15 +227,13 @@ export function ClosingWorkflowPanel({
           </div>
         </header>
         {error && (
-          <p className="m-4 p-3 border border-red-300 bg-red-50 text-xs text-red-800">
+          <p role="alert" className="m-4 p-3 border border-red-300 bg-red-50 text-xs text-red-800">
             {error}
+            <button type="button" disabled={loading || Boolean(pendingKey)} onClick={() => void load()} className="ml-3 underline">Reload workflow</button>
           </p>
         )}
-        {!workflow && !error && (
-          <p className="p-6 text-sm text-editorial-muted">
-            Loading closing requirements…
-          </p>
-        )}
+        {loading && <SectionPendingState compact label="Loading closing requirements…" />}
+        {pendingKey && <SectionPendingState compact label={pendingKey === "__close__" ? "Closing deal…" : "Saving closing requirement…"} />}
         {workflow && deal?.transactionType === "RENTAL_PLACEMENT" && (
           <div className="p-5 space-y-4">
             <div className="p-4 border border-blue-300 bg-blue-50 text-blue-900 text-sm">
@@ -364,20 +376,20 @@ export function ClosingWorkflowPanel({
                     {item.status !== "APPROVED" && (
                       <button
                         type="button"
-                        disabled={pendingKey === item.key}
+                        disabled={Boolean(pendingKey) || loading}
                         onClick={() =>
                           void updateItem(item, "SUBMITTED", notes[item.key])
                         }
                         className="px-2 py-1 border border-editorial-border text-[10px] font-bold uppercase disabled:opacity-50"
                       >
-                        Submit
+                        <PendingButtonContent pending={pendingKey === item.key} pendingLabel="Saving requirement…">Submit</PendingButtonContent>
                       </button>
                     )}
                     {item.status !== "APPROVED" && (
                       <>
                         <button
                           type="button"
-                          disabled={pendingKey === item.key}
+                          disabled={Boolean(pendingKey) || loading}
                           onClick={() =>
                             void updateItem(
                               item,
@@ -387,17 +399,17 @@ export function ClosingWorkflowPanel({
                           }
                           className="px-2 py-1 border border-red-700 text-red-700 text-[10px] font-bold uppercase disabled:opacity-50"
                         >
-                          Reject
+                          <PendingButtonContent pending={pendingKey === item.key} pendingLabel="Saving requirement…">Reject</PendingButtonContent>
                         </button>
                         <button
                           type="button"
-                          disabled={pendingKey === item.key}
+                          disabled={Boolean(pendingKey) || loading}
                           onClick={() =>
                             void updateItem(item, "APPROVED", notes[item.key])
                           }
                           className="px-2 py-1 bg-editorial-black text-white text-[10px] font-bold uppercase disabled:opacity-50"
                         >
-                          Approve
+                          <PendingButtonContent pending={pendingKey === item.key} pendingLabel="Saving requirement…">Approve</PendingButtonContent>
                         </button>
                       </>
                     )}
@@ -419,27 +431,27 @@ export function ClosingWorkflowPanel({
             <button
               type="button"
               onClick={onClose}
-              disabled={pendingKey === "__close__"}
+              disabled={Boolean(pendingKey)}
               className="px-3 py-2 border border-editorial-border text-xs font-bold uppercase"
             >
               Close
             </button>
             <button
               type="button"
-              disabled={pendingKey === "__close__"}
+              disabled={Boolean(pendingKey) || loading || !workflow}
               onClick={() => void closeLost()}
               className="px-3 py-2 border border-red-700 text-red-700 text-xs font-bold uppercase disabled:opacity-50"
             >
-              Mark lost
+              <PendingButtonContent pending={pendingKey === "__close__"} pendingLabel="Closing deal…">Mark lost</PendingButtonContent>
             </button>
             {readiness.ready && (
               <button
                 type="button"
-                disabled={pendingKey === "__close__"}
+                disabled={Boolean(pendingKey) || loading}
                 onClick={() => void closeWon()}
                 className="px-3 py-2 bg-emerald-700 text-white text-xs font-bold uppercase disabled:opacity-50"
               >
-                {pendingKey === "__close__" ? "Closing…" : "Mark won"}
+                <PendingButtonContent pending={pendingKey === "__close__"} pendingLabel="Closing deal…">Mark won</PendingButtonContent>
               </button>
             )}
           </div>
@@ -486,24 +498,14 @@ export function ClosingWorkflowPanel({
               isOpen={Boolean(evidenceItem)}
               onClose={() => setEvidenceItem(null)}
               onSuccess={() => {
-                setEvidenceItem(null);
-                void load();
+                void (async () => {
+                  await evidenceLinkTask.current;
+                  evidenceLinkTask.current = null;
+                  setEvidenceItem(null);
+                })();
               }}
               onUploaded={(documentId) => {
-                void fetch(
-                  `/api/clients/${inquiryId}/closing-workflow/items/${evidenceItem.key}`,
-                  {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      status: "SUBMITTED",
-                      linkedDocumentId: documentId,
-                      notes:
-                        notes[evidenceItem.key] ||
-                        `Uploaded evidence for ${evidenceItem.label}.`,
-                    }),
-                  },
-                );
+                evidenceLinkTask.current = updateItem(evidenceItem, "SUBMITTED", notes[evidenceItem.key] || `Uploaded evidence for ${evidenceItem.label}.`, documentId);
               }}
               properties={
                 deal.property ? [{ ...deal.property, status: "ACTIVE" }] : []

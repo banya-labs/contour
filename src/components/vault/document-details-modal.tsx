@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +58,7 @@ export function DocumentDetailsModal({
 }: DocumentDetailsModalProps) {
   const [activeTab, setActiveTab] = useState<"METADATA" | "PREVIEW">("METADATA");
   const [details, setDetails] = useState<DetailedDoc | null>(null);
+  const detailsRequest = useRef(0);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -79,26 +80,31 @@ export function DocumentDetailsModal({
       setImageLoading(true);
       fetchDocumentDetails(doc.id);
     } else {
+      detailsRequest.current += 1;
       setDetails(null);
     }
   }, [isOpen, doc?.id]);
 
   const fetchDocumentDetails = async (docId: string) => {
+    const request = ++detailsRequest.current;
     setLoading(true);
     try {
       const res = await fetch(`/api/vault/documents/${docId}`);
       const data = await res.json();
+      if (request !== detailsRequest.current) return;
       if (res.ok && data.success) {
         setDetails(data.document);
       } else {
+        setActionError(data.error || "Unable to load document details. Showing the saved summary.");
         // Fallback to the summary passed in props
         setDetails(doc as DetailedDoc);
       }
-    } catch (err: any) {
-      console.error("Failed to fetch full document details:", err);
+    } catch {
+      if (request !== detailsRequest.current) return;
+      setActionError("Unable to load document details. Showing the saved summary.");
       setDetails(doc as DetailedDoc);
     } finally {
-      setLoading(false);
+      if (request === detailsRequest.current) setLoading(false);
     }
   };
 
@@ -151,6 +157,7 @@ export function DocumentDetailsModal({
 
   // Download handler: triggers direct download
   const handleDownload = async () => {
+    if (downloading || verifying || deleting) return;
     setDownloading(true);
     setActionError(null);
     try {
@@ -176,6 +183,7 @@ export function DocumentDetailsModal({
 
   // Verification toggle handler
   const handleToggleVerify = async () => {
+    if (downloading || verifying || deleting) return;
     setVerifying(true);
     setActionError(null);
     setActionSuccess(null);
@@ -198,6 +206,7 @@ export function DocumentDetailsModal({
   };
 
   const handleDelete = async () => {
+    if (downloading || verifying || deleting) return;
     if (!window.confirm("Delete this document from the vault? It will be soft-deleted and removed from active views.")) return;
     setDeleting(true);
     setActionError(null);
@@ -223,7 +232,7 @@ export function DocumentDetailsModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !downloading && !verifying && !deleting && onClose()}>
       <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 border border-editorial-border bg-[#F5F2EC] font-geist overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="p-5 sm:p-6 pr-14 sm:pr-16 border-b border-editorial-border bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -268,7 +277,7 @@ export function DocumentDetailsModal({
             <button
               type="button"
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={downloading || verifying || deleting}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-semibold uppercase tracking-wider text-red-700 hover:bg-red-50 disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -306,6 +315,7 @@ export function DocumentDetailsModal({
           <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-xs text-contour-red flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{actionError}</span>
+            <button type="button" disabled={loading || verifying || deleting} onClick={() => fetchDocumentDetails(doc.id)} className="underline">Reload details</button>
           </div>
         )}
         {actionSuccess && (
@@ -541,7 +551,7 @@ export function DocumentDetailsModal({
                       <button
                         type="button"
                         onClick={handleToggleVerify}
-                        disabled={verifying}
+                        disabled={downloading || verifying || deleting}
                         className="px-2 py-1 text-[10px] font-heading font-semibold uppercase tracking-wider border border-editorial-border hover:border-editorial-black bg-neutral-50 hover:bg-neutral-100 transition-colors flex items-center gap-1"
                       >
                         {verifying ? (
@@ -744,7 +754,7 @@ export function DocumentDetailsModal({
                           <button
                             type="button"
                             onClick={handleDownload}
-                            disabled={downloading}
+                            disabled={downloading || verifying || deleting}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-heading text-xs font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />

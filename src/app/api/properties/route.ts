@@ -281,7 +281,7 @@ const getHandler = createApiHandler({
       : 50;
     const skip = (pageNum - 1) * take;
 
-    const cacheKey = `props:${targetOrgId}:${listingType || "all"}:${status || "all"}:${search || "none"}:${suburb || "none"}:${sortBy}:${validSortOrder}:${pageNum}:${take}`;
+    const cacheKey = `props:${targetOrgId}:${isPublicRequest ? "public" : "internal"}:${JSON.stringify(whereClause)}:${JSON.stringify(orderBy)}:${pageNum}:${take}`;
 
     const { rawProperties, total } = await smartCache.getOrSet(
       targetOrgId,

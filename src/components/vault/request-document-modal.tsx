@@ -58,6 +58,7 @@ export function RequestDocumentModal({
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError(null);
 
     if (requiredTypes.length === 0 && !customDocuments.trim()) {
@@ -102,13 +103,16 @@ export function RequestDocumentModal({
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch { setError("Unable to copy the link. Please select and copy it manually."); }
   };
 
   const handleClose = () => {
+    if (isSubmitting) return;
     setResult(null);
     setError(null);
     setRequiredTypes([]);

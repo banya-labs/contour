@@ -45,6 +45,9 @@ export default function PropertyImageUploader({
   disabled = false,
 }: PropertyImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const transferInFlight = useRef(false);
+  const pendingUploadsRef = useRef<PendingUpload[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
@@ -56,14 +59,15 @@ export default function PropertyImageUploader({
   const isDark = theme === "dark";
 
   // Cleanup object URLs on unmount
+  pendingUploadsRef.current = pendingUploads;
   useEffect(() => {
     return () => {
-      pendingUploads.forEach((p) => URL.revokeObjectURL(p.blobUrl));
+      pendingUploadsRef.current.forEach((p) => URL.revokeObjectURL(p.blobUrl));
     };
-  }, [pendingUploads]);
+  }, []);
 
   const handleUploadFiles = async (files: FileList | File[]) => {
-    if (disabled || files.length === 0) return;
+    if (disabled || transferInFlight.current || files.length === 0) return;
     setError(null);
 
     const validFiles: File[] = [];
@@ -118,6 +122,7 @@ export default function PropertyImageUploader({
     }));
 
     setPendingUploads((prev) => [...prev, ...newPendingItems]);
+    transferInFlight.current = true;
     setUploading(true);
 
     try {
@@ -202,6 +207,7 @@ export default function PropertyImageUploader({
         )
       );
     } finally {
+      transferInFlight.current = false;
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -217,34 +223,42 @@ export default function PropertyImageUploader({
   };
 
   const handleRemove = async (indexToRemove: number) => {
-    if (disabled) return;
+    if (disabled || transferInFlight.current) return;
     const photoToRemove = photos[indexToRemove];
     const updated = photos.filter((_, idx) => idx !== indexToRemove);
     let newFeatured = featuredPhoto;
     if (featuredPhoto === photoToRemove || !updated.includes(featuredPhoto || "")) {
       newFeatured = updated[0];
     }
-    onChange(updated, newFeatured);
-
     // If property exists in DB, also trigger server-side deletion immediately
     if (propertyId && photoToRemove) {
+      transferInFlight.current = true;
+      setRemoving(true); setError(null);
       try {
-        await fetch(`/api/properties/${propertyId}/photos?url=${encodeURIComponent(photoToRemove)}`, {
+        const response = await fetch(`/api/properties/${propertyId}/photos?url=${encodeURIComponent(photoToRemove)}`, {
           method: "DELETE",
         });
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(data?.error || "Unable to remove photo.");
+        }
       } catch (err) {
-        console.warn("Direct photo delete warning (will persist on form save):", err);
+        setError(err instanceof Error ? err.message : "Unable to remove photo. Please try again.");
+        return;
+      } finally {
+        transferInFlight.current = false; setRemoving(false);
       }
     }
+    onChange(updated, newFeatured);
   };
 
   const handleSetFeatured = (url: string) => {
-    if (disabled) return;
+    if (disabled || transferInFlight.current) return;
     onChange(photos, url);
   };
 
   const handlePhotoDrop = (targetIndex: number) => {
-    if (disabled || draggedPhotoIndex === null || draggedPhotoIndex === targetIndex) {
+    if (disabled || transferInFlight.current || draggedPhotoIndex === null || draggedPhotoIndex === targetIndex) {
       setDraggedPhotoIndex(null);
       return;
     }
@@ -266,9 +280,11 @@ export default function PropertyImageUploader({
   };
 
   const totalVisibleCount = photos.length + pendingUploads.length;
+  const busy = uploading || removing;
 
   return (
-    <div className="space-y-3 font-sans">
+    <div className="space-y-3 font-sans" aria-busy={busy}>
+      {removing && <div role="status" className="flex items-center gap-2 text-xs"><ContourSunLoader size="sm" label="Removing listing photo…" decorative />Removing listing photo…</div>}
       {/* Hidden Native File Inputs */}
       <input
         ref={fileInputRef}
@@ -277,7 +293,7 @@ export default function PropertyImageUploader({
         multiple
         className="hidden"
         onChange={(e) => e.target.files && handleUploadFiles(e.target.files)}
-        disabled={disabled}
+        disabled={disabled || busy}
       />
       <input
         ref={cameraInputRef}
@@ -286,7 +302,7 @@ export default function PropertyImageUploader({
         multiple
         className="hidden"
         onChange={(e) => e.target.files && handleUploadFiles(e.target.files)}
-        disabled={disabled}
+        disabled={disabled || busy}
       />
 
       {/* Upload Dropzone / Action Area */}
@@ -306,7 +322,7 @@ export default function PropertyImageUploader({
             ? "border-emerald-900/60 bg-[#070F0B] hover:border-emerald-700/80"
             : "border-stone-300 bg-stone-50/60 hover:border-editorial-black/40 hover:bg-stone-50"
         } ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
-        onClick={() => !disabled && fileInputRef.current?.click()}
+        onClick={() => !disabled && !busy && fileInputRef.current?.click()}
       >
         <div className="flex flex-col items-center justify-center gap-2">
           <div
@@ -342,7 +358,7 @@ export default function PropertyImageUploader({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
+              disabled={disabled || busy}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isDark
                   ? "bg-emerald-900 hover:bg-emerald-800 text-white"
@@ -356,7 +372,7 @@ export default function PropertyImageUploader({
             <button
               type="button"
               onClick={() => cameraInputRef.current?.click()}
-              disabled={disabled}
+              disabled={disabled || busy}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isDark
                   ? "bg-[#14261C] hover:bg-[#1A3326] text-emerald-300 border border-emerald-700/50"
@@ -409,7 +425,7 @@ export default function PropertyImageUploader({
               return (
                 <div
                   key={`${url}-${idx}`}
-                  draggable={!disabled}
+                  draggable={!disabled && !busy}
                   onDragStart={() => setDraggedPhotoIndex(idx)}
                   onDragEnd={() => setDraggedPhotoIndex(null)}
                   onDragOver={(event) => {

@@ -23,6 +23,7 @@ import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-d
 import CommissionsPage from "@/app/(dashboard)/dashboard/commissions/page";
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 import { PageTabs } from "@/components/ui/page-tabs";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
@@ -46,12 +47,17 @@ function PropertySalesContent() {
   }, [searchParams, activeTab]);
 
   const [formError, setFormError] = useState("");
+  const [transferPending, setTransferPending] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function loadData() {
+      setLoading(true);
+      setFormError("");
       try {
-        const salesRes = await fetch("/api/sales");
+        const salesRes = await fetch("/api/sales", { signal: controller.signal });
         const salesData = await salesRes.json();
+        if (!salesRes.ok || !salesData.success) throw new Error(salesData.error || "Unable to load sales.");
 
         if (salesData.success && salesData.transactions) {
           const normalized = salesData.transactions.filter((t: { transactionType: string }) => t.transactionType === "PROPERTY_SALE").map((t: any) => {
@@ -87,12 +93,13 @@ function PropertySalesContent() {
         }
 
       } catch (err) {
-        console.error("Failed to load sales data:", err);
+        if (!controller.signal.aborted) setFormError(err instanceof Error ? err.message : "Unable to load sales.");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     loadData();
+    return () => controller.abort();
   }, [refreshNonce]);
   useEffect(() => {
     const handle = (event: Event) => {
@@ -183,7 +190,7 @@ function PropertySalesContent() {
         </button>
       </div>
 
-      {formError && <p role="alert" className="border border-red-200 bg-red-50 p-3 text-sm text-red-800">{formError}</p>}
+      {formError && <p role="alert" className="border border-red-200 bg-red-50 p-3 text-sm text-red-800">{formError}<button type="button" className="ml-3 underline" onClick={() => setRefreshNonce(v => v + 1)}>Reload sales</button></p>}
       {/* KPI Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
         <MotionCard withCorners className="p-3.5 sm:p-5">
@@ -271,9 +278,7 @@ function PropertySalesContent() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-editorial-muted text-xs font-geist">
-            Loading sales transactions from database...
-          </div>
+          <SectionPendingState label="Loading sales transactions…" />
         ) : filteredSales.length === 0 ? (
           <div className="py-16 text-center text-xs text-editorial-muted font-geist">
             No property acquisitions match your current filter.
@@ -445,13 +450,21 @@ function PropertySalesContent() {
               <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Transfer handover</p>
               <p className="mt-1 text-xs text-editorial-muted">A Won sale is commercially agreed. Track conveyancing separately until transfer is complete.</p>
             </div>
-            <select defaultValue={selectedSale.transferStatus || "SALE_AGREED"} onChange={async (event) => {
-              const response = await fetch(`/api/sales/${selectedSale.id}/transfer`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: event.target.value }) });
-              if (!response.ok) { setFormError((await response.json()).error || "Unable to update transfer status."); return; }
-              const transferStatus = event.target.value;
-              setSales((current) => current.map((sale) => sale.id === selectedSale.id ? { ...sale, transferStatus } : sale));
-              setRefreshNonce((value) => value + 1);
-            }} className="w-full border border-editorial-border p-2 text-xs">
+            {formError && <p role="alert" className="text-sm text-red-700">{formError}</p>}
+            {transferPending && <SectionPendingState compact label="Updating transfer status…" />}
+            <select aria-label="Transfer status" disabled={transferPending} value={selectedSale.transferStatus || "SALE_AGREED"} onChange={async (event) => {
+              if (transferPending) return;
+              const transferStatus = event.target.value, saleId = selectedSale.id;
+              setTransferPending(true); setFormError("");
+              try {
+                const response = await fetch(`/api/sales/${saleId}/transfer`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: transferStatus }) });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || "Unable to update transfer status.");
+                setSales(current => current.map(sale => sale.id === saleId ? { ...sale, transferStatus } : sale));
+                emitWorkspaceMutation(["sales"]);
+              } catch (error) { setFormError(error instanceof Error ? error.message : "Unable to update transfer status."); }
+              finally { setTransferPending(false); }
+            }} className="w-full border border-editorial-border p-2 text-xs disabled:opacity-50">
               <option value="SALE_AGREED">Sale agreed</option>
               <option value="TRANSFER_IN_PROGRESS">Transfer in progress</option>
               <option value="TRANSFER_COMPLETE">Transfer complete</option>

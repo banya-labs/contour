@@ -25,6 +25,7 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
   const [copiedBackup, setCopiedBackup] = useState(false);
 
   async function handleEnable() {
+    if (loading) return;
     if (!password) { setError("Please enter your current password to continue."); return; }
     setLoading(true); setError(null);
     try {
@@ -40,6 +41,7 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
   }
 
   async function handleVerify() {
+    if (loading) return;
     if (code.length !== 6) { setError("Please enter the 6-digit code from your authenticator app."); return; }
     setLoading(true); setError(null);
     try {
@@ -51,14 +53,18 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
     finally { setLoading(false); }
   }
 
-  function handleCopySecret() {
-    void navigator.clipboard.writeText(secret);
-    setCopiedSecret(true); setTimeout(() => setCopiedSecret(false), 2000);
+  async function handleCopySecret() {
+    try {
+      await navigator.clipboard.writeText(secret);
+      setCopiedSecret(true); setTimeout(() => setCopiedSecret(false), 2000);
+    } catch { setError("Unable to copy the secret. Please select and copy it manually."); }
   }
 
-  function handleCopyBackup() {
-    void navigator.clipboard.writeText(backupCodes.join("\n"));
-    setCopiedBackup(true); setTimeout(() => setCopiedBackup(false), 2000);
+  async function handleCopyBackup() {
+    try {
+      await navigator.clipboard.writeText(backupCodes.join("\n"));
+      setCopiedBackup(true); setTimeout(() => setCopiedBackup(false), 2000);
+    } catch { setError("Unable to copy backup codes. Use Download or select them manually."); }
   }
 
   function handleDownloadBackup() {
@@ -88,6 +94,7 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
           <button
             type="button"
             onClick={onClose}
+            disabled={loading}
             className="flex items-center justify-center w-8 h-8 rounded-none border border-editorial-border bg-white text-editorial-black hover:bg-editorial-black hover:text-white transition-all shadow-xs"
             title="Close"
           >
@@ -96,6 +103,7 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
         </div>
 
         <div className="p-6 space-y-5">
+          {error && step !== "init" && step !== "verify" && <p role="alert" className="text-xs text-red-700">{error}</p>}
 
           {step === "init" && (
             <>

@@ -33,6 +33,7 @@ export async function GET(
       .map((segment) => segment.replace(/[^a-zA-Z0-9._-]/g, ""))
       .filter((s) => s.length > 0 && s !== ".." && s !== ".");
 
+    if (safeSegments[0]?.toLowerCase() === "vault") return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (safeSegments.length === 0) {
       return NextResponse.redirect(FALLBACK_IMAGE_URL, { status: 307 });
     }

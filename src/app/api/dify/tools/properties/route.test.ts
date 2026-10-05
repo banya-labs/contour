@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/dify-auth", () => ({
   authenticateDifyRequest,
+  checkDirectMachineIpLimit: vi.fn().mockResolvedValue(null),
 }));
 
 import { POST } from "./route";

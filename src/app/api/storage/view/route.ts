@@ -1,46 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
-import { s3Storage } from "@/lib/storage/s3";
-import { resolveContourRole, roleHasPermission } from "@/lib/authorization";
-
+import { assertVaultAccess, VaultSecurityError } from "@/lib/storage/vault-security";
 export async function GET(req: NextRequest) {
   try {
     const tenant = await getTenantContext(req);
-    if (!tenant) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const role = resolveContourRole(tenant.session.user.role ?? undefined, "member", tenant.userRole === "SUPER_ADMIN" ? "OWNER" : undefined);
-    if (!roleHasPermission(role, "vault.download")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-    const { searchParams } = new URL(req.url);
-    const key = searchParams.get("key");
-    const docId = searchParams.get("id");
-
-    if (!key && !docId) {
-      return NextResponse.json({ error: "Missing document key or ID" }, { status: 400 });
-    }
-
-    const document = docId
-      ? await db.vaultDocument.findFirst({
-          where: { id: docId, organizationId: tenant.organizationId, isDeleted: false },
-          select: { objectKey: true },
-        })
-      : await db.vaultDocument.findFirst({
-          where: { objectKey: key!, organizationId: tenant.organizationId, isDeleted: false },
-          select: { objectKey: true },
-        });
-
-    if (!document) {
-      return NextResponse.json({ error: "Document not found" }, { status: 404 });
-    }
-
-    const downloadUrl = await s3Storage.getPresignedDownloadUrl(document.objectKey, 900);
-    return NextResponse.redirect(downloadUrl);
-  } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to access document" },
-      { status: 500 },
-    );
+    if (!tenant) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const id = req.nextUrl.searchParams.get("id"), key = req.nextUrl.searchParams.get("key");
+    if (!id && !key) return NextResponse.json({ error: "Missing document key or ID" }, { status: 400 });
+    const document = await db.vaultDocument.findFirst({ where: { ...(id ? { id } : { objectKey: key! }), organizationId: tenant.organizationId, isDeleted: false } });
+    if (!document) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    await assertVaultAccess(tenant, document, "download");
+    return NextResponse.redirect(new URL(`/api/vault/documents/${document.id}/download?direct=true`, req.url));
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof VaultSecurityError ? error.message : "Unable to access document" }, { status: error instanceof VaultSecurityError ? error.status : 503 });
   }
 }

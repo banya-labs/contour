@@ -1,3 +1,4 @@
+import { assertVaultAccess } from "@/lib/storage/vault-security";
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
@@ -6,7 +7,8 @@ import { resolveDeedVerificationResult, isConveyanceDeed } from "@/lib/actions/d
 export const POST = createApiHandler({
   requireAuth: true,
   requirePermissions: ["vault.verify"],
-  handler: async (_req, { params, organizationId, userId }) => {
+  handler: async (_req, ctx) => {
+    const { params, organizationId, userId } = ctx;
     const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };
 
@@ -22,6 +24,7 @@ export const POST = createApiHandler({
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
+    await assertVaultAccess(ctx, doc, "verify");
     const result = resolveDeedVerificationResult(doc.isVerified);
     if (result === "ALREADY_VERIFIED") {
       return NextResponse.json({

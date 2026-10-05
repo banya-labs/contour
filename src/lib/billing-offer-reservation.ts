@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 export async function reserveOrganizationOffer(input: { organizationId: string; offerId: string; paymentId: string }) {
   return db.$transaction(async (tx) => {
@@ -7,26 +8,30 @@ export async function reserveOrganizationOffer(input: { organizationId: string; 
     if (!grant || grant.offer.status !== "ACTIVE" || (grant.offer.startsAt && grant.offer.startsAt > now) || (grant.offer.endsAt && grant.offer.endsAt <= now)) return null;
     const claimed = await tx.organizationOffer.updateMany({ where: { id: grant.id, status: "ACTIVE" }, data: { status: "RESERVED", reservedPaymentId: input.paymentId, reservedAt: now } });
     if (claimed.count !== 1) return null;
-    const counted = await tx.platformOffer.updateMany({ where: { id: grant.offerId, status: "ACTIVE", OR: [{ maxRedemptions: null }, { maxRedemptions: { gt: grant.offer.redeemedCount } }] }, data: { redeemedCount: { increment: 1 } } });
+    const counted = await tx.platformOffer.updateMany({ where: { id: grant.offerId, status: "ACTIVE", OR: [{ maxRedemptions: null }, { maxRedemptions: { gt: tx.platformOffer.fields.redeemedCount } }] }, data: { redeemedCount: { increment: 1 } } });
     if (counted.count !== 1) { await tx.organizationOffer.update({ where: { id: grant.id }, data: { status: "ACTIVE", reservedPaymentId: null, reservedAt: null } }); return null; }
     return { grantId: grant.id, offerId: grant.offerId, paymentId: input.paymentId, kind: grant.offer.kind, value: Number(grant.offer.value), currency: grant.offer.currency };
   });
 }
 
-export async function releaseOrganizationOffer(paymentId: string) {
-  return db.$transaction(async (tx) => {
+export async function releaseOrganizationOffer(paymentId: string, client?: Prisma.TransactionClient) {
+  const run = async (tx: Prisma.TransactionClient) => {
     const grant = await tx.organizationOffer.findFirst({ where: { reservedPaymentId: paymentId, status: "RESERVED" }, select: { id: true, offerId: true } });
     if (!grant) return { count: 0 };
-    await tx.organizationOffer.update({ where: { id: grant.id }, data: { status: "ACTIVE", reservedPaymentId: null, reservedAt: null } });
+    const released = await tx.organizationOffer.updateMany({ where: { id: grant.id, status: "RESERVED", reservedPaymentId: paymentId }, data: { status: "ACTIVE", reservedPaymentId: null, reservedAt: null } });
+    if (released.count !== 1) return { count: 0 };
     return tx.platformOffer.updateMany({ where: { id: grant.offerId, redeemedCount: { gt: 0 } }, data: { redeemedCount: { decrement: 1 } } });
-  });
+  };
+  return client ? run(client) : db.$transaction(run);
 }
 
-export async function commitOrganizationOffer(paymentId: string) {
-  return db.$transaction(async (tx) => {
+export async function commitOrganizationOffer(paymentId: string, client?: Prisma.TransactionClient) {
+  const run = async (tx: Prisma.TransactionClient) => {
     const grant = await tx.organizationOffer.findFirst({ where: { reservedPaymentId: paymentId, status: "RESERVED" }, select: { id: true, offerId: true } });
     if (!grant) return null;
-    await tx.organizationOffer.update({ where: { id: grant.id }, data: { status: "REDEEMED", reservedPaymentId: null, reservedAt: null } });
+    const committed = await tx.organizationOffer.updateMany({ where: { id: grant.id, status: "RESERVED", reservedPaymentId: paymentId }, data: { status: "REDEEMED", reservedPaymentId: null, reservedAt: null } });
+    if (committed.count !== 1) return null;
     return { grantId: grant.id, offerId: grant.offerId, paymentId };
-  });
+  };
+  return client ? run(client) : db.$transaction(run);
 }

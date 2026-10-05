@@ -1,4 +1,4 @@
-const VERSION = "contour-offline-v1";
+const VERSION = "contour-offline-v2";
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const SHELL_ASSETS = [
@@ -31,12 +31,8 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          void caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(async () => (await caches.match(request)) || (await caches.match("/offline.html"))),
+        // Authenticated HTML and redirects must never survive account changes.
+        .catch(async () => await caches.match("/offline.html")),
     );
     return;
   }

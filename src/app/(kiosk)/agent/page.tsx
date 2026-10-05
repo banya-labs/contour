@@ -68,6 +68,7 @@ import { canManagePropertyPhotos } from "@/lib/authorization";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
 import { normalizePhoneNumber, formatWhatsAppDigits } from "@/lib/phone-utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { fieldSyncCopy, type FieldSyncStatus } from "@/lib/field-sync-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
@@ -133,6 +134,9 @@ function AgentKioskContent() {
     properties,
     clients,
     outboxCount,
+    syncing,
+    syncError,
+    retrySync,
     toggleNetwork,
     syncData,
     addToOutbox,
@@ -268,6 +272,11 @@ function AgentKioskContent() {
   const [profilePhone, setProfilePhone] = useState("");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const signOutInFlight = useRef(false);
+  const [fieldLoading, setFieldLoading] = useState(false);
+  const [copyingFieldText, setCopyingFieldText] = useState(false);
+  const [fieldLoadError, setFieldLoadError] = useState("");
   const [profileDeleteConfirming, setProfileDeleteConfirming] = useState(false);
   const [profileDeleting, setProfileDeleting] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -283,6 +292,7 @@ function AgentKioskContent() {
 
   const handleSaveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (profileSaving || profileDeleting) return;
     const name = profileName.trim();
     if (name.length < 2) {
       setProfileError("Enter your full name.");
@@ -314,13 +324,15 @@ function AgentKioskContent() {
   };
 
   const handleDeleteProfile = async () => {
+    if (profileDeleting || profileSaving) return;
     setProfileDeleting(true);
     setProfileError(null);
     try {
       const response = await fetch("/api/organization/membership/leave", { method: "DELETE" });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || "Unable to remove your agency profile.");
-      await signOut();
+      const result = await signOut();
+      if (result.error) throw new Error(result.error.message || "Unable to sign out. Please retry.");
       router.push("/");
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : "Unable to remove your agency profile.");
@@ -466,27 +478,34 @@ function AgentKioskContent() {
     async function loadAgents() {
       try {
         const res = await fetch("/api/organization/agents");
+        if (!res.ok) throw new Error("Unable to load organization agents.");
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.agents) && isMounted) {
             setOrgAgents(data.agents);
           }
         }
-      } catch (err) {
-        console.error("Failed to load organization agents in PWA:", err);
+      } catch {
+        if (isMounted) setFieldLoadError("Unable to load organization agents. Reload field details to retry.");
       }
     }
     loadAgents();
     return () => {
       isMounted = false;
     };
-  }, [session]);
+  }, [session, agentRefreshNonce]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let summaryInFlight = false;
     async function loadSummary() {
+      if (summaryInFlight || controller.signal.aborted) return;
+      summaryInFlight = true; setFieldLoading(true); setFieldLoadError("");
       try {
-        const res = await fetch(`/api/agent/summary?earningsPeriod=${earningsPeriod}`);
+        const res = await fetch(`/api/agent/summary?earningsPeriod=${earningsPeriod}`, { signal: controller.signal });
         const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Unable to refresh agent summary.");
+        if (controller.signal.aborted) return;
         if (data.success) {
           setAgentSummary(data);
           if (data.agent) {
@@ -509,8 +528,8 @@ function AgentKioskContent() {
           }
         }
       } catch (err) {
-        console.error("Failed to fetch agent summary:", err);
-      }
+        if (!controller.signal.aborted) setFieldLoadError(err instanceof Error ? err.message : "Unable to refresh agent summary.");
+      } finally { summaryInFlight = false; if (!controller.signal.aborted) setFieldLoading(false); }
     }
 
     if (session?.user) {
@@ -523,7 +542,7 @@ function AgentKioskContent() {
       loadSummary();
       void syncData();
       const summaryRefresh = window.setInterval(loadSummary, 60_000);
-      return () => window.clearInterval(summaryRefresh);
+      return () => { controller.abort(); window.clearInterval(summaryRefresh); };
     }
   }, [earningsPeriod, session, syncData, agentRefreshNonce]);
 
@@ -609,9 +628,16 @@ function AgentKioskContent() {
   }, [syncData]);
 
   const handleSignOut = async () => {
-    await signOut();
-    router.replace(`/sign-in?redirect_url=${encodeURIComponent("/agent")}`);
-    router.refresh();
+    if (signOutInFlight.current) return;
+    signOutInFlight.current = true; setSigningOut(true); setFieldLoadError("");
+    try {
+      const result = await signOut();
+      if (result.error) throw new Error(result.error.message || "Unable to sign out.");
+      router.replace(`/sign-in?redirect_url=${encodeURIComponent("/agent")}`);
+      router.refresh();
+    } catch (cause) {
+      setFieldLoadError(cause instanceof Error ? cause.message : "Unable to sign out. Please try again.");
+    } finally { signOutInFlight.current = false; setSigningOut(false); }
   };
 
   const activeTabMeta: Record<TabType, { eyebrow: string; title: string; description: string }> = {
@@ -666,16 +692,18 @@ function AgentKioskContent() {
   const [isAddingPhotosToDetail, setIsAddingPhotosToDetail] = useState(false);
   const [isCustomAgentSuburb, setIsCustomAgentSuburb] = useState(false);
 
-  const handleShareClientLink = (p: any, e?: React.MouseEvent) => {
+  const handleShareClientLink = async (p: any, e?: React.MouseEvent) => {
+    if (copyingFieldText) return; setCopyingFieldText(true); try {
     if (e) e.stopPropagation();
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
     const link = `${origin}${publicPropertyPath(p.organization?.slug || p.organizationSlug || "organization", p.slug || p.id)}`;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(link).catch(() => {});
+      await navigator.clipboard.writeText(link);
     }
     setCopiedPublicLinkId(p.id);
     playSuccessTone();
     setTimeout(() => setCopiedPublicLinkId(null), 2500);
+    } catch { setFieldLoadError("Unable to copy listing link. Please try again."); } finally { setCopyingFieldText(false); }
   };
 
   const [newClientName, setNewClientName] = useState("");
@@ -956,14 +984,16 @@ function AgentKioskContent() {
     return text;
   };
 
-  const copyWhatsAppFlyer = (p: any) => {
+  const copyWhatsAppFlyer = async (p: any) => {
+    if (copyingFieldText) return; setCopyingFieldText(true); try {
     const flyer = generateWhatsAppFlyer(p);
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(flyer).catch(() => {});
+      await navigator.clipboard.writeText(flyer);
     }
     setCopiedId(p.id);
     playSuccessTone();
     setTimeout(() => setCopiedId(null), 2500);
+    } catch { setFieldLoadError("Unable to copy WhatsApp flyer. Please try again."); } finally { setCopyingFieldText(false); }
   };
 
   // Submit Intake: New Property
@@ -1174,7 +1204,7 @@ function AgentKioskContent() {
   // Deal Stage Advancement with real-time server synchronization
   const changeDealStatus = async (nextStage: PipelineStage, assignedProperty?: MatchRow["property"], outcome?: "LOST" | "CANCELLED") => {
     const currentDeal = statusDeal;
-    if (!currentDeal || currentDeal.stage === nextStage) return;
+    if (!currentDeal || currentDeal.stage === nextStage || statusPending) return;
     if (currentDeal.id.startsWith("deal_")) {
       setStatusError("This deal is still syncing. Try again once it appears in the pipeline.");
       return;
@@ -1424,10 +1454,11 @@ function AgentKioskContent() {
             <button
               type="button"
               onClick={() => void handleSignOut()}
+              disabled={signingOut}
+              aria-busy={signingOut}
               className="flex min-h-10 w-full items-center gap-3 border-t border-editorial-border pt-2 mt-2 px-3 text-left text-xs font-heading font-semibold uppercase tracking-wider text-contour-red hover:bg-red-50/50 transition-colors"
             >
-              <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
+              <PendingButtonContent pending={signingOut} pendingLabel="Signing out…" icon={<LogOut className="h-4 w-4" />}>Sign Out</PendingButtonContent>
             </button>
           </div>
         </div>
@@ -1435,6 +1466,8 @@ function AgentKioskContent() {
 
       {/* 2. Main Scrollable Canvas */}
       <main className="field-main flex-1 px-4 py-4 space-y-4 pb-28 overflow-y-auto">
+        {copyingFieldText && <SectionPendingState compact label="Copying to clipboard…" />}{fieldLoading && <SectionPendingState compact label="Refreshing agent summary…" />}
+        {fieldLoadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-xs text-red-800">{fieldLoadError} <button type="button" disabled={fieldLoading || signingOut} onClick={() => setAgentRefreshNonce(value => value + 1)} className="underline">Reload field details</button></p>}
         <section className="border-b border-editorial-border pb-4 pt-1">
           <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-contour-red font-bold">
             {activeTabMeta[activeTab].eyebrow}
@@ -1454,22 +1487,22 @@ function AgentKioskContent() {
           </div>
         </section>
 
-        {(!isOnline || outboxCount > 0 || loading) && (
-          <section className="field-sync-notice flex items-center justify-between gap-3 border border-editorial-border bg-white px-3 py-3 text-xs">
+        {(!isOnline || outboxCount > 0 || loading || syncing || syncError) && (
+          <section role={syncError ? "alert" : "status"} aria-live="polite" className="field-sync-notice flex items-center justify-between gap-3 border border-editorial-border bg-white px-3 py-3 text-xs">
             <div className="flex items-start gap-2">
               <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${loading ? "bg-amber-500 animate-pulse" : isOnline ? "bg-emerald-600" : "bg-amber-500"}`} />
               <div>
                 <p className="font-heading font-bold text-editorial-black uppercase text-xs">
-                  {loading ? "Refreshing field data" : isOnline ? "Actions queued for sync" : "Working offline"}
+                  {syncError ? "Sync needs attention" : syncing ? "Confirming queued actions" : loading ? "Refreshing field data" : isOnline ? "Actions queued for sync" : "Working offline"}
                 </p>
                 <p className="mt-0.5 text-[10px] leading-relaxed text-editorial-muted">
-                  {loading ? "Keep working; the local workspace remains available." : outboxCount > 0 ? `${outboxCount} action${outboxCount === 1 ? "" : "s"} saved locally and waiting for confirmation.` : "New captures will be stored on this device until the connection returns."}
+                  {syncError || (loading ? "Keep working; the local workspace remains available." : outboxCount > 0 ? `${outboxCount} action${outboxCount === 1 ? "" : "s"} saved locally and waiting for confirmation.` : "New captures will be stored on this device until the connection returns.")}
                 </p>
               </div>
             </div>
-            {isOnline && outboxCount > 0 && (
-              <button onClick={() => syncData()} className="shrink-0 border border-editorial-border bg-neutral-100 hover:bg-editorial-black hover:text-white px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-editorial-black transition-colors">
-                Sync now
+            {isOnline && (outboxCount > 0 || syncError) && (
+              <button disabled={loading || syncing} onClick={() => void retrySync()} className="disabled:opacity-50 shrink-0 border border-editorial-border bg-neutral-100 hover:bg-editorial-black hover:text-white px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-editorial-black transition-colors">
+                {loading || syncing ? "Syncing…" : "Retry sync"}
               </button>
             )}
           </section>

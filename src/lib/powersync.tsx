@@ -19,6 +19,9 @@ export interface OfflineOutboxItem {
 interface PowerSyncContextType {
   isOnline: boolean;
   loading: boolean;
+  syncing: boolean;
+  syncError: string | null;
+  retrySync: () => Promise<void>;
   properties: any[];
   leases: any[];
   clients: any[];
@@ -199,6 +202,10 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
   const setLocalCache = (key: string, value: unknown) => { if (active.current) writeBrowserCache(`${scope}:${key}`, value); };
 
   const processingOutbox = useRef(false);
+  const refreshing = useRef(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [outboxError, setOutboxError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
   const [properties, setProperties] = useState<any[]>(() => getLocalCache("properties", []));
@@ -241,6 +248,10 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
       return;
     }
 
+    if (refreshing.current || !active.current) return;
+    refreshing.current = true;
+    setLoading(true);
+    setSyncError(null);
     try {
       // 1. Attempt auth token for PowerSync streaming (non-blocking for REST datasets)
       try {
@@ -428,16 +439,20 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
         setLocalCache("sales", safeSales);
       }
     } catch (err) {
+      if (active.current) setSyncError("Unable to refresh field data. Your saved local data remains available. Retry when connected.");
       console.error("PowerSync failed to background sync local SQLite WASM:", err);
     } finally {
-      setLoading(false);
+      refreshing.current = false;
+      if (active.current) setLoading(false);
     }
   }, [isOnline, scope]);
 
   const processOutbox = async (queueOverride?: OfflineOutboxItem[]) => {
     const queue = queueOverride ? [...queueOverride] : [...outbox];
-    if (queue.length === 0 || processingOutbox.current) return;
+    if (!isOnline || !active.current || queue.length === 0 || processingOutbox.current) return;
     processingOutbox.current = true;
+    setSyncing(true);
+    setOutboxError(null);
     let successCount = 0;
     
     for (const item of queue) {
@@ -449,19 +464,22 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
           body: JSON.stringify(item.payload),
         });
         const data = await res.json();
-        if (data.success) {
+        if (res.ok && data.success) {
           successCount++;
         } else {
+          if (active.current) setOutboxError("A queued action could not be confirmed. It remains saved on this device. Retry sync or review the action.");
           console.error(`Outbox sync failed for item ${item.id}:`, data.error || data);
           break; // Stop queue processing if server errors occur
         }
       } catch (err) {
+        if (active.current) setOutboxError("Sync connection failed. Queued actions remain saved on this device. Retry when connected.");
         console.error(`Outbox sync failed for item ${item.id}:`, err);
         break; // Stop queue processing if network errors occur
       }
     }
 
     processingOutbox.current = false;
+    if (active.current) setSyncing(false);
     if (!active.current) return;
     if (successCount === 0) return;
     const successfulIds = new Set(queue.slice(0, successCount).map((item) => item.id));
@@ -545,6 +563,9 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
       value={{
         isOnline,
         loading,
+        syncing,
+        syncError: outboxError || syncError,
+        retrySync: async () => { await processOutbox(); await syncData(); },
         properties,
         leases,
         clients,

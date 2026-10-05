@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { publicInquirySchema } from "@/lib/validations";
@@ -65,7 +66,6 @@ export async function POST(req: NextRequest) {
     }
 
     const clientPhone = normalizePhoneNumber(parsed.clientPhone);
-    const contact = await getOrCreateContact(db, { organizationId: organization.id, name: parsed.clientName, phone: clientPhone, email: parsed.clientEmail });
     if (parsed.idempotencyKey) {
       const existing = await db.inquiry.findFirst({ where: { organizationId: organization.id, idempotencyKey: parsed.idempotencyKey } });
       if (existing) return NextResponse.json({ success: true, message: "Inquiry already received.", inquiryId: existing.id }, { headers: CORS_HEADERS });
@@ -78,12 +78,12 @@ export async function POST(req: NextRequest) {
     let enrichedNotes = parsed.notes || "";
 
     if (parsed.propertyId) {
-      try {
         const property = await db.property.findFirst({
           where: { id: parsed.propertyId, organizationId: organization.id },
           select: { title: true, assignedAgentId: true, status: true }
         });
 
+        if (!property) return NextResponse.json({ success: false, error: "Property not found." }, { status: 404, headers: CORS_HEADERS });
         if (property) {
           if (!isPropertyAvailableForNewOpportunity(property.status)) {
             return NextResponse.json({ success: false, error: "This property is no longer available and cannot receive new inquiries." }, { status: 409 });
@@ -92,12 +92,10 @@ export async function POST(req: NextRequest) {
           const propRefNote = `[Website Inquiry for property: ${property.title} (ID: ${parsed.propertyId})]`;
           enrichedNotes = enrichedNotes ? `${propRefNote}\n${enrichedNotes}` : propRefNote;
         }
-      } catch (err: any) {
-        console.warn("Failed to lookup property for inquiry:", err.message);
-      }
     }
 
     // 5. Create inquiry in database
+    const contact = await getOrCreateContact(db, { organizationId: organization.id, name: parsed.clientName, phone: clientPhone, email: parsed.clientEmail });
     const inquiry = await db.inquiry.create({
       data: {
         organizationId: organization.id,
@@ -133,16 +131,16 @@ export async function POST(req: NextRequest) {
       },
       { headers: CORS_HEADERS }
     );
-  } catch (error: any) {
-    if (error.name === "ZodError") {
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: "Validation failed", details: error.errors },
+        { success: false, error: "Validation failed", details: error.issues },
         { status: 400, headers: CORS_HEADERS }
       );
     }
 
     return NextResponse.json(
-      { success: false, error: "Failed to submit inquiry", details: error.message },
+      { success: false, error: "Failed to submit inquiry" },
       { status: 500, headers: CORS_HEADERS }
     );
   }

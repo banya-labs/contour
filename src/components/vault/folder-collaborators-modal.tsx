@@ -103,7 +103,7 @@ export function FolderCollaboratorsModal({
 
   const handleAddCollaborator = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUserId) return;
+    if (isSubmitting || removingId || !selectedUserId) return;
 
     const targetMember = members.find((m) => m.id === selectedUserId);
     if (!targetMember) return;
@@ -145,6 +145,7 @@ export function FolderCollaboratorsModal({
   };
 
   const handleRemoveCollaborator = async (memberId: string) => {
+    if (isSubmitting || removingId) return;
     const targetMember = members.find((m) => m.id === memberId);
     if (!targetMember) return;
 
@@ -189,7 +190,7 @@ export function FolderCollaboratorsModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isSubmitting && !removingId && onClose()}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
@@ -251,7 +252,7 @@ export function FolderCollaboratorsModal({
 
               <button
                 type="submit"
-                disabled={!selectedUserId || isSubmitting}
+                disabled={!selectedUserId || isSubmitting || !!removingId}
                 className="px-4 py-1.5 text-xs font-heading font-semibold uppercase tracking-wider bg-editorial-black hover:bg-contour-red text-white disabled:opacity-50 transition-colors rounded-none flex items-center justify-center gap-1.5 shrink-0"
               >
                 {isSubmitting ? (
@@ -308,7 +309,7 @@ export function FolderCollaboratorsModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveCollaborator(c.id)}
-                        disabled={removingId === c.id}
+                        disabled={isSubmitting || !!removingId}
                         aria-busy={removingId === c.id}
                         title="Revoke access"
                         className="p-1 hover:bg-red-50 text-editorial-muted hover:text-contour-red border border-transparent hover:border-red-200 transition-colors"
