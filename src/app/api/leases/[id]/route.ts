@@ -30,7 +30,7 @@ export const PATCH = createApiHandler({
 
     const result = await db.$transaction(async (tx) => {
       if (body.action === "TERMINATE") {
-        const updatedLease = await tx.lease.update({ where: { id: lease.id }, data: { status: "TERMINATED" } });
+        const updatedLease = await tx.lease.update({ where: { id: lease.id }, data: { status: "TERMINATED", terminatedAt: new Date() } });
         await tx.property.update({ where: { id: lease.propertyId }, data: { status: "AVAILABLE" } });
         await tx.auditLog.create({ data: { organizationId, userId, action: "LEASE_TERMINATED", entityType: "Lease", entityId: lease.id, details: { reason: body.reason } } });
         return updatedLease;

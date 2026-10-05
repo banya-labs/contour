@@ -13,7 +13,7 @@ export const GET = createApiHandler({
     const statement = await db.landlordStatement.findFirst({
       where: { id: id.data, organizationId },
       select: {
-        id: true, status: true, landlordName: true, currency: true,
+        id: true, status: true, landlordName: true, currency: true, revision: true, propertyId: true,
         statementMonth: true, statementYear: true, createdAt: true, approvedAt: true,
         grossRentCollected: true, rentDue: true, arrearsBroughtForward: true, arrearsClosing: true,
         agencyFeeDeducted: true, maintenanceDeducted: true, netLandlordPayout: true,
