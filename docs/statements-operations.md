@@ -10,6 +10,7 @@ Tenant, agent commission, sale, and internal sale commission documents use immut
 - Sale details: generate the client statement or the separate internal commission statement. Unknown deposits, balances and buyer/transfer details remain explicitly unknown.
 - Record Sale: select an eligible property and client contact, optionally add the contact inline, choose the closing agent and agreed value, and start/resume the existing closing workflow. Only the authorized readiness-gated Won action creates the commercial transaction. Transfer completion remains separate.
 - Preview, download and print are enabled after the A4 layout fits. Long notes get separate sections; oversized content blocks export with an actionable error. The owning agent can generate a revision; management viewing another agent's saved statement can download/print it without changing its agent identity.
+- Every statement page uses the agency logo captured with the document at the top, with the Contour Circle as the fallback when no logo is present or the image cannot load. The full-colour Contour wordmark appears in every footer. The shared layout applies to saved landlord, tenant, agent commission, sale and internal commission statements in preview, PDF and print; print colour preservation is requested from the browser.
 
 ## API contracts
 
