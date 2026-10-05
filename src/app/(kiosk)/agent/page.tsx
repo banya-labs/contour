@@ -2545,14 +2545,14 @@ function AgentKioskContent() {
 
             {statusDeal && !propertyAssignmentStage && (
               <div className="fixed inset-0 z-50 flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="mobile-status-title">
-                <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto space-y-4 border border-editorial-border bg-white p-5 shadow-xl">
+                <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto space-y-4 border border-editorial-border bg-white p-5 text-editorial-black shadow-xl">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Deal status</p>
                       <h3 id="mobile-status-title" className="mt-1 text-lg font-heading font-semibold text-editorial-black">Change status</h3>
                       <p className="mt-1 text-xs text-editorial-muted">Current: {statusDeal.stageLabel}. Choose where this deal is now.</p>
                     </div>
-                    <button type="button" disabled={statusPending} onClick={() => { setStatusDeal(null); setTerminalOutcome(null); setTerminalReason(""); setStatusError(null); }} className="flex h-8 w-8 items-center justify-center border border-editorial-border" aria-label="Close status dialog"><X className="h-4 w-4" /></button>
+                    <button type="button" disabled={statusPending} onClick={() => { setStatusDeal(null); setTerminalOutcome(null); setTerminalReason(""); setStatusError(null); }} className="flex h-11 w-11 shrink-0 items-center justify-center border border-editorial-border bg-white text-editorial-black hover:bg-neutral-100 disabled:opacity-50" aria-label="Close status dialog"><X className="h-4 w-4 text-editorial-black" /></button>
                   </div>
 
                   <div className="space-y-2">
