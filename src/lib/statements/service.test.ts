@@ -33,7 +33,11 @@ describe("financial statement disclosure and authorization", () => {
     expect(mocks.deal.mock.calls[0][0].where).toEqual({ id: "t", organizationId: "org" });
     await expect(assertDocumentAccess({ ...ctx, permissions: [] }, { kind: "AGENT_COMMISSION", agentId: "other", leaseId: null, transactionId: "t" })).rejects.toThrow(/access denied/i);
     mocks.document.mockResolvedValue({ id: "saved", revision: 1, kind: "AGENT_COMMISSION", agentId: "other", transactionId: null, generationInput: { kind: "AGENT_COMMISSION", period: "month", idempotencyKey: key }, snapshot: { version: 1, kind: "AGENT_COMMISSION", title: "Agent commission statement", period: "September 2026", asOf: "2026-09-30T12:00:00Z", organization: { name: "Agency", logo: null, address: null, phone: null, email: null }, details: [], sections: [], notices: [], sourceTransactionIds: [] } });
-    expect((await readStatementDocument(ctx, "saved")).generationInput).toBeNull();
+    mocks.org.mockResolvedValue({ logo: "https://images.example/current-agency-logo.png" });
+    const read = await readStatementDocument(ctx, "saved");
+    expect(read.generationInput).toBeNull();
+    expect(read.snapshot.organization.logo).toBe("https://images.example/current-agency-logo.png");
+    expect(mocks.document.mock.results[0] && (await mocks.document.mock.results[0].value).snapshot.organization.logo).toBeNull();
     expect((await readStatementDocument({ ...ctx, userId: "other", contourRole: "FIELD_AGENT", permissions: ["pwa.access"] }, "saved")).generationInput).toMatchObject({ kind: "AGENT_COMMISSION", period: "month" });
   });
   it("denies financial variants without finance permission", async () => {

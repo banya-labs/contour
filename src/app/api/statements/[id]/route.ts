@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
+import { resolveStatementLogo } from "@/lib/statements/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export const GET = createApiHandler({
       },
     });
     if (!statement) return NextResponse.json({ success: false, error: "Statement not found." }, { status: 404 });
+    statement.organization.logo = await resolveStatementLogo(organizationId, statement.organization.logo);
     return NextResponse.json({ success: true, statement }, { headers: { "Cache-Control": "private, no-store" } });
   },
 });

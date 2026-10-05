@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, type NextResponse } from "next/server";
 import type { ApiContext } from "@/lib/api-handler";
+vi.mock("@/lib/storage/s3", () => ({ s3Storage: {
+  headObject: vi.fn().mockResolvedValue({ contentLength: 3, contentType: "image/png" }),
+  getObject: vi.fn().mockResolvedValue({ body: Buffer.from("png"), contentType: "image/png" }),
+} }));
 
 const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), options: { requirePermissions: [] as string[] } }));
 vi.mock("@/lib/db", () => ({ db: { landlordStatement: { findFirst: mocks.findFirst } } }));
@@ -13,7 +17,7 @@ import { GET } from "./route";
 describe("landlord statement viewer access", () => {
   beforeEach(() => vi.clearAllMocks());
   it("requires statement read permission and scopes the saved statement to the active organization", async () => {
-    mocks.findFirst.mockResolvedValue({ id: "stmt-1", landlordName: "Fixture Landlord" });
+    mocks.findFirst.mockResolvedValue({ id: "stmt-1", landlordName: "Fixture Landlord", organization: { logo: null } });
     const response = await GET(new NextRequest("https://contour.test/api/statements/stmt-1"), { params: Promise.resolve({ id: "stmt-1" }) });
     expect(mocks.options.requirePermissions).toEqual(["statements.read"]);
     expect(mocks.findFirst.mock.calls[0][0].where).toEqual({ id: "stmt-1", organizationId: "org-a" });
@@ -25,5 +29,10 @@ describe("landlord statement viewer access", () => {
     const response = await GET(new NextRequest("https://contour.test/api/statements/foreign"), { params: Promise.resolve({ id: "foreign" }) });
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ success: false, error: "Statement not found." });
+  });
+  it("resolves the current uploaded logo on legacy landlord statements", async () => {
+    mocks.findFirst.mockResolvedValue({ id: "stmt-1", organization: { logo: "org-a/organization_logo/logo.png" } });
+    const response = await GET(new NextRequest("https://contour.test/api/statements/stmt-1"), { params: Promise.resolve({ id: "stmt-1" }) });
+    expect((await response.json()).statement.organization.logo).toBe("data:image/png;base64,cG5n");
   });
 });
