@@ -59,7 +59,7 @@ export default async function OpenGraphImage() {
               textTransform: "uppercase",
             }}
           >
-            LUSAKA // ZAMBIA
+            REAL ESTATE // OPERATIONS
           </div>
         </div>
 
@@ -89,7 +89,7 @@ export default async function OpenGraphImage() {
               lineHeight: 1.4,
             }}
           >
-            The mandate operating system for Southern African real estate brokerages.
+            The operating system for real estate teams.
             Deal pipeline, 5% commission ledger & cadastral spatial mapping.
           </p>
         </div>

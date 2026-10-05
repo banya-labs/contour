@@ -279,7 +279,7 @@ export default function DashboardOverviewPage() {
           <div className="flex items-center gap-2">
             <ContourLogo size="sm" compact />
             <span className="text-[9px] sm:text-[10px] font-geist font-bold px-1.5 sm:px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
-              Lusaka Operating HQ
+              Agency Operating HQ
             </span>
             <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
               Property Operations
@@ -289,7 +289,7 @@ export default function DashboardOverviewPage() {
             Agency Command Center
           </h1>
           <p className="text-xs text-editorial-muted mt-1 max-w-3xl">
-            Real-time cashflow telemetry, daily prioritized action queue, 5% commission escrow, and Lusaka market velocity.
+            Real-time cashflow telemetry, daily prioritized action queue, 5% commission escrow, and market velocity.
           </p>
         </div>
 
@@ -326,7 +326,7 @@ export default function DashboardOverviewPage() {
             Quick Actions
           </span>
           <span className="text-[11px] font-geist text-editorial-muted hidden lg:inline">
-            - Instant operational actions across Lusaka HQ
+            - Instant operational actions across your agency
           </span>
         </div>
 

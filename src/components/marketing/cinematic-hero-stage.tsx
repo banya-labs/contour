@@ -63,9 +63,9 @@ export function CinematicHeroStage() {
           {/* Flagship Pilot & Regional Tag */}
           <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white text-xs font-semibold uppercase tracking-wider mb-6 shadow-lg">
             <span className="w-2 h-2 rounded-full bg-[#E57A1A] animate-pulse" />
-            <span>Southern Africa’s Real Estate OS</span>
+            <span>Your Real Estate Operating System</span>
             <span className="text-white/40 hidden sm:inline">•</span>
-            <span className="text-[#E57A1A] font-bold hidden sm:inline">MAL's Property Showcase</span>
+            <span className="text-[#E57A1A] font-bold hidden sm:inline">Example Property Showcase</span>
           </div>
 
           {/* Minimal Editorial Headline */}
@@ -76,7 +76,7 @@ export function CinematicHeroStage() {
 
           {/* Minimal Editorial Subtitle */}
           <p className="text-stone-200/90 text-base sm:text-lg md:text-xl font-normal leading-relaxed mb-8 drop-shadow max-w-xl">
-            From diplomatic residences in Kabulonga to commercial acreage in Rhodes Park. Contour unifies 5% commission accounting, offline GPS landmark mapping, and instant branded WhatsApp flyers.
+            From residential listings to commercial property. Contour unifies 5% commission accounting, offline GPS landmark mapping, and instant branded WhatsApp flyers.
           </p>
 
           {/* Action CTAs: Bold Pill CTA (Solidroad Style) + Secondary Mobile PWA */}
@@ -109,9 +109,9 @@ export function CinematicHeroStage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-6 sm:gap-8 font-serif text-stone-300">
-            <span className="hover:text-white transition-colors">MAL's Property Consultancy</span>
+            <span className="hover:text-white transition-colors">Example Property Agency</span>
             <span className="text-white/20">•</span>
-            <span className="hover:text-white transition-colors">Rhodes Park HQ</span>
+            <span className="hover:text-white transition-colors">Your agency portfolio</span>
             <span className="text-white/20">•</span>
             <span className="hover:text-white transition-colors">PowerSync SQLite (Offline)</span>
             <span className="text-white/20">•</span>

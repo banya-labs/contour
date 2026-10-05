@@ -47,7 +47,7 @@ export function FilmScrollOverlays({ currentFrame, totalFrames }: FilmScrollOver
           <div className="max-w-2xl text-left space-y-6 pt-16">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/40 border border-white/20 backdrop-blur-md text-emerald-300 text-xs font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Southern Africa Prime Corridors • 15°25&apos;S 28°20&apos;E</span>
+              <span>Property operations • Connected teams</span>
             </div>
 
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif font-bold text-white tracking-tight leading-[1.08] drop-shadow-lg">
@@ -56,7 +56,7 @@ export function FilmScrollOverlays({ currentFrame, totalFrames }: FilmScrollOver
             </h1>
 
             <p className="text-stone-200 text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-lg drop-shadow-md">
-              Discover luxury estates, diplomatic villas, and high-yield commercial acreage across Lusaka with 5% locked commission transparency.
+              Discover luxury estates, diplomatic villas, and high-yield commercial acreage across your portfolio with 5% locked commission transparency.
             </p>
 
             <div className="pt-2 flex items-center gap-4 pointer-events-auto">
@@ -148,7 +148,7 @@ export function FilmScrollOverlays({ currentFrame, totalFrames }: FilmScrollOver
                 href="/dashboard/map"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white hover:bg-stone-100 text-stone-950 text-xs font-bold transition-all shadow-md group"
               >
-                <span>Explore Spatial Lusaka GIS</span>
+                <span>Explore the Property Map</span>
                 <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </Link>
             </div>

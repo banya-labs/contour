@@ -48,8 +48,8 @@ interface PropertyShowcaseItem {
 const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
   {
     id: "prop-1",
-    title: "The Kabulonga Grand Executive Villa",
-    suburb: "Kabulonga, Lusaka East",
+    title: "Sample Grand Executive Villa",
+    suburb: "Sample residential district",
     category: "DIPLOMATIC",
     price: "K 14,500,000",
     usdEquivalent: "$ 580,000",
@@ -61,7 +61,7 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
     baths: 6,
     image: "/images/contour/rolling-hills.webp",
     elevation: "1,280 m",
-    description: "Architectural masterpiece on prime Kabulonga soil. 5 en-suite bedrooms, private guardhouse, borehole solar backup, and 100% verified 99-year Ministry of Lands title deed.",
+    description: "Architectural masterpiece on a prime residential plot. 5 en-suite bedrooms, private guardhouse, borehole solar backup, and 100% verified 99-year Ministry of Lands title deed.",
     agent: {
       name: "Chileshe Mwamba",
       role: "Managing Principal",
@@ -70,8 +70,8 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
   },
   {
     id: "prop-2",
-    title: "Leopards Hill Contemporary Gated Estate",
-    suburb: "Leopards Hill, Lusaka",
+    title: "Sample Contemporary Gated Estate",
+    suburb: "Sample hillside district",
     category: "RESIDENTIAL",
     price: "K 8,900,000",
     usdEquivalent: "$ 356,000",
@@ -92,8 +92,8 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
   },
   {
     id: "prop-3",
-    title: "Roma Park Commercial Office Suites",
-    suburb: "Roma Park, Lusaka",
+    title: "Sample Commercial Office Suites",
+    suburb: "Sample business district",
     category: "COMMERCIAL",
     price: "K 22,000,000",
     usdEquivalent: "$ 880,000",
@@ -103,7 +103,7 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
     commission5Pct: "K 1,100,000",
     image: "/images/contour/rolling-hills.webp",
     elevation: "1,285 m",
-    description: "Institutional-grade commercial office campus in Lusaka's premier mixed-use business park. Full tenant occupancy with 14.2% gross rental yield.",
+    description: "Institutional-grade commercial office campus in a mixed-use business park. Full tenant occupancy with 14.2% gross rental yield.",
     agent: {
       name: "Mulenga Zulu",
       role: "Commercial Director",
@@ -112,8 +112,8 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
   },
   {
     id: "prop-4",
-    title: "Woodlands Diplomatic Residence",
-    suburb: "Woodlands, Lusaka",
+    title: "Sample Executive Residence",
+    suburb: "Sample garden district",
     category: "DIPLOMATIC",
     price: "K 11,200,000",
     usdEquivalent: "$ 448,000",
@@ -134,8 +134,8 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
   },
   {
     id: "prop-5",
-    title: "Silverest Prime Agro-Residential Estate",
-    suburb: "Silverest / Chongwe Corridor",
+    title: "Sample Agro-Residential Estate",
+    suburb: "Sample rural district",
     category: "AGRO",
     price: "K 4,500,000",
     usdEquivalent: "$ 180,000",
@@ -154,8 +154,8 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
   },
   {
     id: "prop-6",
-    title: "Mass Media Executive Penthouse",
-    suburb: "Mass Media, Lusaka",
+    title: "Sample Executive Penthouse",
+    suburb: "Sample central district",
     category: "RESIDENTIAL",
     price: "K 6,800,000",
     usdEquivalent: "$ 272,000",
@@ -167,7 +167,7 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
     baths: 3,
     image: "/images/contour/mountain-hero.png",
     elevation: "1,288 m",
-    description: "Panoramic Lusaka city skyline view, private elevator foyer, Italian marble kitchen, and instant 1-click WhatsApp flyer syndication.",
+    description: "Panoramic city skyline view, private elevator foyer, Italian marble kitchen, and instant 1-click WhatsApp flyer syndication.",
     agent: {
       name: "Grace Banda",
       role: "Senior Broker",
@@ -193,12 +193,12 @@ export function PropertyShowcaseGallery() {
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#16382B]/10 border border-[#16382B]/15 text-[#16382B] text-xs font-semibold">
               <Building className="w-3.5 h-3.5 text-[#C89B3C]" />
-              <span>THE LIVING LUSAKA PROPERTY CATALOGUE</span>
+              <span>EXAMPLE PROPERTY CATALOGUE</span>
             </div>
             
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#16382B] tracking-tight">
-              Institutional Properties, <br className="hidden sm:block" />
-              100% Title Verified.
+              Explore Sample Properties, <br className="hidden sm:block" />
+              Connected to Your Workflow.
             </h2>
             
             <p className="text-stone-600 text-sm sm:text-base max-w-2xl leading-relaxed">
@@ -366,7 +366,7 @@ export function PropertyShowcaseGallery() {
             images: [selectedPropertyForFlyer.image],
             agentName: selectedPropertyForFlyer.agent.name,
             agentPhone: "+260 97 123 4567",
-            agencyName: "Kabulonga Premier Agency",
+            agencyName: "Example Property Agency",
           }}
         />
       )}

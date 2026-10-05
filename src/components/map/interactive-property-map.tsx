@@ -33,6 +33,8 @@ import {
   RegionStats,
 } from "@/lib/choropleth-geo-data";
 
+import { formatPropertyLocation } from "@/lib/property-location";
+import { getMapCoordinateKey, getMapViewport, hasValidCoordinates } from "@/lib/locations/map-coordinates";
 import type { PropertyMapItem } from "@/types/property-map";
 export type { PropertyMapItem } from "@/types/property-map";
 
@@ -59,7 +61,6 @@ type InteractivePropertyMapProps = {
   hideLocateButton?: boolean;
 };
 
-const DEFAULT_LUSAKA_CENTER: [number, number] = [-15.4167, 28.2833];
 const CARDS_PER_PAGE = 3;
 
 function getStatusColor(listingType: string, status: string): string {
@@ -90,8 +91,8 @@ const PRESET_BUTTONS = [
 
 export default function InteractivePropertyMap({
   properties,
-  initialCenter = DEFAULT_LUSAKA_CENTER,
-  initialZoom = 13,
+  initialCenter,
+  initialZoom,
   onSelectProperty,
   className = "",
   searchQuery: externalSearchQuery,
@@ -124,11 +125,10 @@ export default function InteractivePropertyMap({
   const viewMode = externalViewMode !== undefined ? externalViewMode : internalViewMode;
 
   const [choroplethLevel, setChoroplethLevel] = useState<ChoroplethLevel>("COUNTRY");
-  const [selectedCountryId, setSelectedCountryId] = useState<string | null>("country-zambia");
-  const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>("prov-lusaka");
+  const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
   const [hoveredRegionStats, setHoveredRegionStats] = useState<RegionStats | null>(null);
 
-  const [flyToSearchQuery, setFlyToSearchQuery] = useState<string>("");
 
   // Fallback internal state
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
@@ -189,8 +189,16 @@ export default function InteractivePropertyMap({
   }, [properties, searchQuery, filterType]);
 
   const propertiesWithCoords = useMemo(() => {
-    return filteredProperties.filter((p) => p.latitude != null && p.longitude != null);
+    return filteredProperties.filter((p) => hasValidCoordinates(p.latitude, p.longitude));
   }, [filteredProperties]);
+
+  const defaultViewport = useMemo(() => getMapViewport(properties), [properties]);
+  const mapCenter = initialCenter || defaultViewport.center;
+  const mapZoom = initialZoom ?? defaultViewport.zoom;
+  const initialViewportRef = useRef({ center: mapCenter, zoom: mapZoom });
+  const coordinateKey = getMapCoordinateKey(propertiesWithCoords);
+  const explicitCenterLat = initialCenter?.[0];
+  const explicitCenterLng = initialCenter?.[1];
 
   const totalPages = Math.ceil(propertiesWithCoords.length / CARDS_PER_PAGE);
   const paginatedProperties = useMemo(() => {
@@ -201,6 +209,8 @@ export default function InteractivePropertyMap({
   // Initialize Leaflet Map
   useEffect(() => {
     let isMounted = true;
+    const container = mapContainerRef.current;
+    const markerMap = markersMapRef.current;
 
     async function initMap() {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
@@ -216,8 +226,8 @@ export default function InteractivePropertyMap({
       }
 
       const map = L.map(mapContainerRef.current, {
-        center: initialCenter,
-        zoom: initialZoom,
+        center: initialViewportRef.current.center,
+        zoom: initialViewportRef.current.zoom,
         zoomControl: false,
         doubleClickZoom: false, // Disable default map dblclick zoom to handle custom property stand zoom
       });
@@ -247,11 +257,28 @@ export default function InteractivePropertyMap({
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
-      if (mapContainerRef.current && (mapContainerRef.current as any)._leaflet_id) {
-        delete (mapContainerRef.current as any)._leaflet_id;
+      markersGroupRef.current = null;
+      choroplethLayerGroupRef.current = null;
+      markerMap.clear();
+      if (container && (container as any)._leaflet_id) {
+        delete (container as any)._leaflet_id;
       }
     };
-  }, [initialCenter, initialZoom]);
+  }, []);
+
+  // Refresh the viewport only when actual positions or explicit viewport values change.
+  // Replacing inventory objects with the same coordinates preserves user pan and zoom.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const L = leafletRef.current;
+    if (!mapLoaded || !map || !L) return;
+    const positions: [number, number][] = JSON.parse(coordinateKey);
+    if (positions.length) {
+      map.fitBounds(L.latLngBounds(positions), { padding: [60, 60], maxZoom: 15 });
+    } else {
+      map.setView([explicitCenterLat ?? 0, explicitCenterLng ?? 0], initialZoom ?? 2);
+    }
+  }, [coordinateKey, explicitCenterLat, explicitCenterLng, initialZoom, mapLoaded]);
 
   // Handle mobile orientation changes & window resize to ensure full-bleed map without blank tiles
   useEffect(() => {
@@ -361,32 +388,6 @@ export default function InteractivePropertyMap({
     renderChoropleth();
   }, [viewMode, choroplethLevel, selectedCountryId, selectedProvinceId, propertiesWithCoords, mapLoaded]);
 
-  const LUSAKA_SUBURBS: Record<string, [number, number]> = {
-    kabulonga: [-15.4211, 28.3341],
-    roma: [-15.3789, 28.3012],
-    "roma park": [-15.375, 28.305],
-    "leopards hill": [-15.4612, 28.3989],
-    woodlands: [-15.4389, 28.3211],
-    "mass media": [-15.4056, 28.3189],
-    sunningdale: [-15.4289, 28.3289],
-    chudleigh: [-15.385, 28.329],
-    kalundu: [-15.391, 28.322],
-    rhodespark: [-15.412, 28.291],
-  };
-
-  const handleFlyToAddress = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!flyToSearchQuery.trim() || !mapInstanceRef.current) return;
-    const q = flyToSearchQuery.toLowerCase().trim();
-    const matchedKey = Object.keys(LUSAKA_SUBURBS).find((key) => q.includes(key));
-    if (matchedKey) {
-      const coords = LUSAKA_SUBURBS[matchedKey];
-      mapInstanceRef.current.flyTo(coords, 17, { duration: 1.5 });
-    } else {
-      mapInstanceRef.current.flyTo(DEFAULT_LUSAKA_CENTER, 16, { duration: 1.5 });
-    }
-  };
-
   // Update Map Markers
   useEffect(() => {
     if (!mapLoaded || !mapInstanceRef.current || !markersGroupRef.current) return;
@@ -399,8 +400,6 @@ export default function InteractivePropertyMap({
       markersMapRef.current.clear();
 
       if (propertiesWithCoords.length === 0) return;
-
-      const bounds = L.latLngBounds([]);
 
       propertiesWithCoords.forEach((property) => {
         const lat = property.latitude!;
@@ -440,7 +439,7 @@ export default function InteractivePropertyMap({
               ${property.title}
             </div>
             <div style="font-size: 11px; color: #6a6860; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
-              <span>📍 ${property.suburb}, ${property.city}</span>
+              <span>📍 ${formatPropertyLocation(property)}</span>
             </div>
             ${
               property.landmarkDirections
@@ -484,12 +483,8 @@ export default function InteractivePropertyMap({
         if (markersGroup) marker.addTo(markersGroup);
         markersMapRef.current.set(property.id, marker);
 
-        bounds.extend([lat, lng]);
       });
 
-      if (propertiesWithCoords.length > 0 && mapInstanceRef.current) {
-        mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
-      }
     }
 
     updateMarkers();
@@ -499,7 +494,7 @@ export default function InteractivePropertyMap({
   const handleCardClick = (property: PropertyMapItem) => {
     setActivePropertyId(property.id);
     if (mapInstanceRef.current) {
-      if (property.latitude != null && property.longitude != null) {
+      if (hasValidCoordinates(property.latitude, property.longitude)) {
         mapInstanceRef.current.flyTo([property.latitude, property.longitude], 16, {
           duration: 1.2,
         });
@@ -622,13 +617,13 @@ export default function InteractivePropertyMap({
           <button
             onClick={() => {
               setChoroplethLevel("COUNTRY");
-              if (mapInstanceRef.current) mapInstanceRef.current.flyTo(DEFAULT_LUSAKA_CENTER, 6, { duration: 1 });
+              if (mapInstanceRef.current) mapInstanceRef.current.flyTo(mapCenter, mapZoom, { duration: 1 });
             }}
             className={`font-semibold transition-colors hover:text-contour-red ${
               choroplethLevel === "COUNTRY" ? "text-ink-900 font-bold" : "text-ink-600"
             }`}
           >
-            Southern Africa
+            Available regions
           </button>
 
           {choroplethLevel !== "COUNTRY" && (
@@ -637,13 +632,14 @@ export default function InteractivePropertyMap({
               <button
                 onClick={() => {
                   setChoroplethLevel("PROVINCE");
-                  if (mapInstanceRef.current) mapInstanceRef.current.flyTo([-15.4167, 28.2833], 8, { duration: 1 });
+                  const country = CHOROPLETH_REGIONS.find((region) => region.id === selectedCountryId);
+                  if (mapInstanceRef.current && country) mapInstanceRef.current.flyTo(country.center, country.zoom, { duration: 1 });
                 }}
                 className={`font-semibold transition-colors hover:text-contour-red ${
                   choroplethLevel === "PROVINCE" ? "text-ink-900 font-bold" : "text-ink-600"
                 }`}
               >
-                🇿🇲 Zambia
+                {CHOROPLETH_REGIONS.find((region) => region.id === selectedCountryId)?.name || "Country"}
               </button>
             </>
           )}
@@ -651,7 +647,7 @@ export default function InteractivePropertyMap({
           {choroplethLevel === "DISTRICT" && (
             <>
               <span className="text-paper-400">/</span>
-              <span className="font-bold text-ink-900">📍 Lusaka Province</span>
+              <span className="font-bold text-ink-900">{CHOROPLETH_REGIONS.find((region) => region.id === selectedProvinceId)?.name || "Province"}</span>
             </>
           )}
         </div>
@@ -772,7 +768,7 @@ export default function InteractivePropertyMap({
           <div className="flex items-center justify-between border-b border-border pb-2">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-contour-red" />
-              <h3 className="font-serif font-bold text-sm text-ink-900">Lusaka Suburb Intel</h3>
+              <h3 className="font-serif font-bold text-sm text-ink-900">Location Intel</h3>
             </div>
             <button
               onClick={onToggleSuburbIntel}
@@ -783,7 +779,7 @@ export default function InteractivePropertyMap({
           </div>
 
           <p className="text-[11px] text-ink-600">
-            Real-time visual density & average market pricing across active Lusaka agency mandates.
+            Real-time visual density & average market pricing across active agency mandates.
           </p>
 
           <div className="space-y-2 flex-1">

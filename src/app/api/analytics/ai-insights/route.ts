@@ -42,7 +42,7 @@ export const POST = createApiHandler({
     } = payload;
 
     const currency = meta.currency || "ZMW";
-    const topLocation = demandByLocation[0]?.name || "Lusaka Prime Areas";
+    const topLocation = demandByLocation[0]?.name || "areas with recorded demand";
     const topType = demandByPropertyType[0]?.name || "3 Bedroom Residential";
     const bestSource = leadSourcePerformance[0]?.source || "Website";
     const periodFrom = new Date(period.from);

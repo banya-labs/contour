@@ -98,7 +98,7 @@ export function ProductFeatures() {
           transition={{ duration: 0.6, ease: ease.out, delay: 0.15 }}
           className="mt-5 font-geist text-sm sm:text-base text-editorial-muted max-w-prose mx-auto"
         >
-          Contour is the operating system for Lusaka real estate agents - from mandate capture to commission cleared.
+          Contour is the operating system for real estate teams - from mandate capture to commission cleared.
         </motion.p>
       </div>
 
@@ -181,7 +181,7 @@ export function ProductFeatures() {
 
             {/* Blueprint Footer Note */}
             <div className="mt-6 pt-4 border-t border-editorial-border flex items-center justify-between font-geist text-xs text-editorial-muted z-10">
-              <span>Stand # 8942-A · Lusaka Plateau (1,280m)</span>
+              <span>Sample parcel # 8942-A · Elevation 1,280m</span>
               <span className="flex items-center gap-1 text-editorial-red">
                 <span className="w-1.5 h-1.5 rounded-full bg-editorial-red inline-block" />
                 Live Sync
@@ -282,7 +282,7 @@ function MandateCaptureBlueprint() {
       <div className="space-y-3 text-xs">
         <div>
           <span className="text-editorial-muted block text-[10px]">PROPERTY STAND IDENTIFIER</span>
-          <div className="border-b border-editorial-border py-1 font-semibold">Stand # 8942-A, Leopards Hill</div>
+          <div className="border-b border-editorial-border py-1 font-semibold">Sample parcel # 8942-A</div>
         </div>
         <div>
           <span className="text-editorial-muted block text-[10px]">VERIFIED REGISTERED OWNER</span>
@@ -310,8 +310,8 @@ function MandateCaptureBlueprint() {
 function CommissionLedgerBlueprint() {
   const rows = [
     { property: "Ibex Hill Executive Residence", gross: "K 9,500,000", comm: "K 475,000", status: "CLEARED" },
-    { property: "Leopards Hill Contemporary Villa", gross: "K 14,500,000", comm: "K 725,000", status: "ESCROW" },
-    { property: "Kabulonga Diplomatic Manor", gross: "K 22,000,000", comm: "K 1,100,000", status: "PENDING" },
+    { property: "Sample Contemporary Villa", gross: "K 14,500,000", comm: "K 725,000", status: "ESCROW" },
+    { property: "Sample Executive Residence", gross: "K 22,000,000", comm: "K 1,100,000", status: "PENDING" },
   ];
 
   return (
@@ -390,7 +390,7 @@ function WhatsAppSyndicationBlueprint() {
         <div className="h-28 border border-editorial-black bg-white flex items-center justify-center text-editorial-muted text-xs">
           [HIGH-RES PROPERTY PREVIEW · 16:9]
         </div>
-        <div className="font-bold text-sm text-editorial-black">5-BED EXECUTIVE VILLA · KABULONGA</div>
+        <div className="font-bold text-sm text-editorial-black">5-BED EXECUTIVE VILLA · SAMPLE LISTING</div>
         <div className="text-editorial-muted text-[11px]">Asking: ZMW 18,000,000 · Verified Certificate of Title</div>
         <div className="text-[10px] text-editorial-black/70 bg-white p-2 border border-editorial-border">
           ✓ Landlord phone & PII automatically masked<br />

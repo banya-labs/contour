@@ -31,7 +31,7 @@ export function MonolithicFooter() {
               Subscribe to Contour Private Mandates
             </h3>
             <p className="text-stone-400 text-xs sm:text-sm mt-2 leading-relaxed font-normal">
-              Receive confidential off-market estate listings, diplomatic rental opportunities, and quarterly Lusaka price comps directly in your inbox.
+              Receive confidential off-market estate listings, diplomatic rental opportunities, and property market updates directly in your inbox.
             </p>
           </div>
 
@@ -73,22 +73,22 @@ export function MonolithicFooter() {
             <ul className="space-y-2.5 text-stone-400 font-medium">
               <li>
                 <Link href="/dashboard" className="hover:text-white transition-colors">
-                  Kabulonga Estates
+                  Residential Estates
                 </Link>
               </li>
               <li>
                 <Link href="/dashboard" className="hover:text-white transition-colors">
-                  Leopards Hill Acreage
+                  Hillside Acreage
                 </Link>
               </li>
               <li>
                 <Link href="/dashboard" className="hover:text-white transition-colors">
-                  Roma Park Enclaves
+                  Gated Communities
                 </Link>
               </li>
               <li>
                 <Link href="/dashboard" className="hover:text-white transition-colors">
-                  Woodlands Diplomatic Leases
+                  Executive Leases
                 </Link>
               </li>
               <li>
@@ -164,15 +164,15 @@ export function MonolithicFooter() {
             </h4>
             <ul className="space-y-2.5 text-stone-400 font-medium">
               <li>
-                <span className="text-stone-300 font-semibold">Lusaka HQ:</span>
+                <span className="text-stone-300 font-semibold">Contour:</span>
                 <p className="text-stone-500 text-[11px] mt-0.5">
-                  Stand 2374, Great East Road, Lusaka, Zambia
+                  Real estate operations for your agency
                 </p>
               </li>
               <li className="pt-2">
                 <span className="text-stone-300 font-semibold">Inquiries:</span>
                 <p className="text-stone-500 text-[11px] font-mono mt-0.5">
-                  concierge@contour-os.com
+                  Visit the operator portal to get started
                 </p>
               </li>
               <li className="pt-2">

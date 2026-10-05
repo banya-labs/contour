@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { smartCache } from "@/lib/cache";
-import { DEFAULT_LUSAKA_CADASTRE_BBOX } from "./types";
 import type { GeoJsonPolygon, GovernmentCadastreFeature } from "./types";
 
 export const CADASTRE_LAYER_URL = "https://www.map.gov.zm/arcgis/rest/services/NSDI_Vector/CadasterNew/MapServer/0";

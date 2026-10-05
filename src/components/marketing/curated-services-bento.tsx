@@ -10,7 +10,7 @@ export function CuratedServicesBento() {
     {
       title: "Exclusive Mandates & Luxury Brokerage",
       category: "Sales & Acquisitions",
-      desc: "White-glove representation for prime Lusaka properties with pre-screened diplomatic and institutional buyers.",
+      desc: "White-glove representation for prime properties with pre-screened diplomatic and institutional buyers.",
       features: ["5% Commission Transparency", "Direct Title Verification", "Private WhatsApp Syndication"],
       image: "/images/solidroad/asset_28_mFBjbn51LwCjG5D3RgYP.png",
       cta: "View Sales Mandates",

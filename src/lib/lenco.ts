@@ -46,7 +46,7 @@ export const CONTOUR_PLANS: Record<string, PlanConfig> = {
     features: [
       "Up to 50 active listings",
       "20 managed rental units",
-      "Interactive Lusaka Leaflet property map",
+      "Interactive property map",
       "1-Click WhatsApp listing flyer generator",
       "30-Day anti-poaching client registration",
       "Public shareable property cards (/p/[slug])",
@@ -89,7 +89,7 @@ export const CONTOUR_PLANS: Record<string, PlanConfig> = {
     maxRentalUnits: 9999,
     features: [
       "Unlimited listings, agents & rental units",
-      "Multi-branch RBAC (Lusaka, Ndola, Livingstone)",
+      "Multi-branch roles and permissions",
       "Dedicated MinIO S3 object storage partition",
       "Full JSON-RPC 2.0 /api/mcp AI agent tools",
       "Unlimited public API keys & custom webhooks",

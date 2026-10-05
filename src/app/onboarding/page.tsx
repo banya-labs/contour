@@ -397,7 +397,7 @@ function OnboardingContent() {
                       )}
                     </div>
                     <p className="mt-0.5 text-[11px] text-editorial-muted">
-                      Trying to access your agency workspace or the Lusaka Field Agent PWA
+                      Trying to access your agency workspace or the Field Agent PWA
                     </p>
                   </div>
                 </div>
@@ -561,7 +561,7 @@ function OnboardingContent() {
               minLength={2}
               value={organizationName}
               onChange={(event) => handleNameChange(event.target.value)}
-              placeholder="Lusaka Property Group"
+              placeholder="Your agency name"
               className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black outline-none focus:border-editorial-black"
             />
           </label>
@@ -594,7 +594,7 @@ function OnboardingContent() {
 
           <label className="block space-y-2">
             <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">City (optional)</span>
-            <input value={city} onChange={(event) => setCity(event.target.value)} placeholder="Lusaka" className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black outline-none focus:border-editorial-black" />
+            <input value={city} onChange={(event) => setCity(event.target.value)} placeholder="City or town" className="w-full border border-editorial-border px-3 py-3 text-sm text-editorial-black outline-none focus:border-editorial-black" />
           </label>
 
           <label className="block space-y-2">

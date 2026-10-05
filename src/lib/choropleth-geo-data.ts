@@ -1,3 +1,4 @@
+import { hasValidCoordinates } from "@/lib/locations/map-coordinates";
 import type { PropertyMapItem } from "@/types/property-map";
 
 export type ChoroplethLevel = "COUNTRY" | "PROVINCE" | "DISTRICT";
@@ -309,26 +310,19 @@ export function computeRegionStats(
   region: RegionGeoFeature,
   properties: PropertyMapItem[]
 ): RegionStats {
-  const regionNameLower = region.name.toLowerCase();
-
-  const matchedProperties = properties.filter((p) => {
-    const pSuburb = p.suburb.toLowerCase();
-    const pCity = p.city.toLowerCase();
-
-    if (region.id === "country-zambia") return pCity.includes("lusaka") || pCity.includes("ndola") || pCity.includes("kitwe") || pCity.includes("livingstone") || true;
-    if (region.id === "country-zimbabwe") return pCity.includes("harare") || pCity.includes("bulawayo");
-    if (region.id === "country-south-africa") return pCity.includes("johannesburg") || pCity.includes("cape town") || pCity.includes("sandton");
-
-    if (region.id === "prov-lusaka") return pCity.includes("lusaka");
-    if (region.id === "prov-copperbelt") return pCity.includes("ndola") || pCity.includes("kitwe");
-    if (region.id === "prov-gauteng") return pCity.includes("johannesburg") || pCity.includes("sandton");
-
-    if (region.id === "dist-kabulonga-woodlands") return pSuburb.includes("kabulonga") || pSuburb.includes("woodlands") || pSuburb.includes("sunningdale");
-    if (region.id === "dist-roma-kalundu") return pSuburb.includes("roma") || pSuburb.includes("kalundu") || pSuburb.includes("mass media");
-    if (region.id === "dist-leopards-hill") return pSuburb.includes("leopards") || pSuburb.includes("kasama");
-    if (region.id === "dist-lusaka-cbd-west") return pSuburb.includes("cbd") || pSuburb.includes("rhodespark") || pSuburb.includes("industrial");
-
-    return pSuburb.includes(regionNameLower) || regionNameLower.includes(pSuburb);
+  const matchedProperties = properties.filter((property) => {
+    if (!hasValidCoordinates(property.latitude, property.longitude)) return false;
+    const latitude = property.latitude!, longitude = property.longitude!;
+    return region.coordinates.some((ring) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [latA, lngA] = ring[i], [latB, lngB] = ring[j];
+        const cross = (longitude - lngA) * (latB - latA) - (latitude - latA) * (lngB - lngA);
+        if (Math.abs(cross) < 1e-10 && longitude >= Math.min(lngA, lngB) && longitude <= Math.max(lngA, lngB) && latitude >= Math.min(latA, latB) && latitude <= Math.max(latA, latB)) return true;
+        if ((latA > latitude) !== (latB > latitude) && longitude < (lngB - lngA) * (latitude - latA) / (latB - latA) + lngA) inside = !inside;
+      }
+      return inside;
+    });
   });
 
   const totalCount = matchedProperties.length;

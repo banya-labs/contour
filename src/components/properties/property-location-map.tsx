@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { formatPropertyLocation } from "@/lib/property-location";
+import { hasValidCoordinates } from "@/lib/locations/map-coordinates";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -8,33 +10,9 @@ import {
   Compass,
   ExternalLink,
   ShieldCheck,
-  Layers,
   ArrowRight,
 } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
-
-// Suburb GPS coordinates fallback dictionary for Lusaka
-const SUBURB_COORDINATES: Record<string, [number, number]> = {
-  "kabulonga": [-15.4215, 28.3345],
-  "leopards hill": [-15.4520, 28.3850],
-  "roma": [-15.3780, 28.3120],
-  "roma park": [-15.3780, 28.3120],
-  "rhodes park": [-15.4102, 28.2985],
-  "woodlands": [-15.4350, 28.3250],
-  "mass media": [-15.3980, 28.3150],
-  "sunningdale": [-15.4280, 28.3180],
-  "state lodge": [-15.4750, 28.4050],
-  "longacres": [-15.4190, 28.3090],
-  "new kasama": [-15.4650, 28.3650],
-  "silverest": [-15.3850, 28.4450],
-  "makeni": [-15.4550, 28.2450],
-  "chamba valley": [-15.3550, 28.3450],
-  "ibex hill": [-15.4150, 28.3750],
-  "olympia": [-15.3880, 28.2980],
-  "avondale": [-15.3800, 28.3700],
-  "chelston": [-15.3650, 28.3900],
-  "lusaka": [-15.4167, 28.2833],
-};
 
 // Dynamically import Leaflet canvas with SSR disabled to prevent window is undefined errors
 const PropertyLeafletCanvas = dynamic(
@@ -45,7 +23,7 @@ const PropertyLeafletCanvas = dynamic(
       <div className="w-full h-[340px] sm:h-[400px] bg-[#FAF8F5] border border-editorial-border flex flex-col items-center justify-center text-editorial-muted gap-3 animate-pulse">
         <ContourSunLoader size="md" label="Loading property map…" decorative />
         <span className="text-xs font-mono font-bold tracking-wider text-editorial-black">
-          LOADING LUSAKA SPATIAL CADASTRE MAP...
+          LOADING PROPERTY LOCATION MAP...
         </span>
       </div>
     ),
@@ -77,18 +55,10 @@ export function PropertyLocationMap({
   organizationSlug,
   organizationName,
 }: PropertyLocationMapProps) {
-  // Resolve latitude & longitude with graceful fallback to suburb coordinates
-  let lat = typeof latitude === "number" && !isNaN(latitude) && latitude !== 0 ? latitude : null;
-  let lng = typeof longitude === "number" && !isNaN(longitude) && longitude !== 0 ? longitude : null;
-
-  if (lat === null || lng === null) {
-    const suburbKey = suburb.toLowerCase().trim();
-    const fallbackCoords = SUBURB_COORDINATES[suburbKey] || SUBURB_COORDINATES["lusaka"];
-    lat = fallbackCoords[0];
-    lng = fallbackCoords[1];
-  }
-
-  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  const hasCoordinates = hasValidCoordinates(latitude, longitude);
+  const lat = hasCoordinates ? latitude! : null;
+  const lng = hasCoordinates ? longitude! : null;
+  const googleMapsUrl = hasCoordinates ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}` : undefined;
 
   return (
     <div className="bg-white border border-editorial-border space-y-0 overflow-hidden">
@@ -106,16 +76,16 @@ export function PropertyLocationMap({
           </div>
           <h3 className="font-serif text-lg font-bold text-editorial-black flex items-center gap-2">
             <MapPin className="w-4 h-4 text-contour-red shrink-0" />
-            <span>{suburb}, {city} Location</span>
+            <span>{formatPropertyLocation({ suburb, city })}</span>
           </h3>
         </div>
 
         {/* GPS Coordinates & Google Maps Link */}
         <div className="flex items-center gap-2">
           <div className="text-[11px] font-mono text-editorial-muted bg-neutral-50 px-2.5 py-1 border border-editorial-border shrink-0">
-            GPS: {lat.toFixed(4)}, {lng.toFixed(4)}
+            {hasCoordinates ? `GPS: ${lat!.toFixed(4)}, ${lng!.toFixed(4)}` : "GPS location not recorded"}
           </div>
-          <a
+          {hasCoordinates && <a
             href={googleMapsUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -124,21 +94,21 @@ export function PropertyLocationMap({
           >
             <span>Directions</span>
             <ExternalLink className="w-3 h-3 text-contour-red" />
-          </a>
+          </a>}
         </div>
       </div>
 
       {/* Embedded Leaflet Map */}
-      <PropertyLeafletCanvas
+      {hasCoordinates ? <PropertyLeafletCanvas
         title={title}
         suburb={suburb}
         city={city}
         priceText={priceText}
-        latitude={lat}
-        longitude={lng}
+        latitude={lat!}
+        longitude={lng!}
         landmarkDirections={landmarkDirections}
         featuredPhoto={featuredPhoto}
-      />
+      /> : <div className="p-8 text-center text-sm text-editorial-muted">Exact location not recorded. Contact the listing agent to confirm the address.</div>}
 
       {/* Footer Info & Full Cadastre Cross-Link */}
       <div className="p-4 bg-neutral-50 border-t border-editorial-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -148,7 +118,7 @@ export function PropertyLocationMap({
             {landmarkDirections ? (
               <span><strong>Landmark Directions:</strong> {landmarkDirections}</span>
             ) : (
-              <span>Use the location pin as a guide and confirm the exact address with the listing agent.</span>
+              <span>Confirm the exact address with the listing agent.</span>
             )}
           </p>
         </div>

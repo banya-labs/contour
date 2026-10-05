@@ -28,7 +28,7 @@ export function InteractiveIntentMatrix() {
       subhead:
         "Your listing gets pre-staging, sovereign title escrow, WhatsApp catalog syndication, and private outreach to qualified diplomatic and institutional buyers.",
       points: [
-        "Private syndication to 1,200+ verified Lusaka investors.",
+        "Share listings with your investor network.",
         "Automated WhatsApp flyer generation with masked owner PII.",
         "30-day anti-poaching lock and escrow contract protection.",
       ],
@@ -54,7 +54,7 @@ export function InteractiveIntentMatrix() {
     develop: {
       headline: "Commercial Acreage & Subdivision Parcels",
       subhead:
-        "High-growth development corridors along Leopards Hill, Great East Road, and Kafue Road with verified beacons and environmental clearances.",
+        "Track development sites, survey beacons, and environmental documents across the areas your agency serves.",
       points: [
         "Beacon coordinate verification & topography mapping.",
         "ZEMA environmental and council planning compliance.",

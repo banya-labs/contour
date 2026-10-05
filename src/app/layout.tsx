@@ -21,20 +21,20 @@ export const metadata: Metadata = {
     template: "%s | Contour",
   },
   description:
-    "The premier real estate operations and field agent operating system for Southern Africa. Mandate capture, deal pipeline, 5% commission ledger, and WhatsApp syndication for Lusaka brokerages.",
+    "Real estate operations and field agent software. Manage mandates, deal pipelines, commission ledgers, and WhatsApp listing sharing for your agency.",
   applicationName: "Contour",
   authors: [{ name: "Banya Labs", url: "https://banyalabs.com" }],
   creator: "Banya Labs",
   publisher: "Banya Labs",
   keywords: [
     "real estate operations",
-    "Lusaka real estate",
+    "real estate software",
     "field agent OS",
-    "Zambia title deed",
+    "property title documents",
     "cadastral property map",
     "mandate management",
     "commission tracking",
-    "proptech Southern Africa",
+    "property management software",
     "landlord statements",
     "arrears sentinel",
   ],
@@ -54,12 +54,11 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    locale: "en_ZM",
     url: siteUrl,
     siteName: "Contour",
     title: "Contour - Real Estate Operations & Field Agent OS",
     description:
-      "Run your agency. Chase nothing. Mandate capture, deal pipeline, 5% commission ledger, and automated WhatsApp syndication for Lusaka brokerages.",
+      "Run your agency. Manage mandates, deal pipelines, commission ledgers, and WhatsApp listing sharing in one place.",
     images: [
       {
         url: `${siteUrl}/opengraph-image`,
@@ -73,7 +72,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Contour - Real Estate Operations & Field Agent OS",
     description:
-      "The mandate operating system for Lusaka real estate agents. Fixed 5% commission, deal pipeline, and cadastral spatial mapping.",
+      "The operating system for real estate teams. Mandate management, deal pipelines, commission tracking, and property mapping.",
     images: [`${siteUrl}/opengraph-image`],
   },
   manifest: "/manifest.webmanifest",
@@ -106,21 +105,13 @@ const jsonLdData = {
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "RealEstateAgent",
+      "@type": "Organization",
       "@id": `${siteUrl}/#organization`,
       "name": "Contour",
       "url": siteUrl,
       "logo": `${siteUrl}/brand/contour-mark.svg`,
       "description":
-        "Real Estate Operations & Field Agent Operating System for Lusaka and Southern Africa.",
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Lusaka",
-        "addressCountry": "ZM",
-      },
-      "areaServed": ["Lusaka", "Ndola", "Livingstone", "Kitwe"],
-      "currenciesAccepted": "ZMW, USD",
-      "priceRange": "$$$",
+        "Real estate operations and field agent software for property agencies.",
     },
     {
       "@type": "WebSite",

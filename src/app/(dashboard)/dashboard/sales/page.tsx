@@ -66,7 +66,7 @@ function PropertySalesContent() {
               id: t.id,
               transactionType: t.transactionType,
               propertyTitle: t.property?.title || "Untitled Property",
-              suburb: t.property?.suburb || "Lusaka",
+              suburb: t.property?.suburb || t.property?.city || "Location not recorded",
               buyerName,
               buyerContact,
               buyerNrcPassport,

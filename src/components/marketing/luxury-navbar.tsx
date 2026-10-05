@@ -64,7 +64,7 @@ export function LuxuryNavbar() {
             href="/dashboard/map"
             className={isScrolled ? "hover:text-[#141715] transition-colors py-1" : "hover:text-white transition-colors py-1"}
           >
-            Lusaka Map
+            Property Map
           </Link>
           <Link
             href="/agent"
@@ -141,7 +141,7 @@ export function LuxuryNavbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="py-1 hover:text-black"
             >
-              Lusaka Map
+              Property Map
             </Link>
             <Link
               href="#market-notes"

@@ -625,9 +625,9 @@ model Property {
   photos        String[] @default([])
   featuredPhoto String?
 
-  // Geospatial & Landmarks (Crucial for Lusaka/Southern Africa)
+  // Recorded property location and landmarks
   suburb             String // e.g. "Kabulonga", "Leopards Hill", "Woodlands"
-  city               String  @default("Lusaka")
+  city               String  @default("")
   latitude           Float?
   longitude          Float?
   standBoundary      Json? // Array of [lat, lng] coordinate pairs representing stand/plot boundary

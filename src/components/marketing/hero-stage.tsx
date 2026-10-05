@@ -47,9 +47,9 @@ export function HeroStage() {
       code: "03",
       category: "Field Architecture",
       title: "Offline-First Mobile PWA",
-      highlight: "PowerSync SQLite sync for Lusaka field agents",
+      highlight: "Offline sync for field agents",
       description:
-        "PowerSync SQLite local cache resilient to ZESCO load-shedding & spotty Lusaka mobile signal.",
+        "Local property data stays accessible during power outages and unreliable mobile coverage.",
     },
     {
       code: "04",
@@ -93,7 +93,7 @@ export function HeroStage() {
               "linear-gradient(to bottom, #FDF6ED 0%, #FDEBD0 30%, #FDD09A 55%, #F9A55A 70%, #F0793A 80%, #E85C20 88%, #D94810 95%, #C73A08 100%)",
           }}
         >
-          {/* ── Layer 1: The Zambian Red Sun ── */}
+          {/* ── Layer 1: The Red Sun ── */}
           {/* Outer wrapper: handles scroll parallax + absolute positioning */}
           <motion.div
             className="absolute pointer-events-none z-10"
@@ -128,7 +128,7 @@ export function HeroStage() {
           <div className="absolute inset-0 z-20 pointer-events-none">
             <Image
               src="/images/HERO.png"
-              alt="Contour Lusaka modernist luxury villa architecture"
+              alt="Contour modernist villa architecture"
               fill
               priority
               unoptimized
@@ -158,7 +158,7 @@ export function HeroStage() {
                 CHASE NOTHING.
               </h1>
               <p className="mt-4 sm:mt-6 font-geist text-xs sm:text-base text-editorial-black/80 max-w-prose leading-relaxed">
-                The mandate operating system for Lusaka real estate agents.
+                The mandate operating system for real estate teams.
               </p>
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                 <a

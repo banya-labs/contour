@@ -46,7 +46,7 @@ export function PublicPropertyNavbar({
             {/* Highlighted Location Badge - Visible on all screen sizes */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-50 border border-editorial-border text-xs font-mono text-editorial-black shadow-2xs shrink-0 max-w-[160px] sm:max-w-[240px]">
               <MapPin className="w-3.5 h-3.5 text-contour-red shrink-0" />
-              <span className="truncate font-semibold">{suburb || "Lusaka, Zambia"}</span>
+              <span className="truncate font-semibold">{suburb || "Property location"}</span>
             </div>
           </div>
 
@@ -115,10 +115,10 @@ export function PublicPropertyNavbar({
                   <span>Listing Location</span>
                 </div>
                 <p className="text-sm font-heading font-bold text-editorial-black">
-                  {suburb || "Lusaka, Zambia"}
+                  {suburb || "Property location"}
                 </p>
                 <p className="text-[11px] text-editorial-muted">
-                  Lusaka Cadastre Registry • Verified Public Property Mandate
+                  Verified Public Property Mandate
                 </p>
               </div>
 
@@ -153,7 +153,7 @@ export function PublicPropertyNavbar({
                 >
                   <div className="flex items-center gap-2.5">
                     <MapPin className="w-4 h-4 text-contour-red" />
-                    <span>{organizationName ? `${organizationName} Spatial Map` : "Lusaka Spatial Cadastre Map"}</span>
+                    <span>{organizationName ? `${organizationName} Spatial Map` : "Property Map"}</span>
                   </div>
                   <span className="text-[10px] font-mono text-contour-red font-bold">Live</span>
                 </Link>
@@ -211,7 +211,7 @@ export function PublicPropertyNavbar({
             {/* Drawer Footer */}
             <div className="p-4 border-t border-editorial-border bg-neutral-50 text-center">
               <p className="text-[10px] font-mono text-editorial-muted">
-                Contour Real Estate Platform • Lusaka, Zambia
+                Contour Real Estate Platform
               </p>
             </div>
           </div>

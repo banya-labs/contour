@@ -8,24 +8,24 @@ import { ArrowUpRight, BookOpen, Clock, Calendar } from "lucide-react";
 export function EditorialMarketNotes() {
   const articles = [
     {
-      title: "Lusaka Real Estate: Dry Season Slowdown or High-Yield Acquisition Window?",
+      title: "Reading Seasonal Changes in Your Property Pipeline",
       excerpt:
-        "Analyzing Q3 transaction velocity across Kabulonga and Leopards Hill. Why institutional family offices are locking commercial land parcels before infrastructure expansion.",
+        "Track transaction velocity, demand, and time to close across your portfolio to support property decisions.",
       date: "August 2026",
       readTime: "4 min read",
       category: "Market Report",
       image: "/images/solidroad/asset_28_mFBjbn51LwCjG5D3RgYP.png",
-      slug: "lusaka-real-estate-dry-season-analysis",
+      slug: "seasonal-property-pipeline-analysis",
     },
     {
-      title: "What $500,000 Buys Across Kabulonga vs Leopards Hill vs Roma Park",
+      title: "Comparing Properties Across Residential Districts",
       excerpt:
-        "A deep comparative analysis of price-per-square-meter, borehole water tables, solar microgrid resilience, and title verification speed in Lusaka's top 3 residential enclaves.",
+        "Compare price per square metre, utilities, property condition, and title documentation across the areas your agency serves.",
       date: "August 2026",
       readTime: "6 min read",
       category: "Neighborhood Index",
       image: "/images/solidroad/asset_33_qq46LRopVAERA1djCvgl.png",
-      slug: "what-500k-buys-in-lusaka",
+      slug: "comparing-residential-properties",
     },
     {
       title: "The Diplomatic Tenancy Standard: Security Mandates & USD Cap Rates",
@@ -49,7 +49,7 @@ export function EditorialMarketNotes() {
               Market Intelligence & Research
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-[#141715] mt-2 tracking-tight">
-              Lusaka Editorial Notes
+              Example Property Insights
             </h2>
           </div>
           <Link

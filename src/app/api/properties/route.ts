@@ -489,7 +489,7 @@ const postHandler = createApiHandler({
 
     const effectiveDescription =
       body.description?.trim() ||
-      `${body.title} - ${body.listingType === "FOR_SALE" ? "For Sale" : "For Rent"} in ${body.suburb || "Lusaka"}.${body.bedrooms ? ` ${body.bedrooms} beds, ${body.bathrooms || 1} baths.` : ""}${body.plotSizeSqm ? ` Plot size: ${body.plotSizeSqm} m².` : ""}${body.landmarkDirections ? ` Located near ${body.landmarkDirections}.` : ""}`.trim();
+      `${body.title} - ${body.listingType === "FOR_SALE" ? "For Sale" : "For Rent"} in ${body.suburb || body.city || "the selected location"}.${body.bedrooms ? ` ${body.bedrooms} beds, ${body.bathrooms || 1} baths.` : ""}${body.plotSizeSqm ? ` Plot size: ${body.plotSizeSqm} m².` : ""}${body.landmarkDirections ? ` Located near ${body.landmarkDirections}.` : ""}`.trim();
 
     const effectiveLat = typeof body.latitude === "number" && !isNaN(body.latitude) ? body.latitude : undefined;
     const effectiveLng = typeof body.longitude === "number" && !isNaN(body.longitude) ? body.longitude : undefined;
@@ -515,7 +515,7 @@ const postHandler = createApiHandler({
         photos: body.photos || [],
         featuredPhoto: body.featuredPhoto || (body.photos && body.photos[0]) || undefined,
         suburb: body.suburb,
-        city: body.city || "Lusaka",
+        city: body.city || "",
         latitude: effectiveLat,
         longitude: effectiveLng,
         landmarkDirections: body.landmarkDirections,

@@ -1,4 +1,5 @@
 "use client";
+import { formatPropertyLocation } from "@/lib/property-location";
 
 import { usePageUrlState } from "@/hooks/use-page-url-state";
 import { consumeCreationLink } from "@/lib/page-url-state";
@@ -41,21 +42,6 @@ import { PropertyCardSkeleton } from "@/components/ui/skeleton";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { publicPropertyPath } from "@/lib/public-property";
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
-
-const SUBURB_GPS_COORDINATES: Record<string, [number, number]> = {
-  "Kabulonga": [-15.4215, 28.3345],
-  "Leopards Hill": [-15.4520, 28.3850],
-  "Roma Park": [-15.3780, 28.3120],
-  "Woodlands": [-15.4350, 28.3250],
-  "Rhodes Park": [-15.4102, 28.2985],
-  "Mass Media": [-15.3980, 28.3150],
-  "Ibex Hill": [-15.4150, 28.3750],
-  "Chudleigh": [-15.3650, 28.3380],
-  "Longacres": [-15.4190, 28.3090],
-  "New Kasama": [-15.4650, 28.3650],
-  "Silverest": [-15.3850, 28.4450],
-  "Makeni": [-15.4550, 28.2450],
-};
 
 function PropertiesCatalogContent() {
   const { data: session } = useSession();
@@ -156,9 +142,10 @@ function PropertiesCatalogContent() {
     bedrooms: "3",
     bathrooms: "2",
     plotSizeSqm: "500",
-    latitude: -15.4215,
-    longitude: 28.3345,
-    suburb: "Kabulonga",
+    latitude: null as number | null,
+    longitude: null as number | null,
+    suburb: "",
+    city: "",
     assignedAgentId: "",
     assignedAgentName: "",
     landmarkDirections: "",
@@ -172,7 +159,6 @@ function PropertiesCatalogContent() {
 
   const [copiedPropertyId, setCopiedPropertyId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [isCustomSuburb, setIsCustomSuburb] = useState(false);
 
   const handleSharePropertyLink = (p: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -282,7 +268,8 @@ function PropertiesCatalogContent() {
         plotSizeSqm: plotSizeNum,
         latitude: typeof formData.latitude === "number" && !isNaN(formData.latitude) ? formData.latitude : undefined,
         longitude: typeof formData.longitude === "number" && !isNaN(formData.longitude) ? formData.longitude : undefined,
-        suburb: formData.suburb,
+        suburb: formData.suburb.trim(),
+        city: formData.city.trim(),
         assignedAgentId: formData.assignedAgentId || undefined,
         assignedAgentName: formData.assignedAgentName || undefined,
         landmarkDirections: formData.landmarkDirections?.trim() || undefined,
@@ -334,6 +321,7 @@ function PropertiesCatalogContent() {
       query === "" ||
       p.title?.toLowerCase().includes(query) ||
       p.suburb?.toLowerCase().includes(query) ||
+      p.city?.toLowerCase().includes(query) ||
       p.landmarkDirections?.toLowerCase().includes(query);
 
     const matchesAssigned =
@@ -353,7 +341,7 @@ function PropertiesCatalogContent() {
               Property Catalog
             </span>
             <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
-              Lusaka Plateau • S3 Custody
+              Property Portfolio
             </span>
           </div>
           <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
@@ -388,7 +376,7 @@ function PropertiesCatalogContent() {
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-editorial-muted" />
           <input
             type="text"
-            placeholder="Search by title, suburb (e.g. Kabulonga, Roma Park), or landmark..."
+            placeholder="Search by title, suburb, city, or landmark..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 bg-neutral-50 border border-editorial-border text-xs text-editorial-black placeholder:text-editorial-muted focus:outline-none focus:border-editorial-black font-geist"
@@ -517,13 +505,13 @@ function PropertiesCatalogContent() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-1 text-[10px] font-geist uppercase tracking-wider text-contour-red">
                         <MapPin className="w-3 h-3" />
-                        <span>{p.suburb}, Lusaka</span>
+                        <span>{formatPropertyLocation(p)}</span>
                       </div>
                       <h3 className="font-heading font-bold text-sm text-editorial-black leading-tight group-hover:text-contour-red transition-colors line-clamp-1 uppercase">
                         {p.title}
                       </h3>
                       <p className="text-xs text-editorial-muted line-clamp-2 leading-relaxed">
-                        {p.description || "Verified Lusaka property mandate with clean Certificate of Title."}
+                        {p.description || "Property description not recorded."}
                       </p>
                     </div>
 
@@ -861,80 +849,12 @@ function PropertiesCatalogContent() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black">
-                      Suburb / Area (Lusaka) *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const willBeCustom = !isCustomSuburb;
-                        setIsCustomSuburb(willBeCustom);
-                        if (willBeCustom && (!formData.suburb || formData.suburb === "Kabulonga")) {
-                          setFormData({ ...formData, suburb: "" });
-                        }
-                      }}
-                      className="text-[10px] font-geist font-semibold text-contour-red hover:underline"
-                    >
-                      {isCustomSuburb ? "← Choose from list" : "✍️ Type area manually"}
-                    </button>
-                  </div>
-                  {isCustomSuburb ? (
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Avondale, Prospect, Silverest Extension..."
-                      value={formData.suburb}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const matchedKey = Object.keys(SUBURB_GPS_COORDINATES).find(
-                          (k) => k.toLowerCase() === val.trim().toLowerCase()
-                        );
-                        const coords = matchedKey ? SUBURB_GPS_COORDINATES[matchedKey] : [-15.4211, 28.3341];
-                        setFormData({
-                          ...formData,
-                          suburb: val,
-                          latitude: coords[0],
-                          longitude: coords[1],
-                        });
-                      }}
-                      className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none focus:border-editorial-black text-editorial-black font-geist font-semibold placeholder:font-normal"
-                    />
-                  ) : (
-                    <select
-                      value={formData.suburb}
-                      onChange={(e) => {
-                        const nextSuburb = e.target.value;
-                        if (nextSuburb === "__CUSTOM__") {
-                          setIsCustomSuburb(true);
-                          setFormData({ ...formData, suburb: "" });
-                          return;
-                        }
-                        const coords = SUBURB_GPS_COORDINATES[nextSuburb] || [-15.4211, 28.3341];
-                        setFormData({
-                          ...formData,
-                          suburb: nextSuburb,
-                          latitude: coords[0],
-                          longitude: coords[1],
-                        });
-                      }}
-                      className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist font-semibold"
-                    >
-                      <option value="Kabulonga">Kabulonga</option>
-                      <option value="Leopards Hill">Leopards Hill</option>
-                      <option value="Roma Park">Roma Park</option>
-                      <option value="Woodlands">Woodlands</option>
-                      <option value="Rhodes Park">Rhodes Park</option>
-                      <option value="Mass Media">Mass Media</option>
-                      <option value="Ibex Hill">Ibex Hill</option>
-                      <option value="Chudleigh">Chudleigh</option>
-                      <option value="Longacres">Longacres</option>
-                      <option value="New Kasama">New Kasama</option>
-                      <option value="Silverest">Silverest</option>
-                      <option value="Makeni">Makeni</option>
-                      <option value="__CUSTOM__">✍️ Type Custom Area Manually...</option>
-                    </select>
-                  )}
+                  <label htmlFor="new-property-suburb" className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Suburb / Area *</label>
+                  <input id="new-property-suburb" type="text" required maxLength={80} placeholder="Enter suburb or area" value={formData.suburb} onChange={(e) => setFormData({ ...formData, suburb: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist" />
+                </div>
+                <div>
+                  <label htmlFor="new-property-city" className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">City / Town</label>
+                  <input id="new-property-city" type="text" maxLength={120} placeholder="Enter city or town" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist" />
                 </div>
 
                 <div>
@@ -968,6 +888,7 @@ function PropertiesCatalogContent() {
                 latitude={formData.latitude}
                 longitude={formData.longitude}
                 suburb={formData.suburb}
+                city={formData.city}
                 onChange={(lat, lng) =>
                   setFormData((prev) => ({
                     ...prev,
@@ -983,7 +904,7 @@ function PropertiesCatalogContent() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 200m off Kabulonga Road, near Centro Mall"
+                  placeholder="Describe nearby landmarks or access directions"
                   value={formData.landmarkDirections}
                   onChange={(e) => setFormData({ ...formData, landmarkDirections: e.target.value })}
                   className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none text-editorial-black font-geist"

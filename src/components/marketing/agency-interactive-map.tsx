@@ -37,14 +37,14 @@ const AgencyLeafletCanvas = dynamic(
       <div className="w-full h-full min-h-[440px] bg-[#FAF8F5] flex flex-col items-center justify-center text-stone-500 gap-3 animate-pulse border border-[#E6E0D4] rounded-none">
         <Navigation className="w-8 h-8 text-[#C89B3C]" />
         <span className="text-xs font-mono font-bold tracking-wider text-[#16382B]">
-          INITIALIZING LUSAKA CADASTRAL LEAFLET ENGINE (WGS 84)...
+          INITIALIZING SAMPLE PROPERTY MAP (WGS 84)...
         </span>
       </div>
     ),
   }
 );
 
-// High-fidelity Lusaka Agency Inventory (MAL's Property Consultancy Pilot Showcase)
+// Illustrative inventory using Lusaka sample coordinates; these are not live listings.
 const AGENCY_PROPERTIES: AgencyMapItem[] = [
   {
     id: "prop-rhodes-park-hq",
@@ -64,7 +64,7 @@ const AGENCY_PROPERTIES: AgencyMapItem[] = [
     coordinates: [-15.4102, 28.2985],
     elevation: "1,274 m",
     landmark: "Directly on Joseph Mwilwa Road, adjacent to Rhodes Park Medical Centre",
-    status: "MAL'S SHOWCASE PILOT",
+    status: "EXAMPLE LISTING",
     image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&auto=format&fit=crop&q=80",
     titleDeedNumber: "Folio: LUS/COMM/2026/4410-RP",
   },
@@ -222,7 +222,7 @@ const AGENCY_PROPERTIES: AgencyMapItem[] = [
 ];
 
 const SUBURBS_LIST = [
-  "All Lusaka",
+  "All Sample Locations",
   "Rhodes Park",
   "Kabulonga",
   "Leopards Hill",
@@ -233,7 +233,7 @@ const SUBURBS_LIST = [
 ];
 
 export function AgencyInteractiveMap() {
-  const [selectedSuburb, setSelectedSuburb] = useState("All Lusaka");
+  const [selectedSuburb, setSelectedSuburb] = useState("All Sample Locations");
   const [selectedType, setSelectedType] = useState<"ALL" | "FOR SALE" | "FOR RENT">("ALL");
   const [selectedProperty, setSelectedProperty] = useState<AgencyMapItem>(AGENCY_PROPERTIES[0]);
   
@@ -246,7 +246,7 @@ export function AgencyInteractiveMap() {
   // Filtered Properties
   const filteredProperties = useMemo(() => {
     return AGENCY_PROPERTIES.filter((p) => {
-      const matchSuburb = selectedSuburb === "All Lusaka" || p.suburb === selectedSuburb;
+      const matchSuburb = selectedSuburb === "All Sample Locations" || p.suburb === selectedSuburb;
       const matchType = selectedType === "ALL" || p.type === selectedType;
       return matchSuburb && matchType;
     });
@@ -296,13 +296,13 @@ export function AgencyInteractiveMap() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#16382B]/10 text-[#16382B] text-xs font-mono font-bold tracking-wider uppercase mb-3">
               <Compass className="w-3.5 h-3.5 text-[#C89B3C]" />
-              <span>SPATIAL AGENCY INTELLIGENCE • LUSAKA GIS GRID</span>
+              <span>SPATIAL AGENCY INTELLIGENCE • SAMPLE MAP</span>
             </div>
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#16382B] tracking-tight">
-              Interactive Lusaka Agency Map
+              Interactive Property Map Demo
             </h2>
             <p className="mt-2 text-sm sm:text-base text-stone-600 max-w-2xl font-sans">
-              Explore how Lusaka real estate firms like <strong className="text-[#16382B]">MAL&apos;s Property Consultancy</strong> manage active mandates, landmark directions, and 5% commission splits on a live, interactive Leaflet geospatial grid.
+              Explore illustrative listings and sample coordinates. See how an agency can manage mandates, landmark directions, and commission splits on an interactive property map.
             </p>
           </div>
 
@@ -325,9 +325,9 @@ export function AgencyInteractiveMap() {
           <div className="bg-[#FAF8F5] px-6 py-3.5 border-b border-[#ECE7DE] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono text-stone-700">
             <div className="flex items-center gap-2 flex-wrap">
               <Navigation className="w-4 h-4 text-[#C89B3C]" />
-              <span className="font-bold text-[#16382B]">MAL&apos;S PROPERTY CONSULTANCY</span>
+              <span className="font-bold text-[#16382B]">EXAMPLE PROPERTY AGENCY</span>
               <span className="text-stone-300">|</span>
-              <span className="text-stone-500">44 Joseph Mwilwa Rd, Rhodes Park HQ</span>
+              <span className="text-stone-500">Illustrative inventory • Sample locations</span>
               <span className="text-stone-300">|</span>
               <span className="text-emerald-700 font-semibold flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -361,7 +361,7 @@ export function AgencyInteractiveMap() {
                     type="button"
                     onClick={() => {
                       setSelectedSuburb(suburb);
-                      const match = AGENCY_PROPERTIES.find((p) => suburb === "All Lusaka" || p.suburb === suburb);
+                      const match = AGENCY_PROPERTIES.find((p) => suburb === "All Sample Locations" || p.suburb === suburb);
                       if (match) setSelectedProperty(match);
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
@@ -449,7 +449,7 @@ export function AgencyInteractiveMap() {
                   </h3>
                   <div className="flex items-center gap-2 text-xs text-stone-500 font-mono">
                     <MapPin className="w-3.5 h-3.5 text-[#C89B3C]" />
-                    <span>{selectedProperty.suburb}, Lusaka</span>
+                    <span>{selectedProperty.suburb}</span>
                     <span>•</span>
                     <span>{selectedProperty.standNumber}</span>
                   </div>
@@ -479,7 +479,7 @@ export function AgencyInteractiveMap() {
                 <div className="space-y-1.5 text-xs">
                   <span className="font-mono font-bold text-stone-500 uppercase flex items-center gap-1.5">
                     <Navigation className="w-3 h-3 text-[#C89B3C]" />
-                    <span>Verified Lusaka Landmark Directions:</span>
+                    <span>Sample Landmark Directions:</span>
                   </span>
                   <p className="p-3 rounded-xl bg-stone-50 border border-stone-200/60 text-stone-700 italic">
                     &ldquo;{selectedProperty.landmark}&rdquo;
@@ -628,7 +628,7 @@ export function AgencyInteractiveMap() {
                 </Link>
 
                 <a
-                  href="https://wa.me/260971234567?text=Hi%20Contour%20Team%2C%20we%20want%20to%20pilot%20Contour%20for%20our%20Lusaka%20real%20estate%20agency."
+                  href="https://wa.me/260971234567?text=Hi%20Contour%20Team%2C%20we%20want%20to%20pilot%20Contour%20for%20our%20real%20estate%20agency."
                   target="_blank"
                   rel="noopener noreferrer"
                   className="py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition-all text-center flex items-center justify-center gap-1"

@@ -70,7 +70,7 @@ export function PricingGrid() {
     { name: "Agent Seat Licenses", starter: "1-3 agents", growth: "4-15 agents", enterprise: "Unlimited" },
 
     // Core Brokerage Operations
-    { name: "Interactive Lusaka Leaflet property map", starter: true, growth: true, enterprise: true },
+    { name: "Interactive property map", starter: true, growth: true, enterprise: true },
     { name: "1-Click WhatsApp listing flyer generator", starter: true, growth: true, enterprise: true },
     { name: "30-Day anti-poaching client registration", starter: true, growth: true, enterprise: true },
     { name: "Public shareable property cards (/p/[slug])", starter: true, growth: true, enterprise: true },
@@ -86,7 +86,7 @@ export function PricingGrid() {
     { name: "Reverse Matchmaker buyer-to-property AI alerts", starter: false, growth: true, enterprise: true },
 
     // Enterprise Tier Infrastructure
-    { name: "Multi-branch RBAC (Lusaka, Ndola, Livingstone)", starter: false, growth: false, enterprise: true },
+    { name: "Multi-branch roles and permissions", starter: false, growth: false, enterprise: true },
     { name: "Dedicated MinIO S3 object storage partition", starter: false, growth: false, enterprise: true },
     { name: "Full JSON-RPC 2.0 /api/mcp AI agent tools", starter: false, growth: false, enterprise: true },
     { name: "Unlimited public API keys & custom webhooks", starter: false, growth: false, enterprise: true },
@@ -162,7 +162,7 @@ export function PricingGrid() {
                   PLANS & CAPACITIES
                 </span>
                 <p className="mt-3 font-geist text-xs text-editorial-muted leading-relaxed">
-                  Tailored for Zambian brokerages. Transparent commission ledgers, zero lock-in contracts.
+                  Built for real estate teams. Transparent commission ledgers, zero lock-in contracts.
                 </p>
               </div>
               <div className="pt-4 font-geist text-[11px] text-editorial-muted uppercase tracking-wider">

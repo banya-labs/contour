@@ -1,4 +1,5 @@
 "use client";
+import { formatPropertyLocation } from "@/lib/property-location";
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -200,7 +201,7 @@ export default function SocialMediaCardGeneratorModal({
       // Use exact property description without making things up
       const initialDescription = property.description
         ? property.description
-        : `${property.title} located in ${property.suburb}, Lusaka.${
+        : `${property.title} located in ${formatPropertyLocation(property)}.${
             property.landmarkDirections ? ` Driving directions: ${property.landmarkDirections}.` : ""
           } Features ${property.bedrooms || 0} bedrooms, ${property.bathrooms || 0} bathrooms, on a ${
             property.plotSizeSqm ? `${property.plotSizeSqm} m²` : "prime"
@@ -214,7 +215,7 @@ export default function SocialMediaCardGeneratorModal({
               property.bathrooms ? `${property.bathrooms} Bathrooms` : "Modern Bathrooms",
               property.plotSizeSqm ? `${property.plotSizeSqm} m² Yard Size` : `Prime ${property.suburb} Location`,
               property.ownershipType === "COMPANY_OWNED" ? "Company-Owned Asset" : "Sole Agency Mandate",
-              property.landmarkDirections ? property.landmarkDirections : `${property.suburb}, Lusaka`,
+              property.landmarkDirections ? property.landmarkDirections : `${formatPropertyLocation(property)}`,
             ],
       );
       setNewFeature("");
@@ -743,7 +744,7 @@ export default function SocialMediaCardGeneratorModal({
                     navigator.clipboard.writeText(publicUrl);
                     window.open(
                       `https://wa.me/?text=${encodeURIComponent(
-                        `🏛️ *${property.title.toUpperCase()}*\n📍 ${property.suburb}, Lusaka\n💰 ${currency} ${formatFlyerPrice(price)}\n\nVerified Public Listing & Title Deeds: ${publicUrl}`
+                        `🏛️ *${property.title.toUpperCase()}*\n📍 ${formatPropertyLocation(property)}\n💰 ${currency} ${formatFlyerPrice(price)}\n\nVerified Public Listing & Title Deeds: ${publicUrl}`
                       )}`,
                       "_blank"
                     );
@@ -757,7 +758,7 @@ export default function SocialMediaCardGeneratorModal({
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${property.suburb}, Lusaka\n💰 Price: ${currency} ${formatFlyerPrice(price)}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Contact ${activeContact.name} • ${activeContact.phone}_`;
+                    const text = `🏡 *${property.title.toUpperCase()}* (${isSale ? "FOR SALE" : "FOR LEASE"})\n📍 Location: ${formatPropertyLocation(property)}\n💰 Price: ${currency} ${formatFlyerPrice(price)}${!isSale ? "/month" : ""}\n\n📝 ${flyerCopy}\n\n_Contact ${activeContact.name} • ${activeContact.phone}_`;
                     navigator.clipboard.writeText(text);
                     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
                   }}
@@ -825,7 +826,7 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Suburb & Elevation Pill */}
                   <div className="absolute bottom-2 right-2 bg-black text-white text-[9px] font-mono px-2 py-0.5 border border-white/20 flex items-center gap-1">
                     <MapPin className="w-2.5 h-2.5 text-[#fa3600]" />
-                    <span>{property.suburb}, Lusaka</span>
+                    <span>{formatPropertyLocation(property)}</span>
                   </div>
                 </div>
 
@@ -839,7 +840,7 @@ export default function SocialMediaCardGeneratorModal({
                     <div>
                       {/* Telemetry Stand Line */}
                       <div className="text-[8px] font-mono uppercase tracking-widest text-[#fa3600] font-bold">
-                        {(property.suburb || "Lusaka").toUpperCase()} • EXCLUSIVE MANDATE
+                        {formatPropertyLocation(property).toUpperCase()} • EXCLUSIVE MANDATE
                       </div>
                       <h4 className={`font-heading font-extrabold text-xs sm:text-sm uppercase tracking-tight leading-tight mt-0.5 ${
                         isDark ? "text-white" : "text-[#282828]"
@@ -965,7 +966,7 @@ export default function SocialMediaCardGeneratorModal({
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="text-[8px] font-mono uppercase text-[#fa3600] font-bold">
-                        {property.suburb}, Lusaka
+                        {formatPropertyLocation(property)}
                       </span>
                       <span className="text-[8px] font-mono text-[#9b9b9b]">
                         {isSale ? "FOR SALE" : "MONTHLY LEASE"}
@@ -1050,7 +1051,7 @@ export default function SocialMediaCardGeneratorModal({
                   {/* Stand badge */}
                   <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-black text-white px-2 py-0.5 text-[8px] font-mono border border-white/20">
                     <MapPin className="h-2.5 w-2.5 shrink-0 text-[#fa3600]" aria-hidden="true" />
-                    <span>{property.suburb}, Lusaka</span>
+                    <span>{formatPropertyLocation(property)}</span>
                   </div>
 
                   <div className="absolute bottom-2.5 right-2.5 bg-[#fa3600] text-white px-2 py-0.5 text-[8px] font-mono font-bold">

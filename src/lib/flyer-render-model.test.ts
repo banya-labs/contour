@@ -18,6 +18,7 @@ describe("flyer render model", () => {
       title: "  Modern   Townhouse ",
       agencyName: null,
       suburb: " Woodlands ",
+      city: " Ndola ",
       price: 5000000,
       currency: "usd",
       copy: "  Exact   user copy. ",
@@ -28,8 +29,15 @@ describe("flyer render model", () => {
 
     expect(model.title).toBe("Modern Townhouse");
     expect(model.agencyName).toBe("Agency");
+    expect(model.city).toBe("Ndola");
     expect(model.copy).toBe("Exact user copy.");
     expect(model.features).toEqual(["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"]);
     expect(model.imageSlots).toEqual({ hero: 0, secondaryOne: 1, secondaryTwo: 2 });
+  });
+
+  it("does not invent a suburb or city on an incomplete flyer", () => {
+    const model = buildFlyerRenderModel({ aspectRatio: "1:1", template: "SWISS_LIGHT", isSale: true, price: null, imageSlots: { hero: 0, secondaryOne: 1, secondaryTwo: 2 } });
+    expect(model.suburb).toBe("");
+    expect(model.city).toBe("");
   });
 });

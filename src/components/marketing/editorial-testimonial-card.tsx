@@ -9,11 +9,11 @@ export function EditorialTestimonialCard() {
 
   const testimonials = [
     {
-      company: "Kabulonga Estates & Holdings",
+      company: "Example Estates & Holdings",
       quote:
         "We now know our field brokers meet our strict institutional bar before they ever present a high-stakes title deed or diplomatic lease. That’s the Contour difference.",
       author: "Chileshe Mwamba",
-      role: "Managing Director, Kabulonga Holdings",
+      role: "Managing Director, Example Holdings",
       dealType: "Diplomatic Portfolio Mandate",
       stat1: "50%",
       stat1Label: "Faster title verification",
@@ -22,11 +22,11 @@ export function EditorialTestimonialCard() {
       image: "/images/contour/agent-5.png",
     },
     {
-      company: "Leopards Hill Brokerage",
+      company: "Example Property Brokerage",
       quote:
-        "Field surveys during 8-hour ZESCO load-shedding used to stall our deals for days. With Contour's offline PowerSync app, our brokers never miss a high-net-worth inquiry.",
+        "Field surveys during power outages used to stall our deals for days. With Contour's offline PowerSync app, our brokers never miss a high-net-worth inquiry.",
       author: "Grace Banda",
-      role: "Principal Broker, Leopards Hill",
+      role: "Principal Broker, Example Brokerage",
       dealType: "Luxury Residential & Acreage",
       stat1: "100%",
       stat1Label: "Offline survey uptime",
@@ -45,10 +45,10 @@ export function EditorialTestimonialCard() {
         <div className="flex items-center justify-between mb-16">
           <div>
             <span className="text-xs font-mono uppercase tracking-widest text-[#E57A1A] font-bold">
-              Executive Proof & Track Record
+              Illustrative Agency Scenarios
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-[#141715] mt-2 tracking-tight">
-              Don’t Take Our Word for It.
+              See the Workflow in Practice.
             </h2>
           </div>
 

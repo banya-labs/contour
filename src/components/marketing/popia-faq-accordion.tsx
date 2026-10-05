@@ -22,13 +22,13 @@ const FAQS: FaqItem[] = [
     id: "faq-1",
     question: "How does Contour function in the field during ZESCO load-shedding?",
     answer:
-      "Contour's Field Companion (/kiosk) is built as an offline-first Progressive Web App (PWA) powered by PowerSync and local SQLite WASM. All property specs, location pins, landmark directions, and client contacts are cached locally on the agent's smartphone, allowing full offline operation during 8-12 hour power outages in Lusaka, Ndola, or Harare.",
+      "Contour's Field Companion (/kiosk) is built as an offline-first Progressive Web App (PWA) powered by PowerSync and local SQLite WASM. All property specs, location pins, landmark directions, and client contacts are cached locally on the agent's smartphone, allowing full offline operation during power outages or unreliable mobile coverage.",
   },
   {
     id: "faq-2",
     question: "How does Contour separate gross transaction value from real agency revenue?",
     answer:
-      "Unlike generic CRMs that display misleading gross pipeline numbers, Contour applies Southern African brokerage mathematics: it isolates the 5% agency sales commission from gross asset values and calculates the 50/50 closing agent splits and net retained brokerage revenue in real time.",
+      "Unlike generic CRMs that display misleading gross pipeline numbers, Contour applies brokerage commission accounting: it isolates the 5% agency sales commission from gross asset values and calculates the 50/50 closing agent splits and net retained brokerage revenue in real time.",
   },
   {
     id: "faq-3",
