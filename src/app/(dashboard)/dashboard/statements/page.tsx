@@ -1,6 +1,8 @@
 "use client";
 
 import { consumeCreationLink } from "@/lib/page-url-state";
+import Link from "next/link";
+import { landlordStatementViewerUrl, type LandlordStatementSummary } from "@/lib/statements/viewer";
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -21,21 +23,7 @@ import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 import { PageTabs } from "@/components/ui/page-tabs";
 
-type Statement = {
-  id: string;
-  status: string;
-  landlordName: string;
-  currency: string;
-  grossRentCollected: number | string;
-  rentDue: number | string;
-  arrearsClosing: number | string;
-  agencyFeeDeducted: number | string;
-  maintenanceDeducted: number | string;
-  netLandlordPayout: number | string;
-  property?: { title?: string; suburb?: string };
-  statementMonth: number;
-  statementYear: number;
-};
+type Statement = LandlordStatementSummary;
 
 type RentalProperty = { id: string; title: string; suburb?: string; listingType: string };
 
@@ -47,6 +35,7 @@ function LandlordStatementsContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
+  const [generatedStatementId, setGeneratedStatementId] = useState<string | null>(null);
   const [isCreatingStatement, setIsCreatingStatement] = useState(false);
   const [pendingAuthorizations, setPendingAuthorizations] =
     useState<ReadonlySet<string>>(new Set());
@@ -107,9 +96,14 @@ function LandlordStatementsContent() {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
+    setGeneratedStatementId(null);
 
     if (!formData.propertyId) {
       setFormError("Please select a property.");
+      return;
+    }
+    if (!Number.isInteger(formData.statementMonth) || formData.statementMonth < 1 || formData.statementMonth > 12 || !Number.isInteger(formData.statementYear) || formData.statementYear < 2020 || formData.statementYear > 2035) {
+      setFormError("Choose a valid month and a year between 2020 and 2035.");
       return;
     }
 
@@ -127,10 +121,11 @@ function LandlordStatementsContent() {
       });
 
       const data = await res.json();
-      if (data.success && data.statement) {
-        setStatements([data.statement, ...statements]);
+      if (res.ok && data.success && data.statement?.id) {
+        setStatements((current) => [data.statement, ...current.filter((statement) => statement.id !== data.statement.id)]);
         setIsModalOpen(false);
-        setFormSuccess("Draft landlord statement generated.");
+        setFormSuccess("Your landlord statement is ready to view, print, or download.");
+        setGeneratedStatementId(data.statement.id);
       } else {
         setFormError(data.error || "Failed to generate statement.");
       }
@@ -224,7 +219,7 @@ function LandlordStatementsContent() {
         activeTab="statements"
         className="mt-1"
       />
-      {formSuccess && <div className="border border-emerald-300 bg-emerald-50 p-2.5 text-xs text-emerald-800">{formSuccess}</div>}
+      {formSuccess && <div role="status" className="flex flex-wrap items-center justify-between gap-3 border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800"><span>{formSuccess}</span>{generatedStatementId && <Link href={landlordStatementViewerUrl(generatedStatementId)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center bg-[#16382B] px-4 text-xs font-semibold text-white">Open statement viewer</Link>}</div>}
 
       {/* Statements List */}
       <div className="space-y-4">
@@ -309,10 +304,10 @@ function LandlordStatementsContent() {
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                  <button className="w-full sm:w-auto px-4 py-2.5 rounded-none bg-white border border-editorial-border hover:bg-editorial-paper text-editorial-black text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors min-h-[44px] sm:min-h-0">
+                  <Link href={landlordStatementViewerUrl(stmt.id)} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-4 py-2.5 rounded-none bg-white border border-editorial-border hover:bg-editorial-paper text-editorial-black text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors min-h-[44px] sm:min-h-0">
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download PDF Statement</span>
-                  </button>
+                    <span>View / download statement</span>
+                  </Link>
 
                   {!isAuthorized ? (
                     <button
