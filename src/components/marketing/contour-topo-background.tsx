@@ -84,9 +84,9 @@ export function ContourTopoBackground({
 
         {/* Survey Cadastral Pins & Altitude Markers */}
         <g fill={strokeColor} className="text-[10px] font-mono select-none">
-          <text x="320" y="275" opacity="0.8">▲ 1,280 m (Kabulonga Ridge)</text>
-          <text x="740" y="485" opacity="0.8">▲ 1,295 m (Leopards Hill)</text>
-          <text x="1150" y="385" opacity="0.8">▲ 1,285 m (Roma Park)</text>
+          <text x="320" y="275" opacity="0.8">▲ 1,280 m (Sample Ridge)</text>
+          <text x="740" y="485" opacity="0.8">▲ 1,295 m (Sample Hillside)</text>
+          <text x="1150" y="385" opacity="0.8">▲ 1,285 m (Sample District)</text>
           <text x="180" y="540" opacity="0.8">⌖ Stand 8942-A (2,400m²)</text>
           <text x="960" y="680" opacity="0.8">⌖ Stand 1102 (650m²)</text>
         </g>

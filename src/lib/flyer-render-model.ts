@@ -15,6 +15,7 @@ export type FlyerRenderModel = {
   title: string;
   agencyName: string;
   suburb: string;
+  city?: string;
   price: number | null;
   currency: string;
   copy: string;
@@ -46,7 +47,8 @@ export function buildFlyerRenderModel(input: FlyerModelInput): FlyerRenderModel 
     isSale: input.isSale,
     title: clean(input.title, "Property"),
     agencyName: clean(input.agencyName, "Agency"),
-    suburb: clean(input.suburb, "Lusaka"),
+    suburb: clean(input.suburb),
+    city: clean(input.city),
     price: input.price == null || Number.isFinite(input.price) ? input.price : null,
     currency: clean(input.currency, "USD").toUpperCase(),
     copy: clean(input.copy),

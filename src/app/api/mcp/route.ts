@@ -51,13 +51,13 @@ const MCP_SERVER_INFO = {
 const MCP_TOOLS = [
   {
     name: "search_properties",
-    description: "Search active Lusaka property listings in Neon PostgreSQL strictly scoped to the tenant organization.",
+    description: "Search active property listings in Neon PostgreSQL strictly scoped to the tenant organization.",
     inputSchema: {
       type: "object",
       properties: {
         organization_id: { type: "string", description: "Tenant organization ID (optional if Bearer key provided)" },
         query: { type: "string", description: "Search query across title, description, or landmark directions" },
-        suburb: { type: "string", description: "Lusaka suburb filter (e.g. Kabulonga, Woodlands, Leopards Hill, Roma)" },
+        suburb: { type: "string", description: "Suburb or area filter (e.g. Kabulonga, Woodlands, Leopards Hill, Roma)" },
         listingType: { type: "string", enum: ["FOR_SALE", "FOR_RENT", "BOTH"], description: "Listing type" },
         propertyType: { type: "string", description: "STANDALONE_HOUSE, APARTMENT, COMMERCIAL_OFFICE, WAREHOUSE" },
         minPrice: { type: "number", description: "Minimum price" },

@@ -548,7 +548,7 @@ function DealPipelineContent() {
               Deal Pipeline
             </span>
             <span className="text-[11px] font-geist text-editorial-muted">
-              Lusaka Real Estate Velocity
+              Property Sales Velocity
             </span>
           </div>
           <h1 className="font-heading text-2xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
@@ -1258,7 +1258,7 @@ function DealPipelineContent() {
                   <option value="">No Property Associated (Unassigned)</option>
                   {availableProperties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.title} ({p.suburb || "Lusaka"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}
+                      {p.title} ({p.suburb || p.city || "Location not recorded"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}
                     </option>
                   ))}
                 </select>

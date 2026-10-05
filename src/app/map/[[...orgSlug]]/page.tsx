@@ -17,6 +17,8 @@ import {
   Building2,
   ArrowUpRight,
 } from "lucide-react";
+import { formatPropertyLocation } from "@/lib/property-location";
+import { hasValidCoordinates } from "@/lib/locations/map-coordinates";
 import type { PropertyMapItem } from "@/types/property-map";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
@@ -35,7 +37,7 @@ const InteractivePropertyMap = dynamic(
         <div className="flex flex-col items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-contour-red animate-ping" />
           <span className="font-mono text-xs uppercase tracking-wider text-editorial-black">
-            Loading Public Lusaka Property Map...
+            Loading Public Property Map...
           </span>
         </div>
       </div>
@@ -89,7 +91,7 @@ function PublicMapInner() {
 
           if (Array.isArray(data.properties)) {
             const mapped: PropertyMapItem[] = data.properties
-              .filter((p: any) => p.latitude !== null && p.longitude !== null)
+              .filter((p: any) => hasValidCoordinates(p.latitude, p.longitude))
               .map((p: any) => ({
                 id: p.id,
                 title: p.title,
@@ -105,7 +107,7 @@ function PublicMapInner() {
                 bathrooms: p.bathrooms ? Number(p.bathrooms) : null,
                 plotSizeSqm: p.plotSizeSqm ? Number(p.plotSizeSqm) : null,
                 suburb: p.suburb,
-                city: p.city || "Lusaka",
+                city: p.city || "",
                 latitude: p.latitude,
                 longitude: p.longitude,
                 landmarkDirections: p.landmarkDirections,
@@ -288,7 +290,7 @@ function PublicMapInner() {
                     href="/map"
                     className="w-full sm:w-auto px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors"
                   >
-                    Explore All Lusaka Mandates
+                    Explore All Public Mandates
                   </Link>
                 )}
                 <Link
@@ -330,7 +332,7 @@ function PublicMapInner() {
           onClose={() => setSelectedProperty(null)}
           zIndex="z-[2500]"
           title={selectedProperty.title}
-          subtitle={`📍 ${selectedProperty.suburb}, ${selectedProperty.city}`}
+          subtitle={`📍 ${formatPropertyLocation(selectedProperty)}`}
         >
           <div className="space-y-4 font-geist">
             {/* Image Preview */}

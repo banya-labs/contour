@@ -32,7 +32,7 @@ export function CtaFooter() {
       title: "PLATFORM",
       links: [
         { label: "Field Agent PWA", href: "/kiosk" },
-        { label: "Lusaka Real Estate Map", href: "/dashboard/map" },
+        { label: "Property Map", href: "/dashboard/map" },
         { label: "API & Model Context Protocol", href: "/admin/mcp" },
         { label: "PowerSync Offline Engine", href: "#how-it-works" },
         { label: "Security & POPIA Compliance", href: "#pricing" },
@@ -98,7 +98,7 @@ export function CtaFooter() {
             </motion.h2>
 
             <p className="mt-4 sm:mt-6 font-geist text-xs sm:text-base text-editorial-muted max-w-prose leading-relaxed">
-              The high-precision real estate operating system engineered for Lusaka brokerages.
+              The high-precision real estate operating system built for real estate teams.
             </p>
 
             <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -117,7 +117,7 @@ export function CtaFooter() {
             </div>
           </div>
 
-          {/* Right 40%: The Red Zambian Sun (Bookend Sunset Motif) */}
+          {/* Right 40%: The Red Sun (Bookend Sunset Motif) */}
           <div className="lg:col-span-4 relative flex items-center justify-center p-6 sm:p-8 overflow-hidden min-h-[220px] sm:min-h-[260px] lg:min-h-0 bg-neutral-50/40">
             <motion.div
               initial={{ scale: 0.6, opacity: 0, x: 60 }}
@@ -183,7 +183,7 @@ export function CtaFooter() {
             </Link>
           </div>
           <div className="flex items-center gap-6">
-            <span>Lusaka · Harare · Johannesburg</span>
+            <span>Properties · People · Operations</span>
             <span className="text-editorial-red font-bold">ZMW / USD</span>
           </div>
         </div>

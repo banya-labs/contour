@@ -1,3 +1,4 @@
+import { formatPropertyLocation } from "@/lib/property-location";
 import { db } from "@/lib/db";
 import { s3Storage } from "@/lib/storage/s3";
 import {
@@ -22,6 +23,7 @@ import {
   KpiComparison,
 } from "./types";
 import { calculatePipelineStageValues } from "./pipeline-values";
+
 
 type ReportOrganization = {
   name: string;
@@ -161,7 +163,7 @@ export class ContourReportEngine {
     const newPropertiesAdded: PropertyPortfolioItem[] = newProperties.map((p) => ({
       id: p.id,
       title: p.title,
-      location: p.suburb,
+      location: formatPropertyLocation(p),
       type: p.propertyType.replace(/_/g, " "),
       price: Number(p.askingPrice || p.rentalPrice || 0),
       currency: p.currency,
@@ -189,7 +191,7 @@ export class ContourReportEngine {
       return {
         id: p.id,
         title: p.title,
-        suburb: p.suburb,
+        suburb: formatPropertyLocation(p),
         daysListed,
         inquiries: inqCount,
         viewings: visCount,
@@ -216,7 +218,7 @@ export class ContourReportEngine {
         },
         include: {
           assignedAgent: { select: { id: true, name: true } },
-          property: { select: { id: true, title: true, suburb: true, askingPrice: true, rentalPrice: true } },
+          property: { select: { id: true, title: true, suburb: true, city: true, askingPrice: true, rentalPrice: true } },
           visits: { select: { id: true, status: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -278,8 +280,9 @@ export class ContourReportEngine {
         for (const s of inq.preferredSuburbs) {
           suburbDemandMap[s] = (suburbDemandMap[s] || 0) + 1;
         }
-      } else if (inq.property?.suburb) {
-        suburbDemandMap[inq.property.suburb] = (suburbDemandMap[inq.property.suburb] || 0) + 1;
+      } else if (inq.property?.suburb || inq.property?.city) {
+        const location = formatPropertyLocation(inq.property);
+        suburbDemandMap[location] = (suburbDemandMap[location] || 0) + 1;
       }
 
       // Lead source performance tracking
@@ -318,9 +321,11 @@ export class ContourReportEngine {
       .sort((a, b) => b.inquiries - a.inquiries)
       .slice(0, 10);
 
-    const topLocation = demandByLocation[0]?.name || "New Kasama";
+    const topLocation = demandByLocation[0]?.name || "areas with recorded demand";
     const topType = demandByPropertyType[0]?.name || "3 Bedroom Houses";
-    const demandInsight = `${topType} represent the strongest demand category. ${topLocation} recorded the highest concentration of client demand.`;
+    const demandInsight = demandByLocation.length > 0
+      ? `${topType} represent the strongest demand category. ${topLocation} recorded the highest concentration of client demand.`
+      : "No location demand has been recorded for this reporting period.";
 
     // Map recent inquiries list
     const recentInquiries: ClientInquiryItem[] = inquiriesInPeriod.slice(0, 15).map((i) => ({
@@ -331,7 +336,7 @@ export class ContourReportEngine {
       requirement: `${i.lookingFor === "FOR_SALE" ? "Buy" : "Rent"} ${
         i.propertyType ? i.propertyType.replace(/_/g, " ") : "Property"
       }`,
-      location: i.preferredSuburbs?.[0] || i.property?.suburb || "Lusaka",
+      location: i.preferredSuburbs?.[0] || formatPropertyLocation(i.property),
       budget: Number(i.budgetMax || i.budgetMin || i.dealValue || 0),
       currency: i.currency,
       status: i.status.replace(/_/g, " "),
@@ -352,7 +357,7 @@ export class ContourReportEngine {
         requirement: `${u.lookingFor === "FOR_SALE" ? "Buy" : "Rent"} ${
           u.propertyType ? u.propertyType.replace(/_/g, " ") : "Residential"
         }`,
-        location: u.preferredSuburbs?.[0] || "Lusaka",
+        location: u.preferredSuburbs?.[0] || "Location not recorded",
         budget: Number(u.budgetMax || u.budgetMin || 0),
         currency: u.currency,
         daysWaiting,
@@ -425,7 +430,7 @@ export class ContourReportEngine {
           createdAt: { gte: startDate, lte: endDate },
         },
         include: {
-          property: { select: { title: true, suburb: true } },
+          property: { select: { title: true, suburb: true, city: true } },
           closingAgent: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -459,9 +464,9 @@ export class ContourReportEngine {
 
       return {
         id: t.id,
-        client: `Client (${t.property?.suburb || "Lusaka"})`,
+        client: `Client (${formatPropertyLocation(t.property)})`,
         property: t.property?.title || "Property Listing",
-        suburb: t.property?.suburb || "Lusaka",
+        suburb: formatPropertyLocation(t.property),
         agent: agentName,
         transactionType: t.transactionType === "PROPERTY_SALE" ? "Sale" : "Rental",
         value: gVal,
@@ -490,7 +495,7 @@ export class ContourReportEngine {
           organizationId,
           status: { in: ["ACTIVE", "IN_ARREARS", "EXPIRING_SOON"] },
         },
-        include: { property: { select: { title: true, suburb: true } } },
+        include: { property: { select: { title: true, suburb: true, city: true } } },
       }),
       db.rentPayment.findMany({
         where: {
@@ -787,7 +792,7 @@ export class ContourReportEngine {
       return {
         id: p.id,
         title: p.title,
-        suburb: p.suburb,
+        suburb: formatPropertyLocation(p),
         inquiries: inq,
         viewings: vis,
         negotiations: neg,
@@ -998,7 +1003,7 @@ export class ContourReportEngine {
       meta: {
         companyName,
         logoUrl,
-        primaryAddress: org?.profile?.primaryOfficeAddress || "Lusaka, Zambia",
+        primaryAddress: org?.profile?.primaryOfficeAddress || "",
         primaryPhone: org?.profile?.primaryPhone || "+260",
         primaryEmail: org?.profile?.primaryEmail || "info@contour.agency",
         currency,

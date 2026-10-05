@@ -1,4 +1,5 @@
 "use client";
+import { formatPropertyLocation } from "@/lib/property-location";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -214,7 +215,7 @@ export default function PropertyMatchSummaryModal({
                       <button
                         type="button"
                         onClick={() => {
-                          const flyerText = `🏡 *${property.title}* (${isSale ? "For Sale" : "For Lease"} in ${property.suburb})\n💰 *Price:* ${formatCurrency(price || 0, property.currency || "ZMW")}\n📍 *Location:* ${property.suburb}, Lusaka\n\nHi ${match.alert.clientName}, I am attaching our high-resolution marketing flyer for this newly listed property matching your criteria!`;
+                          const flyerText = `🏡 *${property.title}* (${isSale ? "For Sale" : "For Lease"} in ${property.suburb})\n💰 *Price:* ${formatCurrency(price || 0, property.currency || "ZMW")}\n📍 *Location:* ${formatPropertyLocation(property)}\n\nHi ${match.alert.clientName}, I am attaching our high-resolution marketing flyer for this newly listed property matching your criteria!`;
                           navigator.clipboard.writeText(flyerText);
                           window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(flyerText)}`, "_blank");
                         }}

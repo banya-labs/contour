@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       id: p.id,
       title: p.title,
       suburb: p.suburb,
-      city: p.city || "Lusaka",
+      city: p.city || "",
       listingType: p.listingType,
       propertyType: p.propertyType,
       price: p.listingType === "FOR_RENT" 

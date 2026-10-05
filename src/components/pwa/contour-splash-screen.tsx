@@ -83,7 +83,7 @@ export function ContourSplashScreen() {
             <div className="flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-[#FA3600] animate-pulse" />
               <span className="font-mono text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-neutral-400">
-                Lusaka &bull; Southern Africa
+                Real Estate Operations
               </span>
             </div>
 

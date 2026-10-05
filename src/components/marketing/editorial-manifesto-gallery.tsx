@@ -11,8 +11,8 @@ export function EditorialManifestoGallery() {
   const galleryItems = [
     {
       id: "1",
-      title: "The Kabulonga Pavilion",
-      location: "Kabulonga, Lusaka",
+      title: "The Sample Pavilion",
+      location: "Sample residential district",
       price: "$850,000",
       specs: "4 Bed • 5 Bath • Infinity Pool",
       tag: "Diplomatic Zone",
@@ -22,7 +22,7 @@ export function EditorialManifestoGallery() {
     {
       id: "2",
       title: "The Baobab Sanctuary",
-      location: "Leopards Hill, Lusaka",
+      location: "Sample hillside district",
       price: "$1,400,000",
       specs: "6 Bed • 7 Bath • 2.5 Acres",
       tag: "Private Acreage",
@@ -31,8 +31,8 @@ export function EditorialManifestoGallery() {
     },
     {
       id: "3",
-      title: "Roma Park Executive Villa",
-      location: "Roma Park, Lusaka",
+      title: "Sample Executive Villa",
+      location: "Sample garden district",
       price: "$620,000",
       specs: "4 Bed • 4 Bath • Solar Microgrid",
       tag: "Gated Enclave",
@@ -50,7 +50,7 @@ export function EditorialManifestoGallery() {
     {
       title: "Move Forward",
       subtitle: "We find what fits and make the transaction seamless and predictable.",
-      detail: "Structured negotiation backed by 10-year Lusaka price comps and legal escrow oversight.",
+      detail: "Structured negotiation backed by local market comparisons and legal escrow oversight.",
     },
     {
       title: "Own With Certainty",
@@ -84,7 +84,7 @@ export function EditorialManifestoGallery() {
                 href="/dashboard"
                 className="inline-flex items-center gap-2 text-xs font-bold text-[#141715] hover:text-[#E57A1A] transition-colors group"
               >
-                <span>Browse all 48 Lusaka luxury listings</span>
+                <span>Explore the property catalogue</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>

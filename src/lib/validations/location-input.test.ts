@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInquirySchema, updateInquirySchema } from "./index";
+import { createInquirySchema, updateInquirySchema, createPropertySchema } from "./index";
 
 describe("inquiry location input", () => {
   it("cleans create locations and removes case-insensitive duplicates", () => {
@@ -28,5 +28,18 @@ describe("inquiry location input", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("property city input", () => {
+  const property = { title: "Recorded property", propertyType: "APARTMENT", suburb: "Riverside" };
+
+  it("does not assign a city when legacy callers omit one", () => {
+    expect(createPropertySchema.parse(property).city).toBe("");
+  });
+
+  it("accepts and trims any recorded city", () => {
+    expect(createPropertySchema.parse({ ...property, city: " Harare " }).city).toBe("Harare");
+    expect(createPropertySchema.safeParse({ ...property, city: "a".repeat(121) }).success).toBe(false);
   });
 });

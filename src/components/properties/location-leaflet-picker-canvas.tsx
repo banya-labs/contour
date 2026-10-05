@@ -3,10 +3,11 @@
 import React, { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { hasValidCoordinates, WORLD_MAP_CENTER } from "@/lib/locations/map-coordinates";
 
 interface LocationLeafletPickerCanvasProps {
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   suburb: string;
   onChangeCoordinates: (lat: number, lng: number) => void;
   interactive?: boolean;
@@ -15,12 +16,13 @@ interface LocationLeafletPickerCanvasProps {
 export default function LocationLeafletPickerCanvas({
   latitude,
   longitude,
-  suburb,
   onChangeCoordinates,
   interactive = true,
 }: LocationLeafletPickerCanvasProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const onChangeRef = useRef(onChangeCoordinates);
+  onChangeRef.current = onChangeCoordinates;
   const markerRef = useRef<L.Marker | null>(null);
 
   // Initialize Leaflet map
@@ -62,8 +64,8 @@ export default function LocationLeafletPickerCanvas({
     }
 
     const map = L.map(mapContainerRef.current, {
-      center: [latitude, longitude],
-      zoom: 15,
+      center: hasValidCoordinates(latitude, longitude) ? [latitude!, longitude!] : WORLD_MAP_CENTER,
+      zoom: hasValidCoordinates(latitude, longitude) ? 15 : 2,
       zoomControl: true,
       scrollWheelZoom: true,
       attributionControl: false,
@@ -90,32 +92,29 @@ export default function LocationLeafletPickerCanvas({
         iconAnchor: [18, 18],
       });
 
-    const marker = L.marker([latitude, longitude], {
-      icon: createPinIcon(),
-      draggable: interactive,
-      autoPan: true,
-    }).addTo(map);
-
-    // Drag marker event
-    marker.on("dragend", () => {
-      const pos = marker.getLatLng();
-      const roundedLat = parseFloat(pos.lat.toFixed(6));
-      const roundedLng = parseFloat(pos.lng.toFixed(6));
-      onChangeCoordinates(roundedLat, roundedLng);
-    });
-
-    // Click map to reposition marker
+    const createMarker = (lat: number, lng: number) => {
+      const marker = L.marker([lat, lng], { icon: createPinIcon(), draggable: interactive, autoPan: true }).addTo(map);
+      marker.on("dragend", () => {
+        const pos = map.wrapLatLng(marker.getLatLng());
+        onChangeRef.current(Number(pos.lat.toFixed(6)), Number(pos.lng.toFixed(6)));
+      });
+      markerRef.current = marker;
+      return marker;
+    };
+    if (hasValidCoordinates(latitude, longitude)) createMarker(latitude!, longitude!);
     if (interactive) {
       map.on("click", (e: L.LeafletMouseEvent) => {
-        const roundedLat = parseFloat(e.latlng.lat.toFixed(6));
-        const roundedLng = parseFloat(e.latlng.lng.toFixed(6));
-        marker.setLatLng([roundedLat, roundedLng]);
-        onChangeCoordinates(roundedLat, roundedLng);
+        const position = map.wrapLatLng(e.latlng);
+        const lat = Number(position.lat.toFixed(6));
+        const lng = Number(position.lng.toFixed(6));
+        if (!hasValidCoordinates(lat, lng)) return;
+        if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
+        else createMarker(lat, lng);
+        onChangeRef.current(lat, lng);
       });
     }
 
     mapInstanceRef.current = map;
-    markerRef.current = marker;
 
     // Trigger resize after rendering
     setTimeout(() => {
@@ -127,21 +126,7 @@ export default function LocationLeafletPickerCanvas({
       mapInstanceRef.current = null;
       markerRef.current = null;
     };
-  }, []);
-
-  // Update map center & marker position when external coordinates change
-  useEffect(() => {
-    if (!mapInstanceRef.current || !markerRef.current) return;
-    const currentLatLng = markerRef.current.getLatLng();
-    const isDifferent =
-      Math.abs(currentLatLng.lat - latitude) > 0.00005 ||
-      Math.abs(currentLatLng.lng - longitude) > 0.00005;
-
-    if (isDifferent) {
-      markerRef.current.setLatLng([latitude, longitude]);
-      mapInstanceRef.current.panTo([latitude, longitude], { animate: true, duration: 0.6 });
-    }
-  }, [latitude, longitude]);
+  }, [latitude, longitude, interactive]);
 
   return (
     <div

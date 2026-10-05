@@ -50,7 +50,7 @@ export default function DevModeBanner() {
   const routes = [
     { href: "/", label: "Marketing Landing", icon: Home },
     { href: "/dashboard", label: "Operations Dashboard", icon: LayoutDashboard },
-    { href: "/dashboard/map", label: "Lusaka Property Map", icon: Map },
+    { href: "/dashboard/map", label: "Property Map", icon: Map },
     { href: "/agent", label: "Field Agent PWA", icon: Smartphone },
     { href: "/admin/mcp", label: "Admin MCP Studio", icon: Key },
   ];

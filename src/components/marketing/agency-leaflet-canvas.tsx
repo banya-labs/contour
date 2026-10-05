@@ -75,7 +75,7 @@ export default function AgencyLeafletCanvas({
       document.head.appendChild(style);
     }
 
-    // Default center on Lusaka Prime Real Estate Corridor (Rhodes Park / Kabulonga)
+    // Demo viewport follows the sample inventory coordinates (Rhodes Park / Kabulonga).
     const initialCenter: L.LatLngTuple = selectedProperty
       ? [selectedProperty.coordinates[0], selectedProperty.coordinates[1]]
       : [-15.418, 28.328];

@@ -1,3 +1,4 @@
+import { formatPropertyLocation } from "@/lib/property-location";
 import { ImageResponse } from "next/og";
 import { db } from "@/lib/db";
 
@@ -43,7 +44,7 @@ export default async function OpenGraphImage({
             CONTOUR
           </div>
           <div style={{ display: "flex", flexDirection: "column", maxWidth: "900px" }}>
-            <div style={{ fontSize: 22, color: "#ff7653", fontWeight: 700, textTransform: "uppercase" }}>{property?.suburb || "Lusaka"}, {property?.city || "Zambia"}</div>
+            <div style={{ fontSize: 22, color: "#ff7653", fontWeight: 700, textTransform: "uppercase" }}>{formatPropertyLocation(property)}</div>
             <div style={{ marginTop: 10, fontSize: 58, lineHeight: 1.05, fontWeight: 800 }}>{property?.title || "Property listing"}</div>
             <div style={{ marginTop: 18, fontSize: 30, fontWeight: 700 }}>{priceLabel}</div>
           </div>

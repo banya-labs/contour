@@ -16,7 +16,7 @@ export function MarketingHome() {
         {/* 1. Fixed Architectural Navigation */}
         <ContourNavbar />
 
-        {/* 2. Full-Bleed 16:9 Hero Stage with Zambian Sunrise Animation */}
+        {/* 2. Full-Bleed 16:9 Hero Stage with Sunrise Animation */}
         <HeroStage />
 
         {/* 3. The System / Product Feature Matrix with Architectural Blueprint Previews */}

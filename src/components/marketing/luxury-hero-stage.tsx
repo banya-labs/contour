@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Search, MapPin, Building, DollarSign, ArrowRight, ShieldCheck, Sparkles, ChevronDown } from "lucide-react";
 
 export function LuxuryHeroStage() {
-  const [selectedLocation, setSelectedLocation] = useState("All Lusaka Prime");
+  const [selectedLocation, setSelectedLocation] = useState("All Sample Locations");
   const [selectedType, setSelectedType] = useState("Luxury Residential");
   const [selectedPrice, setSelectedPrice] = useState("$250k - $1M+");
 
@@ -23,7 +23,7 @@ export function LuxuryHeroStage() {
         {/* Subtle Top Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-stone-200/60 border border-stone-300/80 text-stone-800 text-[11px] font-semibold uppercase tracking-wider mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <span className="w-2 h-2 rounded-full bg-[#E57A1A] animate-pulse" />
-          <span>Southern Africa’s Premier Luxury Brokerage & Field OS</span>
+          <span>Real Estate Operations & Field OS</span>
         </div>
 
         {/* Primary Monolithic Headline */}
@@ -33,7 +33,7 @@ export function LuxuryHeroStage() {
 
         {/* Subtitle */}
         <p className="text-stone-600 text-sm sm:text-base md:text-lg max-w-2xl font-medium leading-relaxed mb-8">
-          Expert agents. Real guidance. A smarter path to find luxury estates, commercial acreage, and high-yield leases in Lusaka.
+          Expert agents. Real guidance. A smarter path to find luxury estates, commercial acreage, and high-yield leases.
         </p>
 
         {/* Floating 3D Villa Showcase Stage */}
@@ -42,7 +42,7 @@ export function LuxuryHeroStage() {
           <div className="absolute inset-0 bg-[#0F1E16]">
             <Image
               src="/images/contour/luxury-villa-hero.png"
-              alt="Luxury Modern Architecture in Lusaka"
+              alt="Modern luxury architecture"
               fill
               priority
               className="object-cover object-center group-hover:scale-105 transition-transform duration-1000 opacity-95"
@@ -64,7 +64,7 @@ export function LuxuryHeroStage() {
               </div>
               <div className="text-stone-500 text-xs font-medium flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-stone-400" />
-                <span>Leopards Hill, Lusaka • $1,250,000</span>
+                <span>Sample residential district • $1,250,000</span>
               </div>
             </div>
 
@@ -87,11 +87,11 @@ export function LuxuryHeroStage() {
                 onChange={(e) => setSelectedLocation(e.target.value)}
                 className="w-full bg-transparent text-xs sm:text-sm font-semibold text-stone-800 outline-none cursor-pointer"
               >
-                <option value="All Lusaka Prime">All Lusaka Prime</option>
-                <option value="Kabulonga">Kabulonga</option>
-                <option value="Leopards Hill">Leopards Hill</option>
-                <option value="Roma Park">Roma Park</option>
-                <option value="Woodlands">Woodlands</option>
+                <option value="All Sample Locations">All Sample Locations</option>
+                <option value="Residential District">Residential District</option>
+                <option value="Hillside District">Hillside District</option>
+                <option value="Business District">Business District</option>
+                <option value="Garden District">Garden District</option>
                 <option value="Ibex Hill">Ibex Hill</option>
               </select>
             </div>

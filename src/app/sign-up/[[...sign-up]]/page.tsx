@@ -63,7 +63,7 @@ export default function SignUpPage() {
 
       {/* Bottom Legal / Compliance Strip */}
       <footer className="w-full border-t border-editorial-border py-4 px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-editorial-muted">
-        <div>© 2026 Contour · Part of Banya Labs · Lusaka, Zambia</div>
+        <div>© 2026 Contour · Part of Banya Labs</div>
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5 text-editorial-black font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block" />

@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 export function LayeredHeroShowcase() {
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState<"KABULONGA" | "LEOPARDS_HILL" | "ROMA">("KABULONGA");
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<"RESIDENTIAL" | "HILLSIDE" | "BUSINESS">("RESIDENTIAL");
 
   return (
     <div className="relative w-full max-w-5xl mx-auto rounded-3xl border border-white/20 bg-white/95 backdrop-blur-2xl shadow-2xl overflow-hidden transition-all duration-300">
@@ -37,7 +37,7 @@ export function LayeredHeroShowcase() {
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-            Live Lusaka GIS Active
+            Example Property Map
           </span>
         </div>
       </div>
@@ -58,7 +58,7 @@ export function LayeredHeroShowcase() {
             48 Stands
           </div>
           <p className="text-[11px] sm:text-xs text-stone-500 font-medium mt-0.5">
-            Prime Lusaka Parcels
+            Sample Property Parcels
           </p>
         </div>
 
@@ -98,34 +98,34 @@ export function LayeredHeroShowcase() {
           <div className="relative z-10 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 p-1 bg-white/95 rounded-xl border border-[#E6E0D4] shadow-xs text-[11px] font-semibold">
               <button
-                onClick={() => setSelectedNeighborhood("KABULONGA")}
+                onClick={() => setSelectedNeighborhood("RESIDENTIAL")}
                 className={`px-2.5 py-1 rounded-lg transition-all ${
-                  selectedNeighborhood === "KABULONGA"
+                  selectedNeighborhood === "RESIDENTIAL"
                     ? "bg-[#16382B] text-white"
                     : "text-stone-600 hover:text-stone-900"
                 }`}
               >
-                Kabulonga
+                Residential District
               </button>
               <button
-                onClick={() => setSelectedNeighborhood("LEOPARDS_HILL")}
+                onClick={() => setSelectedNeighborhood("HILLSIDE")}
                 className={`px-2.5 py-1 rounded-lg transition-all ${
-                  selectedNeighborhood === "LEOPARDS_HILL"
+                  selectedNeighborhood === "HILLSIDE"
                     ? "bg-[#16382B] text-white"
                     : "text-stone-600 hover:text-stone-900"
                 }`}
               >
-                Leopards Hill
+                Hillside District
               </button>
               <button
-                onClick={() => setSelectedNeighborhood("ROMA")}
+                onClick={() => setSelectedNeighborhood("BUSINESS")}
                 className={`px-2.5 py-1 rounded-lg transition-all ${
-                  selectedNeighborhood === "ROMA"
+                  selectedNeighborhood === "BUSINESS"
                     ? "bg-[#16382B] text-white"
                     : "text-stone-600 hover:text-stone-900"
                 }`}
               >
-                Roma Park
+                Business District
               </button>
             </div>
 
@@ -142,7 +142,7 @@ export function LayeredHeroShowcase() {
                 <span className="font-bold text-[#16382B]">Stand # 8942-A</span>
                 <span className="text-emerald-700 font-bold font-mono">2,400m²</span>
               </div>
-              <p className="text-[10px] text-stone-500 truncate">Kabulonga Prime • Diplomatic</p>
+              <p className="text-[10px] text-stone-500 truncate">Sample district • Executive</p>
             </div>
 
             <div className="p-2.5 bg-white/90 backdrop-blur-md rounded-xl border border-[#E6E0D4] shadow-xs text-[11px] space-y-1 max-w-[200px] justify-self-end">
@@ -150,7 +150,7 @@ export function LayeredHeroShowcase() {
                 <span className="font-bold text-[#16382B]">Stand # 1102-LH</span>
                 <span className="text-emerald-700 font-bold font-mono">1,850m²</span>
               </div>
-              <p className="text-[10px] text-stone-500 truncate">Leopards Hill Gated Parcel</p>
+              <p className="text-[10px] text-stone-500 truncate">Sample Hillside Parcel</p>
             </div>
           </div>
 
@@ -163,12 +163,12 @@ export function LayeredHeroShowcase() {
             <div className="relative w-full sm:w-40 h-28 sm:h-28 rounded-xl overflow-hidden shrink-0 shadow-inner group">
               <Image
                 src="/images/contour/rolling-hills.webp"
-                alt="Kabulonga Grand Villa"
+                alt="Sample Executive Villa"
                 fill
                 className="object-cover group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-white text-[9px] font-mono">
-                Kabulonga
+                Residential District
               </div>
             </div>
 
@@ -182,7 +182,7 @@ export function LayeredHeroShowcase() {
               </div>
 
               <h4 className="font-serif text-sm sm:text-base font-bold text-[#16382B] leading-tight">
-                Kabulonga Grand Executive Villa
+                Sample Executive Villa
               </h4>
 
               <div className="flex items-center justify-between pt-1 border-t border-[#ECE7DE] text-xs">

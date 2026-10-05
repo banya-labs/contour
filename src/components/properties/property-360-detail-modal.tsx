@@ -1,4 +1,5 @@
 "use client";
+import { formatPropertyLocation } from "@/lib/property-location";
 
 import { fetchAllPages } from "@/lib/fetch-pages";
 import React, { useState, useEffect, useRef } from "react";
@@ -102,25 +103,6 @@ const writeCachedVaultCount = (property: VaultCountProperty | null | undefined, 
     // Storage can be unavailable in private browsing; the live count still works.
   }
 };
-
-const LUSAKA_SUBURBS = [
-  "Kabulonga",
-  "Leopards Hill",
-  "Roma Park",
-  "Woodlands",
-  "Rhodes Park",
-  "Mass Media",
-  "Ibex Hill",
-  "Chudleigh",
-  "Longacres",
-  "New Kasama",
-  "Silverest",
-  "Makeni",
-  "Olympia Park",
-  "Northmead",
-  "Sunningdale",
-  "State Lodge",
-];
 
 export default function PropertyFullDetailModal({
   isOpen,
@@ -293,8 +275,8 @@ export default function PropertyFullDetailModal({
         title: property.title || "",
         listingType: property.listingType || "FOR_SALE",
         propertyType: property.propertyType || "STANDALONE_HOUSE",
-        suburb: property.suburb || "Kabulonga",
-        city: property.city || "Lusaka",
+        suburb: property.suburb || "",
+        city: property.city || "",
         askingPrice: property.askingPrice !== undefined ? String(property.askingPrice) : "",
         rentalPrice: property.rentalPrice !== undefined ? String(property.rentalPrice) : "",
         currency: property.currency || "ZMW",
@@ -302,8 +284,8 @@ export default function PropertyFullDetailModal({
         bedrooms: property.bedrooms !== undefined ? property.bedrooms : 3,
         bathrooms: property.bathrooms !== undefined ? property.bathrooms : 2,
         plotSizeSqm: property.plotSizeSqm || 500,
-        latitude: property.latitude !== undefined ? property.latitude : -15.4211,
-        longitude: property.longitude !== undefined ? property.longitude : 28.3341,
+        latitude: property.latitude ?? "",
+        longitude: property.longitude ?? "",
         titleDeedNumber: property.titleDeedNumber || "",
         landmarkDirections: property.landmarkDirections || "",
         description: property.description || "",
@@ -400,6 +382,12 @@ export default function PropertyFullDetailModal({
       return;
     }
 
+    const latitude = String(editFormData.latitude).trim() === "" ? null : Number(editFormData.latitude);
+    const longitude = String(editFormData.longitude).trim() === "" ? null : Number(editFormData.longitude);
+    if ((latitude === null) !== (longitude === null) || (latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) || (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))) {
+      alert("Enter valid latitude and longitude together, or leave both coordinates blank.");
+      return;
+    }
     setIsSaving(true);
     const priceNum =
       editFormData.listingType === "FOR_SALE"
@@ -412,7 +400,7 @@ export default function PropertyFullDetailModal({
       listingType: editFormData.listingType,
       propertyType: editFormData.propertyType,
       suburb: editFormData.suburb.trim(),
-      city: editFormData.city.trim() || "Lusaka",
+      city: editFormData.city.trim(),
       askingPrice: editFormData.listingType === "FOR_SALE" ? priceNum : undefined,
       rentalPrice: editFormData.listingType === "FOR_RENT" ? priceNum : undefined,
       currency: editFormData.currency,
@@ -420,8 +408,8 @@ export default function PropertyFullDetailModal({
       bedrooms: parseInt(editFormData.bedrooms) || 0,
       bathrooms: parseFloat(editFormData.bathrooms) || 0,
       plotSizeSqm: parseFloat(editFormData.plotSizeSqm) || 0,
-      latitude: parseFloat(editFormData.latitude) || -15.4211,
-      longitude: parseFloat(editFormData.longitude) || 28.3341,
+      latitude,
+      longitude,
       titleDeedNumber: editFormData.titleDeedNumber?.trim() || null,
       landmarkDirections: editFormData.landmarkDirections?.trim() || "",
       description: editFormData.description?.trim() || "",
@@ -440,7 +428,7 @@ export default function PropertyFullDetailModal({
       listingType: editFormData.listingType,
       propertyType: editFormData.propertyType,
       suburb: editFormData.suburb.trim(),
-      city: editFormData.city.trim() || "Lusaka",
+      city: editFormData.city.trim(),
       askingPrice: editFormData.listingType === "FOR_SALE" ? priceNum : undefined,
       rentalPrice: editFormData.listingType === "FOR_RENT" ? priceNum : undefined,
       currency: editFormData.currency,
@@ -448,8 +436,8 @@ export default function PropertyFullDetailModal({
       bedrooms: parseInt(editFormData.bedrooms) || 0,
       bathrooms: parseFloat(editFormData.bathrooms) || 0,
       plotSizeSqm: parseFloat(editFormData.plotSizeSqm) || 0,
-      latitude: parseFloat(editFormData.latitude) || -15.4211,
-      longitude: parseFloat(editFormData.longitude) || 28.3341,
+      latitude,
+      longitude,
       titleDeedNumber: editFormData.titleDeedNumber?.trim() || null,
       landmarkDirections: editFormData.landmarkDirections?.trim() || "",
       description: editFormData.description?.trim() || "",
@@ -567,7 +555,7 @@ export default function PropertyFullDetailModal({
       pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(200, 200, 200);
-      pdf.text("LEGAL CUSTODY & VAULT ARCHIVE // REPUBLIC OF ZAMBIA", 80, 14);
+      pdf.text("LEGAL CUSTODY & VAULT ARCHIVE", 80, 14);
 
       pdf.setFontSize(16);
       pdf.setFont("helvetica", "bold");
@@ -577,7 +565,7 @@ export default function PropertyFullDetailModal({
       pdf.setFontSize(9);
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(120, 120, 120);
-      pdf.text(`Property: ${property.title} | Suburb: ${property.suburb}, Lusaka`, 15, 48);
+      pdf.text(`Property: ${property.title} | Suburb: ${formatPropertyLocation(property)}`, 15, 48);
 
       pdf.setDrawColor(220, 220, 220);
       pdf.line(15, 53, 195, 53);
@@ -697,7 +685,7 @@ export default function PropertyFullDetailModal({
                 )}
               </div>
               <p className="text-[9px] sm:text-[11px] font-mono text-[#73716B] truncate max-w-[210px] sm:max-w-none">
-                📍 {property.suburb || "Lusaka"}, Zambia • {formatCurrency(price, property.currency)}
+                📍 {formatPropertyLocation(property)} • {formatCurrency(price, property.currency)}
                 {!isSale && " / month"}
               </p>
             </div>
@@ -1028,18 +1016,12 @@ export default function PropertyFullDetailModal({
                         <div className="relative">
                           <input
                             type="text"
-                            list="lusaka-suburb-options"
                             value={editFormData.suburb}
                             onChange={(e) => setEditFormData({ ...editFormData, suburb: e.target.value })}
                             placeholder="Type or select suburb..."
                             className="w-full bg-white px-3 py-2 border border-[#E6E4DF] text-[#1C1C1A] text-xs font-semibold focus:outline-none focus:border-[#FA3600]"
                             required
                           />
-                          <datalist id="lusaka-suburb-options">
-                            {LUSAKA_SUBURBS.map((s) => (
-                              <option key={s} value={s} />
-                            ))}
-                          </datalist>
         </div>
 
         {showDeleteConfirmation && onDeleteProperty && (
@@ -1261,7 +1243,7 @@ export default function PropertyFullDetailModal({
                         type="text"
                         value={editFormData.landmarkDirections}
                         onChange={(e) => setEditFormData({ ...editFormData, landmarkDirections: e.target.value })}
-                        placeholder="e.g. 200m off Kabulonga Road, near Centro Mall"
+                        placeholder="Describe nearby landmarks or access directions"
                         className="w-full bg-white px-3.5 py-2.5 border border-[#E6E4DF] text-[#1C1C1A] text-xs focus:outline-none focus:border-[#FA3600]"
                       />
                     </div>
@@ -1319,7 +1301,7 @@ export default function PropertyFullDetailModal({
                           <span className="font-mono bg-black/70 px-2 py-0.5 border border-white/20">
                             {activePhotoIdx + 1} / {photos.length} Photos
                           </span>
-                          <span className="font-semibold">{property.suburb}, {property.city || "Lusaka"}</span>
+                          <span className="font-semibold">{formatPropertyLocation(property)}</span>
                         </div>
                         <span className="font-serif font-extrabold text-xl text-amber-400">
                           {formatCurrency(price, property.currency)}
@@ -1444,11 +1426,11 @@ export default function PropertyFullDetailModal({
                           <span>Location &amp; Coordinates</span>
                         </span>
                         <span className="font-mono text-[11px] text-[#73716B]">
-                          {property.latitude?.toFixed(6) || "-15.421100"}, {property.longitude?.toFixed(6) || "28.334100"}
+                          {property.latitude?.toFixed(6) ?? "Not recorded"}, {property.longitude?.toFixed(6) ?? "Not recorded"}
                         </span>
                       </div>
                       <p className="text-xs text-[#54524D]">
-                        {property.landmarkDirections || `Located in ${property.suburb}, ${property.city || "Lusaka"}.`}
+                        {property.landmarkDirections || `Location: ${formatPropertyLocation(property)}.`}
                       </p>
                       {property.titleDeedNumber && (
                         <div className="text-[11px] font-mono text-[#73716B] pt-1 border-t border-[#E6E4DF]">

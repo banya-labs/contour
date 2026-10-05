@@ -1,4 +1,5 @@
 "use client";
+import { formatPropertyLocation } from "@/lib/property-location";
 
 import React, { useEffect, useRef, useState } from "react";
 import { StatementGenerateButton } from "@/components/statements/statement-generate-button";
@@ -89,6 +90,7 @@ import { publicPropertyPath } from "@/lib/public-property";
 import { PROPERTY_TYPE_OPTIONS, propertyTypeLabel } from "@/lib/property-types";
 import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, requiresPropertyForTransition, type ActivePipelineStage, type PipelineStage } from "@/lib/deal-workflow";
 
+
 // Dynamically import InteractivePropertyMap with SSR disabled to prevent Leaflet window errors
 const InteractivePropertyMap = dynamic(
   () => import("@/components/map/interactive-property-map"),
@@ -97,7 +99,7 @@ const InteractivePropertyMap = dynamic(
     loading: () => (
       <div className="w-full h-[60vh] rounded-2xl bg-[#0F1B14] border border-emerald-900/50 flex flex-col items-center justify-center text-xs text-emerald-400 gap-2 animate-pulse">
         <MapPin className="w-6 h-6 text-[#E57A1A]" />
-        <span>Loading Lusaka Spatial Map...</span>
+        <span>Loading property map...</span>
       </div>
     ),
   }
@@ -252,7 +254,7 @@ function AgentKioskContent() {
     id: session?.user?.id || "",
     name: session?.user?.name || "Field Agent",
     role: "Field Agent",
-    zone: "Lusaka Real Estate",
+    zone: "Real Estate",
     phone: (session?.user as any)?.phone || "",
     email: session?.user?.email || "",
     earnedSplitUsd: 0,
@@ -371,7 +373,7 @@ function AgentKioskContent() {
   const [editClientPhone, setEditClientPhone] = useState("");
   const [editClientBudget, setEditClientBudget] = useState("");
   const [editClientCurrency, setEditClientCurrency] = useState<"ZMW" | "USD">("ZMW");
-  const [editClientSuburb, setEditClientSuburb] = useState("Kabulonga");
+  const [editClientSuburb, setEditClientSuburb] = useState("");
   const [editClientNotes, setEditClientNotes] = useState("");
   const [editClientAssignedAgentId, setEditClientAssignedAgentId] = useState("");
   const [editClientPropertyId, setEditClientPropertyId] = useState("");
@@ -625,7 +627,7 @@ function AgentKioskContent() {
     },
     MAP: {
       eyebrow: "Spatial view",
-      title: "Lusaka field map",
+      title: "Field property map",
       description: "Navigate active mandates by suburb and location.",
     },
     CLIENTS: {
@@ -650,7 +652,8 @@ function AgentKioskContent() {
 
   // Form States for Intake
   const [newPropTitle, setNewPropTitle] = useState("");
-  const [newPropSuburb, setNewPropSuburb] = useState("Kabulonga");
+  const [newPropSuburb, setNewPropSuburb] = useState("");
+  const [newPropCity, setNewPropCity] = useState("");
   const [newPropPrice, setNewPropPrice] = useState("");
   const [newPropType, setNewPropType] = useState<"SALE" | "RENT">("SALE");
   const [newPropPropertyType, setNewPropPropertyType] = useState("");
@@ -813,6 +816,7 @@ function AgentKioskContent() {
       !search ||
       p.title?.toLowerCase().includes(search.toLowerCase()) ||
       p.suburb?.toLowerCase().includes(search.toLowerCase()) ||
+      p.city?.toLowerCase().includes(search.toLowerCase()) ||
       p.propertyType?.toLowerCase().includes(search.toLowerCase()) ||
       p.assignedAgent?.name?.toLowerCase().includes(search.toLowerCase());
     const matchesType =
@@ -842,6 +846,7 @@ function AgentKioskContent() {
       !search ||
       p.title?.toLowerCase().includes(search.toLowerCase()) ||
       p.suburb?.toLowerCase().includes(search.toLowerCase()) ||
+      p.city?.toLowerCase().includes(search.toLowerCase()) ||
       p.propertyType?.toLowerCase().includes(search.toLowerCase()) ||
       p.assignedAgent?.name?.toLowerCase().includes(search.toLowerCase());
     const matchesType =
@@ -874,7 +879,7 @@ function AgentKioskContent() {
           id: inq.id,
           propertyId: inq.property?.id || inq.propertyId || null,
           propertyTitle: inq.property?.title || (inq.lookingFor === "FOR_RENT" ? "Rental Mandate" : "Purchase Mandate"),
-          suburb: inq.property?.suburb || (inq.preferredSuburbs && inq.preferredSuburbs[0]) || inq.preferredArea || "Lusaka",
+          suburb: inq.property ? formatPropertyLocation(inq.property) : (inq.preferredSuburbs && inq.preferredSuburbs[0]) || inq.preferredArea || "Location not recorded",
           clientName: inq.clientName || inq.name || "Client",
           value: val ? formatCurrency(val, inq.currency || "ZMW") : "Price Open",
           stage: canonical.status,
@@ -925,10 +930,10 @@ function AgentKioskContent() {
     bedrooms: p.bedrooms || 4,
     bathrooms: p.bathrooms || 3,
     plotSizeSqm: p.plotSizeSqm || 2000,
-    suburb: p.suburb || "Kabulonga",
-    city: p.city || "Lusaka",
-    latitude: p.latitude || -15.4215,
-    longitude: p.longitude || 28.3345,
+    suburb: p.suburb || "",
+    city: p.city || "",
+    latitude: p.latitude ?? null,
+    longitude: p.longitude ?? null,
     photos: p.photos && p.photos.length > 0 ? p.photos : ["/images/villa-hero.webp"],
     description: p.description,
   }));
@@ -940,7 +945,7 @@ function AgentKioskContent() {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
     const clientLink = `${origin}${publicPropertyPath(p.organization?.slug || p.organizationSlug || "organization", p.slug || p.id)}`;
     const text = `*🏡 CONTOUR EXCLUSIVE MANDATE - ${p.title.toUpperCase()}*\n\n` +
-      `📍 *Location:* ${p.suburb}, Lusaka\n` +
+      `📍 *Location:* ${formatPropertyLocation(p)}\n` +
       `💰 *Price:* ${priceStr}${p.listingType === "FOR_RENT" ? " / month" : ""}\n` +
       `🛏 *Specs:* ${p.bedrooms || 4} Beds | ${p.bathrooms || 3} Baths\n` +
       `📐 *Zoning/Land:* Verified Ministry Clean Title\n` +
@@ -993,8 +998,9 @@ function AgentKioskContent() {
 
     const payload = {
       title: titleTrimmed,
-      description: titleTrimmed.length >= 10 ? titleTrimmed : `${titleTrimmed} located in ${newPropSuburb.trim()}, Lusaka.`,
+      description: titleTrimmed.length >= 10 ? titleTrimmed : `${titleTrimmed} located in ${[newPropSuburb.trim(), newPropCity.trim()].filter(Boolean).join(", ")}.`,
       suburb: newPropSuburb.trim(),
+      city: newPropCity.trim(),
       price,
       askingPrice: newPropType === "SALE" ? price : undefined,
       rentalPrice: newPropType === "RENT" ? price : undefined,
@@ -1011,8 +1017,6 @@ function AgentKioskContent() {
       agentName: session?.user?.name || currentAgent.name,
       photos: newPropPhotos,
       featuredPhoto: newPropFeaturedPhoto || newPropPhotos[0],
-      latitude: newPropSuburb === "Kabulonga" ? -15.4215 : newPropSuburb === "Leopards Hill" ? -15.4480 : -15.3850,
-      longitude: newPropSuburb === "Kabulonga" ? 28.3345 : newPropSuburb === "Leopards Hill" ? 28.3810 : 28.3120,
       createdAt: new Date().toISOString(),
     };
 
@@ -1279,7 +1283,7 @@ function AgentKioskContent() {
               Redirecting to Secure Sign-In
             </h1>
             <p className="text-xs text-editorial-muted leading-relaxed">
-              The Field Agent PWA requires an authenticated Contour session to access protected client mandates and Lusaka spatial registries.
+              The Field Agent PWA requires an authenticated Contour session to access protected client mandates and property registries.
             </p>
           </div>
 
@@ -1618,7 +1622,7 @@ function AgentKioskContent() {
                   <Search className="w-3.5 h-3.5 text-editorial-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search Lusaka properties, suburbs..."
+                    placeholder="Search properties, areas, cities..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full bg-white border border-editorial-border pl-9 pr-3 py-2 text-xs text-editorial-black placeholder-neutral-400 focus:outline-none focus:border-editorial-black transition-colors font-sans"
@@ -1796,7 +1800,7 @@ function AgentKioskContent() {
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-editorial-black bg-neutral-100 px-2 py-0.5 border border-editorial-border">
-                            {selectedMapProperty.suburb}
+                            {formatPropertyLocation(selectedMapProperty)}
                           </span>
                           {isPropertyAssignedToMe(selectedMapProperty) ? (
                             <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-contour-red bg-red-50 px-2 py-0.5 border border-red-200">
@@ -1832,14 +1836,14 @@ function AgentKioskContent() {
                         <span>{selectedMapProperty.bathrooms || 3} Baths</span>
                       </div>
                       <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedMapProperty.latitude || -15.4215},${selectedMapProperty.longitude || 28.3345}`}
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedMapProperty.latitude != null && selectedMapProperty.longitude != null ? `${selectedMapProperty.latitude},${selectedMapProperty.longitude}` : [selectedMapProperty.suburb, selectedMapProperty.city].filter(Boolean).join(", "))}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-[10px] ml-auto hover:text-contour-red transition-colors"
                         title="Get Driving Directions"
                       >
                         <Navigation className="w-3 h-3 text-contour-red" />
-                        <span>Navigate ({Number(selectedMapProperty.latitude || 0).toFixed(3)}, {Number(selectedMapProperty.longitude || 0).toFixed(3)})</span>
+                        <span>Navigate to property</span>
                       </a>
                     </div>
 
@@ -1874,7 +1878,7 @@ function AgentKioskContent() {
                   </div>
                 ) : (
                   <div className={`${activeTab === "MAP" ? "hidden" : "block"} bg-white p-3 border border-editorial-border text-center text-xs text-editorial-muted`}>
-                    <span>💡 Tap any property pin on the Lusaka map above to preview mandating specs, generate WhatsApp copy, or match registered buyers.</span>
+                    <span>💡 Tap any property pin on the map above to preview mandating specs, generate WhatsApp copy, or match registered buyers.</span>
                   </div>
                 )}
               </div>
@@ -1952,7 +1956,7 @@ function AgentKioskContent() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-editorial-black bg-neutral-100 px-2 py-0.5 border border-editorial-border">
-                              {p.suburb || "Lusaka"}
+                              {formatPropertyLocation(p)}
                             </span>
                             {/* Mandate Type Badge */}
                             {p.ownershipType === "COMPANY_OWNED" ? (
@@ -2691,7 +2695,7 @@ function AgentKioskContent() {
                     <div className="flex items-start justify-between">
                       <div>
                         <h4 className="text-xs font-heading font-semibold text-editorial-black">{slip.property}</h4>
-                        <p className="text-[11px] text-editorial-muted mt-0.5">Suburb: {slip.suburb || "Lusaka"}</p>
+                        <p className="text-[11px] text-editorial-muted mt-0.5">Suburb: {slip.suburb || "Location not recorded"}</p>
                       </div>
                       <div className="text-right">
                         <div className="text-xs font-mono font-bold text-contour-red">
@@ -2915,6 +2919,11 @@ function AgentKioskContent() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-editorial-black font-heading font-semibold mb-1" htmlFor="field-property-city">City / Town</label>
+                  <input id="field-property-city" type="text" value={newPropCity} onChange={(e) => setNewPropCity(e.target.value)} maxLength={100} placeholder="Enter the property city or town" className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none focus:border-editorial-black" />
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -2953,7 +2962,7 @@ function AgentKioskContent() {
                         }}
                         className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
                       >
-                        <option value="">Any area</option>
+                        <option value="">Select an area</option>
                         {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
@@ -3403,7 +3412,7 @@ function AgentKioskContent() {
             <div className="flex items-start justify-between gap-4 border-b border-editorial-border pb-4">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-contour-red font-bold">
-                  {selectedPropertyDetail.suburb || "Lusaka"} · {selectedPropertyDetail.listingType === "FOR_RENT" ? "For rent" : "For sale"}
+                  {formatPropertyLocation(selectedPropertyDetail)} · {selectedPropertyDetail.listingType === "FOR_RENT" ? "For rent" : "For sale"}
                 </p>
                 <h2 className="mt-1 font-heading text-xl font-bold leading-tight text-editorial-black">
                   {selectedPropertyDetail.title}
@@ -3461,7 +3470,7 @@ function AgentKioskContent() {
               <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2 text-editorial-muted"><Navigation className="h-4 w-4 text-contour-red" /> Coordinates</span>
                 <span className="font-mono text-[10px] text-editorial-muted">
-                  {Number(selectedPropertyDetail.latitude || 0).toFixed(4)}, {Number(selectedPropertyDetail.longitude || 0).toFixed(4)}
+                  {selectedPropertyDetail.latitude != null && selectedPropertyDetail.longitude != null ? `${Number(selectedPropertyDetail.latitude).toFixed(4)}, ${Number(selectedPropertyDetail.longitude).toFixed(4)}` : "Coordinates not recorded"}
                 </span>
               </div>
             </div>
@@ -3932,7 +3941,7 @@ function AgentKioskContent() {
                   rows={3}
                   value={editClientNotes}
                   onChange={(e) => setEditClientNotes(e.target.value)}
-                  placeholder="e.g. Looking for 4-bed standalone with swimming pool in Kabulonga or Woodlands."
+                  placeholder="e.g. Looking for a 4-bed standalone with a swimming pool in the preferred areas."
                   className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black resize-none"
                 />
               </div>

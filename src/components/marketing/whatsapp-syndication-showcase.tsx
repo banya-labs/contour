@@ -22,8 +22,8 @@ export function WhatsAppSyndicationShowcase() {
   const sampleFlyerText = `🏛️ *CONTOUR EXCLUSIVE MANDATE* 🏛️
 
 📍 *EXECUTIVE 4-BEDROOM STANDALONE RESIDENCE*
-Suburb: Kabulonga, Lusaka
-Landmark: 200m off Kabulonga Road, near Centro Mall
+Location: Sample residential district
+Landmark: 200m off the main road, near the shopping centre
 
 💰 Asking Price: *ZMW 3,500,000* ($ 140,000 USD)
 📐 Plot Size: 2,400 m² Landscaped Grounds
@@ -38,7 +38,7 @@ Landmark: 200m off Kabulonga Road, near Centro Mall
 📲 *Direct Agent Contact & Viewings:*
 Broker: Tembo Mwape (+260 97 1234567)
 Agency: Contour Real Estate Operations
-🔗 View Full 360° Specs & Map: https://contour.app/p/executive-4-bed-kabulonga
+🔗 View Full 360° Specs & Map: https://contour.app/p/sample-executive-4-bed
 
 🛡️ _Managed under Exclusive Agency Mandate. Protected by Contour OS._`;
 
@@ -90,13 +90,13 @@ Agency: Contour Real Estate Operations
             <div className="bg-paper-100 rounded-xl p-4 border border-border font-sans space-y-3 text-xs">
               <div className="flex items-center gap-2 text-[10px] text-ink-400">
                 <Users className="w-3.5 h-3.5" />
-                <span>Lusaka Real Estate Agents Group (842 members)</span>
+                <span>Example Agency Listings Group</span>
               </div>
 
               <div className="bg-red-50/70 border border-red-200/60 rounded-xl p-3.5 space-y-2 text-ink-800">
                 <div className="text-[10px] font-bold text-red-700">Agent Phone Gallery Drop:</div>
                 <p className="text-xs leading-relaxed text-ink-800">
-                  <em>&quot;House in kabulonga for sale 4bed swimming pool. Big yard. Call owner Mr. Hastings on +260971889900 directly for keys and viewings. Urgent sale!!&quot;</em>
+                  <em>&quot;House in a residential district for sale 4bed swimming pool. Big yard. Call owner Mr. Hastings on +260971889900 directly for keys and viewings. Urgent sale!!&quot;</em>
                 </p>
                 <div className="text-[10px] text-red-600 font-medium pt-1 border-t border-red-200/50">
                   ❌ Landlord personal phone exposed • ❌ Commission easily bypassed • ❌ Zero specs or title info

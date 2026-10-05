@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
-import { cadastreSearchSchema, DEFAULT_LUSAKA_CADASTRE_BBOX, searchGovernmentCadastre } from "@/lib/cadastral";
+import { cadastreSearchSchema, searchGovernmentCadastre } from "@/lib/cadastral";
 
 export const POST = createApiHandler({
   requirePermissions: ["properties.read"],
@@ -24,5 +24,5 @@ export const GET = async () => NextResponse.json({
   success: false,
   status: "REVIEW_REQUIRED",
   error: "Use POST with a bounded bbox or plot/survey identifier",
-  defaultBbox: DEFAULT_LUSAKA_CADASTRE_BBOX,
+  coverage: "Zambia",
 }, { status: 405 });

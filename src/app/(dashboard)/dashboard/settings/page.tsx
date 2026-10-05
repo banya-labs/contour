@@ -678,7 +678,7 @@ function SettingsContent() {
 
                 <div>
                   <label className="block text-xs font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
-                    Lusaka Office Physical Address
+                    Office Physical Address
                   </label>
                   <div className="relative">
                     <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-editorial-muted" />
@@ -821,7 +821,7 @@ function SettingsContent() {
                   </div>
                   <div>
                     <h4 className="font-heading font-bold text-sm text-editorial-black uppercase">
-                      {settings.agencyName || "Lusaka Prime Properties"}
+                      {settings.agencyName || "Your agency"}
                     </h4>
                     <p className="text-[11px] font-geist text-editorial-muted">
                       ZIEA No. {settings.licenseNumber || "ZIEA-ZM-8841"}
@@ -829,7 +829,7 @@ function SettingsContent() {
                   </div>
                 </div>
                 <div className="text-xs font-geist text-editorial-black pt-2 border-t border-editorial-border space-y-1">
-                  <p>📍 {settings.officeAddress || "Plot 4912, Great East Road, Lusaka"}</p>
+                  <p>📍 {settings.officeAddress || "Office address not configured"}</p>
                   <p>💬 WhatsApp: {settings.whatsApp || "+260 97 100 2000"}</p>
                   <p>⚖️ Default Commission: {settings.defaultSaleCommission || 5}% Standard</p>
                 </div>
@@ -912,7 +912,7 @@ function SettingsContent() {
                     </span>
                     <input
                       type="text"
-                      placeholder="e.g. Lusaka East Field Agents"
+                      placeholder="e.g. Regional Field Agents"
                       value={inviteNote}
                       onChange={(e) => setInviteNote(e.target.value)}
                       className="w-full px-3 py-2 border border-editorial-border text-xs text-editorial-black focus:outline-none focus:border-editorial-black"
@@ -1539,7 +1539,7 @@ function SettingsContent() {
                       {
                         label: "2. Search & Suburb Filter (Kabulonga)",
                         url: `https://contour.banyalabs.com/api/properties?org=${activeOrgSlug}&status=AVAILABLE&suburb=Kabulonga&sortBy=price&sortOrder=asc`,
-                        description: "Filters by Lusaka suburb 'Kabulonga', ordered by price ascending (lowest to highest).",
+                        description: "Filters by the selected suburb 'Kabulonga', ordered by price ascending (lowest to highest).",
                       },
                       {
                         label: "3. Keyword Search (e.g. 'villa')",
@@ -1664,7 +1664,7 @@ function SettingsContent() {
                         </span>
                       </div>
                       <p className="text-editorial-muted text-xs font-geist">
-                        Pass <code className="text-editorial-black font-semibold">org: &apos;{activeOrgSlug}&apos;</code> to ensure only your agency&apos;s listings are returned. Pass search keywords, Lusaka suburbs, sort criteria (<code className="text-editorial-black font-semibold">date</code>, <code className="text-editorial-black font-semibold">price</code>, <code className="text-editorial-black font-semibold">bedrooms</code>), and pagination (<code className="text-editorial-black font-semibold">page</code>, <code className="text-editorial-black font-semibold">limit</code>).
+                        Pass <code className="text-editorial-black font-semibold">org: &apos;{activeOrgSlug}&apos;</code> to ensure only your agency&apos;s listings are returned. Pass search keywords, suburbs or areas, sort criteria (<code className="text-editorial-black font-semibold">date</code>, <code className="text-editorial-black font-semibold">price</code>, <code className="text-editorial-black font-semibold">bedrooms</code>), and pagination (<code className="text-editorial-black font-semibold">page</code>, <code className="text-editorial-black font-semibold">limit</code>).
                       </p>
                       <div className="relative">
                         <pre className="p-4 bg-editorial-black text-white font-mono text-[11px] overflow-x-auto leading-relaxed border border-editorial-black">
@@ -1848,7 +1848,7 @@ submitListingInquiry({
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">suburb</td>
                               <td className="py-2.5 px-3 font-mono text-[11px] text-editorial-muted">string</td>
                               <td className="py-2.5 px-3 text-editorial-muted">-</td>
-                              <td className="py-2.5 px-3">Filter by Lusaka neighborhood (e.g. <code className="bg-neutral-100 px-1 py-0.5">suburb=Kabulonga</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Woodlands</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Roma</code>).</td>
+                              <td className="py-2.5 px-3">Filter by neighborhood (e.g. <code className="bg-neutral-100 px-1 py-0.5">suburb=Kabulonga</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Woodlands</code>, <code className="bg-neutral-100 px-1 py-0.5">suburb=Roma</code>).</td>
                             </tr>
                             <tr>
                               <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-contour-red">sortBy</td>

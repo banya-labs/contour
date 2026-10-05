@@ -134,14 +134,6 @@ export const geoJsonPolygonSchema = z.object({
 });
 export type GeoJsonPolygon = z.infer<typeof geoJsonPolygonSchema>;
 
-// Shared client-safe reference data. Keep server-only fetch/cache code out of this module.
-export const DEFAULT_LUSAKA_CADASTRE_BBOX = {
-  xmin: 28.20,
-  ymin: -15.50,
-  xmax: 28.38,
-  ymax: -15.35,
-} as const;
-
 export type GovernmentCadastreFeature = {
   sourceType: "GOVERNMENT_CADASTRE";
   sourceUrl: string;

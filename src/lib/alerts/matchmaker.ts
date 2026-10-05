@@ -41,6 +41,7 @@ export type MatchedProperty = {
   title: string;
   slug: string;
   suburb: string;
+  city?: string | null;
   listingType: "FOR_SALE" | "FOR_RENT" | "BOTH" | string;
   askingPrice?: number | null;
   rentalPrice?: number | null;
@@ -181,7 +182,7 @@ export function evaluatePropertyAgainstAlerts(newProperty: MatchedProperty): Ale
         `👋 *Hi ${alert.clientName}!*\n\n` +
         `🎯 *Matching Property Found:* A new listing in *${newProperty.suburb}* matching your exact criteria has just been published:\n\n` +
         `🏡 *${newProperty.title}*\n` +
-        `📍 *Location:* ${newProperty.suburb}, Lusaka (${newProperty.landmarkDirections || "Near center"})\n` +
+        `📍 *Location:* ${[newProperty.suburb, newProperty.city].filter(Boolean).join(", ") || "Location not recorded"}${newProperty.landmarkDirections ? ` (${newProperty.landmarkDirections})` : ""}\n` +
         `💰 *Price:* ${priceFormatted}${newProperty.listingType === "FOR_RENT" ? " / mo" : ""}\n` +
         `🛏️ *Specs:* ${newProperty.bedrooms ? `${newProperty.bedrooms} Bedrooms` : "Development Plot"}\n\n` +
         `👉 *View Full Photos & Map:* ${publicLink}\n\n` +

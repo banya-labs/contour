@@ -213,11 +213,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           <div className="flex items-center gap-2">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold">
-              Field Agent Gateway // Lusaka Operations
+              Field Agent Gateway // Agency Operations
             </p>
           </div>
           <p className="text-[11px] text-stone-300 leading-relaxed">
-            Sign in with your registered email or Google account to access the Lusaka Field Agent Mobile PWA.
+            Sign in with your registered email or Google account to access the Field Agent Mobile PWA.
           </p>
         </div>
       )}

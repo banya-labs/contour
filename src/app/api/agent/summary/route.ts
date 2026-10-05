@@ -1,9 +1,11 @@
+import { formatPropertyLocation } from "@/lib/property-location";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { formatCurrency } from "@/lib/utils";
 import { getStageDefinition, mapLegacyPipelineState } from "@/lib/deal-workflow";
 import { resolveEarningsPeriod } from "@/lib/statements/period";
+
 
 const earningsPeriods = ["today", "week", "month", "all"] as const;
 type EarningsPeriod = (typeof earningsPeriods)[number];
@@ -58,7 +60,7 @@ const getHandler = createApiHandler({
       where: { organizationId, assignedAgentId: userId, status: { notIn: ["CLOSED", "CLOSED_WON", "CLOSED_LOST"] } },
       include: {
         property: {
-          select: { id: true, title: true, suburb: true, askingPrice: true, rentalPrice: true, currency: true, agencyCommissionPct: true },
+          select: { id: true, title: true, suburb: true, city: true, askingPrice: true, rentalPrice: true, currency: true, agencyCommissionPct: true },
         },
         visits: {
           where: { status: "SCHEDULED" },
@@ -92,7 +94,7 @@ const getHandler = createApiHandler({
         queueItems.push({
           id: `queue_verification_${inq.id}`,
           title: `Management review for ${inq.clientName}`,
-          subtitle: `${inq.property?.suburb || "Lusaka"} · Verification and closing action required`,
+          subtitle: `${formatPropertyLocation(inq.property)} · Verification and closing action required`,
           type: "DEAL",
           targetTab: "DEALS",
         });
@@ -100,7 +102,7 @@ const getHandler = createApiHandler({
         queueItems.push({
           id: `queue_negotiation_${inq.id}`,
           title: `Continue ${inq.clientName}'s negotiation`,
-          subtitle: `${inq.property?.suburb || "Lusaka"} · ${getStageDefinition(canonical.status).label} (${formatCurrency(Number(inq.dealValue || inq.budgetMax || 0), inq.currency)})`,
+          subtitle: `${formatPropertyLocation(inq.property)} · ${getStageDefinition(canonical.status).label} (${formatCurrency(Number(inq.dealValue || inq.budgetMax || 0), inq.currency)})`,
           type: "DEAL",
           targetTab: "DEALS",
         });
@@ -108,7 +110,7 @@ const getHandler = createApiHandler({
         queueItems.push({
           id: `queue_viewing_${inq.id}`,
           title: `Conduct viewing for ${inq.clientName}`,
-          subtitle: `${inq.property?.title || "Property"} · ${inq.property?.suburb || "Lusaka"}`,
+          subtitle: `${inq.property?.title || "Property"} · ${formatPropertyLocation(inq.property)}`,
           type: "VIEWING",
           targetTab: "PROPERTIES",
         });
@@ -116,7 +118,7 @@ const getHandler = createApiHandler({
         queueItems.push({
           id: `queue_inquiry_${inq.id}`,
           title: `Contact new lead ${inq.clientName}`,
-          subtitle: `${inq.preferredSuburbs?.[0] || "Lusaka"} · Budget ${formatCurrency(Number(inq.budgetMax || 0), inq.currency)}`,
+          subtitle: `${inq.preferredSuburbs?.[0] || "Location not recorded"} · Budget ${formatCurrency(Number(inq.budgetMax || 0), inq.currency)}`,
           type: "CLIENT",
           targetTab: "CLIENTS",
         });
@@ -156,7 +158,7 @@ const getHandler = createApiHandler({
           id: inq.id,
           propertyTitle: inq.property?.title || `${inq.lookingFor === "FOR_RENT" ? "Rental" : "Purchase"} Mandate`,
           propertyId: inq.propertyId,
-          suburb: inq.property?.suburb || inq.preferredSuburbs?.[0] || "Lusaka",
+          suburb: inq.property ? formatPropertyLocation(inq.property) : inq.preferredSuburbs?.[0] || "Location not recorded",
           clientName: inq.clientName,
           value: formatCurrency(val, inq.currency),
           stage: canonical.status,
@@ -175,7 +177,7 @@ const getHandler = createApiHandler({
         OR: [{ closedAt: { ...(earningsStart ? { gte: earningsStart } : {}), lt: earningsWindow.end } }, { closedAt: null, createdAt: { ...(earningsStart ? { gte: earningsStart } : {}), lt: earningsWindow.end } }],
       },
       include: {
-        property: { select: { title: true, suburb: true } },
+        property: { select: { title: true, suburb: true, city: true } },
         inquiry: { select: { clientName: true, clientPhone: true, clientEmail: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -209,7 +211,7 @@ const getHandler = createApiHandler({
       return {
         id: tx.id,
         property: tx.property.title,
-        suburb: tx.property.suburb,
+        suburb: formatPropertyLocation(tx.property),
         buyerName: tx.inquiry?.clientName || "-",
         buyerPhone: tx.inquiry?.clientPhone || "-",
         grossCommission: formatCurrency(grossCommission, tx.currency),

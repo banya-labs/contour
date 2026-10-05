@@ -31,7 +31,7 @@ export function PricingMatrix() {
       features: [
         "Up to 50 active listings",
         "20 managed rental units",
-        "Interactive Lusaka Leaflet property map",
+        "Interactive property map",
         "1-Click WhatsApp listing flyer generator",
         "30-Day anti-poaching client registration",
         "Public shareable property cards (/p/[slug])",
@@ -73,7 +73,7 @@ export function PricingMatrix() {
       annualUsd: 239,
       features: [
         "Unlimited listings, agents & rental units",
-        "Multi-branch RBAC (Lusaka, Ndola, Livingstone)",
+        "Multi-branch roles and permissions",
         "WhatsApp Voice note ingestion & transcription",
         "Custom domain & white-labeled Field PWA",
         "Dedicated MinIO S3 object storage partition",
@@ -103,7 +103,7 @@ export function PricingMatrix() {
       <div className="text-center max-w-3xl mx-auto mb-12 space-y-4">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#16382B]/10 border border-[#16382B]/15 text-[#16382B] text-xs font-semibold">
           <CreditCard className="w-3.5 h-3.5 text-[#C89B3C]" />
-          <span>PREDICTABLE SOUTHERN AFRICAN PRICING</span>
+          <span>PREDICTABLE AGENCY PRICING</span>
         </div>
         
         <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#16382B] tracking-tight">
@@ -112,7 +112,7 @@ export function PricingMatrix() {
         </h2>
         
         <p className="text-sm sm:text-base text-stone-600 leading-relaxed">
-          Priced for Southern African brokerages with seamless Lenco Zambia checkout (<a href="https://lenco.co/zm" target="_blank" rel="noreferrer" className="underline text-[#16382B] font-medium">lenco.co/zm</a>). Pay in Zambian Kwacha (ZMW) or US Dollars (USD) via MTN MoMo, Airtel Money, or Zamtel.
+          Plans for real estate teams with seamless Lenco Zambia checkout (<a href="https://lenco.co/zm" target="_blank" rel="noreferrer" className="underline text-[#16382B] font-medium">lenco.co/zm</a>). Pay in Zambian Kwacha (ZMW) or US Dollars (USD) via MTN MoMo, Airtel Money, or Zamtel.
         </p>
 
         {/* Billing & Currency Toggles */}

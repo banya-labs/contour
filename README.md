@@ -1,13 +1,13 @@
 # Contour — Real Estate Operations & Field Agent Operating System
 
-> **"The Real Estate Operating System for Lusaka & Southern Africa."**  
+> **"The Real Estate Operating System for Property Agencies."**
 > A high-performance, multi-tenant vertical SaaS venture by **Banya Labs**.
 
 ---
 
 ## 🏛️ Key Capabilities
 
-- **Interactive Geospatial Lusaka Map**: Leaflet GPS map with color-coded pins (🔴 Sale, 🟡 Rent, 🟢 Sold, 🔵 Rented), popups, and synchronized bottom card carousel.
+- **Interactive Property Map**: Leaflet GPS map with color-coded pins (🔴 Sale, 🟡 Rent, 🟢 Sold, 🔵 Rented), popups, and synchronized bottom card carousel.
 - **Contour AI Broker Copilot (Dify Connected)**: Grounded natural language property search, 5% revenue explanations, arrears tracking, and smart WhatsApp alerts.
 - **True 5% Agency Revenue Calculation**: Explicitly separates gross inventory value from actual earned brokerage commission revenue and 50% agent splits.
 - **Daily Action Queue**: Proactive operational tasks (WhatsApp arrears reminders, client dialer nudges, DocuSign statement sign-offs, Ministry folio lookups).
@@ -15,7 +15,7 @@
 - **Self-Hosted MinIO S3 Object Storage**: High-performance presigned URL binary storage for property photography, Certificates of Title, NRC ID scans, and cadastral survey plans.
 - **Landlord Remittance Engine with DocuSign Seam**: Automated `Gross Rent` − `10% Fee` − `Audited Maintenance` = `Net Remittance` formula with non-negotiable human manager approval.
 - **Client CRM with 30-Day Anti-Poaching Lock**: Prevents internal deal poaching by exclusively binding clients to closing agents.
-- **Field Agent Mobile PWA (`/kiosk`)**: 1-Click WhatsApp flyer generator with masked landlord PII for Lusaka field agents on the move.
+- **Field Agent Mobile PWA (`/kiosk`)**: 1-Click WhatsApp flyer generator with masked landlord PII for field agents on the move.
 - **Machine & MCP Control Plane (`/api/mcp`)**: JSON-RPC 2.0 endpoint with user-scoped token management and 1-click compromise revocation.
 
 ---
@@ -73,6 +73,10 @@ Use a disposable database created from the committed Prisma migrations; never
 point it at production.
 
 ### Production storage and database
+
+Property locations are entered as actual suburb/area and optional city/town values. Missing city or GPS data does not imply a default location. Maps use recorded coordinates, with a world overview when no usable pins exist. Existing saved locations and agency timezone settings are preserved.
+
+Address search is explicit (Search or Enter), authenticated, and cached per agency. `PROPERTY_GEOCODER_URL` configures a Nominatim-compatible endpoint. The default public endpoint requires Redis for an application-wide one-request-per-second limit and follows the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/). Search public addresses only; do not submit personal or confidential information. Use a private or commercial compatible provider for higher-volume use. Map selection and manual coordinates remain available if address search is unavailable.
 
 Production recovery, rollback, backup, and incident procedures are documented in [`docs/PRODUCTION_OPERATIONS_RUNBOOK.md`](docs/PRODUCTION_OPERATIONS_RUNBOOK.md).
 

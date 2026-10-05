@@ -303,7 +303,7 @@ function WorkflowIllustration({ type }: { type: string }) {
         <div className="space-y-1 text-[9px]">
           <div className="flex justify-between"><span>Stand 8942-A</span><span className="font-bold">5%</span></div>
           <div className="flex justify-between"><span>Villa Ibex</span><span className="font-bold">5%</span></div>
-          <div className="flex justify-between"><span>Kabulonga</span><span className="font-bold">5%</span></div>
+          <div className="flex justify-between"><span>Sample listing</span><span className="font-bold">5%</span></div>
         </div>
         <div className="pt-2 border-t border-editorial-black flex items-center justify-between font-bold text-editorial-red">
           <span>DISBURSED</span>

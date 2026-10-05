@@ -7,14 +7,14 @@ const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://contour.banyalabs.c
 export const metadata: Metadata = {
   title: "Run Your Real Estate Agency. Chase Nothing.",
   description:
-    "The mandate operating system for Lusaka real estate agents. Fixed 5% commission, deal pipeline, title deed verification, cadastral spatial mapping, and automated WhatsApp arrears nudges.",
+    "The operating system for real estate teams. Manage mandates, deal pipelines, commission tracking, title documents, property mapping, and rental arrears.",
   alternates: {
     canonical: `${siteUrl}/home`,
   },
   openGraph: {
     title: "Contour - Run Your Real Estate Agency. Chase Nothing.",
     description:
-      "The premier real estate operations and field agent operating system for Lusaka and Southern Africa.",
+      "Real estate operations and field agent software for your agency.",
     url: `${siteUrl}/home`,
     images: [
       {

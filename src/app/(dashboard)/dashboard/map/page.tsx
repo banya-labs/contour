@@ -14,6 +14,8 @@ import {
   ExternalLink,
   Navigation,
 } from "lucide-react";
+import { formatPropertyLocation } from "@/lib/property-location";
+import { hasValidCoordinates } from "@/lib/locations/map-coordinates";
 import type { PropertyMapItem } from "@/types/property-map";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { formatCurrency } from "@/lib/utils";
@@ -29,7 +31,7 @@ const InteractivePropertyMap = dynamic(
       <div className="w-full h-full min-h-[400px] bg-white border border-editorial-border flex items-center justify-center text-xs text-editorial-muted">
         <div className="flex flex-col items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-contour-red animate-ping" />
-          <span className="font-geist text-xs uppercase tracking-wider">Loading Lusaka Property Map...</span>
+          <span className="font-geist text-xs uppercase tracking-wider">Loading Property Map...</span>
         </div>
       </div>
     ),
@@ -53,7 +55,6 @@ export default function DashboardMapPage() {
         const data = await res.json();
         if (data.success && data.properties && data.properties.length > 0) {
           const mapped: PropertyMapItem[] = data.properties
-            .filter((p: any) => p.latitude !== null && p.longitude !== null)
             .map((p: any) => ({
               id: p.id,
               title: p.title,
@@ -214,7 +215,7 @@ export default function DashboardMapPage() {
             </div>
           </div>
         )}
-        {!loading && !loadError && properties.length > 0 && properties.every((property) => property.latitude == null || property.longitude == null) && (
+        {!loading && !loadError && properties.length > 0 && properties.every((property) => !hasValidCoordinates(property.latitude, property.longitude)) && (
           <div className="absolute bottom-4 left-1/2 z-[1200] -translate-x-1/2 bg-white/95 px-3 py-2 text-center text-[11px] text-editorial-muted shadow-sm">
             Your catalog has {properties.length} propert{properties.length === 1 ? "y" : "ies"}, but none have map coordinates yet.
           </div>
@@ -228,7 +229,7 @@ export default function DashboardMapPage() {
           onClose={() => setSelectedProperty(null)}
           zIndex="z-[2500]"
           title={selectedProperty.title}
-          subtitle={`📍 ${selectedProperty.suburb}, ${selectedProperty.city}`}
+          subtitle={`📍 ${formatPropertyLocation(selectedProperty)}`}
         >
           <div className="space-y-4 font-geist">
             {/* Image Preview */}

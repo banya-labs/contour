@@ -77,7 +77,7 @@ async function getPropertyBySlug(slug: string) {
         photos,
         featuredPhoto: dbProperty.featuredPhoto ? normalizePropertyImageUrl(dbProperty.featuredPhoto) : photos[0],
         suburb: dbProperty.suburb,
-        city: dbProperty.city || "Lusaka",
+        city: dbProperty.city || "",
         latitude: dbProperty.latitude,
         status: dbProperty.status,
         longitude: dbProperty.longitude,
@@ -141,7 +141,7 @@ async function getOrganizationOtherProperties(organizationId?: string, currentPr
         rentalPrice: p.rentalPrice ? Number(p.rentalPrice) : null,
         currency: p.currency || "ZMW",
         suburb: p.suburb,
-        city: p.city || "Lusaka",
+        city: p.city || "",
         photos,
         featuredPhoto: p.featuredPhoto || photos[0],
       };
@@ -362,7 +362,7 @@ export default async function PublicPropertyCardPage({
             <div className="bg-editorial-paper/40 p-5 rounded-none border border-editorial-border">
               <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-editorial-black uppercase tracking-wider mb-1">
                 <Compass className="w-4 h-4 text-contour-red" />
-                <span>Landmark Navigation Directions (Lusaka)</span>
+                <span>Landmark Navigation Directions</span>
               </div>
               <p className="text-xs text-editorial-black leading-relaxed">
                 {property.landmarkDirections}

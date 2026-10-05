@@ -85,10 +85,10 @@ export function FieldAgentPwaMockup() {
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-ink-900 uppercase tracking-wide">
-                    Southern African Landmark Cues
+                    Landmark Directions
                   </h3>
                   <p className="text-xs text-ink-600 mt-0.5 leading-relaxed">
-                    Replaces non-existent street numbers with actionable regional cues (e.g. <em>&quot;200m off Kabulonga Road, near Centro Mall&quot;</em>).
+                    Adds practical directions alongside addresses (e.g. <em>&quot;200m off the main road, near the shopping centre&quot;</em>).
                   </p>
                 </div>
               </div>
@@ -182,7 +182,7 @@ export function FieldAgentPwaMockup() {
                 <div className="flex-1 p-3 overflow-y-auto space-y-3 font-sans">
                   {activeTab === "mandates" && (
                     <>
-                      {/* Mandate 1: Kabulonga */}
+                      {/* Mandate 1: sample listing */}
                       <div className="bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold font-mono">
@@ -195,7 +195,7 @@ export function FieldAgentPwaMockup() {
                         </h4>
                         <div className="flex items-center gap-1 text-[11px] text-amber-300">
                           <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
-                          <span className="truncate">200m off Kabulonga Rd, near Centro Mall</span>
+                          <span className="truncate">200m off the main road, near the shopping centre</span>
                         </div>
                         <div className="flex items-center justify-between pt-1 border-t border-slate-800">
                           <div className="font-mono text-sm font-bold text-white">
@@ -212,7 +212,7 @@ export function FieldAgentPwaMockup() {
                         </div>
                       </div>
 
-                      {/* Mandate 2: Leopards Hill */}
+                      {/* Mandate 2: sample listing */}
                       <div className="bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold font-mono">
@@ -255,7 +255,7 @@ export function FieldAgentPwaMockup() {
                         </div>
                         <div className="text-xs font-bold text-white">Nchimunya Mweene (Buyer)</div>
                         <div className="text-[11px] text-slate-400 font-mono">
-                          Budget: K 4,000,000 • Kabulonga / Sunningdale
+                          Budget: K 4,000,000 • Residential districts
                         </div>
                         <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800 flex items-center gap-1">
                           <UserCheck className="w-3 h-3 text-emerald-400" /> Assigned Exclusively to Tembo Mwape
@@ -271,7 +271,7 @@ export function FieldAgentPwaMockup() {
                         </div>
                         <div className="text-xs font-bold text-white">EU Diplomatic Mission (Tenant)</div>
                         <div className="text-[11px] text-slate-400 font-mono">
-                          Budget: $ 2,500/mo • Leopards Hill / Woodlands
+                          Budget: $ 2,500/mo • Residential districts
                         </div>
                         <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800 flex items-center gap-1">
                           <UserCheck className="w-3 h-3 text-emerald-400" /> Assigned Exclusively to Chipo Banda
@@ -291,7 +291,7 @@ export function FieldAgentPwaMockup() {
                         </div>
                         <div className="space-y-1 text-[11px] text-slate-300 border-t border-slate-800 pt-2">
                           <div className="flex justify-between">
-                            <span>Kabulonga 4-Bed (50% Split):</span>
+                            <span>Sample 4-Bed (50% Split):</span>
                             <span className="font-mono text-white">K 87,500</span>
                           </div>
                           <div className="flex justify-between text-slate-400">

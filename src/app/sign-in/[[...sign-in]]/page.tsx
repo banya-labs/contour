@@ -59,7 +59,7 @@ export default async function SignInPage(props: {
             </h1>
             <p className="mt-1 font-geist text-xs text-editorial-muted">
               {isAgent
-                ? "Enter your credentials to access the Contour Lusaka Field Agent PWA."
+                ? "Enter your credentials to access the Contour Field Agent PWA."
                 : "Enter your credentials to access the Contour agency workspace."}
             </p>
           </div>
@@ -73,7 +73,7 @@ export default async function SignInPage(props: {
 
       {/* Bottom Legal / Compliance Strip */}
       <footer className="w-full border-t border-editorial-border py-4 px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-editorial-muted">
-        <div>© 2026 Contour · Part of Banya Labs · Lusaka, Zambia</div>
+        <div>© 2026 Contour · Part of Banya Labs</div>
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5 text-editorial-black font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block" />

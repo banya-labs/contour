@@ -167,7 +167,7 @@ export default function MobileBottomNav() {
                 OS 2.0
               </span>
             </div>
-            <span className="text-[10px] font-geist text-editorial-muted">Lusaka Operating HQ</span>
+            <span className="text-[10px] font-geist text-editorial-muted">Agency Operating HQ</span>
           </div>
           {moreNavLinks.map((group) => (
             <div key={group.category} className="space-y-1">
