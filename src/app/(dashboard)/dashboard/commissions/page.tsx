@@ -78,8 +78,6 @@ export default function CommissionsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
-      <PageTabs tabs={[{ id: "sales", label: "Sales Register", href: "/dashboard/sales" }, { id: "commissions", label: "Commissions", href: "/dashboard/sales?tab=commissions", count: transactions.length }]} activeTab="commissions" />
-
       {/* Header */}
       <div className="pb-4 sm:pb-6 border-b border-editorial-border">
         <div className="flex items-center gap-2">
@@ -136,6 +134,15 @@ export default function CommissionsPage() {
           </span>
         </MotionCard>
       </div>
+
+      <PageTabs
+        tabs={[
+          { id: "sales", label: "Sales Register", href: "/dashboard/sales" },
+          { id: "commissions", label: "Commissions", href: "/dashboard/sales?tab=commissions", count: transactions.length },
+        ]}
+        activeTab="commissions"
+        className="mt-1"
+      />
 
       {/* Transactions Ledger Table Card */}
       <div className="bg-white border border-editorial-border">
