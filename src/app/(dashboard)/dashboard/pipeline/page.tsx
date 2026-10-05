@@ -23,6 +23,8 @@ import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { SelectedRowDetailsDialog } from "@/components/ui/selected-row-details-dialog";
 import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
+import { ClosedDealResultDialog } from "@/components/closing/closed-deal-result-dialog";
+import type { ClosedDealResult } from "@/lib/closed-deal-result";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 import { AssignPropertyDialog } from "@/components/matching/assign-property-dialog";
 import type { MatchRow } from "@/lib/matching/client-types";
@@ -136,6 +138,7 @@ function DealPipelineContent() {
 
   // Close Deal Modal State
   const [closeTarget, setCloseTarget] = useState<Deal | null>(null);
+  const [closingResult, setClosingResult] = useState<ClosedDealResult | null>(null);
   const [closeOutcome, setCloseOutcome] = useState<"WON" | "LOST">("WON");
   const [selectedClosedDeal, setSelectedClosedDeal] = useState<Deal | null>(null);
   const [lostReason, setLostReason] = useState("");
@@ -405,6 +408,7 @@ function DealPipelineContent() {
       );
       emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent", "sales", "leases"], closeTarget.id);
       setCloseTarget(null);
+      setClosingResult(result.closingResult);
       if (closeOutcome === "WON" && result?.leasePrefill) {
         const encoded = encodeURIComponent(JSON.stringify(result.leasePrefill));
         window.location.assign(`/dashboard/leases?new=1&prefill=${encoded}`);
@@ -1374,6 +1378,8 @@ function DealPipelineContent() {
           </div>
         </div>
       )}
+
+      {closingResult && <ClosedDealResultDialog result={closingResult} onClose={() => setClosingResult(null)} />}
 
       {closingWorkflowTarget && (
         <ClosingWorkflowPanel

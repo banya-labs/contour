@@ -14,6 +14,7 @@ import { createPipelineTransitionAuditDetails } from "@/lib/pipeline-transition-
 import { nextActionAfterClose } from "@/lib/lease-workflow";
 import { ensureClosingWorkflow } from "@/lib/closing-workflow-persistence";
 import { getClosingReadiness } from "@/lib/closing-workflow";
+import { createClosedDealResult } from "@/lib/closed-deal-result";
 
 const transitionSchema = z.object({
   targetStage: z.enum(["NEW_INQUIRY", "QUALIFIED", "VIEWING_OR_OFFER", "NEGOTIATING", "VERIFICATION_CLOSING", "CLOSED"]),
@@ -135,7 +136,10 @@ export const POST = createApiHandler({
           ...(body.outcome === "LOST" ? { lostReason: body.reason, failedAtStage: inquiry.status } : {}),
           ...(body.outcome === "CANCELLED" ? { cancellationReason: body.reason, failedAtStage: inquiry.status } : {}),
         },
-        include: { property: { select: { id: true, status: true, title: true } } },
+        include: {
+          assignedAgent: { select: { name: true } },
+          property: { select: { id: true, status: true, title: true, propertyType: true, suburb: true, city: true, bedrooms: true, bathrooms: true, plotSizeSqm: true, askingPrice: true, currency: true } },
+        },
       });
 
       if (targetStage === "VERIFICATION_CLOSING") {
@@ -204,6 +208,7 @@ export const POST = createApiHandler({
     return NextResponse.json({
       success: true,
       inquiry: updated,
+      closingResult: createClosedDealResult(updated, competingInquiriesClosed),
       previousStatus: inquiry.status,
       nextAction: nextActionAfterClose({
         lookingFor: inquiry.lookingFor,
