@@ -1,6 +1,9 @@
 BEGIN;
--- DropIndex
-DROP INDEX "landlord_statement_organizationId_propertyId_statementYear__key";
+-- Historical migration SQL used a long literal name that PostgreSQL truncated.
+-- Prisma's generated schema uses a different 63-character name. Both identify
+-- the old four-column uniqueness constraint; remove either before revisions.
+DROP INDEX IF EXISTS "landlord_statement_organizationId_propertyId_statementYear__key";
+DROP INDEX IF EXISTS "landlord_statement_organizationId_propertyId_statementYear_stat";
 
 -- AlterTable
 ALTER TABLE "lease" ADD COLUMN     "openingBalance" DECIMAL(12,2),
