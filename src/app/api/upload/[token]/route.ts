@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { passiveVaultMime, verifiedVaultMetadata, VaultSecurityError } from "@/lib/storage/vault-security";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
@@ -63,10 +65,10 @@ export async function GET(
         uploadedDocuments: docRequest.documents,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GET /api/upload/[token] error:", error);
     return NextResponse.json(
-      { error: "Failed to load document request", details: error.message },
+      { error: "Failed to load document request" },
       { status: 500 }
     );
   }
@@ -101,6 +103,18 @@ export async function POST(
 
     if (isDocumentRequestConsumed(docRequest.status)) {
       return NextResponse.json({ error: ONE_TIME_UPLOAD_CONSUMED_MESSAGE }, { status: 410 });
+    }
+
+    if (docRequest.propertyId) {
+      const property = await db.property.findFirst({ where: { id: docRequest.propertyId, organizationId: docRequest.organizationId }, select: { status: true } });
+      if (!property) throw new VaultSecurityError("Property not found", 404);
+      if (property.status === "ARCHIVED") throw new VaultSecurityError("Archived property vault is read-only", 423);
+    }
+    if ((action === "presign" || action === "complete") && docRequest.pinHash) {
+      const supplied = crypto.createHash("sha256").update(String(body.pin || "").trim()).digest("hex");
+      const expected = Buffer.from(docRequest.pinHash, "hex");
+      const actual = Buffer.from(supplied, "hex");
+      if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return NextResponse.json({ error: "Access PIN is required" }, { status: 401 });
     }
 
     // Action 1: Verify PIN
@@ -142,18 +156,19 @@ export async function POST(
       const safeCategory: StorageCategory = VALID_CATEGORIES.includes(category)
         ? (category as StorageCategory)
         : "NRC_PASSPORT_ID";
-      const { uploadUrl, objectKey, publicCdnUrl } = await s3Storage.getPresignedUploadUrl(
+      if (!s3Storage.isConfigured()) throw new VaultSecurityError("Private document storage is unavailable", 503);
+      const { uploadUrl, objectKey } = await s3Storage.getPresignedUploadUrl(
         docRequest.organizationId,
         safeCategory,
         filename,
-        mimeType || "application/octet-stream"
+        passiveVaultMime(String(mimeType || ""))
       );
 
       return NextResponse.json({
         success: true,
         uploadUrl,
         objectKey,
-        publicCdnUrl,
+        publicCdnUrl: "",
       });
     }
 
@@ -170,6 +185,18 @@ export async function POST(
           { error: "Explicit consent under Zambia DPA 2021 is required to upload documents" },
           { status: 400 }
         );
+      }
+
+      const parsedFiles = z.array(z.object({
+        objectKey: z.string().min(1), originalFileName: z.string().min(1).max(200), title: z.string().max(300).optional(),
+        docType: z.enum(["TITLE_DEED", "NRC_PASSPORT_ID", "MANDATE_AGREEMENT", "LEASE_CONTRACT", "SITE_SURVEY_DIAGRAM", "OTHER"]).default("NRC_PASSPORT_ID"),
+      })).min(1).max(docRequest.maxFiles).safeParse(files);
+      if (!parsedFiles.success) throw new VaultSecurityError("Invalid uploaded file metadata");
+      const verifiedFiles = [];
+      for (const file of parsedFiles.data) {
+        const metadata = await verifiedVaultMetadata(docRequest.organizationId, file.objectKey);
+        if (metadata.fileSize > docRequest.maxSizeMbPerFile * 1024 * 1024) throw new VaultSecurityError("Document exceeds request size limit");
+        verifiedFiles.push({ ...file, ...metadata });
       }
 
       // Consume the capability before writing any documents. The conditional
@@ -198,7 +225,7 @@ export async function POST(
 
       // 2. Create VaultDocument records for each uploaded file
       const createdDocs = [];
-      for (const f of files) {
+      for (const f of verifiedFiles) {
         const doc = await db.vaultDocument.create({
           data: {
             organizationId: docRequest.organizationId,
@@ -209,8 +236,8 @@ export async function POST(
             classification: "CONFIDENTIAL_PII",
             objectKey: f.objectKey,
             originalFileName: f.originalFileName,
-            fileSize: f.fileSize || 1024,
-            mimeType: f.mimeType || "application/octet-stream",
+            fileSize: f.fileSize,
+            mimeType: f.mimeType,
             fileType: f.originalFileName.split(".").pop()?.toUpperCase() || "PDF",
             uploadedBy: `Client: ${consent.name || docRequest.inquiry?.clientName || "Verified Guest"}`,
             uploadedByType: "CLIENT",
@@ -256,10 +283,11 @@ export async function POST(
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof VaultSecurityError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("POST /api/upload/[token] error:", error);
     return NextResponse.json(
-      { error: "Upload processing failed", details: error.message },
+      { error: "Upload processing failed" },
       { status: 500 }
     );
   }

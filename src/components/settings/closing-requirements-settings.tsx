@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { validateClosingRequirementTemplate, type ClosingRequirementTemplate } from "@/lib/closing-workflow";
 
 type Requirement = ClosingRequirementTemplate & { id: string; archivedAt?: string | null };
@@ -15,6 +17,7 @@ export function ClosingRequirementsSettings() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
   const [editor, setEditor] = useState<"new" | Requirement | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [retry, setRetry] = useState(0);
@@ -46,11 +49,11 @@ export function ClosingRequirementsSettings() {
       setRequirements(current => [...current.filter(item => item.id !== data.template.id), data.template].sort((a, b) => a.sortOrder - b.sortOrder));
       setEditor(null); setMessage("Requirement saved. Future closing workflows will use this configuration.");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to save requirement."); }
-    finally { setPending(false); }
+    finally { setPending(false); setArchivingId(null); }
   };
   const archive = async (item: Requirement) => {
     if (pending || !window.confirm(`Archive ${item.label}? Existing deal checklists will stay unchanged.`)) return;
-    setPending(true); setError(""); setMessage("");
+    setPending(true); setArchivingId(item.id); setError(""); setMessage("");
     try {
       const response = await fetch(`/api/settings/closing-requirements/${encodeURIComponent(item.id)}`, { method: "DELETE" });
       const data = await response.json();
@@ -58,7 +61,7 @@ export function ClosingRequirementsSettings() {
       setRequirements(current => current.map(requirement => requirement.id === item.id ? { ...requirement, active: false, archivedAt: new Date().toISOString() } : requirement));
       setMessage("Requirement archived for future workflows. Existing deal checklists are unchanged.");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to archive requirement."); }
-    finally { setPending(false); }
+    finally { setPending(false); setArchivingId(null); }
   };
   const active = requirements.filter(item => item.active && !item.archivedAt).sort((a, b) => a.sortOrder - b.sortOrder);
   const categories = [...new Set(active.map(item => item.category))];
@@ -82,8 +85,8 @@ export function ClosingRequirementsSettings() {
         <label className="flex items-start gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={form.required} onChange={event => setForm({ ...form, required: event.target.checked })} className="mt-1" /><span><strong>Required before Won</strong><span className="mt-1 block text-xs text-editorial-muted">Uncheck for an optional supporting item.</span></span></label>
         <details className="sm:col-span-2"><summary className="cursor-pointer text-sm font-semibold">Reference and display order</summary><div className="mt-3 grid gap-4 sm:grid-cols-2"><label className="text-sm">Requirement reference<input required pattern="[A-Z][A-Z0-9_]{2,63}" maxLength={64} value={form.key} onChange={event => setForm({ ...form, key: event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_") })} className={inputClass} /><span className="mt-1 block text-xs text-editorial-muted">A unique reference, such as BUYER_IDENTITY. Starts with a letter and uses 3–64 uppercase letters, numbers or underscores.</span></label><label className="text-sm">Display order<input required type="number" min={0} step={1} value={form.sortOrder} onChange={event => setForm({ ...form, sortOrder: Number(event.target.value) })} className={inputClass} /><span className="mt-1 block text-xs text-editorial-muted">Lower numbers appear earlier in the checklist.</span></label></div></details>
       </fieldset>
-      <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={pending} onClick={() => setEditor(null)} className={buttonClass}>Cancel</button><button disabled={pending} className="min-h-11 bg-editorial-black px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{pending ? "Saving…" : "Save requirement"}</button></div>
+      <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={pending} onClick={() => setEditor(null)} className={buttonClass}>Cancel</button><button disabled={pending} className="min-h-11 bg-editorial-black px-4 py-2 text-xs font-bold text-white disabled:opacity-50"><PendingButtonContent pending={pending} pendingLabel="Saving requirement…">Save requirement</PendingButtonContent></button></div>
     </form>}
-    {loading ? <p role="status" className="py-8 text-sm text-editorial-muted">Loading closing requirements…</p> : (active.length > 0 || !error) && <div className="space-y-5"><p className="text-sm text-editorial-muted">{active.length} active requirements · {active.filter(item => item.required).length} required before Won</p>{!active.length && <p className="border border-editorial-border p-6 text-sm">No active requirements. Add a check to start your agency’s checklist.</p>}{categories.map(category => <section key={category} className="border border-editorial-border bg-white"><h3 className="border-b border-editorial-border bg-neutral-50 px-5 py-3 font-heading text-sm font-bold">{category}</h3><div className="divide-y divide-editorial-border">{active.filter(item => item.category === category).map(item => <div key={item.id} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h4 className="text-sm font-semibold break-words">{item.label}</h4><span className="border border-editorial-border px-2 py-0.5 text-xs">{item.required ? "Required" : "Optional"}</span></div><p className="mt-2 text-sm text-editorial-muted break-words">{item.description}</p><p className="mt-2 text-xs text-editorial-muted">Responsible: {item.assigneeType === "MANAGER" ? "Manager" : "Agent"} · Evidence: {evidenceLabels[item.evidenceType]}</p></div><div className="flex shrink-0 gap-2"><button type="button" disabled={pending || !!editor} onClick={() => startEdit(item)} className={buttonClass}>Edit</button><button type="button" disabled={pending || !!editor} onClick={() => void archive(item)} className={`${buttonClass} text-red-700`}>Archive</button></div></div>)}</div></section>)}</div>}
+    {loading ? <SectionPendingState label="Loading closing requirements…" /> : (active.length > 0 || !error) && <div className="space-y-5"><p className="text-sm text-editorial-muted">{active.length} active requirements · {active.filter(item => item.required).length} required before Won</p>{!active.length && <p className="border border-editorial-border p-6 text-sm">No active requirements. Add a check to start your agency’s checklist.</p>}{categories.map(category => <section key={category} className="border border-editorial-border bg-white"><h3 className="border-b border-editorial-border bg-neutral-50 px-5 py-3 font-heading text-sm font-bold">{category}</h3><div className="divide-y divide-editorial-border">{active.filter(item => item.category === category).map(item => <div key={item.id} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h4 className="text-sm font-semibold break-words">{item.label}</h4><span className="border border-editorial-border px-2 py-0.5 text-xs">{item.required ? "Required" : "Optional"}</span></div><p className="mt-2 text-sm text-editorial-muted break-words">{item.description}</p><p className="mt-2 text-xs text-editorial-muted">Responsible: {item.assigneeType === "MANAGER" ? "Manager" : "Agent"} · Evidence: {evidenceLabels[item.evidenceType]}</p></div><div className="flex shrink-0 gap-2"><button type="button" disabled={pending || !!editor} onClick={() => startEdit(item)} className={buttonClass}>Edit</button><button type="button" disabled={pending || !!editor} onClick={() => void archive(item)} className={`${buttonClass} text-red-700`}><PendingButtonContent pending={archivingId === item.id} pendingLabel="Archiving…">Archive</PendingButtonContent></button></div></div>)}</div></section>)}</div>}
   </section>;
 }

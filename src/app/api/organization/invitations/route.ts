@@ -49,7 +49,7 @@ function getRequestOrigin(req: Request): string {
 
 export const GET = createApiHandler({
   requireAuth: true,
-  requirePermissions: ["org.members.read"],
+  requirePermissions: ["org.members.invite"],
   handler: async (req, { organizationId }) => {
     const invitations = await db.invitation.findMany({
       where: {

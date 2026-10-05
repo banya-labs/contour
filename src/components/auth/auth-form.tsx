@@ -50,7 +50,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (shouldBlockAuthSurface(stage)) return;
     setError(null);
+    let authenticated = false;
     try {
       setStage(isSignUp ? "CREATING_ACCOUNT" : "AUTHENTICATING");
       const result = isSignUp
@@ -80,6 +82,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         return;
       }
 
+      authenticated = true;
       setStage("CLAIMING_INVITATION");
       const claimRes = await fetch("/api/organization/invitations/claim", {
         method: "POST",
@@ -98,7 +101,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         return;
       }
     } catch {
-      // Fallback to onboarding resolution
+      if (!authenticated) {
+        setStage("ERROR");
+        setError("Unable to sign in. Check your connection and try again.");
+        return;
+      }
     }
 
     // Redirect to onboarding to resolve membership or create agency (avoids middleware loop)
@@ -107,10 +114,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   }
 
   async function handleQuickLogin(quickEmail: string) {
+    if (shouldBlockAuthSurface(stage)) return;
     setError(null);
     setEmail(quickEmail);
     setPassword("Password123!");
     setStage("AUTHENTICATING");
+    try {
     const result = await authClient.signIn.email({
       email: quickEmail,
       password: "Password123!",
@@ -119,6 +128,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     if (result.error) {
       setStage("ERROR");
       setError(result.error.message || "Quick sign-in failed.");
+      return;
+    }
+
+    } catch {
+      setStage("ERROR");
+      setError("Quick sign-in failed. Check your connection and try again.");
       return;
     }
 
@@ -153,6 +168,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   }
 
   async function handleGoogleSignIn() {
+    if (shouldBlockAuthSurface(stage)) return;
     setError(null);
     setStage("AUTHENTICATING");
     try {
@@ -178,6 +194,20 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           : "Failed to initiate Google sign in.",
       );
     }
+  }
+
+  const [signingOut, setSigningOut] = useState(false);
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setError(null);
+    try {
+      const result = await signOut();
+      if (result.error) throw new Error(result.error.message || "Unable to sign out.");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to sign out. Please try again.");
+    } finally { setSigningOut(false); }
   }
 
   const isTransitioning = shouldBlockAuthSurface(stage);
@@ -231,13 +261,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             </p>
             <button
               type="button"
-              onClick={async () => {
-                await signOut();
-                router.refresh();
-              }}
+              onClick={handleSignOut}
+              disabled={signingOut}
               className="text-[10px] text-stone-500 hover:text-stone-900 underline font-mono"
             >
-              Sign out
+              <PendingButtonContent pending={signingOut} pendingLabel="Signing out…">Sign out</PendingButtonContent>
             </button>
           </div>
           <button

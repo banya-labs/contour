@@ -77,6 +77,8 @@ function AcceptInvitationContent() {
   useEffect(() => {
     if (!invitationId) return;
 
+    setIsLoading(true);
+    setError(null);
     let cancelled = false;
     const url = `/api/organization/invitations/claim?id=${encodeURIComponent(invitationId)}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
 
@@ -112,6 +114,7 @@ function AcceptInvitationContent() {
 
   // 2. Claim handler for authenticated user
   const handleClaim = async (confirmRoleChange = false) => {
+    if (isProcessing || shouldBlockAuthSurface(transitionStage)) return;
     setIsProcessing(true);
     setTransitionStage("CLAIMING_INVITATION");
     setError(null);
@@ -134,7 +137,8 @@ function AcceptInvitationContent() {
       // Activate organization in Better Auth client
       if (data.organizationId) {
         setTransitionStage("ACTIVATING_ORGANIZATION");
-        await authClient.organization.setActive({ organizationId: data.organizationId });
+        const activation = await authClient.organization.setActive({ organizationId: data.organizationId });
+        if (activation.error) throw new Error(activation.error.message || "Unable to activate the agency.");
       }
 
       const destination = data.destination || (data.roleKey === "FIELD_AGENT" ? "/agent" : "/dashboard");
@@ -150,9 +154,11 @@ function AcceptInvitationContent() {
 
   // 3. Google OAuth trigger
   const handleGoogleSignIn = async () => {
+    if (isProcessing || shouldBlockAuthSurface(transitionStage)) return;
     setAuthError(null);
     setTransitionStage("AUTHENTICATING");
     const callbackURL = typeof window !== "undefined" ? window.location.href : `/accept-invitation/${invitationId}`;
+    try {
     const result = await authClient.signIn.social({
       provider: "google",
       callbackURL,
@@ -162,11 +168,16 @@ function AcceptInvitationContent() {
       setAuthError(result.error.message || "Google authentication failed.");
       setTransitionStage("ERROR");
     }
+    } catch {
+      setAuthError("Unable to open Google sign-in. Check your connection and try again.");
+      setTransitionStage("ERROR");
+    }
   };
 
   // 4. Email/password authentication submit
   const handleEmailAuth = async (e: FormEvent) => {
     e.preventDefault();
+    if (isProcessing || shouldBlockAuthSurface(transitionStage)) return;
     setAuthError(null);
     setIsProcessing(true);
     setTransitionStage(
@@ -175,6 +186,7 @@ function AcceptInvitationContent() {
 
     const callbackURL = typeof window !== "undefined" ? window.location.href : `/accept-invitation/${invitationId}`;
 
+    try {
     const result = authMode === "sign-up"
       ? await authClient.signUp.email({
           name: name.trim() || invitation?.email.split("@")[0] || "Agent",
@@ -196,6 +208,11 @@ function AcceptInvitationContent() {
     }
 
     setTransitionStage("NAVIGATING");
+    } catch {
+      setAuthError("Authentication failed. Check your connection and try again.");
+      setIsProcessing(false);
+      setTransitionStage("ERROR");
+    }
   };
 
   if (isLoading || isSessionPending) {

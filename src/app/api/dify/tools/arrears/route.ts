@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticateDifyRequest } from "@/lib/dify-auth";
+import { authenticateDifyRequest, checkDirectMachineIpLimit } from "@/lib/dify-auth";
 import { rentalArrearsToolSchema } from "@/lib/ai-tool-schemas";
 import { getOrCreateCorrelationId } from "@/lib/correlation";
 
@@ -11,6 +11,8 @@ import { getOrCreateCorrelationId } from "@/lib/correlation";
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateError = await checkDirectMachineIpLimit(req);
+    if (rateError) return rateError;
     const body = await req.json().catch(() => ({}));
     const parsed = rentalArrearsToolSchema.safeParse(body);
     if (!parsed.success) {
@@ -40,11 +42,14 @@ export async function POST(req: NextRequest) {
             take: 1,
           },
         },
+        take: 101,
+        orderBy: { id: "asc" },
       });
 
     const today = new Date();
 
-    const arrearsList = leasesInArrears.map((lease) => {
+    const truncated = leasesInArrears.length > 100;
+    const arrearsList = leasesInArrears.slice(0, 100).map((lease) => {
         // Calculate estimated days overdue
         const dueDay = lease.paymentDayOfMonth || 1;
         const dueDate = new Date(today.getFullYear(), today.getMonth(), dueDay);
@@ -68,10 +73,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       tenant: tenantOrgId,
-      totalTenantsInArrears: arrearsList.length,
+      totalTenantsInArrears: truncated ? null : arrearsList.length,
+      returnedCount: arrearsList.length,
+      truncated,
       arrears: arrearsList,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const correlationId = getOrCreateCorrelationId(req);
     console.error("Dify Arrears Tool Error:", { correlationId, error });
     return NextResponse.json(

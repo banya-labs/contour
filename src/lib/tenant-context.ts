@@ -56,12 +56,8 @@ export async function getTenantContext(req: NextRequest, existingSession?: Sessi
         select: { id: true, role: true, status: true, roleAssignments: { include: { role: { include: { permissions: true } } } }, permissionOverrides: true },
       }) as Membership | null;
     } catch {
-      // Allow an application rollout before the additive RBAC migration has been applied.
-      const legacyMembership = await db.member.findUnique({
-        where: { organizationId_userId: { organizationId, userId } },
-        select: { id: true, role: true },
-      });
-      membership = legacyMembership ? { ...legacyMembership, status: "active", roleAssignments: [], permissionOverrides: [] } : null;
+      // Missing authorization data must never restore suspended or denied access.
+      return null;
     }
   }
 

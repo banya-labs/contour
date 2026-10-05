@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { ROLE_DESCRIPTIONS, ROLE_PRESETS, type ContourRoleKey, roleHasPermission } from "@/lib/authorization";
 import { hashAccessToken } from "@/lib/access-request";
 
+class InvitationAlreadyClaimed extends Error {}
+
 import { parseInviteInput } from "@/lib/onboarding-contract";
 
 const claimSchema = z.object({
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
   }
 
   // If token was provided, verify hash
-  if (token && invitation.tokenHash && invitation.tokenHash !== hashAccessToken(token)) {
+  if (invitation.tokenHash && (!token || invitation.tokenHash !== hashAccessToken(token))) {
     return NextResponse.json({ success: false, error: "Invalid invitation security token." }, { status: 403 });
   }
 
@@ -135,7 +137,7 @@ export async function POST(req: NextRequest) {
       include: { organization: true },
     });
 
-    if (invitation && targetToken && invitation.tokenHash && invitation.tokenHash !== hashAccessToken(targetToken)) {
+    if (invitation?.tokenHash && (!targetToken || invitation.tokenHash !== hashAccessToken(targetToken))) {
       return NextResponse.json({ success: false, error: "Invalid security token for this invitation." }, { status: 403 });
     }
   } else if (targetToken) {
@@ -166,7 +168,13 @@ export async function POST(req: NextRequest) {
     });
 
     if (accessLink) {
-      // Connect authenticated user directly to this organization as FIELD_AGENT
+      const priorMember = await db.member.findUnique({ where: { organizationId_userId: { organizationId: accessLink.organizationId, userId: session.user.id } }, include: { roleAssignments: { include: { role: true } } } });
+      if (priorMember) {
+        if (priorMember.status !== "active") return NextResponse.json({ success: false, error: "Your agency membership is inactive. Contact the agency administrator." }, { status: 403 });
+        const existingRole = (priorMember.roleAssignments[0]?.role.key || (priorMember.role === "owner" ? "OWNER" : "FIELD_AGENT")) as ContourRoleKey;
+        return NextResponse.json({ success: true, claimed: false, isAlreadyMember: true, organizationId: accessLink.organizationId, organizationName: accessLink.organization.name, roleKey: existingRole, destination: roleHasPermission(existingRole, "dashboard.read") ? "/dashboard" : "/agent" });
+      }
+      // Connect a new authenticated user directly to this organization as FIELD_AGENT
       const roleKey: ContourRoleKey = "FIELD_AGENT";
       const roleInfo = ROLE_DESCRIPTIONS.FIELD_AGENT;
       const destination = "/agent";
@@ -296,6 +304,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Check if caller is already a member of this specific organization
+  const isShareableInvite = /^invite_[a-zA-Z0-9_-]+@invite\.contour\.app$/.test(invitation.email) && Boolean(invitation.tokenHash && targetToken);
+  if ((!isShareableInvite && invitation.email.trim().toLowerCase() !== session.user.email.trim().toLowerCase()) || (!invitation.tokenHash && !session.user.emailVerified)) {
+    return NextResponse.json({ success: false, error: "Sign in with the invited email address and use the complete invitation link." }, { status: 403 });
+  }
   const existingMember = await db.member.findFirst({
     where: {
       organizationId: invitation.organizationId,
@@ -307,6 +319,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (existingMember) {
+    if (existingMember.status !== "active") return NextResponse.json({ success: false, error: "Your agency membership is inactive. Contact the agency administrator." }, { status: 403 });
     const assignedRole = existingMember.roleAssignments[0]?.role.key;
     const currentRoleKey: ContourRoleKey = (assignedRole && assignedRole in ROLE_DESCRIPTIONS)
       ? (assignedRole as ContourRoleKey)
@@ -343,7 +356,10 @@ export async function POST(req: NextRequest) {
   const canAccessDashboard = roleHasPermission(roleKey, "dashboard.read");
   const destination = canAccessDashboard ? "/dashboard" : "/agent";
 
+  try {
   await db.$transaction(async (tx) => {
+    const claim = await tx.invitation.updateMany({ where: { id: invitation.id, status: "pending", expiresAt: { gt: new Date() } }, data: { status: "accepted", acceptedAt: new Date(), acceptedByUserId: session.user.id } });
+    if (claim.count !== 1) throw new InvitationAlreadyClaimed();
     // Upsert Member
     const member = await tx.member.upsert({
       where: {
@@ -396,16 +412,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Mark Invitation as accepted
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: "accepted",
-        acceptedAt: new Date(),
-        acceptedByUserId: session.user.id,
-      },
-    });
-
     // Update activeOrganizationId in active sessions
     await tx.session.updateMany({
       where: { userId: session.user.id },
@@ -418,14 +424,18 @@ export async function POST(req: NextRequest) {
     // Update User model role if appropriate
     const validUserRoles = ["SUPER_ADMIN", "BROKER_MANAGER", "FIELD_AGENT", "FINANCE_OFFICER", "LANDLORD", "TENANT"] as const;
     const mappedUserRole = roleKey === "OWNER" ? "SUPER_ADMIN" : roleKey;
-    if (validUserRoles.includes(mappedUserRole as any)) {
+    if (validUserRoles.some(value => value === mappedUserRole)) {
       await tx.user.update({
         where: { id: session.user.id },
-        data: { role: mappedUserRole as any },
+        data: { role: mappedUserRole as (typeof validUserRoles)[number] },
       });
     }
   });
 
+  } catch (error) {
+    if (error instanceof InvitationAlreadyClaimed) return NextResponse.json({ success: false, error: "This invitation is no longer available." }, { status: 409 });
+    throw error;
+  }
   return NextResponse.json({
     success: true,
     claimed: true,

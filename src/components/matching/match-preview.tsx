@@ -1,11 +1,12 @@
 "use client";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { usePropertyInquiryMatches } from "@/hooks/use-property-inquiry-matches";
 export function MatchPreview({ propertyId, listingType, onOpen, isOnline = true }: { propertyId: string; listingType: string; onOpen: () => void; isOnline?: boolean }) {
   const { data, loading, error, stale } = usePropertyInquiryMatches(propertyId, "properties", "qualifying", 1, isOnline);
   const label = listingType === "FOR_RENT" ? "renters" : listingType === "BOTH" ? "inquiries" : "buyers";
   return <section className="border border-emerald-200 bg-emerald-50 p-3 space-y-2 text-editorial-black">
     <div className="flex justify-between gap-2"><h3 className="text-xs font-semibold">Matching {label}{data ? ` (${data.total})` : ""}</h3><button type="button" className="text-xs underline" onClick={onOpen}>View all matches</button></div>
-    {loading && <p className="text-xs" role="status">Checking matches…</p>}
+    {loading && <SectionPendingState compact label="Checking matches…" />}
     {error && <p className="text-xs text-red-700" role="alert">{error}</p>}
     {stale && data && <p className="text-[11px]">Cached matches · last checked {new Date(data.calculatedAt).toLocaleString()}</p>}
     {!loading && !error && data?.total === 0 && <p className="text-xs">No qualifying matches yet.</p>}

@@ -18,6 +18,8 @@ export function VaultAccessModal({
   onSuccess,
   properties,
 }: VaultAccessModalProps) {
+  const [error, setError] = React.useState<string | null>(null);
+  const savingRef = React.useRef(false);
   const [members, setMembers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [savingUserId, setSavingUserId] = React.useState<string | null>(null);
@@ -25,14 +27,16 @@ export function VaultAccessModal({
 
   const fetchAccess = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/vault/access");
       const data = await res.json();
-      if (res.ok && data.members) {
+      if (!res.ok) throw new Error(data.error || "Unable to load vault access.");
+      if (data.members) {
         setMembers(data.members);
       }
     } catch (err) {
-      console.error("Failed to load vault access grants:", err);
+      setError(err instanceof Error ? err.message : "Unable to load vault access. Please retry.");
     } finally {
       setLoading(false);
     }
@@ -49,6 +53,9 @@ export function VaultAccessModal({
     accessLevel: "FULL_VAULT" | "ASSIGNED_ONLY" | "SPECIFIC_FOLDERS",
     propertyIds: string[] = []
   ) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setError(null);
     setSavingUserId(userId);
     try {
       const res = await fetch("/api/vault/access", {
@@ -61,6 +68,10 @@ export function VaultAccessModal({
         }),
       });
 
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Unable to save vault access.");
+      }
       if (res.ok) {
         setSuccessUserId(userId);
         setMembers((prev) =>
@@ -81,14 +92,15 @@ export function VaultAccessModal({
         onSuccess();
       }
     } catch (err) {
-      console.error("Failed to save grant:", err);
+      setError(err instanceof Error ? err.message : "Unable to save vault access. Please try again.");
     } finally {
+      savingRef.current = false;
       setSavingUserId(null);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && !savingRef.current && onClose()}>
       <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto bg-white border-editorial-border text-editorial-black rounded-none shadow-2xl p-6">
         <DialogHeader className="border-b border-editorial-border pb-3">
           <DialogTitle className="flex items-center gap-2 text-base font-heading font-bold uppercase tracking-wider text-editorial-black">
@@ -100,6 +112,7 @@ export function VaultAccessModal({
           </DialogDescription>
         </DialogHeader>
 
+        {error && <div role="alert" className="text-xs text-red-700">{error}{!savingUserId && <button type="button" disabled={loading} onClick={fetchAccess} className="ml-2 underline">Reload permissions</button>}</div>}
         {loading ? (
           <div className="py-12 flex justify-center items-center gap-2 text-xs font-mono text-editorial-muted">
             <ContourSunLoader size="sm" label="Loading vault access…" decorative />
@@ -146,6 +159,7 @@ export function VaultAccessModal({
                     <button
                       type="button"
                       onClick={() => handleUpdateGrant(member.id, "FULL_VAULT", [])}
+                      disabled={!!savingUserId}
                       className={`p-2.5 rounded-none border text-left transition-colors ${
                         grant.accessLevel === "FULL_VAULT"
                           ? "bg-[#fff5f3] border-contour-red text-editorial-black font-semibold"
@@ -161,6 +175,7 @@ export function VaultAccessModal({
                     <button
                       type="button"
                       onClick={() => handleUpdateGrant(member.id, "ASSIGNED_ONLY", [])}
+                      disabled={!!savingUserId}
                       className={`p-2.5 rounded-none border text-left transition-colors ${
                         grant.accessLevel === "ASSIGNED_ONLY"
                           ? "bg-[#fff5f3] border-contour-red text-editorial-black font-semibold"
@@ -178,6 +193,7 @@ export function VaultAccessModal({
                     <button
                       type="button"
                       onClick={() => handleUpdateGrant(member.id, "SPECIFIC_FOLDERS", grant.propertyIds || [])}
+                      disabled={!!savingUserId}
                       className={`p-2.5 rounded-none border text-left transition-colors ${
                         grant.accessLevel === "SPECIFIC_FOLDERS"
                           ? "bg-[#fff5f3] border-contour-red text-editorial-black font-semibold"
@@ -207,6 +223,7 @@ export function VaultAccessModal({
                             >
                               <input
                                 type="checkbox"
+                                disabled={!!savingUserId}
                                 checked={isChecked}
                                 onChange={() => {
                                   const updated = isChecked
@@ -233,6 +250,7 @@ export function VaultAccessModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={!!savingUserId}
             className="px-4 py-1.5 text-xs font-mono uppercase tracking-wider bg-editorial-black text-white hover:bg-neutral-800 rounded-none transition-colors"
           >
             Done

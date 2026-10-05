@@ -160,7 +160,10 @@ const postHandler = createApiHandler({
         checkoutUrl: collectionResult.checkoutUrl,
         failureReason: collectionResult.success ? null : collectionResult.message,
         completedAt: collectionResult.status === "SUCCESS" ? new Date() : null,
-        metadata: (collectionResult.data || { channel, mobileMoneyOperator: body.mobileMoneyOperator || null }) as Prisma.InputJsonValue,
+        metadata: { channel, mobileMoneyOperator: body.mobileMoneyOperator || null,
+          ...(offerReservation ? { offerId: body.offerId!, offerReservationId: offerReservation.grantId } : {}),
+          providerResponse: (collectionResult.data || {}) as Prisma.InputJsonValue,
+        },
       },
     });
 

@@ -862,6 +862,7 @@ export default function AnalyticsDashboardPage() {
           </DialogHeader>
 
           <div className="space-y-3 py-4">
+            {(generationStage === "loading-report" || generationStage === "generating-ai") && <SectionPendingState compact label={generationStage === "loading-report" ? "Preparing report data…" : "Generating grounded AI insights…"} />}
             <div className={`flex items-center gap-2 text-xs ${generationStage === "loading-report" ? "text-[#16382B] font-semibold" : "text-emerald-700"}`}>
               <CheckCircle2 className="w-4 h-4" />
               <span>{generationStage === "loading-report" ? "Preparing report data…" : "Report data prepared"}</span>

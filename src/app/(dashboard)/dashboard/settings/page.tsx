@@ -45,6 +45,7 @@ import { ClosingRequirementsSettings } from "@/components/settings/closing-requi
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { MfaSetupDialog } from "@/components/auth/mfa-setup-dialog";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { isKeyPending, setKeyPending } from "@/lib/loading-feedback";
 import { PhoneNumberInput } from "@/components/ui/phone-number-input";
@@ -101,6 +102,11 @@ function SettingsContent() {
 
   const [settings, setSettings] = useState<AgencySettings>(DEFAULT_AGENCY_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [settingsLoadError, setSettingsLoadError] = useState("");
+  const [loadRetry, setLoadRetry] = useState(0);
   const [activeTab, setActiveTab] = useState<string>(
     ["BRANDING", "ORGANIZATION", "BILLING", "CLOSING", "DEVELOPER"].includes(initialTab)
       ? initialTab
@@ -141,13 +147,15 @@ function SettingsContent() {
     setPendingSettingsActions((current) => setKeyPending(current, key, pending));
 
   async function handleDisableMfa() {
+    if (mfaDisabling) return;
     setMfaDisabling(true);
     setSettingsActionPending("mfa:disable", true);
     try {
-      await (authClient as any).twoFactor.disable();
+      const result = await (authClient as any).twoFactor.disable();
+      if (result.error) throw new Error(result.error.message || "Unable to disable MFA.");
       setMfaEnabled(false);
     } catch {
-      // silent fail - user can try again
+      setSettingsMessage("Unable to disable MFA. Please try again.");
     } finally {
       setMfaDisabling(false);
       setSettingsActionPending("mfa:disable", false);
@@ -158,10 +166,11 @@ function SettingsContent() {
 
   useEffect(() => {
     setSettings(getAgencySettings());
+    setProfileLoading(true); setSettingsLoadError("");
     void fetch("/api/organization/profile")
       .then((response) => response.json())
       .then((data) => {
-        if (!data.success) return;
+        if (!data.success) throw new Error(data.error || "Unable to load agency profile.");
         setWorkspace(data.organization);
         setSettings((current) => ({
           ...current,
@@ -171,11 +180,13 @@ function SettingsContent() {
           email: data.organization.profile?.primaryEmail || current.email,
         }));
       })
-      .catch(() => undefined);
-  }, []);
+      .catch(() => setSettingsLoadError("Unable to load agency profile. Please retry before editing."))
+      .finally(() => setProfileLoading(false));
+  }, [loadRetry]);
 
   useEffect(() => {
     if (activeTab !== "ORGANIZATION") return;
+    setTeamLoading(true); setSettingsLoadError("");
     void Promise.all([
       fetch("/api/organization/members"),
       fetch("/api/organization/access-link"),
@@ -187,23 +198,33 @@ function SettingsContent() {
         const linkData = await linkResponse.json();
         const requestsData = await requestsResponse.json();
         const invitationsData = await invitationsResponse.json().catch(() => ({ success: false }));
+        if (!membersResponse.ok || !membersData.success || !linkResponse.ok || !requestsResponse.ok || !requestsData.success || !invitationsResponse.ok || !invitationsData.success) throw new Error("Unable to load team settings.");
         if (membersData.success) { setMembers(membersData.members || []); setRoles(membersData.roles || []); setPermissionGroups(membersData.permissionGroups || [...PERMISSION_GROUPS]); }
         if (requestsData.success) setAccessRequests(requestsData.requests || membersData.accessRequests || []);
         if (invitationsData.success) setInvitations(invitationsData.invitations || []);
         if (linkData.active) setAccessLink("active");
-      }).catch(() => undefined);
-  }, [activeTab]);
+      }).catch(() => setSettingsLoadError("Unable to load team settings. Please retry."))
+      .finally(() => setTeamLoading(false));
+  }, [activeTab, loadRetry]);
 
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    saveAgencySettings(settings);
-    void fetch("/api/organization/profile", {
+    if (isSavingProfile || profileLoading || settingsLoadError) return;
+    setIsSavingProfile(true); setIsSaved(false); setSettingsMessage(null);
+    try {
+    const response = await fetch("/api/organization/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: settings.agencyName, primaryOfficeAddress: settings.officeAddress, primaryPhone: settings.phone, primaryEmail: settings.email }),
     });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || "Unable to save agency profile.");
+    saveAgencySettings(settings);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
+    } catch (cause) {
+      setSettingsMessage(cause instanceof Error ? cause.message : "Unable to save agency profile. Please try again.");
+    } finally { setIsSavingProfile(false); }
   };
 
   const handleLogoUpload = async (file: File) => {
@@ -257,6 +278,8 @@ function SettingsContent() {
       setAccessLink(fullLink);
       await navigator.clipboard.writeText(fullLink);
       setSettingsMessage("Access link created and copied. Requests still require admin approval.");
+    } catch {
+      setSettingsMessage("Unable to create or copy access link. Please try again; any created link is shown above.");
     } finally {
       setSettingsActionPending("access-link:create", false);
     }
@@ -270,6 +293,8 @@ function SettingsContent() {
       const data = await response.json();
       setSettingsMessage(response.ok ? `Access request ${decision === "APPROVE" ? "approved" : "declined"}.` : data.error || "Unable to review access request.");
       if (response.ok) window.location.reload();
+    } catch {
+      setSettingsMessage("Unable to review access request. Please try again.");
     } finally {
       setSettingsActionPending(key, false);
     }
@@ -297,6 +322,8 @@ function SettingsContent() {
         if (refreshed.success) setMembers(refreshed.members || []);
         setPermissionEditorMember(null);
       }
+    } catch {
+      setSettingsMessage("Unable to save or refresh member permissions. Please try again.");
     } finally {
       setPermissionEditorSaving(false);
     }
@@ -320,6 +347,8 @@ function SettingsContent() {
         const refreshed = await fetch("/api/organization/members").then((res) => res.json());
         if (refreshed.success) setMembers(refreshed.members || []);
       }
+    } catch {
+      setSettingsMessage("Unable to update or refresh WhatsApp number. Please try again.");
     } finally {
       setSettingsActionPending(key, false);
     }
@@ -455,6 +484,9 @@ function SettingsContent() {
         setSettingsMessage("Invitation revoked.");
         const refreshed = await fetch("/api/organization/invitations").then((r) => r.json());
         if (refreshed.success) setInvitations(refreshed.invitations || []);
+      } else {
+        const data = await res.json().catch(() => null);
+        setSettingsMessage(data?.error || "Unable to revoke invitation. Please try again.");
       }
     } catch {
       setSettingsMessage("Failed to revoke invitation.");
@@ -499,10 +531,13 @@ function SettingsContent() {
   };
 
   const handleCopy = (text: string, label: string) => {
+    if (isKeyPending(pendingSettingsActions, `${label}:copy`)) return;
+    setSettingsActionPending(`${label}:copy`, true);
     void navigator.clipboard.writeText(text).then(() => {
       setCopiedText(label);
       setTimeout(() => setCopiedText(null), 2000);
-    }).catch(() => setSettingsMessage("Unable to copy confirmation text. Select and copy it manually."));
+    }).catch(() => setSettingsMessage("Unable to copy confirmation text. Select and copy it manually."))
+      .finally(() => setSettingsActionPending(`${label}:copy`, false));
   };
 
   const tabs = [
@@ -546,11 +581,12 @@ function SettingsContent() {
             )}
 
             <button
-              onClick={() => handleSave()}
+              onClick={() => void handleSave()}
+              disabled={isSavingProfile || profileLoading || Boolean(settingsLoadError)}
+              aria-busy={isSavingProfile}
               className="px-5 py-2.5 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-none w-full sm:w-auto min-h-[44px]"
             >
-              <Save className="w-4 h-4" />
-              <span>Save Changes</span>
+              <PendingButtonContent pending={isSavingProfile} pendingLabel="Saving agency profile…" icon={<Save className="w-4 h-4" />}>Save Changes</PendingButtonContent>
             </button>
           </div>
         )}
@@ -567,11 +603,15 @@ function SettingsContent() {
       />
 
       {activeTab === "CLOSING" && <ClosingRequirementsSettings />}
+      {[...pendingSettingsActions].some(key => key.endsWith(":copy")) && <SectionPendingState compact label="Copying to clipboard…" />}
+      {activeTab === "BRANDING" && profileLoading && <SectionPendingState compact label="Loading agency profile…" />}
+      {activeTab === "ORGANIZATION" && teamLoading && <SectionPendingState compact label="Loading team and permissions…" />}
+      {settingsLoadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{settingsLoadError} <button type="button" disabled={profileLoading || teamLoading} onClick={() => setLoadRetry(value => value + 1)} className="underline">Retry</button></p>}
 
       {activeTab === "BILLING" && <BillingPage />}
 
       {/* TAB 1: AGENCY BRANDING & METADATA */}
-      {activeTab === "BRANDING" && (
+      {activeTab === "BRANDING" && !profileLoading && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-2">
           {/* Left Column: Form Fields (7 Cols) */}
           <div className="lg:col-span-7 space-y-6">

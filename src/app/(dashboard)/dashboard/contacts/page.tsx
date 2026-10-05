@@ -8,6 +8,7 @@ import { contactSchema } from "@/lib/validations/contact";
 import { ContactEditorDialog } from "@/components/contacts/contact-editor-dialog";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 type Contact = { id: string; name: string; phone: string; email?: string | null; notes?: string | null; _count?: { inquiries: number } };
 
@@ -19,21 +20,25 @@ export default function ContactsPage() {
   const [saving, setSaving] = useState(false);
   const saveInFlight = useRef(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
   const searchParams = useSearchParams();
 
   useEffect(() => {
     if (open) return;
     let cancelled = false;
+    setLoading(true); setError("");
     void fetch(`/api/contacts?search=${encodeURIComponent(search)}`)
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.error || "Unable to load contacts.");
         if (!cancelled) setContacts(data.contacts);
       })
-      .catch((error) => { if (!cancelled) setError(error instanceof Error ? error.message : "Unable to load contacts."); });
+      .catch((error) => { if (!cancelled) setError(error instanceof Error ? error.message : "Unable to load contacts."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [search, open]);
+  }, [search, open, retry]);
 
   const openCreate = () => {
     setEditing(null);
@@ -92,7 +97,9 @@ export default function ContactsPage() {
     </div>
     <div className="bg-white rounded-none p-3 sm:p-4 border border-editorial-border flex items-center gap-2"><Search className="w-4 h-4 text-editorial-neutral shrink-0" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search contacts by name, phone, or email" className="w-full bg-transparent text-xs text-editorial-black placeholder:text-editorial-neutral focus:outline-none" /></div>
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{contacts.map((contact) => <article key={contact.id} className="border border-editorial-border bg-white p-4 space-y-3"><div className="flex items-start justify-between gap-3"><div><h2 className="font-heading font-bold uppercase tracking-tight">{contact.name}</h2><p className="text-xs text-editorial-muted">{contact.phone}</p></div><div className="flex items-center gap-2"><Users className="w-4 h-4 text-contour-red" /><button type="button" onClick={() => openEdit(contact)} aria-label={`Edit ${contact.name}`} className="text-editorial-muted hover:text-editorial-black"><Pencil className="w-3.5 h-3.5" /></button></div></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="border-t border-editorial-border pt-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>
-    {contacts.length === 0 && <div className="border border-dashed border-editorial-border p-10 text-center text-xs text-editorial-muted">No contacts found. Add a contact before recording an inquiry.</div>}
+    {loading && !open && <SectionPendingState compact label="Loading contacts…" />}
+    {error && !open && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-xs text-red-800">{error} <button type="button" disabled={loading} onClick={() => setRetry(value => value + 1)} className="underline">Retry</button></p>}
+    {!loading && !error && contacts.length === 0 && <div className="border border-dashed border-editorial-border p-10 text-center text-xs text-editorial-muted">No contacts found. Add a contact before recording an inquiry.</div>}
     <ContactEditorDialog open={open} editing={Boolean(editing)} form={form} saving={saving} error={error} onChange={setForm} onSubmit={saveContact} onClose={() => { if (!saveInFlight.current) setOpen(false); }} />
   </main>;
 }

@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
   organizationUpdate: vi.fn(),
   auditCreate: vi.fn(),
   transaction: vi.fn(),
+  ledger: vi.fn(),
+  commitOffer: vi.fn(),
+  releaseOffer: vi.fn(),
 }));
 
 vi.mock("@/lib/lenco", () => ({
@@ -20,8 +23,9 @@ vi.mock("@/lib/lenco", () => ({
 }));
 
 vi.mock("@/lib/billing-ledger", () => ({
-  recordSettledSubscription: vi.fn(),
+  recordSettledSubscription: mocks.ledger,
 }));
+vi.mock("@/lib/billing-offer-reservation", () => ({ commitOrganizationOffer: mocks.commitOffer, releaseOrganizationOffer: mocks.releaseOffer }));
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -66,6 +70,7 @@ describe("Lenco webhook lifecycle", () => {
       webhookEvent: { update: mocks.webhookUpdate },
     }));
     mocks.paymentUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.ledger.mockResolvedValue(undefined);
   });
 
   it("rejects invalid signatures before parsing or persistence", async () => {
@@ -127,5 +132,21 @@ describe("Lenco webhook lifecycle", () => {
       where: { reference: "ref-1", status: { not: "SUCCESS" } },
     }));
     expect(mocks.organizationUpdate).not.toHaveBeenCalled();
+  });
+  it("does not mark delivery processed before durable ledger effects succeed", async () => {
+    mocks.ledger.mockRejectedValueOnce(new Error("ledger unavailable"));
+    await expect(POST(request({ event: "transaction.successful", reference: "ref-1" }))).rejects.toThrow("ledger unavailable");
+    expect(mocks.webhookUpdate).not.toHaveBeenCalled();
+    expect(mocks.ledger.mock.calls[0][1]).toEqual(expect.objectContaining({ payment: expect.any(Object), webhookEvent: expect.any(Object) }));
+  });
+  it("retries incomplete settlement using original completion date before marking processed", async () => {
+    const completedAt = new Date("2026-10-01T00:00:00Z");
+    mocks.paymentFindUnique.mockResolvedValue({ id: "payment-1", organizationId: "org-1", planId: "growth", status: "SUCCESS", completedAt, amount: 100, currency: "ZMW", billingCycle: "MONTHLY", metadata: { offerReservationId: "grant" } });
+    mocks.paymentUpdateMany.mockResolvedValue({ count: 0 });
+    const response = await POST(request({ event: "transaction.successful", reference: "ref-1" }));
+    expect(response.status).toBe(200);
+    expect(mocks.ledger).toHaveBeenCalledWith(expect.objectContaining({ settledAt: completedAt }), expect.any(Object));
+    expect(mocks.commitOffer).toHaveBeenCalledWith("payment-1", expect.any(Object));
+    expect(mocks.ledger.mock.invocationCallOrder[0]).toBeLessThan(mocks.webhookUpdate.mock.invocationCallOrder[0]);
   });
 });

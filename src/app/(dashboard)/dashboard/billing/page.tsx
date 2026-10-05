@@ -67,10 +67,14 @@ export default function BillingPage() {
 
   const loadBilling = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await fetch("/api/billing/summary", { cache: "no-store" });
+      const [response, catalogResponse] = await Promise.all([fetch("/api/billing/summary", { cache: "no-store" }), fetch("/api/subscription-tiers", { cache: "no-store" })]);
       const data = await response.json();
+      const catalog = await catalogResponse.json();
       if (!response.ok || !data.success) throw new Error(data.error || "Unable to load billing.");
+      if (!catalogResponse.ok || !catalog.success) throw new Error(catalog.error || "Unable to load subscription plans.");
+      setPlans(catalog.tiers);
       setBilling(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load billing.");
@@ -81,10 +85,6 @@ export default function BillingPage() {
 
   useEffect(() => {
     void loadBilling();
-    void fetch("/api/subscription-tiers", { cache: "no-store" }).then(async (response) => {
-      const data = await response.json();
-      if (response.ok && data.success) setPlans(data.tiers);
-    });
   }, []);
 
   const currentPlan = billing?.subscription.planId ? plans.find((plan) => plan.id === billing.subscription.planId) || null : null;
@@ -96,6 +96,7 @@ export default function BillingPage() {
   const nextPayment = billing?.subscription.nextPayment;
 
   const checkout = async (planId: "starter" | "growth" | "enterprise") => {
+    if (processingPlan || loading) return;
     setProcessingPlan(planId);
     setError(null);
     setMessage(null);
@@ -209,6 +210,7 @@ export default function BillingPage() {
           <div className="flex items-center gap-3 border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-900 shadow-xs">
             <TriangleAlert className="h-4 w-4 shrink-0 text-red-600" />
             <span>{error}</span>
+            <button type="button" disabled={loading || Boolean(processingPlan)} onClick={() => void loadBilling()} className="underline">Reload billing</button>
           </div>
         )}
 

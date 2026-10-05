@@ -10,18 +10,21 @@ import { PageTabs } from "@/components/ui/page-tabs";
 export default function CommissionsPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true); setLoadError("");
       try {
         const res = await fetch("/api/sales");
         const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Unable to load commissions.");
         if (data.success && data.transactions) {
           setTransactions(data.transactions);
         }
       } catch (err) {
-        console.error("Failed to load commissions:", err);
+        setLoadError(err instanceof Error ? err.message : "Unable to load commissions.");
       } finally {
         setLoading(false);
       }
@@ -78,6 +81,7 @@ export default function CommissionsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
+      {loadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{loadError} <button type="button" disabled={loading} onClick={() => setRefreshNonce(value => value + 1)} className="underline">Retry</button></p>}
       {/* Header */}
       <div className="pb-4 sm:pb-6 border-b border-editorial-border">
         <div className="flex items-center gap-2">

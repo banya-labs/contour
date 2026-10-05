@@ -27,6 +27,7 @@ function LeasesManagementContent() {
   const [leases, setLeases] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [remindedLeaseId, setRemindedLeaseId] = useState<string | null>(null);
   const [reminderError, setReminderError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,6 +90,7 @@ function LeasesManagementContent() {
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true); setLoadError("");
       try {
         const [leasesRes, propsRes] = await Promise.all([
           fetch("/api/leases"),
@@ -96,6 +98,7 @@ function LeasesManagementContent() {
         ]);
         const leasesData = await leasesRes.json();
         const propsData = await propsRes.json();
+        if (!leasesRes.ok || !leasesData.success || !propsRes.ok || !propsData.success) throw new Error(leasesData.error || propsData.error || "Unable to load leases.");
         if (leasesData.success) {
           setLeases(leasesData.leases);
         }
@@ -109,7 +112,7 @@ function LeasesManagementContent() {
           }
         }
       } catch (err) {
-        console.error("Failed to load leases or properties:", err);
+        setLoadError(err instanceof Error ? err.message : "Unable to load leases.");
       } finally {
         setLoading(false);
       }
@@ -126,6 +129,7 @@ function LeasesManagementContent() {
   }, []);
 
   const handleSendReminder = async (leaseId: string) => {
+    if (remindedLeaseId) return;
     setRemindedLeaseId(leaseId);
     setReminderError("");
     try {
@@ -281,6 +285,7 @@ function LeasesManagementContent() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
+      {loadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{loadError} <button type="button" disabled={loading} onClick={() => setRefreshNonce(value => value + 1)} className="underline">Retry</button></p>}
       {reminderError && (
         <div className="p-2.5 border border-red-300 bg-red-50 text-red-800 text-xs font-geist">{reminderError}</div>
       )}
@@ -436,7 +441,7 @@ function LeasesManagementContent() {
                     {isArrears && (
                       <button
                         onClick={() => handleSendReminder(lease.id)}
-                        disabled={isReminded}
+                        disabled={Boolean(remindedLeaseId)}
                         className={`w-full py-2.5 px-3 text-xs font-heading font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors ${
                           isReminded
                             ? "bg-neutral-100 text-editorial-muted border border-editorial-border cursor-not-allowed"
@@ -444,7 +449,7 @@ function LeasesManagementContent() {
                         }`}
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
-                        <span>{isReminded ? "Queued" : "Queue reminder"}</span>
+                        <PendingButtonContent pending={isReminded} pendingLabel="Queueing reminder…">Queue reminder</PendingButtonContent>
                       </button>
                     )}
                   </div>
@@ -511,7 +516,7 @@ function LeasesManagementContent() {
                           {isArrears && (
                             <button
                               onClick={(event) => { event.stopPropagation(); void handleSendReminder(lease.id); }}
-                              disabled={isReminded}
+                              disabled={Boolean(remindedLeaseId)}
                               className={`px-3 py-1.5 text-xs font-heading font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5 ${
                                 isReminded
                                   ? "bg-neutral-100 text-editorial-muted border border-editorial-border cursor-not-allowed"
@@ -519,7 +524,7 @@ function LeasesManagementContent() {
                               }`}
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
-                              <span>{isReminded ? "Queued" : "Queue reminder"}</span>
+                              <PendingButtonContent pending={isReminded} pendingLabel="Queueing reminder…">Queue reminder</PendingButtonContent>
                             </button>
                           )}
                         </td>

@@ -1,4 +1,6 @@
 "use client";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -41,6 +43,7 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
   }, [inquiryId, page, revision, isOnline]);
 
   const assign = async (match: MatchRow) => {
+    if (busy || loading || !isOnline) return;
     setBusy(match.propertyId);
     setError("");
     try {
@@ -64,7 +67,7 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
         <DialogDescription className="mt-2">Choose a property for {clientName} before moving to {targetLabel}. Available properties are ranked by match percentage, highest first.</DialogDescription>
       </div>
       {!isOnline && <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm">Reconnect to load available properties and assign one. The inquiry has not progressed.</p>}
-      {loading && <p role="status" className="text-sm">Checking available properties…</p>}
+      {loading && <SectionPendingState compact label="Checking available properties…" />}
       {error && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {!loading && !error && isOnline && data?.total === 0 && <div className="border border-editorial-border bg-neutral-50 p-4">
         <p className="font-heading font-bold">No available properties</p>
@@ -77,7 +80,7 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
           {match.reasons.length > 0 && <p className="text-xs">{match.reasons.join(" · ")}</p>}
           {match.unmetPreferences.length > 0 && <p className="text-xs text-amber-800">Preferences unmet: {match.unmetPreferences.join(" · ")}</p>}
           {match.hardFailures.length > 0 && <p className="text-xs text-red-700">Cannot assign: {match.hardFailures.join(" · ")}</p>}
-          <button type="button" disabled={loading || Boolean(error) || busy !== null || match.hardFailures.length > 0} onClick={() => void assign(match)} className="min-h-11 w-full sm:w-auto px-4 py-2 bg-editorial-black text-white text-xs font-heading font-bold uppercase disabled:opacity-50">{busy === match.propertyId ? "Assigning…" : "Assign and continue"}</button>
+          <button type="button" disabled={loading || Boolean(error) || busy !== null || match.hardFailures.length > 0} onClick={() => void assign(match)} className="min-h-11 w-full sm:w-auto px-4 py-2 bg-editorial-black text-white text-xs font-heading font-bold uppercase disabled:opacity-50"><PendingButtonContent pending={busy === match.propertyId} pendingLabel="Assigning…">Assign and continue</PendingButtonContent></button>
         </article>)}</div>
         <div className="flex items-center justify-between gap-3"><button type="button" disabled={page === 1 || loading || busy !== null} onClick={() => setPage(page - 1)} className="min-h-11 border px-3 py-2 text-xs disabled:opacity-50">Previous</button><button type="button" disabled={!data.hasMore || loading || busy !== null} onClick={() => setPage(page + 1)} className="min-h-11 border px-3 py-2 text-xs disabled:opacity-50">Next</button></div>
       </>}

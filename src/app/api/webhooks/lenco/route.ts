@@ -96,19 +96,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, received: true, pendingVerification: true }, { status: 202 });
     }
 
-    let paymentSettled = false;
+    const settledAt = payment.completedAt || new Date();
     await db.$transaction(async (transaction) => {
       const updated = await transaction.payment.updateMany({
         where: { reference, status: { not: "SUCCESS" } },
         data: {
           status: "SUCCESS",
           providerTransactionId: asString(data.transactionId) || asString(data.id),
-          completedAt: new Date(),
+          completedAt: settledAt,
         },
       });
 
       if (updated.count > 0) {
-        paymentSettled = true;
         await transaction.organization.update({
           where: { id: payment.organizationId },
           data: {
@@ -129,24 +128,25 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
+      if (paymentMetadata?.offerReservationId) await commitOrganizationOffer(payment.id, transaction);
+      await recordSettledSubscription({ organizationId: payment.organizationId, paymentId: payment.id, reference, planId: payment.planId, billingCycle: payment.billingCycle as "MONTHLY" | "ANNUAL", amount: Number(payment.amount), currency: payment.currency as "ZMW" | "USD", settledAt }, transaction);
+      // A delivery is complete only when payment, offer and ledger effects commit together.
       await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
     });
-    const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
-    if (paymentSettled && paymentMetadata?.offerReservationId) await commitOrganizationOffer(payment.id);
-    if (paymentSettled) await recordSettledSubscription({ organizationId: payment.organizationId, paymentId: payment.id, reference, planId: payment.planId, billingCycle: payment.billingCycle as "MONTHLY" | "ANNUAL", amount: Number(payment.amount), currency: payment.currency as "ZMW" | "USD", settledAt: new Date() });
   } else if (FAILED_EVENTS.has(event)) {
     await db.$transaction(async (transaction) => {
-      await transaction.payment.updateMany({
+      const failed = await transaction.payment.updateMany({
         where: { reference, status: { not: "SUCCESS" } },
         data: {
           status: "FAILED",
           failureReason: asString(data.reason) || asString(data.message) || "Lenco payment failed",
         },
       });
+      const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
+      if (failed.count && paymentMetadata?.offerReservationId) await releaseOrganizationOffer(payment.id, transaction);
       await transaction.webhookEvent.update({ where: { id: webhookEvent!.id }, data: { processedAt: new Date() } });
     });
-    const paymentMetadata = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata) ? payment.metadata as Record<string, unknown> : null;
-    if (paymentMetadata?.offerReservationId) await releaseOrganizationOffer(payment.id);
   } else {
     await db.webhookEvent.update({ where: { id: webhookEvent.id }, data: { processedAt: new Date() } });
   }

@@ -111,6 +111,7 @@ export function UploadDocumentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploading) return;
     if (!file) {
       setError("Please select a document file to upload");
       return;
@@ -179,7 +180,7 @@ export function UploadDocumentModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && !isUploading && onClose()}>
       <DialogContent className="sm:max-w-[540px] bg-white border-editorial-border text-editorial-black rounded-none shadow-2xl p-6">
         <DialogHeader className="border-b border-editorial-border pb-3">
           <DialogTitle className="flex items-center gap-2 text-base font-heading font-bold uppercase tracking-wider text-editorial-black">

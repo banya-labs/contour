@@ -1,3 +1,4 @@
+import { assertVaultFolderAccess, VaultSecurityError } from "@/lib/storage/vault-security";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import crypto from "crypto";
@@ -30,7 +31,9 @@ const createDocRequestSchema = z.object({
 
 export const GET = createApiHandler({
   requireAuth: true,
-  handler: async (_req, { organizationId }) => {
+  requirePermissions: ["vault.read"],
+  handler: async (_req, ctx) => {
+    const { organizationId } = ctx;
     const orgId = organizationId!;
 
     const requests = await db.documentRequest.findMany({
@@ -52,14 +55,21 @@ export const GET = createApiHandler({
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, requests });
+    const visible = [];
+    for (const request of requests) {
+      try { await assertVaultFolderAccess(ctx, request, "read"); visible.push({ ...request, pinHash: undefined }); }
+      catch (error) { if (!(error instanceof VaultSecurityError)) throw error; }
+    }
+    return NextResponse.json({ success: true, requests: visible });
   },
 });
 
 export const POST = createApiHandler({
   requireAuth: true,
+  requirePermissions: ["vault.upload"],
   bodySchema: createDocRequestSchema,
-  handler: async (_req, { organizationId, userId, body }) => {
+  handler: async (_req, ctx) => {
+    const { organizationId, userId, body } = ctx;
     const orgId = organizationId!;
     const data = body;
 
@@ -73,6 +83,8 @@ export const POST = createApiHandler({
       const property = await db.property.findFirst({ where: { id: linkedPropertyId, organizationId: orgId }, select: { id: true } });
       if (!property) return NextResponse.json({ success: false, error: "Property not found or access denied." }, { status: 404 });
     }
+
+    await assertVaultFolderAccess(ctx, { organizationId: orgId, propertyId: linkedPropertyId }, "upload");
 
     // Generate secure 32-byte cryptographic token
     const token = crypto.randomBytes(24).toString("hex");
@@ -158,7 +170,7 @@ export const POST = createApiHandler({
 
     return NextResponse.json({
       success: true,
-      request: docRequest,
+      request: { ...docRequest, pinHash: undefined },
       shareableUrl,
       whatsappText,
       hasPin: !!data.pin,

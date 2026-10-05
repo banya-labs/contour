@@ -39,6 +39,7 @@ import { CornerMark } from "@/components/ui/corner-mark";
 import { useSession } from "@/lib/auth-client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { PropertyCardSkeleton } from "@/components/ui/skeleton";
+import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { publicPropertyPath } from "@/lib/public-property";
 import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
@@ -48,6 +49,7 @@ function PropertiesCatalogContent() {
   const [properties, setProperties] = useState<any[]>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = usePageUrlState<string>("search", "");
   const debouncedSearch = useDebounce(search, 250);
   const [filterAssigned, setFilterAssigned] = usePageUrlState<"ALL" | "ASSIGNED">("assigned", "ALL", ["ALL", "ASSIGNED"]);
@@ -68,6 +70,7 @@ function PropertiesCatalogContent() {
 
   useEffect(() => {
     async function loadProperties() {
+      setLoading(true); setLoadError("");
       try {
         const [res, agentsRes] = await Promise.all([
           fetch("/api/properties?status=AVAILABLE", { cache: "no-store" }),
@@ -75,6 +78,7 @@ function PropertiesCatalogContent() {
         ]);
         const data = await res.json();
         const agentsData = await agentsRes.json();
+        if (!res.ok || !data.success || !agentsRes.ok || !agentsData.success) throw new Error(data.error || agentsData.error || "Unable to load properties.");
         if (agentsData.success && agentsData.agents) {
           setAgents(agentsData.agents);
         }
@@ -84,7 +88,7 @@ function PropertiesCatalogContent() {
           setCanOverrideCommission(Boolean(data.capabilities?.canOverrideCommission));
         }
       } catch (err) {
-        console.error("Failed to load properties:", err);
+        setLoadError(err instanceof Error ? err.message : "Unable to load properties.");
       } finally {
         setLoading(false);
       }
@@ -158,17 +162,21 @@ function PropertiesCatalogContent() {
   });
 
   const [copiedPropertyId, setCopiedPropertyId] = useState<string | null>(null);
+  const [copyingPropertyLink, setCopyingPropertyLink] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const handleSharePropertyLink = (p: any, e?: React.MouseEvent) => {
+  const handleSharePropertyLink = async (p: any, e?: React.MouseEvent) => {
+    if (copyingPropertyLink) return; setCopyingPropertyLink(true); try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable.");
     if (e) e.stopPropagation();
     const origin = typeof window !== "undefined" ? window.location.origin : "https://contour.banyalabs.com";
     const publicUrl = `${origin}${publicPropertyPath(p.organization?.slug || organizationSlug || "organization", p.slug || p.id)}`;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(publicUrl).catch(() => {});
+      await navigator.clipboard.writeText(publicUrl);
     }
     setCopiedPropertyId(p.id);
     setTimeout(() => setCopiedPropertyId(null), 2500);
+    } catch { setLoadError("Unable to copy property link. Please try again."); } finally { setCopyingPropertyLink(false); }
   };
 
   const handleDeleteProperty = async (property: any, e?: React.MouseEvent) => {
@@ -333,6 +341,7 @@ function PropertiesCatalogContent() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 pb-20 sm:pb-32 space-y-4 sm:space-y-6 w-full h-full overflow-y-auto font-geist antialiased text-editorial-black">
+      {copyingPropertyLink && <SectionPendingState compact label="Copying property link…" />}{loadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{loadError} <button type="button" disabled={loading} onClick={() => setRefreshNonce(value => value + 1)} className="underline">Retry</button></p>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 sm:pb-6 border-b border-editorial-border">
         <div>

@@ -41,6 +41,7 @@ export default function DocumentVaultPage() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [accessLevel, setAccessLevel] = useState<string>("FULL_VAULT");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   // View Mode: Tree vs Grid
   const [viewMode, setViewMode] = useState<"TREE" | "GRID">("TREE");
@@ -66,9 +67,11 @@ export default function DocumentVaultPage() {
 
   const loadVaultData = async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await fetch("/api/vault/documents");
       const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Unable to load vault.");
       if (res.ok && data.success) {
         setDocuments(data.documents || []);
         setProperties(data.properties || []);
@@ -78,7 +81,7 @@ export default function DocumentVaultPage() {
         }
       }
     } catch (err) {
-      console.error("Failed to load vault:", err);
+      setLoadError(err instanceof Error ? err.message : "Unable to load vault.");
     } finally {
       setLoading(false);
     }
@@ -152,6 +155,7 @@ export default function DocumentVaultPage() {
 
   return (
     <div className="w-full h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-32 space-y-6 font-geist antialiased text-editorial-black">
+      {loadError && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{loadError} <button type="button" disabled={loading} onClick={() => void loadVaultData()} className="underline">Retry</button></p>}
       {/* Top Banner: Zambia DPA Compliance Notice */}
       <div className="border-t-2 border-contour-red border-x border-b border-editorial-border bg-white text-editorial-black p-4 rounded-none shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start sm:items-center gap-3">
@@ -236,6 +240,8 @@ export default function DocumentVaultPage() {
           <button
             type="button"
             onClick={loadVaultData}
+            disabled={loading}
+            aria-busy={loading}
             title="Refresh Vault Data"
             className="p-2 text-editorial-muted hover:text-editorial-black hover:bg-[#fff5f3] rounded-none border border-editorial-border transition-colors"
           >

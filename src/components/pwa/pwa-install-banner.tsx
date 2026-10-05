@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { Download, X, Share2, PlusSquare, Monitor, Smartphone } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -11,6 +12,8 @@ interface BeforeInstallPromptEvent extends Event {
 export function PwaInstallBanner() {
   const [isOpen, setIsOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
@@ -37,7 +40,10 @@ export function PwaInstallBanner() {
   }, []);
 
   const handleInstallClick = async () => {
+    if (installing) return;
     if (deferredPrompt) {
+      setInstalling(true);
+      setError(null);
       try {
         await deferredPrompt.prompt();
         const choice = await deferredPrompt.userChoice;
@@ -45,8 +51,10 @@ export function PwaInstallBanner() {
           setIsOpen(false);
         }
         setDeferredPrompt(null);
-      } catch (err) {
-        console.error("Install prompt error:", err);
+      } catch {
+        setError("Unable to open installation. Please try again or use your browser’s install menu.");
+      } finally {
+        setInstalling(false);
       }
     }
   };
@@ -100,10 +108,11 @@ export function PwaInstallBanner() {
               <button
                 type="button"
                 onClick={handleInstallClick}
+                disabled={installing}
+                aria-busy={installing}
                 className="w-full py-2.5 bg-[#FA3600] hover:bg-[#d92f00] text-white text-xs font-heading font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-sm"
               >
-                <Download className="w-4 h-4" />
-                <span>Install Now</span>
+                <PendingButtonContent pending={installing} pendingLabel="Waiting for installation…" icon={<Download className="w-4 h-4" />}>Install Now</PendingButtonContent>
               </button>
             </div>
           ) : isIos ? (
@@ -158,6 +167,7 @@ export function PwaInstallBanner() {
           )}
         </div>
 
+        {error && <p role="alert" className="mb-3 text-xs text-red-700">{error}</p>}
         {/* Footer with simple close button */}
         <div className="pt-3 border-t border-editorial-border flex justify-end">
           <button

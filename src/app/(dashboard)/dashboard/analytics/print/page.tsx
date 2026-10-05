@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download } from "lucide-react";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import html2canvas from "html2canvas";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { getAgencySettings } from "@/lib/settings/agency-settings";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
+import { OperationProgress } from "@/components/ui/operation-progress";
 
 function AnalyticsPrintContent() {
   const searchParams = useSearchParams();
@@ -28,6 +29,9 @@ function AnalyticsPrintContent() {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressText, setProgressText] = useState("");
+  const exportLock = useRef(false);
+  const [exportProgress, setExportProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [exportError, setExportError] = useState("");
 
   useEffect(() => {
     try {
@@ -57,11 +61,16 @@ function AnalyticsPrintContent() {
   }, [preset, fromParam, toParam, retryNonce]);
 
   const handleGeneratePdf = async (action: "download" | "print") => {
-    if (isGenerating || !report?.aiNarrative) return;
+    if (exportLock.current || !report?.aiNarrative) return;
+    exportLock.current = true;
+    setExportError("");
+    const printWindow = action === "print" ? window.open("about:blank", "_blank") : null;
+    if (printWindow) printWindow.document.body.textContent = "Preparing your report PDF…";
     setIsGenerating(true);
     setProgressText("Initializing PDF engine...");
 
     try {
+      if (action === "print" && !printWindow) throw new Error("Allow popups to print this report, or download its PDF.");
       const pageElements = document.querySelectorAll<HTMLElement>(".pdf-page");
       if (!pageElements || pageElements.length === 0) {
         throw new Error("No report pages found.");
@@ -74,6 +83,8 @@ function AnalyticsPrintContent() {
         format: "a4",
         compress: true,
       });
+      setExportProgress({ completed: 0, total: pageElements.length });
+      await document.fonts.ready;
 
       for (let i = 0; i < pageElements.length; i++) {
         setProgressText(`Rendering page ${i + 1} of ${pageElements.length}...`);
@@ -91,6 +102,8 @@ function AnalyticsPrintContent() {
           pdf.addPage("a4", "portrait");
         }
         pdf.addImage(imgData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
+        setExportProgress({ completed: i + 1, total: pageElements.length });
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       }
 
       const cleanOrg = (report.meta.companyName || "Agency").replace(/[^a-zA-Z0-9]/g, "_");
@@ -104,15 +117,17 @@ function AnalyticsPrintContent() {
         setProgressText("Opening PDF document...");
         pdf.autoPrint();
         const blobUrl = pdf.output("bloburl");
-        const printWindow = window.open(blobUrl, "_blank");
         if (printWindow) {
+          printWindow.location.href = String(blobUrl);
           printWindow.focus();
         }
       }
     } catch (err) {
-      console.error("PDF generation failed:", err);
-      alert("Failed to render PDF document. Please try again or use standard browser print.");
+      printWindow?.close();
+      setExportError(err instanceof Error ? err.message : "Unable to render PDF. Please retry.");
     } finally {
+      exportLock.current = false;
+      setExportProgress(null);
       setIsGenerating(false);
       setProgressText("");
     }
@@ -222,6 +237,8 @@ function AnalyticsPrintContent() {
       </div>
 
       {/* 2. Vertically Scrollable Multi-Page Document Viewport */}
+      {isGenerating && <div className="bg-[#1E2023] text-white print:hidden"><OperationProgress label={progressText} completed={exportProgress?.completed} total={exportProgress?.total} /></div>}
+      {exportError && <p role="alert" className="bg-red-50 p-3 text-sm text-red-800 print:hidden">{exportError}</p>}
       <div className="flex-1 w-full overflow-y-auto overflow-x-hidden py-8 print:py-0 px-4 print:px-0 flex flex-col items-center">
         <div
           style={{ zoom: `${zoomLevel}%` }}

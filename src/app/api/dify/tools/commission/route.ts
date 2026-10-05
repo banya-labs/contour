@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { authenticateDifyRequest } from "@/lib/dify-auth";
+import { summarizeMachineCommission } from "@/lib/machine-permissions";
+import { authenticateDifyRequest, checkDirectMachineIpLimit } from "@/lib/dify-auth";
 import { commissionToolSchema } from "@/lib/ai-tool-schemas";
 import { getOrCreateCorrelationId } from "@/lib/correlation";
 
@@ -12,6 +13,8 @@ import { getOrCreateCorrelationId } from "@/lib/correlation";
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateError = await checkDirectMachineIpLimit(req);
+    if (rateError) return rateError;
     const body = await req.json().catch(() => ({}));
     const parsed = commissionToolSchema.safeParse(body);
     if (!parsed.success) {
@@ -24,52 +27,14 @@ export async function POST(req: NextRequest) {
 
     const tenantOrgId = context!.organizationId;
 
-    const transactions = await db.transaction.findMany({
-        where: { organizationId: tenantOrgId },
-        include: {
-          property: { select: { title: true, suburb: true } },
-          closingAgent: { select: { name: true } },
-        },
-      });
+    const transactions = await db.transaction.groupBy({
+      by: ["currency", "status"],
+      where: { organizationId: tenantOrgId },
+      _sum: { grossValue: true, agencyCommissionAmount: true, agentSplitAmount: true },
+      _count: { _all: true },
+    });
 
-      let totalGrossZmw = 0;
-      let totalGrossUsd = 0;
-      let earnedAgencyCommissionZmw = 0;
-      let earnedAgencyCommissionUsd = 0;
-      let agentSplitsPaidZmw = 0;
-      let agentSplitsPaidUsd = 0;
-      let pipelineExpectedZmw = 0;
-
-      for (const tx of transactions) {
-        const gross = Number(tx.grossValue || 0);
-        const comm = Number(tx.agencyCommissionAmount || 0);
-        const split = Number(tx.agentSplitAmount || 0);
-
-        if (tx.currency === "USD") {
-          if (["EARNED", "RECEIVED", "AGENT_PAID_OUT"].includes(tx.status)) {
-            totalGrossUsd += gross;
-            earnedAgencyCommissionUsd += comm;
-            agentSplitsPaidUsd += split;
-          }
-        } else {
-          if (["EARNED", "RECEIVED", "AGENT_PAID_OUT"].includes(tx.status)) {
-            totalGrossZmw += gross;
-            earnedAgencyCommissionZmw += comm;
-            agentSplitsPaidZmw += split;
-          } else if (tx.status === "EXPECTED") {
-            pipelineExpectedZmw += comm;
-          }
-        }
-      }
-
-    const metrics = {
-        totalGrossVolume: `$ ${totalGrossUsd.toLocaleString()} + K ${totalGrossZmw.toLocaleString()}`,
-        earnedAgencyCommission: `$ ${earnedAgencyCommissionUsd.toLocaleString()} + K ${earnedAgencyCommissionZmw.toLocaleString()}`,
-        agentSplitsPaid: `$ ${agentSplitsPaidUsd.toLocaleString()} + K ${agentSplitsPaidZmw.toLocaleString()}`,
-        pipelineExpectedCommission: `K ${pipelineExpectedZmw.toLocaleString()}`,
-        closedDealsCount: transactions.filter((t: any) => t.status !== "EXPECTED").length,
-        pipelineDealsCount: transactions.filter((t: any) => t.status === "EXPECTED").length,
-      };
+    const metrics = summarizeMachineCommission(transactions);
 
     return NextResponse.json({
       success: true,
@@ -78,7 +43,7 @@ export async function POST(req: NextRequest) {
       closingAgentSplitRate: "50% of Agency Fee",
       metrics,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const correlationId = getOrCreateCorrelationId(req);
     console.error("Dify Commission Tool Error:", { correlationId, error });
     return NextResponse.json(

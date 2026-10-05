@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
-import { s3Storage } from "@/lib/storage/s3";
+import { assertVaultAccess } from "@/lib/storage/vault-security";
 
 export const GET = createApiHandler({
   requireAuth: true,
   requirePermissions: ["vault.read"],
-  handler: async (_req, { params, organizationId, userId }) => {
+  handler: async (_req, ctx) => {
+    const { params, organizationId, userId } = ctx;
     const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };
 
@@ -43,6 +44,8 @@ export const GET = createApiHandler({
       return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 });
     }
 
+    await assertVaultAccess(ctx, doc, "read");
+
     // Look up uploader user if available
     let uploaderUser: { name: string; email: string; role?: string } | null = null;
     if (doc.uploadedById) {
@@ -73,15 +76,6 @@ export const GET = createApiHandler({
 
     // Use authenticated preview stream endpoint for robust, CORS-free image and PDF previews
     const previewUrl: string = `/api/vault/documents/${doc.id}/preview`;
-    let presignedS3Url: string | null = null;
-    if (s3Storage.isConfigured() && !doc.objectKey.startsWith("local:")) {
-      try {
-        presignedS3Url = await s3Storage.getPresignedDownloadUrl(doc.objectKey, 900);
-      } catch (err: any) {
-        console.warn("[Vault] S3 presign notice:", err?.message);
-      }
-    }
-
     // Record audit log
     try {
       await db.auditLog.create({
@@ -118,7 +112,8 @@ export const GET = createApiHandler({
 export const DELETE = createApiHandler({
   requireAuth: true,
   requirePermissions: ["vault.delete"],
-  handler: async (_req, { params, organizationId, userId }) => {
+  handler: async (_req, ctx) => {
+    const { params, organizationId, userId } = ctx;
     const orgId = organizationId!;
     const { id } = (params || {}) as { id: string };
 
@@ -138,6 +133,8 @@ export const DELETE = createApiHandler({
     if (!doc) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
+
+    await assertVaultAccess(ctx, doc, "delete");
 
     // Guardrail: Cannot delete from archived property
     if (doc.property?.status === "ARCHIVED") {

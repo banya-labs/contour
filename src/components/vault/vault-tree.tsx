@@ -163,6 +163,7 @@ export function VaultTree({
 
   // Handle Download (Presigned URL)
   const handleDownload = async (docId: string, title: string) => {
+    if (downloadingId || deletingId || verifyingId) return;
     setDownloadingId(docId);
     setErrorMsg(null);
     try {
@@ -188,6 +189,7 @@ export function VaultTree({
 
   // Handle Soft-Delete
   const handleDelete = async (docId: string, propertyStatus?: string) => {
+    if (downloadingId || deletingId || verifyingId) return;
     if (propertyStatus === "ARCHIVED") {
       setErrorMsg("This property is archived. Documents cannot be deleted from a locked vault.");
       return;
@@ -217,6 +219,7 @@ export function VaultTree({
 
   // Handle Lands Verification
   const handleVerify = async (docId: string) => {
+    if (downloadingId || deletingId || verifyingId) return;
     setVerifyingId(docId);
     setErrorMsg(null);
     try {
@@ -299,7 +302,7 @@ export function VaultTree({
                         <button
                           type="button"
                           onClick={() => handleDownload(doc.id, doc.title)}
-                          disabled={downloadingId === doc.id}
+                          disabled={!!downloadingId || !!deletingId || !!verifyingId}
                           title="Download 15-min Presigned URL"
                           className="p-1 hover:bg-[#fff5f3] text-editorial-muted hover:text-editorial-black rounded-none transition-colors border border-transparent hover:border-editorial-border"
                         >
@@ -312,7 +315,7 @@ export function VaultTree({
                         <button
                           type="button"
                           onClick={() => handleDelete(doc.id)}
-                          disabled={deletingId === doc.id}
+                          disabled={!!downloadingId || !!deletingId || !!verifyingId}
                           title="Soft-delete document"
                           className="p-1 hover:bg-red-50 text-editorial-muted hover:text-contour-red rounded-none transition-colors border border-transparent hover:border-red-200"
                         >
@@ -561,7 +564,7 @@ export function VaultTree({
             <button
               type="button"
               onClick={() => handleDownload(doc.id, doc.title)}
-              disabled={downloadingId === doc.id}
+              disabled={!!downloadingId || !!deletingId || !!verifyingId}
               title="Download 15-min Presigned URL"
               className="p-1 hover:bg-[#fff5f3] text-editorial-muted hover:text-editorial-black rounded-none transition-colors border border-transparent hover:border-editorial-border"
             >
@@ -577,7 +580,7 @@ export function VaultTree({
               <button
                 type="button"
                 onClick={() => handleVerify(doc.id)}
-                disabled={verifyingId === doc.id}
+                disabled={!!downloadingId || !!deletingId || !!verifyingId}
                 title="Mark Verified (Lands Registry confirmed)"
                 className="p-1 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-800 rounded-none transition-colors border border-transparent hover:border-emerald-300"
               >
@@ -594,7 +597,7 @@ export function VaultTree({
               <button
                 type="button"
                 onClick={() => handleDelete(doc.id, propertyStatus)}
-                disabled={deletingId === doc.id}
+                disabled={!!downloadingId || !!deletingId || !!verifyingId}
                 title="Soft-delete document"
                 className="p-1 hover:bg-red-50 text-editorial-muted hover:text-contour-red rounded-none transition-colors border border-transparent hover:border-red-200"
               >

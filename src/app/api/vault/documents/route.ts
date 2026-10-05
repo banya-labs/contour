@@ -1,3 +1,4 @@
+import { assertVaultAccess, verifiedVaultMetadata, VaultSecurityError } from "@/lib/storage/vault-security";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -16,7 +17,8 @@ import { scorePropertyForInquiry } from "@/lib/matching/score";
 export const GET = createApiHandler({
   requireAuth: true,
   requirePermissions: ["vault.read"],
-  handler: async (_req, { organizationId, userId, contourRole }) => {
+  handler: async (_req, ctx) => {
+    const { organizationId, userId, contourRole } = ctx;
     const orgId = organizationId!;
 
     // 1. Determine user access grant
@@ -98,9 +100,14 @@ export const GET = createApiHandler({
       orderBy: { createdAt: "desc" },
     });
 
+    const visibleDocuments = [];
+    for (const document of documents) {
+      try { await assertVaultAccess(ctx, document, "read"); visibleDocuments.push(document); }
+      catch (error) { if (!(error instanceof VaultSecurityError)) throw error; }
+    }
     // 4. Fetch all active and archived properties for tree & grid visualization
     const properties = await db.property.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, ...(accessLevel === "ASSIGNED_ONLY" ? { assignedAgentId: userId } : accessLevel === "SPECIFIC_FOLDERS" ? { id: { in: whitelistedPropertyIds } } : {}) },
       select: {
         id: true,
         title: true,
@@ -127,7 +134,7 @@ export const GET = createApiHandler({
       orderBy: { createdAt: "desc" },
     });
 
-    const inquiries = await db.inquiry.findMany({ where: { organizationId: orgId, propertyId: null, status: { notIn: [...TERMINAL_INQUIRY_STATUSES] } }, select: inquirySelect });
+    const inquiries = await db.inquiry.findMany({ where: { ...inquiryVisibility(matchingScope(ctx)), propertyId: null, status: { notIn: [...TERMINAL_INQUIRY_STATUSES] } }, select: inquirySelect });
     const profiles = inquiries.map((inquiry) => ({ inquiry, profile: buildInquiryMatchingProfile(inquiry) }));
     const propertiesWithMatches = properties.map((property) => {
       const candidate = buildPropertyMatchingCandidate(property);
@@ -176,7 +183,7 @@ export const GET = createApiHandler({
     return NextResponse.json({
       success: true,
       accessLevel,
-      documents,
+      documents: visibleDocuments,
       properties: propertiesWithMatches,
       members,
     });
@@ -217,14 +224,18 @@ export const POST = createApiHandler({
   requireAuth: true,
   requirePermissions: ["vault.upload"],
   bodySchema: createVaultDocSchema,
-  handler: async (_req, { organizationId, userId, body, session }) => {
+  handler: async (_req, ctx) => {
+    const { organizationId, userId, body, session } = ctx;
     const orgId = organizationId!;
     const data = body;
+
+    await assertVaultAccess(ctx, { organizationId: orgId, propertyId: data.propertyId || null, objectKey: data.objectKey }, "upload");
+    const metadata = await verifiedVaultMetadata(orgId, data.objectKey);
 
     // Guardrail: Check if property is ARCHIVED
     if (data.propertyId) {
       const property = await db.property.findUnique({
-        where: { id: data.propertyId },
+        where: { id: data.propertyId, organizationId: orgId },
         select: { id: true, title: true, status: true },
       });
 
@@ -243,7 +254,7 @@ export const POST = createApiHandler({
       }
     }
 
-    const uploaderName = data.uploadedBy || session?.user?.name || "Field Agent";
+    const uploaderName = session?.user?.name || userId!;
 
     const doc = await db.vaultDocument.create({
       data: {
@@ -254,8 +265,8 @@ export const POST = createApiHandler({
         classification: data.classification,
         objectKey: data.objectKey,
         originalFileName: data.originalFileName,
-        fileSize: data.fileSize,
-        mimeType: data.mimeType,
+        fileSize: metadata.fileSize,
+        mimeType: metadata.mimeType,
         fileType: data.fileType,
         registryFolio: data.registryFolio || null,
         standPlotNumber: data.standPlotNumber || null,
@@ -264,7 +275,7 @@ export const POST = createApiHandler({
         uploadedBy: uploaderName,
         uploadedByType: "STAFF",
         uploadedById: userId,
-        isVerified: data.docType === "TITLE_DEED" ? false : true,
+        isVerified: false,
       },
       include: {
         property: { select: { id: true, title: true, suburb: true, status: true } },

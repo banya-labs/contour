@@ -113,3 +113,7 @@ because that migration still needs to create the billing and webhook tables.
 Lenco does not issue a separate webhook secret. It derives the signing key from
 `LENCO_API_KEY` using SHA-256, then signs the raw webhook body with HMAC-SHA512.
 Keep `LENCO_API_KEY` private and configure the webhook URL through Lenco.
+
+## Production assessment
+
+See [the 5 October 2026 production assessment](docs/PRODUCTION_AUDIT_2026-10-05.md) for verified fixes, the 13-layer review and outstanding readiness checks. Publication of audit fixes does not imply an unconditional production-readiness pass.

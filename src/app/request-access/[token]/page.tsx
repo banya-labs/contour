@@ -19,13 +19,19 @@ export default function RequestAccessPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setError(null);
+    setOrganization(null);
     void fetch(`/api/access-requests/${token}`)
       .then((r) => r.json())
-      .then((data) => (data.success ? setOrganization(data.organization) : setError(data.error)));
-  }, [token]);
+      .then((data) => { if (!cancelled) { if (data.success) setOrganization(data.organization); else setError(data.error || "Unable to load access link."); } })
+      .catch(() => { if (!cancelled) setError("Unable to load access link. Check your connection and retry."); });
+    return () => { cancelled = true; };
+  }, [token, reload]);
 
   useEffect(() => {
     if (session?.user) setEmail(session.user.email);
@@ -33,9 +39,11 @@ export default function RequestAccessPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (submitting) return;
     setError(null);
     setMessage(null);
     setSubmitting(true);
+    try {
     if (!session) {
       const result = await authClient.signUp.email({
         name: `${firstName.trim()} ${lastName.trim()}`,
@@ -61,13 +69,16 @@ export default function RequestAccessPage() {
       return;
     }
     setMessage("Request submitted. An administrator will review your access.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to submit your request. Please try again.");
+    } finally { setSubmitting(false); }
   }
 
   if (sessionPending || !organization) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-white px-6">
         {error ? (
-          <p role="alert" className="text-sm text-red-700">{error}</p>
+          <div role="alert" className="text-sm text-red-700">{error}<button type="button" onClick={() => setReload((value) => value + 1)} className="ml-3 underline">Retry</button></div>
         ) : (
           <SectionPendingState
             label="Checking access link…"

@@ -27,6 +27,7 @@ import { isManagementRole } from "@/lib/authorization";
 import { UnassignedMatchPanel } from "@/components/matching/unassigned-match-panel";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";
 import { ClosingWorkflowPanel } from "@/components/closing/closing-workflow-panel";
+import { PendingButtonContent } from "@/components/ui/pending-button-content";
 
 export default function DashboardOverviewPage() {
   const { data: session } = authClient.useSession();
@@ -70,6 +71,7 @@ export default function DashboardOverviewPage() {
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true);
       setActionQueueError("");
       try {
         const [metricsRes, salesRes, leasesRes, actionQueueRes] = await Promise.all([
@@ -613,7 +615,7 @@ export default function DashboardOverviewPage() {
                   </div>
 
                   <button
-                      disabled={queueActionPendingId === item.id}
+                      disabled={Boolean(queueActionPendingId)}
                       onClick={() => {
                         if (item.tag === "MANAGEMENT") {
                           const inquiry = managementHandoverInquiries.find((candidate) => `handover_${candidate.id}` === item.id);
@@ -682,7 +684,7 @@ export default function DashboardOverviewPage() {
                       }}
                       className="px-3 py-1.5 border border-editorial-border hover:border-editorial-black bg-white hover:bg-neutral-50 text-editorial-black font-heading font-semibold text-xs uppercase tracking-wider shrink-0 transition-colors shadow-none disabled:opacity-50"
                     >
-                      {queueActionPendingId === item.id ? "Saving…" : item.actionLabel}
+                      <PendingButtonContent pending={queueActionPendingId === item.id} pendingLabel="Saving…">{item.actionLabel}</PendingButtonContent>
                   </button>
                 </div>
               );
