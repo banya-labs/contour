@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -74,6 +74,9 @@ import { MatchPreview } from "@/components/matching/match-preview";
 import { PropertyInquiryMatchView } from "@/components/matching/property-inquiry-match-view";
 import { AssignPropertyDialog } from "@/components/matching/assign-property-dialog";
 import type { MatchRow } from "@/lib/matching/client-types";
+import { ContactEditorDialog } from "@/components/contacts/contact-editor-dialog";
+import { contactSchema } from "@/lib/validations/contact";
+import { InquiryLocationField } from "@/components/inquiries/inquiry-location-field";
 import { buildInquiryCapturePayload } from "@/lib/crm/inquiry-capture";
 import { fetchAllPages } from "@/lib/fetch-pages";
 import { clearMatchCache } from "@/lib/matching/result-cache";
@@ -107,7 +110,7 @@ export default function FieldAgentPwaPage() {
 
 type TabType = "QUEUE" | "PROPERTIES" | "MAP" | "CLIENTS" | "DEALS" | "EARNINGS";
 type ClientSubTab = "INQUIRIES" | "CONTACTS";
-type AgentContact = { id: string; name: string; phone: string; email?: string | null; _count?: { inquiries: number } };
+type AgentContact = { id: string; name: string; phone: string; email?: string | null; notes?: string | null; _count?: { inquiries: number } };
 type EarningsPeriod = "today" | "week" | "month" | "all";
 type IntakeType = "NONE" | "PROPERTY" | "CLIENT" | "OFFER";
 
@@ -144,7 +147,8 @@ function AgentKioskContent() {
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", notes: "" });
   const [contactSaveError, setContactSaveError] = useState("");
   const [contactSaving, setContactSaving] = useState(false);
-  const [returnToInquiry, setReturnToInquiry] = useState(false);
+  const [contactReturnTo, setContactReturnTo] = useState<IntakeType>("NONE");
+  const contactSaveInFlight = useRef(false);
   const [contactsError, setContactsError] = useState("");
   const [selectedContact, setSelectedContact] = useState<any | null>(null);
   const [contactDetailLoading, setContactDetailLoading] = useState(false);
@@ -365,7 +369,6 @@ function AgentKioskContent() {
   const [editClientBudget, setEditClientBudget] = useState("");
   const [editClientCurrency, setEditClientCurrency] = useState<"ZMW" | "USD">("ZMW");
   const [editClientSuburb, setEditClientSuburb] = useState("Kabulonga");
-  const [isCustomEditSuburb, setIsCustomEditSuburb] = useState(false);
   const [editClientNotes, setEditClientNotes] = useState("");
   const [editClientAssignedAgentId, setEditClientAssignedAgentId] = useState("");
   const [isSavingClientEdit, setIsSavingClientEdit] = useState(false);
@@ -380,9 +383,8 @@ function AgentKioskContent() {
     const numBudget = typeof rawBudget === "string" ? rawBudget.replace(/[^0-9.]/g, "") : String(rawBudget || "");
     setEditClientBudget(numBudget);
     setEditClientCurrency((client.currency as "ZMW" | "USD") || "ZMW");
-    const sub = client.preferredArea || (client.preferredSuburbs && client.preferredSuburbs[0]) || "Kabulonga";
+    const sub = client.preferredSuburbs?.join(", ") || client.preferredArea || "";
     setEditClientSuburb(sub);
-    setIsCustomEditSuburb(!dynamicSuburbs.includes(sub));
     setEditClientNotes(client.notes || "");
     setEditClientError(null);
   };
@@ -409,7 +411,7 @@ function AgentKioskContent() {
         clientPhone: normalizedPhone,
         budgetMax: parsedBudget,
         currency: editClientCurrency,
-        preferredSuburbs: editClientSuburb ? [editClientSuburb] : [],
+        preferredSuburbs: editClientSuburb.split(",").map((area) => area.trim()).filter(Boolean),
         notes: editClientNotes || undefined,
         assignedAgentId: editClientAssignedAgentId ? editClientAssignedAgentId : undefined,
       };
@@ -501,34 +503,52 @@ function AgentKioskContent() {
   }, [earningsPeriod, session, syncData, agentRefreshNonce]);
 
   useEffect(() => {
-    if ((activeTab !== "CLIENTS" || clientSubTab !== "CONTACTS") && intakeDrawer !== "CLIENT") return;
+    if (contactEditorOpen || ((activeTab !== "CLIENTS" || clientSubTab !== "CONTACTS") && intakeDrawer !== "CLIENT" && intakeDrawer !== "OFFER")) return;
+    let cancelled = false;
     setContactsLoading(true);
     setContactsError("");
-    void fetchAllPages<AgentContact>(`/api/agent/contacts?search=${encodeURIComponent(contactSearch)}`, "contacts")
-      .then(setContacts)
-      .catch((error) => { setContactsError(error.message || "Unable to load contacts"); setContacts([]); })
-      .finally(() => setContactsLoading(false));
-  }, [activeTab, clientSubTab, contactSearch, intakeDrawer]);
+    const search = intakeDrawer === "CLIENT" || intakeDrawer === "OFFER" ? "" : contactSearch;
+    void fetchAllPages<AgentContact>(`/api/agent/contacts?search=${encodeURIComponent(search)}`, "contacts")
+      .then((records) => { if (!cancelled) setContacts(records); })
+      .catch((error) => { if (!cancelled) setContactsError(error.message || "Unable to load contacts"); })
+      .finally(() => { if (!cancelled) setContactsLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeTab, clientSubTab, contactSearch, intakeDrawer, contactEditorOpen]);
 
-  const openContactEditor = (contact?: AgentContact) => {
+  const openContactEditor = (contact?: AgentContact, returnTo: IntakeType = "NONE") => {
+    setContactReturnTo(returnTo);
+    if (returnTo !== "NONE") setIntakeDrawer("NONE");
     setEditingContact(contact || null);
-    setContactForm({ name: contact?.name || "", phone: contact?.phone || "", email: contact?.email || "", notes: "" });
+    setContactForm({ name: contact?.name || "", phone: contact?.phone || "", email: contact?.email || "", notes: contact?.notes || "" });
     setContactSaveError("");
     setContactEditorOpen(true);
   };
 
+  const closeContactEditor = () => {
+    if (contactSaveInFlight.current) return;
+    setContactEditorOpen(false);
+    if (contactReturnTo !== "NONE") setIntakeDrawer(contactReturnTo);
+    setContactReturnTo("NONE");
+  };
+
   const saveContact = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (contactSaveInFlight.current) return;
+    const validated = contactSchema.safeParse(contactForm);
+    if (!validated.success) { setContactSaveError(validated.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")); return; }
+    contactSaveInFlight.current = true;
     setContactSaving(true);
     setContactSaveError("");
     try {
-      const response = await fetch(editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts", { method: editingContact ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(contactForm) });
+      const response = await fetch(editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts", { method: editingContact ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(validated.data) });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to save contact.");
+      if (!response.ok || !data.success || !data.contact?.id) throw new Error(data.error || "Unable to save contact.");
       setContactEditorOpen(false);
-      if (returnToInquiry) { setSelectedInquiryContactId(data.contact.id); setNewClientName(data.contact.name); setNewClientPhone(data.contact.phone); setClientSubTab("INQUIRIES"); setIntakeDrawer("CLIENT"); setReturnToInquiry(false); }
-      setContacts((current) => editingContact ? current.map((contact) => contact.id === editingContact.id ? { ...contact, ...data.contact } : contact) : [data.contact, ...current]);
-    } catch (error) { setContactSaveError(error instanceof Error ? error.message : "Unable to save contact."); } finally { setContactSaving(false); }
+      if (contactReturnTo === "CLIENT") { setSelectedInquiryContactId(data.contact.id); setNewClientName(data.contact.name); setNewClientPhone(data.contact.phone); setIntakeDrawer("CLIENT"); }
+      if (contactReturnTo === "OFFER") { setOfferContactId(data.contact.id); setOfferClientMode("NEW"); setIntakeDrawer("OFFER"); }
+      setContactReturnTo("NONE");
+      setContacts((current) => [data.contact, ...current.filter((contact) => contact.id !== data.contact.id)]);
+    } catch (error) { setContactSaveError(error instanceof Error ? error.message : "Unable to save contact."); } finally { contactSaveInFlight.current = false; setContactSaving(false); }
   };
 
   const openContactDetail = async (contact: AgentContact) => {
@@ -636,7 +656,9 @@ function AgentKioskContent() {
   const [newClientPhone, setNewClientPhone] = useState("");
   const [newClientBudget, setNewClientBudget] = useState("");
   const [newClientCurrency, setNewClientCurrency] = useState<"ZMW" | "USD">("ZMW");
-  const [newClientSuburb, setNewClientSuburb] = useState("Kabulonga");
+  const [newClientSuburb, setNewClientSuburb] = useState("");
+  const [newClientLeadSource, setNewClientLeadSource] = useState<import("@prisma/client").LeadSource>("WALK_IN");
+  const [offerContactId, setOfferContactId] = useState("");
   const [newClientLookingFor, setNewClientLookingFor] = useState<"FOR_SALE" | "FOR_RENT">("FOR_SALE");
   const [newClientPropertyType, setNewClientPropertyType] = useState("");
   const [newClientMinBeds, setNewClientMinBeds] = useState("");
@@ -653,8 +675,6 @@ function AgentKioskContent() {
   const [offerPropertyId, setOfferPropertyId] = useState("");
   const [offerClientMode, setOfferClientMode] = useState<"EXISTING" | "NEW">("EXISTING");
   const [selectedExistingClientId, setSelectedExistingClientId] = useState("");
-  const [offerClientName, setOfferClientName] = useState("");
-  const [offerClientPhone, setOfferClientPhone] = useState("");
   const [offerAmount, setOfferAmount] = useState("");
 
   // Dynamic Suburbs List derived directly from loaded properties
@@ -996,19 +1016,7 @@ function AgentKioskContent() {
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInquiryContactId) { setCaptureError("Select a contact before creating an inquiry."); return; }
-    if (newClientName.trim().length < 2) {
-      setCaptureError("Enter the client or company name.");
-      return;
-    }
-    const normalizedClientPhone = normalizePhoneNumber(newClientPhone.trim());
-    if (!normalizedClientPhone || normalizedClientPhone.length < 10) {
-      setCaptureError("Enter a valid WhatsApp phone number (e.g. 097... or +260...).");
-      return;
-    }
-    if (newClientBudget && Number(newClientBudget) < 0) {
-      setCaptureError("Budget cannot be negative.");
-      return;
-    }
+    if (!newClientRequestNotes.trim()) { setCaptureError("Property requirements are required."); return; }
 
     let attachedOfferProperty: any = null;
     let offerVal = 0;
@@ -1036,34 +1044,20 @@ function AgentKioskContent() {
       return;
     }
 
-    const enrichedNotes = [
-      newClientRequestNotes ? newClientRequestNotes.trim() : "",
-      newClientPropertyType ? `Type: ${propertyTypeLabel(newClientPropertyType)}` : "",
-      newClientMinBeds ? `Min ${newClientMinBeds} beds` : "",
-      newClientAttachOffer && attachedOfferProperty ? `[Immediate Offer] ${clientCurrency} ${offerVal.toLocaleString()} for ${attachedOfferProperty.title} (${attachedOfferProperty.suburb})` : "",
-    ].filter(Boolean).join(" | ");
-
-    const payload: any = {
-      idempotencyKey: newInquiryKey,
-      creationSurface: "PWA" as const,
-      clientName: newClientName.trim(),
-      clientPhone: normalizedClientPhone,
-      budgetMax: finalBudget,
-      currency: clientCurrency,
-      preferredSuburbs: attachedOfferProperty?.suburb ? [attachedOfferProperty.suburb] : (newClientSuburb ? [newClientSuburb] : []),
-      assignedAgentId: session?.user?.id || undefined,
-      lookingFor: attachedOfferProperty ? (attachedOfferProperty.listingType || "FOR_SALE") : newClientLookingFor,
-      propertyType: newClientPropertyType ? newClientPropertyType : undefined,
-      notes: enrichedNotes || undefined,
-      status: "NEW_INQUIRY",
-      propertyId: newClientAttachOffer && attachedOfferProperty ? attachedOfferProperty.id : undefined,
-      dealValue: newClientAttachOffer && offerVal > 0 ? offerVal : undefined,
-      exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      contactId: selectedInquiryContactId || undefined,
-    };
-
+    const enrichedNotes = newClientRequestNotes.trim();
+    let payload;
     try {
-      Object.assign(payload, buildInquiryCapturePayload({ lookingFor: newClientLookingFor as ListingType, propertyType: newClientPropertyType as PropertyType, currency: newClientCurrency, budgetMin: newClientBudgetMin, budgetMax: newClientBudget, bedroomsMin: newClientMinBeds, bathroomsMin: newClientMinBaths, areaMinSqm: newClientMinArea, preferredSuburbs: newClientSuburb ? [newClientSuburb] : [], notes: enrichedNotes, idempotencyKey: newInquiryKey, assignedAgentId: session?.user.id, matchingProfile: { strictRequirements: newClientStrict } }, contacts.find((contact) => contact.id === selectedInquiryContactId) || null));
+      payload = buildInquiryCapturePayload({
+        lookingFor: (attachedOfferProperty?.listingType || newClientLookingFor) as ListingType,
+        propertyType: newClientPropertyType as PropertyType,
+        currency: clientCurrency,
+        budgetMin: newClientBudgetMin, budgetMax: finalBudget?.toString(),
+        bedroomsMin: newClientMinBeds, bathroomsMin: newClientMinBaths, areaMinSqm: newClientMinArea,
+        preferredSuburbs: newClientSuburb.split(",").map((area) => area.trim()).filter(Boolean),
+        notes: enrichedNotes, leadSource: newClientLeadSource, idempotencyKey: newInquiryKey,
+        assignedAgentId: session?.user.id, matchingProfile: { strictRequirements: newClientStrict },
+        propertyId: attachedOfferProperty?.id, dealValue: attachedOfferProperty ? offerVal : undefined,
+      }, contacts.find((contact) => contact.id === selectedInquiryContactId) || null);
     } catch (error) { setCaptureError(error instanceof Error ? error.message : "Check the inquiry requirements."); return; }
 
     setPendingCapture("CLIENT");
@@ -1077,6 +1071,8 @@ function AgentKioskContent() {
     setNewClientPhone("");
     setNewClientBudget("");
     setNewClientRequestNotes("");
+    setNewClientSuburb("");
+    setNewClientLeadSource("WALK_IN");
     setNewClientPropertyType("");
     setNewClientMinBeds("");
     setNewClientMinBaths(""); setNewClientMinArea(""); setNewClientBudgetMin(""); setNewClientStrict({}); setNewInquiryKey(`pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -1100,31 +1096,11 @@ function AgentKioskContent() {
       return;
     }
 
-    let resolvedClientName = "";
-    let resolvedClientPhone = "";
-
-    if (offerClientMode === "EXISTING") {
-      const existingClient = (clients || []).find(
-        (c: any) => c.id === selectedExistingClientId || c.name === offerClientName
-      );
-      if (!existingClient && !offerClientName.trim()) {
-        setCaptureError("Select a registered client or switch to add a new client.");
-        return;
-      }
-      resolvedClientName = existingClient ? existingClient.name : offerClientName.trim();
-      resolvedClientPhone = existingClient ? existingClient.phone : "+260 97 000 0000";
-    } else {
-      if (offerClientName.trim().length < 2) {
-        setCaptureError("Enter the buyer or client name.");
-        return;
-      }
-      if (!offerClientPhone.trim() || normalizePhoneNumber(offerClientPhone.trim()).length < 10) {
-        setCaptureError("Enter a valid WhatsApp phone number for the client (e.g. 097... or +260...).");
-        return;
-      }
-      resolvedClientName = offerClientName.trim();
-      resolvedClientPhone = normalizePhoneNumber(offerClientPhone.trim());
-    }
+    const existingInquiry = offerClientMode === "EXISTING" ? (clients || []).find((inquiry) => inquiry.id === selectedExistingClientId) : undefined;
+    const contact = offerClientMode === "EXISTING"
+      ? existingInquiry?.contactId ? { id: existingInquiry.contactId, name: existingInquiry.clientName || existingInquiry.name, phone: existingInquiry.clientPhone || existingInquiry.phone, email: existingInquiry.clientEmail } : null
+      : contacts.find((candidate) => candidate.id === offerContactId) || null;
+    if (!contact) { setCaptureError("Select a contact or an existing contact-linked inquiry before adding a deal."); return; }
 
     const amount = Number(offerAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -1135,36 +1111,19 @@ function AgentKioskContent() {
 
     const offerCurrency = selectedOfferProperty.currency || "ZMW";
 
-    const newDeal = {
-      id: `deal_${Date.now()}`,
-      propertyTitle: selectedOfferProperty.title,
-      suburb: selectedOfferProperty.suburb || "Lusaka",
-      clientName: resolvedClientName,
-      value: `${offerCurrency === "USD" ? "$" : "K"} ${amount.toLocaleString()}`,
-      stage: "OFFER_MADE",
-      stageLabel: "Formal Offer Submitted",
-      agentSplitEst: `${offerCurrency === "USD" ? "$" : "K"} ${(amount * 0.025).toLocaleString()} (50% Split)`,
-      lockDaysRemaining: 30,
-      updatedAt: "Just now",
-    };
-
-    setAgentDeals((prev) => [newDeal, ...prev]);
-
-    const payload: any = {
-      idempotencyKey: `pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      clientName: resolvedClientName,
-      clientPhone: normalizePhoneNumber(resolvedClientPhone),
-      budgetMax: amount,
-      dealValue: amount,
-      currency: offerCurrency,
-      preferredSuburbs: [selectedOfferProperty.suburb || "Lusaka"],
-      assignedAgentId: session?.user?.id || undefined,
-      propertyId: selectedOfferProperty.id,
-       status: "NEW_INQUIRY",
-      lookingFor: selectedOfferProperty.listingType || "FOR_SALE",
-      notes: `[Lodge Offer Intake] Formal offer of ${offerCurrency} ${amount.toLocaleString()} submitted by ${session?.user?.name || currentAgent.name}`,
-      exclusiveLockExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    };
+    let payload;
+    try {
+      payload = buildInquiryCapturePayload({
+        idempotencyKey: newInquiryKey, existingInquiryId: existingInquiry?.id,
+        propertyId: selectedOfferProperty.id, propertyType: selectedOfferProperty.propertyType,
+        lookingFor: selectedOfferProperty.listingType || "FOR_SALE",
+        currency: offerCurrency, budgetMax: amount.toString(), dealValue: amount,
+        preferredSuburbs: selectedOfferProperty.suburb ? [selectedOfferProperty.suburb] : [],
+        assignedAgentId: session?.user.id, leadSource: existingInquiry?.leadSource || "OTHER",
+        status: existingInquiry?.status || "NEW_INQUIRY",
+        notes: `[Lodge Offer Intake] ${selectedOfferProperty.title}: ${offerCurrency} ${amount.toLocaleString()}`,
+      }, contact);
+    } catch (error) { setCaptureError(error instanceof Error ? error.message : "Check the deal requirements."); return; }
 
     setPendingCapture("OFFER");
     setFieldSyncStatus("SAVING_LOCAL");
@@ -1175,9 +1134,9 @@ function AgentKioskContent() {
     setIntakeDrawer("NONE");
     setOfferPropertyId("");
     setSelectedExistingClientId("");
-    setOfferClientName("");
-    setOfferClientPhone("");
     setOfferAmount("");
+    setOfferContactId("");
+    setNewInquiryKey(`pwa-inquiry-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     } catch {
       setFieldSyncStatus("FAILED");
     } finally {
@@ -2068,7 +2027,7 @@ function AgentKioskContent() {
               {contactsError && <p role="alert" className="text-xs text-red-700">{contactsError}</p>}
               {contactDetailLoading && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-editorial-black/40 text-xs text-white">Loading contact…</div>}
               {selectedContact && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center" onClick={() => setSelectedContact(null)}><section className="w-full max-w-lg space-y-4 border border-editorial-black bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact detail</p><h3 className="font-heading text-lg font-bold">{selectedContact.name}</h3><p className="text-xs text-editorial-muted">{selectedContact.phone} · {selectedContact.email || "No email"}</p></div><button type="button" onClick={() => setSelectedContact(null)} aria-label="Close contact details"><X className="w-4 h-4" /></button></div><div><button type="button" className="border px-3 py-2 mb-3 text-xs" onClick={() => { setSelectedInquiryContactId(selectedContact.id); setNewClientName(selectedContact.name); setNewClientPhone(selectedContact.phone); setSelectedContact(null); setClientSubTab("INQUIRIES"); setIntakeDrawer("CLIENT"); }}>Add inquiry</button><p className="mb-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-muted">Related inquiries ({selectedContact.inquiries?.length || 0})</p>{selectedContact.inquiries?.length ? <div className="space-y-2">{selectedContact.inquiries.map((inquiry: any) => <div key={inquiry.id} className="border border-editorial-border p-3"><p className="text-sm font-heading font-semibold">{inquiry.property?.title || "Unassigned inquiry"}</p><p className="text-[11px] text-editorial-muted">{inquiry.lookingFor === "FOR_RENT" ? "Rental inquiry" : "Purchase inquiry"} · {inquiry.status}</p></div>)}</div> : <p className="border border-dashed border-editorial-border p-4 text-xs text-editorial-muted">No inquiries linked yet.</p>}</div></section></div>}
-              {contactEditorOpen && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-editorial-black/50 p-3 sm:items-center"><form onSubmit={saveContact} className="w-full max-w-md space-y-4 border border-editorial-black bg-white p-5 shadow-2xl"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Contact registry</p><h3 className="font-heading font-bold uppercase">{editingContact ? "Edit contact" : "Add contact"}</h3></div><button type="button" onClick={() => setContactEditorOpen(false)} aria-label="Close contact editor"><X className="w-4 h-4" /></button></div>{contactSaveError && <p className="border border-red-200 bg-red-50 p-2 text-xs text-red-700">{contactSaveError}</p>}<input required minLength={2} value={contactForm.name} onChange={(event) => setContactForm({ ...contactForm, name: event.target.value })} placeholder="Full name" className="w-full border border-editorial-border px-3 py-2 text-xs" /><PhoneNumberInput value={contactForm.phone} onChange={(phone) => setContactForm({ ...contactForm, phone })} label="Phone number" required /><input type="email" value={contactForm.email} onChange={(event) => setContactForm({ ...contactForm, email: event.target.value })} placeholder="Email (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" /><textarea value={contactForm.notes} onChange={(event) => setContactForm({ ...contactForm, notes: event.target.value })} placeholder="Notes (optional)" rows={3} className="w-full border border-editorial-border px-3 py-2 text-xs" /><button type="submit" disabled={contactSaving} className="w-full bg-editorial-black px-4 py-2 text-xs font-heading font-semibold uppercase text-white disabled:opacity-50">{contactSaving ? "Saving…" : editingContact ? "Save changes" : "Save contact"}</button></form></div>}
+
             </div> : <>
             
             {/* Header & Intake Trigger */}
@@ -2831,6 +2790,8 @@ function AgentKioskContent() {
       </footer>
 
       {/* ================= MODAL: INTAKE DRAWER (FAB) ================= */}
+      <ContactEditorDialog open={contactEditorOpen} editing={Boolean(editingContact)} form={contactForm} saving={contactSaving} error={contactSaveError} onChange={setContactForm} onSubmit={saveContact} onClose={closeContactEditor} />
+
       {intakeDrawer !== "NONE" && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="field-capture-drawer bg-white border border-editorial-border w-full max-w-md p-5 space-y-4 text-editorial-black max-h-[85dvh] overflow-y-auto animate-in slide-in-from-bottom-6 shadow-2xl">
@@ -3049,7 +3010,7 @@ function AgentKioskContent() {
                     <option value="">Select an existing contact…</option>
                     {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.phone}</option>)}
                   </select>
-                  <button type="button" onClick={() => { setReturnToInquiry(true); setActiveTab("CLIENTS"); setClientSubTab("CONTACTS"); setIntakeDrawer("NONE"); openContactEditor(); }} className="text-xs underline mt-2">Create contact</button>
+                  <button type="button" onClick={() => { openContactEditor(undefined, "CLIENT"); }} className="text-xs underline mt-2">Create contact</button>
                   {contactsError && <p role="alert" className="text-xs text-red-700">{contactsError}</p>}
                   <p className="mt-1 text-[10px] text-editorial-muted">Select the person this request belongs to. One contact can have multiple inquiries.</p>
                 </div>
@@ -3079,9 +3040,9 @@ function AgentKioskContent() {
                 <div className="border border-editorial-border p-3 bg-neutral-50/50 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="font-heading font-semibold text-editorial-black text-xs uppercase tracking-wider">
-                      Search Criteria & Matchmaker (Optional)
+                      Property Requirements & Matching
                     </span>
-                    <span className="text-[10px] text-editorial-muted font-mono">Optional</span>
+                    <span className="text-[10px] text-editorial-muted font-mono">* Required fields</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -3113,25 +3074,14 @@ function AgentKioskContent() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Target Zone</label>
-                      <select
-                        value={newClientSuburb}
-                        onChange={(e) => setNewClientSuburb(e.target.value)}
-                        className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
-                      >
-                        <option value="">Any area</option>
-                        {dynamicSuburbs.filter((s) => s !== "ALL").map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <InquiryLocationField value={newClientSuburb} onChange={setNewClientSuburb} />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Property Type</label>
+                      <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">Property Type *</label>
                       <select
+                        required
                         value={newClientPropertyType}
                         onChange={(e) => setNewClientPropertyType(e.target.value)}
                         className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
@@ -3146,6 +3096,7 @@ function AgentKioskContent() {
                       <input
                         type="number"
                         placeholder="e.g. 3"
+                        min="0" max="50" step="1"
                         value={newClientMinBeds}
                         onChange={(e) => setNewClientMinBeds(e.target.value)}
                         className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
@@ -3165,6 +3116,7 @@ function AgentKioskContent() {
                       <input
                         type="number"
                         placeholder="e.g. 4000000"
+                        min="1" step="any"
                         value={newClientBudget}
                         onChange={(e) => setNewClientBudget(e.target.value)}
                         className="w-full bg-white border border-editorial-border px-2.5 py-1.5 text-editorial-black focus:outline-none"
@@ -3185,9 +3137,11 @@ function AgentKioskContent() {
 
                   <div>
                     <label className="block text-editorial-muted font-heading font-medium text-[11px] mb-1">
-                      Specific Client Requirements / Features
+                      Property Requirements *
                     </label>
                     <textarea
+                      required
+                      maxLength={1000}
                       rows={2}
                       placeholder="e.g. 4-bed standalone with swimming pool, borehole, large garden for pets, near American School..."
                       value={newClientRequestNotes}
@@ -3196,6 +3150,12 @@ function AgentKioskContent() {
                     />
                   </div>
                 </div>
+
+                <label className="block font-heading font-semibold">Lead Source
+                  <select value={newClientLeadSource} onChange={(event) => setNewClientLeadSource(event.target.value as import("@prisma/client").LeadSource)} className="mt-1 w-full border border-editorial-border bg-white p-2">
+                    <option value="WALK_IN">Walk-in Client</option><option value="WHATSAPP">WhatsApp Direct</option><option value="CLIENT_REFERRAL">Client Referral</option><option value="WEBSITE">Website Ingest</option><option value="PHONE">Phone Call</option><option value="SOCIAL_MEDIA">Social Media</option><option value="OTHER">Other</option>
+                  </select>
+                </label>
 
                 {/* Optional Immediate Offer Section */}
                 <div className="border border-editorial-border bg-neutral-50/50 p-3 space-y-2.5">
@@ -3285,6 +3245,7 @@ function AgentKioskContent() {
                     Select Mandate <span className="text-contour-red">*</span>
                   </label>
                   <select
+                    required
                     value={offerPropertyId}
                     onChange={(e) => {
                       setOfferPropertyId(e.target.value);
@@ -3320,7 +3281,7 @@ function AgentKioskContent() {
                             : "bg-white text-editorial-muted border-editorial-border hover:text-editorial-black"
                         }`}
                       >
-                        Registered Client
+                        Existing Inquiry
                       </button>
                       <button
                         type="button"
@@ -3331,7 +3292,7 @@ function AgentKioskContent() {
                             : "bg-white text-editorial-muted border-editorial-border hover:text-editorial-black"
                         }`}
                       >
-                        + New Client
+                        Contact
                       </button>
                     </div>
                   </div>
@@ -3339,18 +3300,14 @@ function AgentKioskContent() {
                   {offerClientMode === "EXISTING" ? (
                     <div>
                       <select
+                        required
                         value={selectedExistingClientId}
                         onChange={(e) => {
                           setSelectedExistingClientId(e.target.value);
-                          const found = (clients || []).find((c: any) => c.id === e.target.value);
-                          if (found) {
-                            setOfferClientName(found.name);
-                            setOfferClientPhone(found.phone);
-                          }
                         }}
                         className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
                       >
-                        <option value="">Choose Registered Client...</option>
+                        <option value="">Choose Existing Inquiry...</option>
                         {(clients || []).map((c: any) => (
                           <option key={c.id} value={c.id}>
                             {c.name} ({c.phone})
@@ -3359,39 +3316,18 @@ function AgentKioskContent() {
                       </select>
                       {(!clients || clients.length === 0) && (
                         <p className="mt-1 text-[11px] text-editorial-muted">
-                          No registered clients found. Click <strong>+ New Client</strong> above to add one.
+                          No existing inquiries found. Select <strong>Contact</strong> above to add a contact-linked deal.
                         </p>
                       )}
                     </div>
                   ) : (
                     <div className="space-y-2 bg-neutral-50 p-3 border border-editorial-border">
-                      <div>
-                        <label className="block text-editorial-black font-heading font-semibold mb-1">
-                          Contact name <span className="text-contour-red">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required={offerClientMode === "NEW"}
-                          placeholder="e.g. Nchimunya Mweene"
-                          value={offerClientName}
-                          onChange={(e) => setOfferClientName(e.target.value)}
-                          className="w-full bg-white border border-editorial-border px-3 py-2 text-editorial-black focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-editorial-black font-heading font-semibold mb-1">
-                          WhatsApp Phone Number <span className="text-contour-red">*</span>
-                        </label>
-                        <PhoneNumberInput
-                          value={offerClientPhone}
-                          onChange={setOfferClientPhone}
-                          label=""
-                          required={offerClientMode === "NEW"}
-                        />
-                      </div>
-                      <p className="text-[10px] text-editorial-muted">
-                        This client will automatically be protected under your 30-day anti-poaching registry.
-                      </p>
+                      <label className="block font-heading font-semibold">Contact *</label>
+                      <select required value={offerContactId} onChange={(event) => setOfferContactId(event.target.value)} className="w-full border border-editorial-border bg-white p-2">
+                        <option value="">Select a contact…</option>
+                        {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.phone}</option>)}
+                      </select>
+                      <button type="button" className="underline" onClick={() => { openContactEditor(undefined, "OFFER"); }}>Create contact</button>
                     </div>
                   )}
                 </div>
@@ -3908,42 +3844,7 @@ function AgentKioskContent() {
                 </div>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-editorial-black font-heading font-semibold">
-                    Preferred Area / Suburb
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCustomEditSuburb(!isCustomEditSuburb);
-                      if (isCustomEditSuburb) setEditClientSuburb("Kabulonga");
-                    }}
-                    className="text-[10px] font-mono text-contour-red hover:underline"
-                  >
-                    {isCustomEditSuburb ? "← Choose from list" : "✍️ Type area manually"}
-                  </button>
-                </div>
-                {isCustomEditSuburb ? (
-                  <input
-                    type="text"
-                    value={editClientSuburb}
-                    onChange={(e) => setEditClientSuburb(e.target.value)}
-                    placeholder="Type custom suburb name..."
-                    className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
-                  />
-                ) : (
-                  <select
-                    value={editClientSuburb}
-                    onChange={(e) => setEditClientSuburb(e.target.value)}
-                    className="w-full p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black"
-                  >
-                    {dynamicSuburbs.map((sub: string) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              <InquiryLocationField value={editClientSuburb} onChange={setEditClientSuburb} />
 
               <div>
                 <label className="block text-editorial-black font-heading font-semibold mb-1">

@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { contactSchema } from "@/lib/validations/contact";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { buildContactIdentity, normalizeContactPhone } from "@/lib/crm/contact-identity";
 
-const contactSchema = z.object({
-  name: z.string().trim().min(2).max(100),
-  phone: z.string().trim().min(6).max(30),
-  email: z.string().email().optional().or(z.literal("")),
-  notes: z.string().trim().max(1000).optional(),
-});
 
 export const GET = createApiHandler({
   requirePermissions: ["leads.read"],

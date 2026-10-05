@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { contactSchema } from "@/lib/validations/contact";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { matchingScope } from "@/lib/matching/api";
@@ -18,7 +18,7 @@ export const GET = createApiHandler({
 
 export const PATCH = createApiHandler({
   requirePermissions: ["pwa.inquiries.update"],
-  bodySchema: z.object({ name: z.string().trim().min(2).max(100), phone: z.string().trim().min(6).max(30), email: z.string().email().optional().or(z.literal("")), notes: z.string().trim().max(1000).optional() }),
+  bodySchema: contactSchema,
   handler: async (_req, ctx) => {
     const { organizationId, params, body } = ctx;
     const id = params?.id;

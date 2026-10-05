@@ -10,6 +10,6 @@ export const GET = createApiHandler({ requirePermissions: ["pwa.inquiries.read"]
   const scope = matchingScope(ctx), visibility = await visibleContactsWhere(scope);
   const where = { AND: [visibility, ...(ctx.query.search ? [{ OR: [{ name: { contains: ctx.query.search, mode: "insensitive" as const } }, { phone: { contains: ctx.query.search } }] }] : [])] };
   const { page, pageSize } = ctx.query;
-  const [contacts, total] = await Promise.all([db.contact.findMany({ where, select: { id: true, name: true, phone: true, email: true, _count: { select: { inquiries: { where: inquiryVisibility(scope) } } } }, orderBy: [{ name: "asc" }, { id: "asc" }], skip: (page - 1) * pageSize, take: pageSize }), db.contact.count({ where })]);
+  const [contacts, total] = await Promise.all([db.contact.findMany({ where, select: { id: true, name: true, phone: true, email: true, notes: true, _count: { select: { inquiries: { where: inquiryVisibility(scope) } } } }, orderBy: [{ name: "asc" }, { id: "asc" }], skip: (page - 1) * pageSize, take: pageSize }), db.contact.count({ where })]);
   return NextResponse.json({ success: true, contacts, total, page, pageSize, hasMore: page * pageSize < total });
 } });
