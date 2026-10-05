@@ -30,7 +30,7 @@ export function ContourSplashScreen() {
 
     // Progress step 2
     const step2Timer = setTimeout(() => {
-      setStatusText("Loading cadastral map & mandates...");
+      setStatusText("Loading property map & mandates...");
       setProgress(70);
     }, 700);
 

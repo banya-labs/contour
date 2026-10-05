@@ -29,7 +29,6 @@ import {
   FileUp,
   Send,
   Copy,
-  ScanLine,
   Image as ImageIcon,
   RefreshCw,
 } from "lucide-react";
@@ -41,7 +40,6 @@ import { formatCurrency } from "@/lib/utils";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import { DocumentDetailsModal } from "@/components/vault/document-details-modal";
 import type { VaultDoc } from "@/components/vault/vault-tree";
-import TitleDeedOcrUploader, { TitleDeedOcrResult } from "@/components/properties/title-deed-ocr-uploader";
 import { useSession } from "@/lib/auth-client";
 import { canManagePropertyPhotos } from "@/lib/authorization";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";
@@ -176,9 +174,6 @@ export default function PropertyFullDetailModal({
   const [requestDocLoading, setRequestDocLoading] = useState(false);
   const [requestDocResult, setRequestDocResult] = useState<{ shareableUrl: string; whatsAppUrl?: string } | null>(null);
 
-  // Title Deed OCR Modal State (In Details Tab)
-  const [showOcrUploader, setShowOcrUploader] = useState(false);
-
   // Stakeholders / Deal Parties State (Real, not hardcoded dummy data)
   const [stakeholders, setStakeholders] = useState<DealParty[]>([]);
   const [propertyInquiries, setPropertyInquiries] = useState<any[]>([]);
@@ -309,7 +304,6 @@ export default function PropertyFullDetailModal({
         plotSizeSqm: property.plotSizeSqm || 500,
         latitude: property.latitude !== undefined ? property.latitude : -15.4211,
         longitude: property.longitude !== undefined ? property.longitude : 28.3341,
-        standBoundary: property.standBoundary || [],
         titleDeedNumber: property.titleDeedNumber || "",
         landmarkDirections: property.landmarkDirections || "",
         description: property.description || "",
@@ -428,7 +422,6 @@ export default function PropertyFullDetailModal({
       plotSizeSqm: parseFloat(editFormData.plotSizeSqm) || 0,
       latitude: parseFloat(editFormData.latitude) || -15.4211,
       longitude: parseFloat(editFormData.longitude) || 28.3341,
-      standBoundary: editFormData.standBoundary || [],
       titleDeedNumber: editFormData.titleDeedNumber?.trim() || null,
       landmarkDirections: editFormData.landmarkDirections?.trim() || "",
       description: editFormData.description?.trim() || "",
@@ -457,7 +450,6 @@ export default function PropertyFullDetailModal({
       plotSizeSqm: parseFloat(editFormData.plotSizeSqm) || 0,
       latitude: parseFloat(editFormData.latitude) || -15.4211,
       longitude: parseFloat(editFormData.longitude) || 28.3341,
-      standBoundary: editFormData.standBoundary || [],
       titleDeedNumber: editFormData.titleDeedNumber?.trim() || null,
       landmarkDirections: editFormData.landmarkDirections?.trim() || "",
       description: editFormData.description?.trim() || "",
@@ -492,24 +484,6 @@ export default function PropertyFullDetailModal({
       onUpdateProperty(updatedProp);
     }
     setIsEditing(false);
-  };
-
-  // Title Deed OCR coordinates extracted
-  const handleOcrExtracted = (result: TitleDeedOcrResult) => {
-    if (!result) return;
-    const centerLat = result.beacons?.[0]?.lat || result.standBoundary?.[0]?.[0];
-    const centerLng = result.beacons?.[0]?.lng || result.standBoundary?.[0]?.[1];
-
-    setEditFormData((prev: any) => ({
-      ...prev,
-      standBoundary: result.standBoundary || [],
-      plotSizeSqm: result.plotSizeSqm || prev?.plotSizeSqm || 500,
-      titleDeedNumber: result.titleDeedNumber || prev?.titleDeedNumber || "",
-      ...(centerLat && centerLng ? { latitude: centerLat, longitude: centerLng } : {}),
-    }));
-
-    setShowOcrUploader(false);
-    loadVaultDocuments();
   };
 
   // Direct Document Upload to Vault
@@ -1228,7 +1202,7 @@ export default function PropertyFullDetailModal({
                       </div>
                     </div>
 
-                    {/* LOCATION & COORDINATES (Manual or Title Deed OCR) */}
+                    {/* LOCATION & COORDINATES */}
                     <div className="p-4 bg-white border border-[#E6E4DF] space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div>
@@ -1237,31 +1211,10 @@ export default function PropertyFullDetailModal({
                             <span>GPS Location &amp; Coordinates</span>
                           </h4>
                           <p className="text-[10px] text-[#73716B] mt-0.5">
-                            Enter coordinates manually, or scan an official Title Deed to extract survey coordinates.
+                            Enter the property latitude and longitude to place its location pin on the map.
                           </p>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowOcrUploader((v) => !v)}
-                          className="px-3 py-1.5 bg-[#1C1C1A] hover:bg-black text-white text-xs font-heading font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
-                        >
-                          <ScanLine className="w-3.5 h-3.5 text-[#FA3600]" />
-                          <span>{showOcrUploader ? "Close Scanner" : "Scan Title Deed for Coordinates"}</span>
-                        </button>
                       </div>
-
-                      {/* Embedded Title Deed OCR Uploader */}
-                      {showOcrUploader && (
-                        <div className="p-3 bg-[#FCFBF9] border border-[#E6E4DF] mt-2">
-                          <TitleDeedOcrUploader
-                            onBoundaryExtracted={handleOcrExtracted}
-                            onReset={() => {}}
-                            initialBoundary={editFormData.standBoundary}
-                            currentPlotSize={editFormData.plotSizeSqm}
-                          />
-                        </div>
-                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
                         <div>
@@ -1297,19 +1250,6 @@ export default function PropertyFullDetailModal({
                           />
                         </div>
                       </div>
-
-                      {editFormData.standBoundary && editFormData.standBoundary.length > 0 && (
-                        <div className="text-[11px] font-mono text-emerald-800 bg-emerald-50 p-2 border border-emerald-200 flex items-center justify-between">
-                          <span>✓ Cadastral Stand Boundary verified from Title Deed ({editFormData.standBoundary.length} boundary beacons)</span>
-                          <button
-                            type="button"
-                            onClick={() => setEditFormData({ ...editFormData, standBoundary: [] })}
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* Driving Directions */}

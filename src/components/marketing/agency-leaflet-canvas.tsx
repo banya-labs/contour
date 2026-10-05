@@ -32,7 +32,6 @@ export interface PropertyMapPoint {
   image?: string;
   featuredImage?: string;
   titleDeedNumber?: string;
-  standBoundary?: [number, number][];
 }
 
 export type AgencyMapItem = PropertyMapPoint;
@@ -53,7 +52,6 @@ export default function AgencyLeafletCanvas({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
-  const polygonRef = useRef<L.Polygon | null>(null);
 
   // Initialize Map
   useEffect(() => {
@@ -172,7 +170,7 @@ export default function AgencyLeafletCanvas({
     map.invalidateSize();
   }, [properties, selectedProperty, onSelectProperty]);
 
-  // Handle Selected Property Pan & Cadastral Boundary
+  // Handle Selected Property Pan
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !selectedProperty) return;
@@ -180,22 +178,6 @@ export default function AgencyLeafletCanvas({
     map.flyTo(selectedProperty.coordinates, 15, { duration: 0.8 });
     setTimeout(() => map.invalidateSize(), 300);
 
-    // Draw stand boundary polygon if available
-    if (polygonRef.current) {
-      polygonRef.current.remove();
-      polygonRef.current = null;
-    }
-
-    if (selectedProperty.standBoundary && selectedProperty.standBoundary.length >= 3) {
-      const poly = L.polygon(selectedProperty.standBoundary, {
-        color: "#C89B3C",
-        weight: 2.5,
-        dashArray: "5, 5",
-        fillColor: "#16382B",
-        fillOpacity: 0.18,
-      }).addTo(map);
-      polygonRef.current = poly;
-    }
   }, [selectedProperty]);
 
   return (

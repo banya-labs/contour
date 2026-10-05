@@ -29,7 +29,7 @@ const InteractivePropertyMap = dynamic(
       <div className="w-full h-full min-h-[400px] bg-white border border-editorial-border flex items-center justify-center text-xs text-editorial-muted">
         <div className="flex flex-col items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-contour-red animate-ping" />
-          <span className="font-geist text-xs uppercase tracking-wider">Loading Lusaka Cadastral Map...</span>
+          <span className="font-geist text-xs uppercase tracking-wider">Loading Lusaka Property Map...</span>
         </div>
       </div>
     ),
@@ -72,7 +72,6 @@ export default function DashboardMapPage() {
               city: p.city,
               latitude: p.latitude,
               longitude: p.longitude,
-              standBoundary: p.standBoundary ? (p.standBoundary as [number, number][]) : null,
               landmarkDirections: p.landmarkDirections,
               photos: p.photos || [],
               featuredPhoto: p.featuredPhoto,
@@ -127,7 +126,7 @@ export default function DashboardMapPage() {
               </span>
             </div>
             <h1 className="font-heading text-base sm:text-xl font-bold text-editorial-black uppercase tracking-tight leading-tight mt-0.5">
-              Cadastral Map Hub
+              Property Map
             </h1>
           </div>
         </div>
@@ -196,9 +195,6 @@ export default function DashboardMapPage() {
             onFilterChange={(f) => setFilterType(f)}
             selectedPropertyId={selectedProperty?.id || null}
             onSelectProperty={(property) => setSelectedProperty(property)}
-            onSaveStandBoundary={(vertices, areaSqm) => {
-              console.log("[STAND BOUNDARY SAVED]", vertices, areaSqm);
-            }}
           />
         )}
         {!loading && loadError && (

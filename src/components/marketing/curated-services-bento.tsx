@@ -29,7 +29,7 @@ export function CuratedServicesBento() {
       title: "Commercial Acreage & Title Deed Vault",
       category: "Development & Custody",
       desc: "Legal-grade digital escrow for Certificates of Title, NRC ID scans, and cadastral survey coordinate records.",
-      features: ["100% POPIA / PACRA Sovereignty", "MinIO S3 Presigned Legal Custody", "Beacon & Cadastral Mapping"],
+      features: ["100% POPIA / PACRA Sovereignty", "MinIO S3 Presigned Legal Custody", "Property Location Mapping"],
       image: "/images/solidroad/asset_38_lRau233hnNDJEhOiUyWJ.png",
       cta: "Access Title Vault",
       link: "/dashboard/documents",

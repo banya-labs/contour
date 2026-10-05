@@ -67,12 +67,6 @@ const AGENCY_PROPERTIES: AgencyMapItem[] = [
     status: "MAL'S SHOWCASE PILOT",
     image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&auto=format&fit=crop&q=80",
     titleDeedNumber: "Folio: LUS/COMM/2026/4410-RP",
-    standBoundary: [
-      [-15.4095, 28.2978],
-      [-15.4095, 28.2992],
-      [-15.4108, 28.2992],
-      [-15.4108, 28.2978],
-    ],
   },
   {
     id: "prop-kabulonga-villa",
@@ -95,12 +89,6 @@ const AGENCY_PROPERTIES: AgencyMapItem[] = [
     status: "EXCLUSIVE SOLE MANDATE",
     image: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200&auto=format&fit=crop&q=80",
     titleDeedNumber: "Folio: LUS/LAND/2026/8942-A",
-    standBoundary: [
-      [-15.4202, 28.3332],
-      [-15.4202, 28.3350],
-      [-15.4220, 28.3350],
-      [-15.4220, 28.3332],
-    ],
   },
   {
     id: "prop-leopards-hill",
@@ -123,12 +111,6 @@ const AGENCY_PROPERTIES: AgencyMapItem[] = [
     status: "ACTIVE MANDATE",
     image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80",
     titleDeedNumber: "Folio: LUS/RES/2025/1102-LH",
-    standBoundary: [
-      [-15.4468, 28.3802],
-      [-15.4468, 28.3818],
-      [-15.4482, 28.3818],
-      [-15.4482, 28.3802],
-    ],
   },
   {
     id: "prop-roma-park",
@@ -149,12 +131,6 @@ const AGENCY_PROPERTIES: AgencyMapItem[] = [
     status: "TITLE DEED IN S3 VAULT",
     image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&auto=format&fit=crop&q=80",
     titleDeedNumber: "Folio: LUS/COMM/2026/894-RP",
-    standBoundary: [
-      [-15.3705, 28.3035],
-      [-15.3705, 28.3065],
-      [-15.3735, 28.3065],
-      [-15.3735, 28.3035],
-    ],
   },
   {
     id: "prop-woodlands-chindo",

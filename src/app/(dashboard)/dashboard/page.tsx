@@ -282,7 +282,7 @@ export default function DashboardOverviewPage() {
               Lusaka Operating HQ
             </span>
             <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
-              Real-Time Cadastral Sync
+              Property Operations
             </span>
           </div>
           <h1 className="font-heading text-xl sm:text-3xl font-bold text-editorial-black mt-1 uppercase tracking-tight">
@@ -313,7 +313,7 @@ export default function DashboardOverviewPage() {
             className="px-3 sm:px-4 py-2 bg-editorial-black hover:bg-contour-red text-white text-xs font-heading font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none shrink-0"
           >
             <MapPin className="w-3.5 h-3.5" />
-            <span>Cadastral Map</span>
+            <span>Property Map</span>
           </Link>
         </div>
       </div>

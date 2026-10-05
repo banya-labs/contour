@@ -46,7 +46,7 @@ export function FieldAgentPwaMockup() {
             </h2>
 
             <p className="text-sm sm:text-base text-ink-600 leading-relaxed">
-              Equip your field brokers with a high-contrast mobile companion (<code className="bg-paper-200 px-1.5 py-0.5 rounded text-contour-dark font-mono text-xs">/kiosk</code>) powered by <strong className="text-ink-900">PowerSync local SQLite WASM</strong>. Access property stand boundaries, asking prices, and client profiles even when 8-hour ZESCO load-shedding knocks out cellular towers in New Kasama or Silverest.
+              Equip your field brokers with a high-contrast mobile companion (<code className="bg-paper-200 px-1.5 py-0.5 rounded text-contour-dark font-mono text-xs">/kiosk</code>) powered by <strong className="text-ink-900">PowerSync local SQLite WASM</strong>. Access property locations, asking prices, and client profiles even when 8-hour ZESCO load-shedding knocks out cellular towers in New Kasama or Silverest.
             </p>
 
             {/* 3 Value Pillars */}

@@ -59,7 +59,6 @@ interface PropertyLocationMapProps {
   priceText: string;
   latitude?: number | null;
   longitude?: number | null;
-  standBoundary?: [number, number][] | null;
   landmarkDirections?: string | null;
   featuredPhoto?: string | null;
   organizationSlug?: string | null;
@@ -73,7 +72,6 @@ export function PropertyLocationMap({
   priceText,
   latitude,
   longitude,
-  standBoundary,
   landmarkDirections,
   featuredPhoto,
   organizationSlug,
@@ -99,11 +97,11 @@ export function PropertyLocationMap({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">
-              Cadastral Pin & Area Map
+              Property Location Map
             </span>
             <span className="text-[9px] font-mono px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold flex items-center gap-1">
               <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
-              <span>Spatial Coordinates Verified</span>
+              <span>Location Reference</span>
             </span>
           </div>
           <h3 className="font-serif text-lg font-bold text-editorial-black flex items-center gap-2">
@@ -138,7 +136,6 @@ export function PropertyLocationMap({
         priceText={priceText}
         latitude={lat}
         longitude={lng}
-        standBoundary={standBoundary}
         landmarkDirections={landmarkDirections}
         featuredPhoto={featuredPhoto}
       />
@@ -151,7 +148,7 @@ export function PropertyLocationMap({
             {landmarkDirections ? (
               <span><strong>Landmark Directions:</strong> {landmarkDirections}</span>
             ) : (
-              <span>Verified coordinates locked on Contour Lusaka Cadastre. Stand boundaries confirmed against Ministry registry.</span>
+              <span>Use the location pin as a guide and confirm the exact address with the listing agent.</span>
             )}
           </p>
         </div>

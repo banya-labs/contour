@@ -11,7 +11,6 @@ interface PropertyLeafletCanvasProps {
   priceText: string;
   latitude: number;
   longitude: number;
-  standBoundary?: [number, number][] | null;
   landmarkDirections?: string | null;
   featuredPhoto?: string | null;
 }
@@ -23,7 +22,6 @@ export default function PropertyLeafletCanvas({
   priceText,
   latitude,
   longitude,
-  standBoundary,
   landmarkDirections,
   featuredPhoto,
 }: PropertyLeafletCanvasProps) {
@@ -84,18 +82,6 @@ export default function PropertyLeafletCanvas({
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
-
-    // 1. Draw Stand Cadastral Boundary if available
-    if (standBoundary && standBoundary.length >= 3) {
-      const polygonPoints = standBoundary.map(([lat, lng]) => [lat, lng] as L.LatLngTuple);
-      L.polygon(polygonPoints, {
-        color: "#FA3600",
-        weight: 2.5,
-        fillColor: "#FA3600",
-        fillOpacity: 0.18,
-        dashArray: "4, 4",
-      }).addTo(map);
-    }
 
     // 2. Draw subtle neighborhood area indicator circle
     L.circle(center, {
@@ -188,7 +174,7 @@ export default function PropertyLeafletCanvas({
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, [latitude, longitude, suburb, city, title, priceText, standBoundary, featuredPhoto]);
+  }, [latitude, longitude, suburb, city, title, priceText, featuredPhoto]);
 
   return (
     <div className="relative w-full h-[340px] sm:h-[400px] overflow-hidden bg-[#FAF8F5]">

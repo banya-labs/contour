@@ -17,12 +17,6 @@ export const MOCK_PROPERTIES: PropertyMapItem[] = [
     city: "Lusaka",
     latitude: -15.4215,
     longitude: 28.3345,
-    standBoundary: [
-      [-15.4211, 28.3341],
-      [-15.4211, 28.3349],
-      [-15.4219, 28.3349],
-      [-15.4219, 28.3341],
-    ],
     landmarkDirections: "200m off Kabulonga Road, near Centro Mall",
     description: "Immaculate standalone family residence set on a lush 2,400 m² plot in old Kabulonga. Features an expansive open-plan lounge with double-volume ceilings, chef's gourmet kitchen with granite countertops, private swimming pool, dedicated staff quarters, high-yield borehole, and automated 10kVA solar inverter system.",
     features: [
@@ -60,12 +54,6 @@ export const MOCK_PROPERTIES: PropertyMapItem[] = [
     city: "Lusaka",
     latitude: -15.4480,
     longitude: 28.3810,
-    standBoundary: [
-      [-15.4477, 28.3806],
-      [-15.4477, 28.3814],
-      [-15.4483, 28.3814],
-      [-15.4483, 28.3806],
-    ],
     landmarkDirections: "Opposite American International School (AIS)",
     description: "Contemporary 3-bedroom executive townhouse located in a secure gated complex directly opposite the American International School. Offers turnkey diplomatic-grade accommodations with private patio, modern fitted kitchen, air conditioning throughout, communal swimming pool, borehole water, and 24/7 manned security.",
     features: [
@@ -100,12 +88,6 @@ export const MOCK_PROPERTIES: PropertyMapItem[] = [
     city: "Lusaka",
     latitude: -15.3980,
     longitude: 28.3120,
-    standBoundary: [
-      [-15.3975, 28.3115],
-      [-15.3975, 28.3125],
-      [-15.3985, 28.3125],
-      [-15.3985, 28.3115],
-    ],
     landmarkDirections: "Behind ZNBC Studios, off Alick Nkhata Road",
     description: "High-spec 450 m² commercial office floor located behind ZNBC Studios in the prestigious Mass Media business corridor. Features partitioned executive offices, open boardroom, server room with dedicated fiber connection, backup generator, ample customer parking, and round-the-clock security.",
     features: [
@@ -140,12 +122,6 @@ export const MOCK_PROPERTIES: PropertyMapItem[] = [
     city: "Lusaka",
     latitude: -15.3720,
     longitude: 28.3050,
-    standBoundary: [
-      [-15.3710, 28.3038],
-      [-15.3710, 28.3062],
-      [-15.3730, 28.3062],
-      [-15.3730, 28.3038],
-    ],
     landmarkDirections: "Inside Roma Park Mixed Use Development",
     description: "Prime 5-acre commercial and mixed-use development parcel situated within the master-planned Roma Park precinct. Fully serviced with tarred access roads, three-phase power connections, water mains, and clear title deed with zero encumbrances. Ideal for corporate headquarters, retail hub, or residential cluster.",
     features: [

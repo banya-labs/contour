@@ -10,6 +10,7 @@ import { attachPropertyInTransaction } from "@/lib/matching/attach-property";
 import { matchingScope } from "@/lib/matching/api";
 import { inquiryVisibility, canManageMatching } from "@/lib/matching/visibility";
 import { createInquiryMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
+import { invalidateMatchingSummaries } from "@/lib/matching/service";
 import { visibleContactsWhere } from "@/lib/crm/contact-visibility";
 
 export const PATCH = createApiHandler({
@@ -84,7 +85,7 @@ export const PATCH = createApiHandler({
     const clientEmail = body.clientEmail !== undefined ? (body.clientEmail || null) : body.email !== undefined ? (body.email || null) : undefined;
 
     const updated = await db.$transaction(async (tx) => {
-      if (body.propertyId !== undefined) await attachPropertyInTransaction(tx, scope, { inquiryId, propertyId: body.propertyId || null, expectedPropertyId: body.expectedPropertyId });
+      if (body.propertyId !== undefined) await attachPropertyInTransaction(tx, scope, { inquiryId, propertyId: body.propertyId || null, expectedPropertyId: body.expectedPropertyId }, body);
       const result = await tx.inquiry.update({
       where: { id: inquiry.id },
       data: {
@@ -165,6 +166,7 @@ export const PATCH = createApiHandler({
       },
     });
 
+    invalidateMatchingSummaries(organizationId!);
     await createInquiryMatchNotifications(organizationId!, inquiry.id);
 
     // Invalidate client, pipeline, and dashboard caches across all surfaces
