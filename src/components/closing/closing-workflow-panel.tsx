@@ -6,6 +6,8 @@ import { StartLeaseDialog } from "./start-lease-dialog";
 import { RequestDocumentModal } from "@/components/vault/request-document-modal";
 import { UploadDocumentModal } from "@/components/vault/upload-document-modal";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ClosedDealResultDialog } from "./closed-deal-result-dialog";
+import type { ClosedDealResult } from "@/lib/closed-deal-result";
 
 type WorkflowItem = {
   id: string;
@@ -57,6 +59,7 @@ export function ClosingWorkflowPanel({
   onCompleted: () => void;
 }) {
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
+  const [closingResult, setClosingResult] = useState<ClosedDealResult | null>(null);
   const [readiness, setReadiness] = useState<{
     ready: boolean;
     pending: number;
@@ -149,8 +152,7 @@ export function ClosingWorkflowPanel({
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Unable to close this deal.");
-      onCompleted();
-      onClose();
+      setClosingResult(data.closingResult);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to close this deal.");
     } finally {
@@ -180,8 +182,7 @@ export function ClosingWorkflowPanel({
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Unable to mark this deal lost.");
-      onCompleted();
-      onClose();
+      setClosingResult(data.closingResult);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Unable to mark this deal lost.",
@@ -191,9 +192,13 @@ export function ClosingWorkflowPanel({
     }
   };
 
+  if (closingResult) {
+    return <ClosedDealResultDialog result={closingResult} onClose={() => { onCompleted(); onClose(); }} />;
+  }
+
   return (
-    <Dialog open layer={80} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto p-0 block" onPointerDownOutside={(event) => event.preventDefault()}>
+    <Dialog open layer={80} onOpenChange={(open) => { if (!open && pendingKey !== "__close__") onClose(); }}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto p-0 block" onPointerDownOutside={(event) => event.preventDefault()} onEscapeKeyDown={(event) => { if (pendingKey === "__close__") event.preventDefault(); }}>
         <header className="p-5 border-b border-editorial-border flex items-start justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-widest font-bold text-contour-red">
@@ -414,6 +419,7 @@ export function ClosingWorkflowPanel({
             <button
               type="button"
               onClick={onClose}
+              disabled={pendingKey === "__close__"}
               className="px-3 py-2 border border-editorial-border text-xs font-bold uppercase"
             >
               Close
