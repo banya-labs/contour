@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { LUSAKA_SUBURBS } from "@/lib/locations/lusaka-suburbs";
 import { locationsEqual } from "@/lib/locations/normalize-location";
 
@@ -20,6 +20,7 @@ type InquiryLocationFieldProps = {
 };
 
 export function InquiryLocationField({ value, onChange, disabled = false }: InquiryLocationFieldProps) {
+  const inputId = useId();
   const [mode, setMode] = useState<LocationMode>(() => getInquiryLocationMode(value));
   const selectValue = mode === "custom" ? "__CUSTOM__" : getInquiryLocationDisplayValue(value);
 
@@ -35,11 +36,11 @@ export function InquiryLocationField({ value, onChange, disabled = false }: Inqu
 
   return (
     <div className="space-y-2">
-      <label htmlFor="inquiry-location" className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider">
+      <label htmlFor={inputId} className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider">
         Preferred suburb or neighborhood (Optional)
       </label>
       <select
-        id="inquiry-location"
+        id={inputId}
         value={selectValue}
         onChange={(event) => {
           const nextValue = event.target.value;

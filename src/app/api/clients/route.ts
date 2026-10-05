@@ -108,6 +108,7 @@ const postHandler = createApiHandler({
     const { organizationId, body, userId } = ctx;
     const scope = matchingScope(ctx);
     if (body.creationSurface && !body.contactId) return NextResponse.json({ success: false, error: "Select a contact before creating an inquiry" }, { status: 400 });
+    if (body.creationSurface && !body.notes?.trim()) return NextResponse.json({ success: false, error: "Property requirements are required." }, { status: 400 });
     if (!canManageMatching(scope) && body.assignedAgentId && body.assignedAgentId !== userId) return NextResponse.json({ success: false, error: "Only management can assign another agent" }, { status: 403 });
 
     if (body.creationSurface && !body.propertyType) {

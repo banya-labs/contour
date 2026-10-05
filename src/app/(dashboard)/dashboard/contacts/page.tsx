@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Pencil, Plus, Search, Users, X } from "lucide-react";
-import { PhoneNumberInput } from "@/components/ui/phone-number-input";
+import { useEffect, useRef, useState } from "react";
+import { Pencil, Plus, Search, Users } from "lucide-react";
+import { contactSchema } from "@/lib/validations/contact";
+import { ContactEditorDialog } from "@/components/contacts/contact-editor-dialog";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -14,16 +15,23 @@ export default function ContactsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [saving, setSaving] = useState(false);
+  const saveInFlight = useRef(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
   const searchParams = useSearchParams();
 
-  const loadContacts = async () => {
-    const response = await fetch(`/api/contacts?search=${encodeURIComponent(search)}`);
-    const data = await response.json();
-    if (data.success) setContacts(data.contacts);
-  };
-  useEffect(() => { void loadContacts(); }, [search]);
+  useEffect(() => {
+    if (open) return;
+    let cancelled = false;
+    void fetch(`/api/contacts?search=${encodeURIComponent(search)}`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || "Unable to load contacts.");
+        if (!cancelled) setContacts(data.contacts);
+      })
+      .catch((error) => { if (!cancelled) setError(error instanceof Error ? error.message : "Unable to load contacts."); });
+    return () => { cancelled = true; };
+  }, [search, open]);
 
   const openCreate = () => {
     setEditing(null);
@@ -45,17 +53,24 @@ export default function ContactsPage() {
 
   const saveContact = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (saveInFlight.current) return;
     setError("");
+    const validated = contactSchema.safeParse(form);
+    if (!validated.success) { setError(validated.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")); return; }
+    saveInFlight.current = true;
     setSaving(true);
     try {
-      const response = await fetch(editing ? `/api/contacts/${editing.id}` : "/api/contacts", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const response = await fetch(editing ? `/api/contacts/${editing.id}` : "/api/contacts", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(validated.data) });
       const data = await response.json();
-      if (!response.ok) { setError(data.error || `Unable to ${editing ? "update" : "create"} contact.`); return; }
+      if (!response.ok || !data.success || !data.contact?.id) { setError(data.error || `Unable to ${editing ? "update" : "create"} contact.`); return; }
       if (editing) setContacts((current) => current.map((contact) => contact.id === editing.id ? { ...contact, ...data.contact } : contact));
       else setContacts((current) => [data.contact, ...current]);
       setOpen(false);
       setEditing(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to save contact.");
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   };
@@ -76,6 +91,6 @@ export default function ContactsPage() {
     <div className="bg-white rounded-none p-3 sm:p-4 border border-editorial-border flex items-center gap-2"><Search className="w-4 h-4 text-editorial-neutral shrink-0" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search contacts by name, phone, or email" className="w-full bg-transparent text-xs text-editorial-black placeholder:text-editorial-neutral focus:outline-none" /></div>
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{contacts.map((contact) => <article key={contact.id} className="border border-editorial-border bg-white p-4 space-y-3"><div className="flex items-start justify-between gap-3"><div><h2 className="font-heading font-bold uppercase tracking-tight">{contact.name}</h2><p className="text-xs text-editorial-muted">{contact.phone}</p></div><div className="flex items-center gap-2"><Users className="w-4 h-4 text-contour-red" /><button type="button" onClick={() => openEdit(contact)} aria-label={`Edit ${contact.name}`} className="text-editorial-muted hover:text-editorial-black"><Pencil className="w-3.5 h-3.5" /></button></div></div><p className="text-xs text-editorial-muted">{contact.email || "No email recorded"}</p><div className="border-t border-editorial-border pt-2 text-[10px] font-heading font-semibold uppercase tracking-wider text-editorial-muted">{contact._count?.inquiries || 0} inquiries</div></article>)}</div>
     {contacts.length === 0 && <div className="border border-dashed border-editorial-border p-10 text-center text-xs text-editorial-muted">No contacts found. Add a contact before recording an inquiry.</div>}
-    {open && <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"><form onSubmit={saveContact} className="bg-white border border-editorial-black p-5 w-full max-w-md space-y-4"><div className="flex items-center justify-between border-b border-editorial-border pb-3"><h2 className="font-heading font-bold uppercase">{editing ? "Edit Contact" : "Add Contact"}</h2><button type="button" onClick={() => setOpen(false)}><X className="w-4 h-4" /></button></div>{error && <p className="p-2 bg-red-50 border border-red-200 text-xs text-red-700">{error}</p>}<input required minLength={2} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Full name" className="w-full border border-editorial-border px-3 py-2 text-xs" /><PhoneNumberInput value={form.phone} onChange={(phone) => setForm({ ...form, phone })} label="Phone number" required /><input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Email (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" /><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Notes (optional)" className="w-full border border-editorial-border px-3 py-2 text-xs" rows={3} /><button disabled={saving} className="w-full bg-editorial-black disabled:opacity-50 text-white px-4 py-2 text-xs font-heading font-semibold uppercase">{saving ? "Saving..." : editing ? "Update Contact" : "Save Contact"}</button></form></div>}
+    <ContactEditorDialog open={open} editing={Boolean(editing)} form={form} saving={saving} error={error} onChange={setForm} onSubmit={saveContact} onClose={() => { if (!saveInFlight.current) setOpen(false); }} />
   </main>;
 }

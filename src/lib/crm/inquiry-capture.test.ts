@@ -12,4 +12,18 @@ describe("contact-linked inquiry capture", () => {
     expect(buildInquiryCapturePayload({ ...form, idempotencyKey: "pwa-inquiry-second" }, contact).idempotencyKey).not.toBe(form.idempotencyKey);
   });
   it("rejects invalid numeric requirements before queueing", () => { expect(() => buildInquiryCapturePayload({ ...form, bedroomsMin: "-1" }, contact)).toThrow(); });
+  it("requires property type and written requirements like the dashboard", () => {
+    expect(() => buildInquiryCapturePayload({ ...form, propertyType: "" as typeof form.propertyType }, contact)).toThrow();
+    expect(() => buildInquiryCapturePayload({ ...form, notes: "   " }, contact)).toThrow("Property requirements");
+  });
+  it("preserves custom locations, lead source and attached deal details", () => {
+    expect(buildInquiryCapturePayload({ ...form, preferredSuburbs: ["  Makeni East  "], leadSource: "WHATSAPP", propertyId: "property", dealValue: 5500, existingInquiryId: "inquiry" }, contact)).toMatchObject({ preferredSuburbs: ["Makeni East"], leadSource: "WHATSAPP", propertyId: "property", dealValue: 5500, existingInquiryId: "inquiry", creationSurface: "PWA" });
+  });
+  it("leaves location and budget optional and rejects reversed budget ranges", () => {
+    expect(buildInquiryCapturePayload({ ...form, preferredSuburbs: [], budgetMax: "" }, contact)).toMatchObject({ preferredSuburbs: [], budgetMax: undefined });
+    expect(() => buildInquiryCapturePayload({ ...form, budgetMin: "7000" }, contact)).toThrow("Minimum budget");
+  });
+  it("retains an existing inquiry's pipeline stage when attaching a deal", () => {
+    expect(buildInquiryCapturePayload({ ...form, existingInquiryId: "inquiry", status: "NEGOTIATING" }, contact)).toMatchObject({ existingInquiryId: "inquiry", status: "NEGOTIATING" });
+  });
 });
