@@ -41,6 +41,7 @@ import {
   DEFAULT_AGENCY_SETTINGS,
 } from "@/lib/settings/agency-settings";
 import { PageTabs } from "@/components/ui/page-tabs";
+import { ClosingRequirementsSettings } from "@/components/settings/closing-requirements-settings";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { MfaSetupDialog } from "@/components/auth/mfa-setup-dialog";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
@@ -93,7 +94,7 @@ function SettingsContent() {
       router.replace("/dashboard/settings?tab=billing");
       return;
     }
-    if (tabParam && ["BRANDING", "ORGANIZATION", "BILLING", "DEVELOPER"].includes(tabParam)) {
+    if (tabParam && ["BRANDING", "ORGANIZATION", "BILLING", "CLOSING", "DEVELOPER"].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams, router]);
@@ -101,7 +102,7 @@ function SettingsContent() {
   const [settings, setSettings] = useState<AgencySettings>(DEFAULT_AGENCY_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(
-    ["BRANDING", "ORGANIZATION", "BILLING", "DEVELOPER"].includes(initialTab)
+    ["BRANDING", "ORGANIZATION", "BILLING", "CLOSING", "DEVELOPER"].includes(initialTab)
       ? initialTab
       : "BRANDING"
   );
@@ -508,6 +509,7 @@ function SettingsContent() {
     { id: "BRANDING", label: "Agency Profile & Brand", icon: Building2 },
     { id: "ORGANIZATION", label: "Team & Permissions", icon: Users },
     { id: "BILLING", label: "Subscription & Billing", icon: CreditCard },
+    { id: "CLOSING", label: "Closing Requirements", icon: ShieldCheck },
     { id: "DEVELOPER", label: "Public API & Website Integration", icon: Code },
   ];
 
@@ -564,14 +566,7 @@ function SettingsContent() {
         }}
       />
 
-      <section className="border border-editorial-border bg-white p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest font-bold text-contour-red">Sales operations</p>
-          <h2 className="font-heading font-bold text-base mt-1">Closing requirements</h2>
-          <p className="text-xs text-editorial-muted mt-1">Configure the checklist used before property-sale deals can be marked Won.</p>
-        </div>
-        <Link href="/dashboard/settings/closing-requirements" className="inline-flex items-center justify-center px-4 py-2 bg-editorial-black text-white text-xs font-heading font-bold uppercase tracking-wider hover:bg-contour-red">Manage requirements</Link>
-      </section>
+      {activeTab === "CLOSING" && <ClosingRequirementsSettings />}
 
       {activeTab === "BILLING" && <BillingPage />}
 
