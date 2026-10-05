@@ -33,6 +33,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ContourReportPayload, AiNarrative } from "@/lib/analytics/types";
+import { buildReportUrls, loadReportForViewer } from "@/lib/analytics/report-viewer";
 import { formatCurrency } from "@/lib/utils";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
@@ -60,6 +61,7 @@ export default function AnalyticsDashboardPage() {
   const [generationStage, setGenerationStage] = useState<"loading-report" | "generating-ai" | "ready" | "error">("loading-report");
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationInsights, setGenerationInsights] = useState<AiNarrative | null>(null);
+  const [generationViewerUrl, setGenerationViewerUrl] = useState<string | null>(null);
 
   const fetchReport = async (p = preset, from = customFrom, to = customTo) => {
     setLoading(true);
@@ -129,42 +131,28 @@ export default function AnalyticsDashboardPage() {
     setGenerationStage("loading-report");
     setGenerationError(null);
     setGenerationInsights(null);
+    setGenerationViewerUrl(null);
 
     try {
-      let reportUrl = `/api/analytics/report?preset=${wizardPreset}`;
-      if (wizardPreset === "custom" && wizardFrom && wizardTo) {
-        reportUrl += `&from=${wizardFrom}&to=${wizardTo}`;
-      }
-      const reportResponse = await fetch(reportUrl);
-      const reportData = await reportResponse.json();
-      if (!reportData.success || !reportData.report) {
-        throw new Error(reportData.error || "Unable to prepare the selected report.");
-      }
-
-      setGenerationStage("generating-ai");
-      const aiResponse = await fetch("/api/analytics/ai-insights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportPayload: reportData.report }),
-      });
-      const aiData = await aiResponse.json();
-      if (!aiResponse.ok || !aiData.success || !aiData.insights) {
-        throw new Error(aiData.error || "There was an error generating the AI results. Please ensure that your AI connection works fine.");
-      }
-
-      setGenerationInsights(aiData.insights as AiNarrative);
+      const { apiUrl, viewerUrl } = buildReportUrls({ preset: wizardPreset, from: wizardFrom, to: wizardTo, title: wizardTitle });
+      const generatedReport = await loadReportForViewer(apiUrl, fetch, undefined, () => setGenerationStage("generating-ai"));
+      setGenerationInsights(generatedReport.aiNarrative);
+      setGenerationViewerUrl(viewerUrl);
       setGenerationStage("ready");
-      window.setTimeout(() => {
-        let url = `/dashboard/analytics/print?preset=${wizardPreset}&title=${encodeURIComponent(wizardTitle)}`;
-        if (wizardPreset === "custom" && wizardFrom && wizardTo) {
-          url += `&from=${wizardFrom}&to=${wizardTo}`;
-        }
-        setGenerationDialogOpen(false);
-        window.open(url, "_blank");
-      }, 900);
     } catch (error: unknown) {
       setGenerationStage("error");
       setGenerationError(error instanceof Error ? error.message : "There was an error generating the AI results. Please ensure that your AI connection works fine.");
+    }
+  };
+
+  const openGeneratedReport = () => {
+    if (!generationViewerUrl) return;
+    setGenerationError(null);
+    const reportWindow = window.open(generationViewerUrl, "_blank");
+    if (!reportWindow) {
+      setGenerationError("Your browser blocked the report window. Please allow pop-ups for Contour, then select Open report viewer again.");
+    } else {
+      reportWindow.opener = null;
     }
   };
 
@@ -876,11 +864,11 @@ export default function AnalyticsDashboardPage() {
           <div className="space-y-3 py-4">
             <div className={`flex items-center gap-2 text-xs ${generationStage === "loading-report" ? "text-[#16382B] font-semibold" : "text-emerald-700"}`}>
               <CheckCircle2 className="w-4 h-4" />
-              <span>Report data prepared</span>
+              <span>{generationStage === "loading-report" ? "Preparing report data…" : "Report data prepared"}</span>
             </div>
             <div className={`flex items-center gap-2 text-xs ${generationStage === "generating-ai" ? "text-[#16382B] font-semibold" : generationStage === "error" ? "text-red-700" : "text-emerald-700"}`}>
               {generationStage === "generating-ai" ? <Sparkles className="w-4 h-4 animate-pulse" /> : <CheckCircle2 className="w-4 h-4" />}
-              <span>{generationStage === "generating-ai" ? "Generating grounded AI insights…" : "AI insights generated"}</span>
+              <span>{generationStage === "generating-ai" ? "Preparing grounded AI insights…" : generationStage === "ready" ? "AI insights ready" : generationStage === "error" ? "Report preparation failed" : "AI insights pending"}</span>
             </div>
 
             {generationStage === "error" && (
@@ -891,7 +879,7 @@ export default function AnalyticsDashboardPage() {
 
             {generationStage === "ready" && generationInsights && (
               <div className="border border-emerald-200 bg-emerald-50 p-3 space-y-2 text-xs text-[#1C1C1A]">
-                <div className="font-semibold text-emerald-800">Insights ready. Opening the document preview…</div>
+                <div className="font-semibold text-emerald-800">Insights ready. Your report is ready to view, print, or download.</div>
                 <p>{generationInsights.executiveSummaryText}</p>
                 <div className="font-semibold">Immediate priorities</div>
                 <ul className="list-disc pl-4 space-y-1">
@@ -905,6 +893,18 @@ export default function AnalyticsDashboardPage() {
             <div className="flex justify-end gap-2 border-t border-[#ECE7DE] pt-3">
               <button type="button" onClick={() => setGenerationDialogOpen(false)} className="px-4 py-2 text-xs font-semibold text-[#666158]">Close</button>
               <button type="button" onClick={() => void handleGenerateDocument()} className="px-4 py-2 text-xs font-semibold bg-[#16382B] text-white">Retry generation</button>
+            </div>
+          )}
+          {generationStage === "ready" && (
+            <div className="space-y-3 border-t border-[#ECE7DE] pt-3">
+              {generationError && <p role="alert" className="text-xs text-red-700">{generationError}</p>}
+              <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setGenerationDialogOpen(false)} className="px-4 py-2 text-xs font-semibold text-[#666158]">Close</button>
+              <button type="button" onClick={openGeneratedReport} className="px-4 py-2 text-xs font-semibold bg-[#16382B] text-white inline-flex items-center gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open report viewer
+              </button>
+              </div>
             </div>
           )}
         </DialogContent>

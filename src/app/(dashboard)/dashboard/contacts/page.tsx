@@ -1,5 +1,7 @@
 "use client";
 
+import { usePageUrlState } from "@/hooks/use-page-url-state";
+import { consumeCreationLink } from "@/lib/page-url-state";
 import { useEffect, useRef, useState } from "react";
 import { Pencil, Plus, Search, Users } from "lucide-react";
 import { contactSchema } from "@/lib/validations/contact";
@@ -11,7 +13,7 @@ type Contact = { id: string; name: string; phone: string; email?: string | null;
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = usePageUrlState<string>("search", "");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [saving, setSaving] = useState(false);
@@ -41,7 +43,7 @@ export default function ContactsPage() {
   };
 
   useEffect(() => {
-    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") openCreate();
+    if (consumeCreationLink()) openCreate();
   }, [searchParams]);
 
   const openEdit = (contact: Contact) => {

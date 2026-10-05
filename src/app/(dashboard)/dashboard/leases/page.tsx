@@ -1,5 +1,7 @@
 "use client";
 
+import { usePageUrlState } from "@/hooks/use-page-url-state";
+import { consumeCreationLink } from "@/lib/page-url-state";
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -26,7 +28,9 @@ function LeasesManagementContent() {
   const [reminderError, setReminderError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreatingLease, setIsCreatingLease] = useState(false);
-  const [selectedLease, setSelectedLease] = useState<any | null>(null);
+  const [selectedLeaseId, setSelectedLeaseId] = usePageUrlState<string>("leaseId", "");
+  const selectedLease = leases.find((lease) => lease.id === selectedLeaseId) || null;
+  const setSelectedLease = (lease: { id: string } | null) => setSelectedLeaseId(lease?.id || "");
   const [leaseAction, setLeaseAction] = useState<"TERMINATE" | "RELIST" | null>(null);
   const [leaseActionReason, setLeaseActionReason] = useState("");
   const [leaseActionError, setLeaseActionError] = useState("");
@@ -39,10 +43,10 @@ function LeasesManagementContent() {
 
   const searchParams = useSearchParams();
   useEffect(() => {
-    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
-      setIsModalOpen(true);
-    }
-    const rawPrefill = searchParams?.get("prefill");
+    const creation = consumeCreationLink();
+    if (!creation) return;
+    setIsModalOpen(true);
+    const rawPrefill = creation.get("prefill");
     if (rawPrefill) {
       try {
         const prefill = JSON.parse(rawPrefill) as { propertyId?: string; inquiryId?: string; tenantName?: string; tenantPhone?: string; tenantEmail?: string; monthlyRent?: number; currency?: string };
@@ -88,11 +92,6 @@ function LeasesManagementContent() {
         const propsData = await propsRes.json();
         if (leasesData.success) {
           setLeases(leasesData.leases);
-          const leaseId = searchParams?.get("leaseId");
-          if (leaseId) {
-            const matchingLease = leasesData.leases.find((lease: any) => lease.id === leaseId);
-            if (matchingLease) setSelectedLease(matchingLease);
-          }
         }
         if (propsData.success) {
           const rentProps = propsData.properties.filter(
@@ -100,7 +99,7 @@ function LeasesManagementContent() {
           );
           setProperties(rentProps);
           if (rentProps.length > 0) {
-            setFormData((prev) => ({ ...prev, propertyId: rentProps[0].id }));
+            setFormData((prev) => ({ ...prev, propertyId: prev.propertyId || rentProps[0].id }));
           }
         }
       } catch (err) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { consumeCreationLink } from "@/lib/page-url-state";
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -59,7 +60,7 @@ function LandlordStatementsContent() {
 
   const searchParams = useSearchParams();
   useEffect(() => {
-    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+    if (consumeCreationLink()) {
       setIsModalOpen(true);
     }
   }, [searchParams]);

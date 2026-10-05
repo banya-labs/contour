@@ -1,5 +1,7 @@
 "use client";
 
+import { usePageUrlState } from "@/hooks/use-page-url-state";
+import { consumeCreationLink } from "@/lib/page-url-state";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -26,22 +28,24 @@ function PropertySalesContent() {
   const [properties, setProperties] = useState<any[]>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [search, setSearch] = usePageUrlState<string>("search", "");
+  const [filterStatus, setFilterStatus] = usePageUrlState<string>("status", "ALL", ["ALL", "PENDING_STATE_CONSENT", "DEEDS_LODGED", "TRANSFER_COMPLETE"]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [canOverrideCommission, setCanOverrideCommission] = useState(false);
   const [isRecordingSale, setIsRecordingSale] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [selectedSaleId, setSelectedSaleId] = usePageUrlState<string>("saleId", "");
+  const selectedSale = sales.find((sale) => sale.id === selectedSaleId) || null;
+  const setSelectedSale = (sale: { id: string } | null) => setSelectedSaleId(sale?.id || "");
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const activeTab = searchParams?.get("tab") === "commissions" ? "commissions" : "sales";
   useEffect(() => {
-    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+    if (activeTab === "sales" && consumeCreationLink()) {
       setIsModalOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -597,7 +601,8 @@ function PropertySalesContent() {
             <select defaultValue={selectedSale.transferStatus || "SALE_AGREED"} onChange={async (event) => {
               const response = await fetch(`/api/sales/${selectedSale.id}/transfer`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: event.target.value }) });
               if (!response.ok) { setFormError((await response.json()).error || "Unable to update transfer status."); return; }
-              setSelectedSale({ ...selectedSale, transferStatus: event.target.value });
+              const transferStatus = event.target.value;
+              setSales((current) => current.map((sale) => sale.id === selectedSale.id ? { ...sale, transferStatus } : sale));
               setRefreshNonce((value) => value + 1);
             }} className="w-full border border-editorial-border p-2 text-xs">
               <option value="SALE_AGREED">Sale agreed</option>

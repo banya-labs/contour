@@ -1,5 +1,7 @@
 "use client";
 
+import { usePageUrlState } from "@/hooks/use-page-url-state";
+import { consumeCreationLink } from "@/lib/page-url-state";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ContactsPage from "../contacts/page";
@@ -40,10 +42,12 @@ function ClientsCRMContent() {
   const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string; email?: string | null }>>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; roleKey?: string }>>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
+  const [search, setSearch] = usePageUrlState<string>("search", "");
+  const [filterAssigned, setFilterAssigned] = usePageUrlState<"ALL" | "ASSIGNED">("assigned", "ALL", ["ALL", "ASSIGNED"]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [selectedClientId, setSelectedClientId] = usePageUrlState<string>("clientId", "");
+  const selectedClient = clients.find((client) => client.id === selectedClientId) || null;
+  const setSelectedClient = (client: { id: string } | null) => setSelectedClientId(client?.id || "");
   const [cancellationTarget, setCancellationTarget] = useState<any | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
@@ -84,10 +88,10 @@ function ClientsCRMContent() {
   const router = useRouter();
   const activeTab = searchParams?.get("tab") === "contacts" ? "contacts" : "inquiries";
   useEffect(() => {
-    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+    if (activeTab === "inquiries" && consumeCreationLink()) {
       setIsModalOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab]);
 
   useEffect(() => {
     async function loadData() {
@@ -1102,7 +1106,7 @@ function ClientsCRMContent() {
                 <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-editorial-red">Property matching complete</p>
                 <h3 className="mt-1 font-serif font-bold text-xl text-editorial-black">{matchingInquiry.name}</h3>
               </div>
-              <button type="button" onClick={() => { setMatchingInquiry(null); window.location.reload(); }} className="flex items-center justify-center w-8 h-8 border border-editorial-border hover:bg-editorial-black hover:text-white" title="Close">
+              <button type="button" onClick={() => { setMatchingInquiry(null); setRefreshNonce((value) => value + 1); }} className="flex items-center justify-center w-8 h-8 border border-editorial-border hover:bg-editorial-black hover:text-white" title="Close">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1124,7 +1128,7 @@ function ClientsCRMContent() {
                 ))}
               </div>
             )}
-            <button type="button" onClick={() => { setMatchingInquiry(null); window.location.reload(); }} className="w-full bg-editorial-black text-white px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider hover:bg-editorial-red">
+            <button type="button" onClick={() => { setMatchingInquiry(null); setRefreshNonce((value) => value + 1); }} className="w-full bg-editorial-black text-white px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider hover:bg-editorial-red">
               Continue to refreshed inquiries
             </button>
           </div>

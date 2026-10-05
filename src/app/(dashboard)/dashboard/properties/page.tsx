@@ -1,5 +1,7 @@
 "use client";
 
+import { usePageUrlState } from "@/hooks/use-page-url-state";
+import { consumeCreationLink } from "@/lib/page-url-state";
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -60,9 +62,9 @@ function PropertiesCatalogContent() {
   const [properties, setProperties] = useState<any[]>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = usePageUrlState<string>("search", "");
   const debouncedSearch = useDebounce(search, 250);
-  const [filterAssigned, setFilterAssigned] = useState<"ALL" | "ASSIGNED">("ALL");
+  const [filterAssigned, setFilterAssigned] = usePageUrlState<"ALL" | "ASSIGNED">("assigned", "ALL", ["ALL", "ASSIGNED"]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [canOverrideCommission, setCanOverrideCommission] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -73,7 +75,7 @@ function PropertiesCatalogContent() {
 
   const searchParams = useSearchParams();
   useEffect(() => {
-    if (searchParams?.get("new") === "1" || searchParams?.get("new") === "true") {
+    if (consumeCreationLink()) {
       setIsModalOpen(true);
     }
   }, [searchParams]);
@@ -125,13 +127,12 @@ function PropertiesCatalogContent() {
   });
 
   // 360 Detail Modal State
-  const [detailModalState, setDetailModalState] = useState<{
-    isOpen: boolean;
-    property: any;
-  }>({
-    isOpen: false,
-    property: null,
-  });
+  const [selectedPropertyId, setSelectedPropertyId] = usePageUrlState<string>("propertyId", "");
+  const selectedProperty = properties.find((property) => property.id === selectedPropertyId) || null;
+  const detailModalState = { isOpen: Boolean(selectedProperty), property: selectedProperty };
+  const setDetailModalState = (next: { isOpen: boolean; property: { id: string } | null }) => {
+    setSelectedPropertyId(next.isOpen ? next.property?.id || "" : "");
+  };
 
   // Social Media Generator Modal State
   const [socialModalState, setSocialModalState] = useState<{

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download } from "lucide-react";
 import Link from "next/link";
 import { ContourReportPayload } from "@/lib/analytics/types";
+import { buildReportUrls, loadReportForViewer } from "@/lib/analytics/report-viewer";
 import { formatCurrency } from "@/lib/utils";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -22,6 +23,8 @@ function AnalyticsPrintContent() {
   const [report, setReport] = useState<ContourReportPayload | null>(null);
   const [localAgencyLogo, setLocalAgencyLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressText, setProgressText] = useState("");
@@ -34,42 +37,27 @@ function AnalyticsPrintContent() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setReport(null);
+    setLoadError(null);
     async function loadReport() {
       try {
-        let url = `/api/analytics/report?preset=${preset}`;
-        if (fromParam && toParam) {
-          url += `&from=${fromParam}&to=${toParam}`;
-        }
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.success && data.report) {
-          let reportWithInsights = data.report as ContourReportPayload;
-          try {
-            const insightsResponse = await fetch("/api/analytics/ai-insights", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reportPayload: reportWithInsights }),
-            });
-            const insightsData = await insightsResponse.json();
-            if (insightsData.success && insightsData.insights) {
-              reportWithInsights = { ...reportWithInsights, aiNarrative: insightsData.insights };
-            }
-          } catch (insightsError) {
-            console.warn("AI insight enrichment unavailable; using data-derived report narrative.", insightsError);
-          }
-          setReport(reportWithInsights);
-        }
-      } catch (err) {
-        console.error("Failed to load print report data", err);
+        const { apiUrl } = buildReportUrls({ preset, from: fromParam, to: toParam, title: "" });
+        const readyReport = await loadReportForViewer(apiUrl, fetch, controller.signal);
+        if (!controller.signal.aborted) setReport(readyReport);
+      } catch (err: unknown) {
+        if (!controller.signal.aborted) setLoadError(err instanceof Error ? err.message : "Unable to prepare the report. Please try again.");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     loadReport();
-  }, [preset, fromParam, toParam]);
+    return () => controller.abort();
+  }, [preset, fromParam, toParam, retryNonce]);
 
   const handleGeneratePdf = async (action: "download" | "print") => {
-    if (isGenerating || !report) return;
+    if (isGenerating || !report?.aiNarrative) return;
     setIsGenerating(true);
     setProgressText("Initializing PDF engine...");
 
@@ -142,7 +130,8 @@ function AnalyticsPrintContent() {
   if (!report) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#2B2D31] text-xs font-mono text-red-400">
-        <p className="mb-3">Unable to extract analytics data for print generation.</p>
+        <p role="alert" className="mb-3">{loadError || "Unable to prepare the report."}</p>
+        <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="mb-3 px-4 py-2 text-white bg-[#16382B]">Retry report generation</button>
         <Link href="/dashboard/analytics" className="text-white underline">
           Return to Dashboard
         </Link>
