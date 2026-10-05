@@ -249,12 +249,12 @@ export default function PrivacyPolicyPage() {
             Artificial Intelligence & Algorithmic Transparency
           </h2>
           <p className="text-editorial-black">
-            Contour integrates AI capabilities (semantic listing search and cadastral survey diagram parsing):
+            Contour integrates AI capabilities for semantic listing search:
           </p>
           <ul className="list-disc pl-5 space-y-1.5 text-editorial-muted">
             <li><strong className="text-editorial-black">Strict Tenant Scoping:</strong> Vector embeddings are strictly isolated per tenant organization. Your agency&apos;s listing data and client requirements are never exposed to other agencies.</li>
             <li><strong className="text-editorial-black">Zero Foundational AI Training:</strong> Neither Contour nor its subprocessors use client Title Deeds, NRC scans, or transaction contracts to train public generative AI models.</li>
-            <li><strong className="text-editorial-black">Human Oversight (The Seam):</strong> All automated survey extractions and rental statement payout calculations require human staff approval before legal execution.</li>
+            <li><strong className="text-editorial-black">Human Oversight (The Seam):</strong> Rental statement payout calculations require human staff approval before legal execution.</li>
           </ul>
         </section>
       </main>

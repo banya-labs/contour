@@ -18,15 +18,9 @@ import {
   X,
   Building2,
   TrendingUp,
-  RotateCcw,
-  CheckCircle2,
   Compass,
   Plus,
   Minus,
-  PenTool,
-  Ruler,
-  Crosshair,
-  Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { publicPropertyPath } from "@/lib/public-property";
@@ -39,47 +33,6 @@ import {
   RegionStats,
 } from "@/lib/choropleth-geo-data";
 
-// Coordinate Conversion & Geodesic Math Helpers
-export function convertToDMS(lat: number, lng: number): string {
-  const latDir = lat >= 0 ? "N" : "S";
-  const absLat = Math.abs(lat);
-  const latDeg = Math.floor(absLat);
-  const latMin = Math.floor((absLat - latDeg) * 60);
-  const latSec = (((absLat - latDeg) * 60 - latMin) * 60).toFixed(1);
-
-  const lngDir = lng >= 0 ? "E" : "W";
-  const absLng = Math.abs(lng);
-  const lngDeg = Math.floor(absLng);
-  const lngMin = Math.floor((absLng - lngDeg) * 60);
-  const lngSec = (((absLng - lngDeg) * 60 - lngMin) * 60).toFixed(1);
-
-  return `${latDeg}°${latMin}'${latSec}"${latDir} ${lngDeg}°${lngMin}'${lngSec}"${lngDir}`;
-}
-
-export function convertToUTM(lat: number, lng: number): string {
-  const zone = Math.floor((lng + 180) / 6) + 1;
-  const letter = lat >= 0 ? "N" : "S";
-  const easting = Math.round(500000 + (lng - (zone * 6 - 183)) * 111320 * Math.cos((lat * Math.PI) / 180));
-  const northing = Math.round(lat >= 0 ? lat * 110574 : 10000000 + lat * 110574);
-  return `UTM ${zone}${letter} E:${easting.toLocaleString()} N:${northing.toLocaleString()}`;
-}
-
-export function calculateGeodesicAreaSqm(vertices: [number, number][]): number {
-  if (vertices.length < 3) return 0;
-  const radius = 6378137; // Earth radius in meters
-  let area = 0;
-  for (let i = 0; i < vertices.length; i++) {
-    const j = (i + 1) % vertices.length;
-    const [lat1, lng1] = vertices[i];
-    const [lat2, lng2] = vertices[j];
-    const radLat1 = (lat1 * Math.PI) / 180;
-    const radLat2 = (lat2 * Math.PI) / 180;
-    const radLngDiff = ((lng2 - lng1) * Math.PI) / 180;
-    area += radLngDiff * (2 + Math.sin(radLat1) + Math.sin(radLat2));
-  }
-  area = (Math.abs(area) * radius * radius) / 2;
-  return Math.round(area);
-}
 import type { PropertyMapItem } from "@/types/property-map";
 export type { PropertyMapItem } from "@/types/property-map";
 
@@ -96,7 +49,6 @@ type InteractivePropertyMapProps = {
   onFilterChange?: (filter: string) => void;
   suburbIntelOpen?: boolean;
   onToggleSuburbIntel?: () => void;
-  onSaveStandBoundary?: (vertices: [number, number][], computedPlotSizeSqm: number) => void;
   selectedPropertyId?: string | null;
   // Choropleth View Props
   viewMode?: "STANDARD" | "CHOROPLETH";
@@ -148,7 +100,6 @@ export default function InteractivePropertyMap({
   onFilterChange,
   suburbIntelOpen = false,
   onToggleSuburbIntel,
-  onSaveStandBoundary,
   selectedPropertyId: externalSelectedPropertyId,
   viewMode: externalViewMode,
   onViewModeChange,
@@ -166,9 +117,6 @@ export default function InteractivePropertyMap({
   const leafletRef = useRef<any>(null);
   const markersGroupRef = useRef<any>(null);
   const markersMapRef = useRef<Map<string, any>>(new Map());
-  const polygonsGroupRef = useRef<any>(null);
-  const polygonsMapRef = useRef<Map<string, any>>(new Map());
-  const drawingLayerGroupRef = useRef<any>(null);
   const choroplethLayerGroupRef = useRef<any>(null);
 
   // Choropleth View Mode & Hierarchy State
@@ -180,10 +128,6 @@ export default function InteractivePropertyMap({
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>("prov-lusaka");
   const [hoveredRegionStats, setHoveredRegionStats] = useState<RegionStats | null>(null);
 
-  // Stand Drawer & Coordinate Format Switcher State
-  const [coordFormat, setCoordFormat] = useState<"DD" | "DMS" | "UTM">("DD");
-  const [isDrawingStand, setIsDrawingStand] = useState<boolean>(false);
-  const [drawnVertices, setDrawnVertices] = useState<[number, number][]>([]);
   const [flyToSearchQuery, setFlyToSearchQuery] = useState<string>("");
 
   // Fallback internal state
@@ -283,10 +227,8 @@ export default function InteractivePropertyMap({
         maxZoom: 19,
       }).addTo(map);
 
-      const polygonsGroup = L.layerGroup().addTo(map);
       const markersGroup = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
-      polygonsGroupRef.current = polygonsGroup;
       markersGroupRef.current = markersGroup;
       setMapLoaded(true);
 
@@ -331,71 +273,6 @@ export default function InteractivePropertyMap({
       window.removeEventListener("orientationchange", handleResize);
     };
   }, [mapLoaded]);
-
-  // Register map click listener for stand boundary node plotting
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    const handleMapClick = (e: any) => {
-      if (!isDrawingStand) return;
-      const newVertex: [number, number] = [
-        Number(e.latlng.lat.toFixed(6)),
-        Number(e.latlng.lng.toFixed(6)),
-      ];
-      setDrawnVertices((prev) => [...prev, newVertex]);
-    };
-
-    if (isDrawingStand) {
-      map.getContainer().style.cursor = "crosshair";
-    } else {
-      map.getContainer().style.cursor = "";
-    }
-
-    map.on("click", handleMapClick);
-    return () => {
-      map.off("click", handleMapClick);
-    };
-  }, [isDrawingStand]);
-
-  // Live rendering of drawn vertices layer on map
-  useEffect(() => {
-    if (!mapLoaded || !mapInstanceRef.current) return;
-    async function renderDrawnShape() {
-      const L = leafletRef.current || (await import("leaflet")).default;
-      const map = mapInstanceRef.current;
-      if (!drawingLayerGroupRef.current) {
-        drawingLayerGroupRef.current = L.layerGroup().addTo(map);
-      }
-      const group = drawingLayerGroupRef.current;
-      group.clearLayers();
-
-      if (drawnVertices.length === 0) return;
-
-      drawnVertices.forEach((v, idx) => {
-        const nodeHtml = `<div style="background:#FA3600; color:#ffffff; font-weight:800; font-size:10px; padding:2px 8px; border-radius:9999px; border:2px solid #ffffff; box-shadow:0 2px 8px rgba(0,0,0,0.4); white-space:nowrap; font-family:sans-serif;">P${idx + 1}</div>`;
-        const nodeIcon = L.divIcon({
-          className: "custom-vertex-node-icon",
-          html: nodeHtml,
-          iconSize: [28, 20],
-          iconAnchor: [14, 10],
-        });
-        L.marker([v[0], v[1]], { icon: nodeIcon }).addTo(group);
-      });
-
-      if (drawnVertices.length === 2) {
-        L.polyline(drawnVertices, { color: "#FA3600", weight: 3, dashArray: "6,6" }).addTo(group);
-      } else if (drawnVertices.length >= 3) {
-        L.polygon(drawnVertices, {
-          color: "#FA3600",
-          weight: 3,
-          fillColor: "#FA3600",
-          fillOpacity: 0.25,
-        }).addTo(group);
-      }
-    }
-    renderDrawnShape();
-  }, [drawnVertices, coordFormat, mapLoaded]);
 
   // Choropleth Layer Rendering & Hierarchical Drill-Down Effect
   useEffect(() => {
@@ -473,7 +350,7 @@ export default function InteractivePropertyMap({
             map.flyTo(region.center, region.zoom, { duration: 1.2 });
           } else if (region.level === "DISTRICT") {
             map.flyTo(region.center, 15, { duration: 1.2 });
-            // Switch to standard view to view stand boundaries and markers!
+            // Switch to standard view to view property markers!
             setInternalViewMode("STANDARD");
             if (onViewModeChange) onViewModeChange("STANDARD");
           }
@@ -510,19 +387,16 @@ export default function InteractivePropertyMap({
     }
   };
 
-  // Update Map Markers & Polygons
+  // Update Map Markers
   useEffect(() => {
     if (!mapLoaded || !mapInstanceRef.current || !markersGroupRef.current) return;
 
     async function updateMarkers() {
       const L = leafletRef.current || (await import("leaflet")).default;
       const markersGroup = markersGroupRef.current;
-      const polygonsGroup = polygonsGroupRef.current;
 
       if (markersGroup) markersGroup.clearLayers();
-      if (polygonsGroup) polygonsGroup.clearLayers();
       markersMapRef.current.clear();
-      polygonsMapRef.current.clear();
 
       if (propertiesWithCoords.length === 0) return;
 
@@ -532,64 +406,6 @@ export default function InteractivePropertyMap({
         const lat = property.latitude!;
         const lng = property.longitude!;
         const color = getStatusColor(property.listingType, property.status);
-
-        // 1. Draw Stand / Land Boundary Polygon if coordinates exist
-        let polygon: any = null;
-        if (property.standBoundary && property.standBoundary.length >= 3) {
-          const isSelected = property.id === activePropertyId;
-          polygon = L.polygon(property.standBoundary, {
-            color: isSelected ? "#FA3600" : color,
-            weight: isSelected ? 3 : 2,
-            dashArray: isSelected ? undefined : "4, 4",
-            fillColor: isSelected ? "#E57A1A" : color,
-            fillOpacity: isSelected ? 0.45 : 0.15,
-          });
-
-          if (polygonsGroup) polygon.addTo(polygonsGroup);
-          polygonsMapRef.current.set(property.id, polygon);
-
-          // Render Corner Pin Badges for selected stand
-          if (isSelected && property.standBoundary) {
-            property.standBoundary.forEach((pt, pIdx) => {
-              let formattedPoint = `${pt[0].toFixed(5)}, ${pt[1].toFixed(5)}`;
-              if (coordFormat === "DMS") formattedPoint = convertToDMS(pt[0], pt[1]);
-              if (coordFormat === "UTM") formattedPoint = convertToUTM(pt[0], pt[1]);
-
-              const vertexHtml = `<div style="background:#1C1C1A; color:#ffffff; font-weight:800; font-size:9px; padding:2px 6px; border-radius:9999px; border:1.5px solid #E57A1A; box-shadow:0 2px 6px rgba(0,0,0,0.4); white-space:nowrap; font-family:monospace;">P${pIdx + 1}: ${formattedPoint}</div>`;
-              const vertexIcon = L.divIcon({
-                className: "vertex-corner-node",
-                html: vertexHtml,
-                iconSize: [120, 20],
-                iconAnchor: [60, 24],
-              });
-              L.marker([pt[0], pt[1]], { icon: vertexIcon }).addTo(polygonsGroup);
-            });
-          }
-
-          // Click handler on polygon
-          polygon.on("click", () => {
-            setActivePropertyId(property.id);
-            const marker = markersMapRef.current.get(property.id);
-            if (marker) marker.openPopup();
-            if (onSelectProperty) onSelectProperty(property);
-          });
-
-          // Double Click handler on polygon: zoom to stand bounds & select
-          polygon.on("dblclick", (e: any) => {
-            if (e.originalEvent) e.originalEvent.stopPropagation();
-            setActivePropertyId(property.id);
-            if (mapInstanceRef.current && polygon) {
-              mapInstanceRef.current.flyToBounds(polygon.getBounds(), {
-                padding: [50, 50],
-                maxZoom: 18,
-                duration: 1.5,
-              });
-            }
-            const marker = markersMapRef.current.get(property.id);
-            if (marker) marker.openPopup();
-            if (onSelectProperty) onSelectProperty(property);
-          });
-        }
 
         // 2. Custom Marker Pin
         const customIcon = L.divIcon({
@@ -619,7 +435,6 @@ export default function InteractivePropertyMap({
               <span style="position: absolute; top: 6px; left: 6px; background: #111111; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 0px; font-family: monospace;">
                 ${property.listingType === "FOR_RENT" ? "FOR RENT" : "FOR SALE"}
               </span>
-              ${property.standBoundary ? `<span style="position: absolute; top: 6px; right: 6px; background: #fa3600; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 0px; font-family: monospace;">📐 DEMARCATED</span>` : ""}
             </div>
             <div style="font-weight: 700; font-size: 14px; color: #111111; line-height: 1.2; margin-bottom: 2px;">
               ${property.title}
@@ -653,22 +468,14 @@ export default function InteractivePropertyMap({
           if (onSelectProperty) onSelectProperty(property);
         });
 
-        // Double click handler on marker: zoom to stand bounds (if polygon exists) or zoom in close
+        // Double click handler on marker: zoom in on the location pin
         marker.on("dblclick", (e: any) => {
           if (e.originalEvent) e.originalEvent.stopPropagation();
           setActivePropertyId(property.id);
           if (mapInstanceRef.current) {
-            if (polygon) {
-              mapInstanceRef.current.flyToBounds(polygon.getBounds(), {
-                padding: [50, 50],
-                maxZoom: 18,
-                duration: 1.5,
-              });
-            } else {
-              mapInstanceRef.current.flyTo([lat, lng], 18, {
-                duration: 1.5,
-              });
-            }
+            mapInstanceRef.current.flyTo([lat, lng], 18, {
+              duration: 1.5,
+            });
           }
           marker.openPopup();
           if (onSelectProperty) onSelectProperty(property);
@@ -677,11 +484,7 @@ export default function InteractivePropertyMap({
         if (markersGroup) marker.addTo(markersGroup);
         markersMapRef.current.set(property.id, marker);
 
-        if (polygon) {
-          bounds.extend(polygon.getBounds());
-        } else {
-          bounds.extend([lat, lng]);
-        }
+        bounds.extend([lat, lng]);
       });
 
       if (propertiesWithCoords.length > 0 && mapInstanceRef.current) {
@@ -692,36 +495,11 @@ export default function InteractivePropertyMap({
     updateMarkers();
   }, [propertiesWithCoords, mapLoaded, onSelectProperty]);
 
-  // Dynamically update polygon styling when active selection changes
-  useEffect(() => {
-    if (!mapLoaded || !polygonsMapRef.current) return;
-    polygonsMapRef.current.forEach((polygon, propId) => {
-      const isSelected = propId === activePropertyId;
-      polygon.setStyle({
-        weight: isSelected ? 3 : 2,
-        dashArray: isSelected ? undefined : "4, 4",
-        fillOpacity: isSelected ? 0.45 : 0.15,
-        color: isSelected ? "#FA3600" : "#4b5563",
-        fillColor: isSelected ? "#E57A1A" : "#FA3600",
-      });
-      if (isSelected) {
-        polygon.bringToFront();
-      }
-    });
-  }, [activePropertyId, mapLoaded]);
-
   // Pan Map smoothly to property (handles card click)
   const handleCardClick = (property: PropertyMapItem) => {
     setActivePropertyId(property.id);
     if (mapInstanceRef.current) {
-      const polygon = polygonsMapRef.current.get(property.id);
-      if (polygon) {
-        mapInstanceRef.current.flyToBounds(polygon.getBounds(), {
-          padding: [50, 50],
-          maxZoom: 18,
-          duration: 1.2,
-        });
-      } else if (property.latitude != null && property.longitude != null) {
+      if (property.latitude != null && property.longitude != null) {
         mapInstanceRef.current.flyTo([property.latitude, property.longitude], 16, {
           duration: 1.2,
         });

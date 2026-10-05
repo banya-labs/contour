@@ -16,7 +16,6 @@ export type PropertyMapItem = {
   city: string;
   latitude?: number | null;
   longitude?: number | null;
-  standBoundary?: [number, number][] | null;
   landmarkDirections?: string | null;
   photos: string[];
   featuredPhoto?: string | null;

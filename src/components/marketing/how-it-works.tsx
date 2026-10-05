@@ -79,7 +79,7 @@ const WORKFLOW_DATA: Record<WorkflowKey, WorkflowStep[]> = {
     {
       step: "01",
       title: "SURVEY",
-      desc: "Register the parent land parcel. Attach the cadastral survey diagram. Automatically plot subdivided stands.",
+      desc: "Register the parent land parcel. Add each stand with its location, size, and asking price.",
       illustrationType: "dev-survey",
     },
     {

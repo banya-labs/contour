@@ -29,7 +29,6 @@ import type { AlertMatchResult } from "@/lib/alerts/matchmaker";
 import PropertyMatchSummaryModal from "@/components/alerts/property-match-summary-modal";
 import Property360DetailModal from "@/components/properties/property-360-detail-modal";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
-import TitleDeedOcrUploader from "@/components/properties/title-deed-ocr-uploader";
 import PropertyImageUploader from "@/components/properties/property-image-uploader";
 import LocationCoordinatePicker from "@/components/properties/location-coordinate-picker";
 import { PROPERTY_TYPE_OPTIONS } from "@/lib/property-types";
@@ -165,9 +164,6 @@ function PropertiesCatalogContent() {
     description: "",
     photos: [] as string[],
     featuredPhoto: undefined as string | undefined,
-    standBoundary: undefined as any,
-    titleDeedNumber: "",
-    titleDeedDocumentId: undefined as string | undefined,
     mandateType: "SOLE_MANDATE",
     mandateReference: "",
     mandateDeclarationAgreed: false,
@@ -292,9 +288,6 @@ function PropertiesCatalogContent() {
         description: formData.description?.trim() || undefined,
         photos: formData.photos,
         featuredPhoto: formData.featuredPhoto || (formData.photos && formData.photos[0]) || undefined,
-        standBoundary: formData.standBoundary,
-        titleDeedNumber: formData.titleDeedNumber || undefined,
-        titleDeedDocumentId: formData.titleDeedDocumentId || undefined,
         mandateType: formData.mandateType,
         mandateReference: formData.mandateReference || undefined,
         mandateDeclarationAgreed: formData.mandateDeclarationAgreed,
@@ -356,7 +349,7 @@ function PropertiesCatalogContent() {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[9px] sm:text-[10px] font-geist font-bold px-1.5 sm:px-2 py-0.5 border border-editorial-border bg-neutral-100 text-editorial-black uppercase tracking-wider">
-              Cadastral Registry
+              Property Catalog
             </span>
             <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted">
               Lusaka Plateau • S3 Custody
@@ -983,28 +976,6 @@ function PropertiesCatalogContent() {
                 }
               />
 
-              {/* Title Deed & Cadastral Survey (OCR Boundary Extraction) */}
-              <TitleDeedOcrUploader
-                onBoundaryExtracted={({ standBoundary, plotSizeSqm, titleDeedNumber, document }) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    standBoundary,
-                    plotSizeSqm: plotSizeSqm ? String(plotSizeSqm) : prev.plotSizeSqm,
-                    titleDeedNumber: titleDeedNumber || prev.titleDeedNumber,
-                    titleDeedDocumentId: document?.id || prev.titleDeedDocumentId,
-                  }));
-                }}
-                onReset={() => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    standBoundary: undefined,
-                    titleDeedDocumentId: undefined,
-                  }));
-                }}
-                initialBoundary={formData.standBoundary}
-                currentPlotSize={formData.plotSizeSqm}
-              />
-
               <div>
                 <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">
                   Landmark Directions
@@ -1024,7 +995,7 @@ function PropertiesCatalogContent() {
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="e.g. Executive standalone residence with verified boundaries, borehole, high perimeter wall, and manicured grounds..."
+                  placeholder="e.g. Executive standalone residence with borehole, high perimeter wall, and manicured grounds..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full bg-white px-3 py-2 border border-editorial-border focus:outline-none focus:border-editorial-black text-editorial-black font-geist text-xs"
@@ -1085,7 +1056,7 @@ function PropertiesCatalogContent() {
                   />
                   <label htmlFor="mandate-declaration" className="text-[11px] text-editorial-black leading-relaxed cursor-pointer font-geist">
                     <strong className="font-heading font-bold uppercase tracking-wider text-editorial-black">Statutory Declaration: </strong>
-                    I confirm that our agency holds an active written Mandate Agreement from the lawful registered owner. I warrant that stand boundaries, pricing, and title specifications are authentic under the <em>Estate Agents Act (Cap 187)</em> and <em>Penal Code (Cap 87)</em>.
+                    I confirm that our agency holds an active written Mandate Agreement from the lawful registered owner. I warrant that property details, pricing, and title specifications are authentic under the <em>Estate Agents Act (Cap 187)</em> and <em>Penal Code (Cap 87)</em>.
                   </label>
                 </div>
               </div>

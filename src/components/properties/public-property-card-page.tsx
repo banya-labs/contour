@@ -81,7 +81,6 @@ async function getPropertyBySlug(slug: string) {
         latitude: dbProperty.latitude,
         status: dbProperty.status,
         longitude: dbProperty.longitude,
-        standBoundary: (dbProperty.standBoundary as [number, number][] | null) || null,
         landmarkDirections: dbProperty.landmarkDirections,
         assignedAgentName: dbProperty.assignedAgent?.name || "Grace Banda",
         assignedAgentPhone: dbProperty.assignedAgent?.phone || "+260 97 123 4567",
@@ -91,7 +90,7 @@ async function getPropertyBySlug(slug: string) {
         organizationSlug: dbProperty.organization?.slug || dbProperty.organizationId,
         features: [
           "Clean Ministry Certificate of Title",
-          "Verified Cadastral Stand Boundary",
+          "Property Location Pin",
           "Statutory Sole Agency Mandate",
           "Direct Legal Escrow & Conveyancing Custody",
         ],
@@ -402,7 +401,7 @@ export default async function PublicPropertyCardPage({
           )}
         </div>
 
-        {/* Spatial Location Map with Area Pin & Cadastral Delineation */}
+        {/* Property Location Map */}
         <PropertyLocationMap
           title={property.title}
           suburb={property.suburb}
@@ -410,7 +409,6 @@ export default async function PublicPropertyCardPage({
           priceText={priceText}
           latitude={property.latitude}
           longitude={property.longitude}
-          standBoundary={property.standBoundary}
           landmarkDirections={property.landmarkDirections}
           featuredPhoto={property.featuredPhoto || property.photos[0]}
           organizationSlug={property.organizationSlug}

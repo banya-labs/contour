@@ -202,7 +202,7 @@ export function PropertyShowcaseGallery() {
             </h2>
             
             <p className="text-stone-600 text-sm sm:text-base max-w-2xl leading-relaxed">
-              Every property managed on Contour carries full cadastral coordinates, verified Ministry of Lands survey refs, and a locked 5% commission ledger for your brokerage.
+              Manage property locations, attached legal documents, and the commission ledger for your brokerage in one place.
             </p>
           </div>
 

@@ -75,6 +75,7 @@ import { PropertyInquiryMatchView } from "@/components/matching/property-inquiry
 import { AssignPropertyDialog } from "@/components/matching/assign-property-dialog";
 import type { MatchRow } from "@/lib/matching/client-types";
 import { buildInquiryCapturePayload } from "@/lib/crm/inquiry-capture";
+import { inquiryAssignmentPatch } from "@/lib/crm/inquiry-assignment";
 import { fetchAllPages } from "@/lib/fetch-pages";
 import { clearMatchCache } from "@/lib/matching/result-cache";
 import type { PropertyType, ListingType } from "@prisma/client";
@@ -368,14 +369,22 @@ function AgentKioskContent() {
   const [isCustomEditSuburb, setIsCustomEditSuburb] = useState(false);
   const [editClientNotes, setEditClientNotes] = useState("");
   const [editClientAssignedAgentId, setEditClientAssignedAgentId] = useState("");
+  const [editClientPropertyId, setEditClientPropertyId] = useState("");
   const [isSavingClientEdit, setIsSavingClientEdit] = useState(false);
   const [editClientError, setEditClientError] = useState<string | null>(null);
+
+  const originalEditPropertyId: string | null = editingClient?.propertyId || editingClient?.property?.id || null;
+  const editPropertyOptions = properties.filter((property: { id: string; status: string; listingType: string; currency: string }) =>
+    property.id === originalEditPropertyId || (property.status === "AVAILABLE" && property.currency === editClientCurrency &&
+      (property.listingType === "BOTH" || property.listingType === (editingClient?.lookingFor || "FOR_SALE"))),
+  );
 
   const handleOpenEditClient = (client: any) => {
     setEditingClient(client);
     setEditClientName(client.name || client.clientName || "");
     setEditClientPhone(client.phone || client.clientPhone || "");
     setEditClientAssignedAgentId(client.assignedAgentId || client.assignedAgent?.id || "");
+    setEditClientPropertyId(client.propertyId || client.property?.id || "");
     const rawBudget = client.budget || client.budgetMax || "";
     const numBudget = typeof rawBudget === "string" ? rawBudget.replace(/[^0-9.]/g, "") : String(rawBudget || "");
     setEditClientBudget(numBudget);
@@ -390,6 +399,15 @@ function AgentKioskContent() {
   const handleSaveClientEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient) return;
+    if (!isOnline) {
+      setEditClientError("Reconnect to save inquiry changes and property assignments.");
+      return;
+    }
+    if (editClientPropertyId && editClientPropertyId !== originalEditPropertyId &&
+      !editPropertyOptions.some((property: { id: string }) => property.id === editClientPropertyId)) {
+      setEditClientError("Choose an available mandate that fits the inquiry type and currency, or select Unassigned.");
+      return;
+    }
     if (!editClientName.trim()) {
       setEditClientError("Client name is required.");
       return;
@@ -412,6 +430,7 @@ function AgentKioskContent() {
         preferredSuburbs: editClientSuburb ? [editClientSuburb] : [],
         notes: editClientNotes || undefined,
         assignedAgentId: editClientAssignedAgentId ? editClientAssignedAgentId : undefined,
+        ...inquiryAssignmentPatch(originalEditPropertyId, editClientPropertyId),
       };
 
       const res = await fetch(`/api/clients/${editingClient.id}`, {
@@ -425,6 +444,8 @@ function AgentKioskContent() {
       }
 
       playSuccessTone();
+      clearMatchCache();
+      emitWorkspaceMutation(["clients", "pipeline", "agent", "properties", "dashboard"], editingClient.id);
       setEditingClient(null);
       void syncData();
     } catch (err: any) {
@@ -3964,6 +3985,36 @@ function AgentKioskContent() {
               </div>
 
               <div>
+                <label htmlFor="edit-inquiry-property" className="block text-editorial-black font-heading font-semibold mb-1">
+                  Assigned property / mandate
+                </label>
+                <select
+                  id="edit-inquiry-property"
+                  value={editClientPropertyId}
+                  onChange={(event) => setEditClientPropertyId(event.target.value)}
+                  disabled={!isOnline || loading || isSavingClientEdit}
+                  aria-describedby="edit-inquiry-property-help"
+                  className="w-full min-h-11 p-2.5 bg-neutral-50 border border-editorial-border font-mono text-xs focus:bg-white focus:outline-hidden focus:border-editorial-black disabled:opacity-50"
+                >
+                  <option value="">Unassigned — no property / mandate</option>
+                  {originalEditPropertyId && !editPropertyOptions.some((property: { id: string }) => property.id === originalEditPropertyId) && (
+                    <option value={originalEditPropertyId}>{editingClient.property?.title || "Current assigned mandate"} (current)</option>
+                  )}
+                  {editPropertyOptions.map((property: { id: string; title: string; suburb?: string }) => (
+                    <option key={property.id} value={property.id}>
+                      {property.title}{property.suburb ? ` · ${property.suburb}` : ""}{property.id === originalEditPropertyId ? " (current)" : ""}
+                    </option>
+                  ))}
+                  {editClientPropertyId && editClientPropertyId !== originalEditPropertyId && !editPropertyOptions.some((property: { id: string }) => property.id === editClientPropertyId) && (
+                    <option value={editClientPropertyId} disabled>Selected mandate no longer fits — choose another</option>
+                  )}
+                </select>
+                <p id="edit-inquiry-property-help" className="mt-1 text-[10px] text-editorial-muted font-mono">
+                  {!isOnline ? "Reconnect to change the assignment." : loading ? "Loading available mandates…" : "Choose an available mandate or Unassigned. Your choice takes effect when you save; the pipeline stage stays the same."}
+                </p>
+              </div>
+
+              <div>
                 <label className="block text-editorial-black font-heading font-semibold mb-1">
                   Agent Notes / Requirements
                 </label>
@@ -3987,7 +4038,7 @@ function AgentKioskContent() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingClientEdit}
+                  disabled={isSavingClientEdit || !isOnline}
                   className="px-4 py-2 bg-editorial-black hover:bg-contour-red text-white font-heading text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50"
                 >
                   {isSavingClientEdit ? "Saving..." : "Save Changes"}

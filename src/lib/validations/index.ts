@@ -68,8 +68,9 @@ export const createPropertySchema = z.object({
   }),
   mandateType: z.enum(["SOLE_MANDATE", "OPEN_MANDATE", "COMPANY_OWNED"]).default("SOLE_MANDATE"),
   mandateReference: z.string().max(100).optional(),
-  standBoundary: z.array(z.tuple([z.number(), z.number()])).optional(),
-  titleDeedDocumentId: z.string().optional(),
+  // Boundary extraction is retired; reject legacy payloads without changing stored geometry.
+  standBoundary: z.never().optional(),
+  titleDeedDocumentId: z.never().optional(),
 });
 
 export const updatePropertySchema = z.object({
@@ -105,8 +106,9 @@ export const updatePropertySchema = z.object({
   mandateDeclarationAgreed: z.boolean().optional(),
   mandateType: z.enum(["SOLE_MANDATE", "OPEN_MANDATE", "COMPANY_OWNED"]).optional(),
   mandateReference: z.string().max(100).nullable().optional(),
-  standBoundary: z.array(z.tuple([z.number(), z.number()])).nullable().optional(),
-  titleDeedDocumentId: z.string().nullable().optional(),
+  // Boundary extraction is retired; reject legacy payloads without changing stored geometry.
+  standBoundary: z.never().optional(),
+  titleDeedDocumentId: z.never().optional(),
   dealParties: z.any().optional(),
 }).passthrough();
 

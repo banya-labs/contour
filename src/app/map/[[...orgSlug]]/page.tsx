@@ -35,7 +35,7 @@ const InteractivePropertyMap = dynamic(
         <div className="flex flex-col items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-contour-red animate-ping" />
           <span className="font-mono text-xs uppercase tracking-wider text-editorial-black">
-            Loading Public Lusaka Cadastral Map...
+            Loading Public Lusaka Property Map...
           </span>
         </div>
       </div>
@@ -108,7 +108,6 @@ function PublicMapInner() {
                 city: p.city || "Lusaka",
                 latitude: p.latitude,
                 longitude: p.longitude,
-                standBoundary: p.standBoundary ? (p.standBoundary as [number, number][]) : null,
                 landmarkDirections: p.landmarkDirections,
                 photos: Array.isArray(p.photos) ? p.photos : [],
                 featuredPhoto: p.featuredPhoto || (p.photos && p.photos[0]) || null,
