@@ -157,6 +157,7 @@ export const generateLandlordStatementSchema = z.object({
   statementMonth: z.number().int().min(1).max(12),
   statementYear: z.number().int().min(2020).max(2035),
   currency: CurrencyEnum.default("ZMW"),
+  regenerate: z.boolean().default(false),
 });
 
 export const matchingPreferencesSchema = z.object({

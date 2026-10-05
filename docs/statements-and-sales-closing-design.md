@@ -99,4 +99,4 @@ Production database application and runtime deployment verification are separate
 
 ## Review decisions
 
-The user confirmed document-specific recipient edits, agency-managed payment instructions, full-month billing, and verified opening balances. Review the coordinated document/access/closing design before implementation. No financial product code or schema has changed yet.
+The user confirmed document-specific recipient edits, agency-managed payment instructions, full-month billing, and verified opening balances. The user approved the coordinated design and instructed implementation. The branch now implements the financial documents and closing initiation; verification and production rollout instructions are in statements-operations.md. Production migration/deployment remains separate.

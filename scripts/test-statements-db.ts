@@ -1,0 +1,70 @@
+import assert from "node:assert/strict";
+import { db } from "../src/lib/db";
+import { generateStatementDocument, readStatementDocument } from "../src/lib/statements/service";
+import { startSaleClosing } from "../src/lib/sales-closing";
+import { getOrCreateContact } from "../src/lib/crm/contact-service";
+import type { ApiContext } from "../src/lib/api-handler";
+
+// This suite writes synthetic fixtures only to an explicitly isolated local DB.
+const url = new URL(process.env.DATABASE_URL || "");
+assert(url.hostname === "127.0.0.1" && url.port === "55479" && ["/statement_test", "/statement_test_fresh"].includes(url.pathname), "Refusing to run outside the isolated local statement_test database");
+async function main() {
+  const suffix = crypto.randomUUID();
+  const org = await db.organization.create({ data: { name: "Synthetic statement agency", slug: `statement-test-${suffix}`, profile: { create: { timezone: "Africa/Lusaka" } } } });
+  const otherOrg = await db.organization.create({ data: { name: "Synthetic foreign agency", slug: `statement-foreign-${suffix}` } });
+  const agent = await db.user.create({ data: { name: "Synthetic Agent", email: `${suffix}@example.test` } });
+  const otherAgent = await db.user.create({ data: { name: "Synthetic Other Agent", email: `other-${suffix}@example.test` } });
+  await db.member.createMany({ data: [agent, otherAgent].map(u => ({ organizationId: org.id, userId: u.id })) });
+  const ctx: ApiContext = { organizationId: org.id, userId: agent.id, contourRole: "OWNER", permissions: ["leases.read", "finance.read", "pwa.access"] };
+  const property = await db.property.create({ data: { organizationId: org.id, title: "Synthetic rental", slug: `rental-${suffix}`, description: "Integration fixture", suburb: "Roma", listingType: "FOR_RENT", assignedAgentId: agent.id, createdById: agent.id } });
+  const lease = await db.lease.create({ data: { organizationId: org.id, propertyId: property.id, tenantName: "Synthetic Tenant", tenantPhone: "+260970000001", monthlyRent: 1000, depositAmount: 1000, leaseStartDate: new Date("2026-01-01"), leaseEndDate: new Date("2026-12-31"), paymentDayOfMonth: 5, openingBalance: 0, openingBalanceMonth: 1, openingBalanceYear: 2026, openingBalanceVerifiedAt: new Date(), openingBalanceVerifiedById: agent.id } });
+  const payment = await db.rentPayment.create({ data: { organizationId: org.id, leaseId: lease.id, amountPaid: 500, periodMonth: 1, periodYear: 2026, paymentDate: new Date("2026-01-06"), receiptNumber: suffix } });
+  const instruction = await db.statementPaymentInstruction.create({ data: { organizationId: org.id, label: "Synthetic bank", method: "BANK_TRANSFER", details: { accountHolder: "Synthetic agency", bank: "Synthetic bank", accountNumber: "TEST-ONLY-123" } } });
+  const request = { kind: "TENANT" as const, leaseId: lease.id, month: 9, year: 2026, recipient: { name: "Statement-specific Recipient", phone: "", email: "", address: "Synthetic address" }, paymentInstructionIds: [instruction.id], notes: "", idempotencyKey: crypto.randomUUID() };
+  const [first, concurrent] = await Promise.all([generateStatementDocument(ctx, request), generateStatementDocument(ctx, request)]);
+  assert.equal(first.id, concurrent.id);
+  const saved = await readStatementDocument(ctx, first.id);
+  assert(saved.snapshot.details.some(([label, value]) => label === "Prepared for" && value === "Statement-specific Recipient"));
+  assert.equal((await db.lease.findUniqueOrThrow({ where: { id: lease.id } })).tenantName, "Synthetic Tenant");
+  await db.rentPayment.update({ where: { id: payment.id }, data: { amountPaid: 700 } });
+  assert.deepEqual((await readStatementDocument(ctx, first.id)).snapshot, saved.snapshot, "Saved snapshot changes after ledger update");
+  const revised = await generateStatementDocument(ctx, { ...request, idempotencyKey: crypto.randomUUID() });
+  assert.equal((await readStatementDocument(ctx, revised.id)).revision, 2);
+  await assert.rejects(readStatementDocument({ ...ctx, organizationId: otherOrg.id }, first.id), /Statement not found/);
+  console.log("PASS PostgreSQL: immutable tenant snapshots, revisions, concurrent idempotency, recipient isolation and organization access");
+
+  const saleProperty = await db.property.create({ data: { organizationId: org.id, title: "Synthetic sale", slug: `sale-${suffix}`, description: "Integration fixture", suburb: "Roma", askingPrice: 100000, assignedAgentId: agent.id, createdById: agent.id } });
+  const identity = { organizationId: org.id, name: "Synthetic Buyer", phone: "+260970000002" };
+  const [contact, duplicateContact] = await Promise.all([getOrCreateContact(db, identity), getOrCreateContact(db, identity)]);
+  assert.equal(contact.id, duplicateContact.id);
+  const closing = { organizationId: org.id, actorId: agent.id, propertyId: saleProperty.id, contactId: contact.id, agreedValue: 100000, currency: "ZMW" as const, closingAgentId: agent.id, idempotencyKey: crypto.randomUUID(), canManage: true };
+  const results = await Promise.all([db.$transaction(tx => startSaleClosing(tx, closing)), db.$transaction(tx => startSaleClosing(tx, closing))]);
+  assert.equal(results[0].inquiryId, results[1].inquiryId);
+  assert.equal(await db.transaction.count({ where: { organizationId: org.id } }), 0);
+  assert.equal((await db.property.findUniqueOrThrow({ where: { id: saleProperty.id } })).status, "AVAILABLE");
+  assert.equal(await db.closingWorkflow.count({ where: { inquiryId: results[0].inquiryId } }), 1);
+  assert.equal(await db.inquiry.count({ where: { propertyId: saleProperty.id, contactId: contact.id } }), 1);
+  console.log("PASS PostgreSQL: contact deduplication and concurrent closing initiation create one workflow, no completed sale or commission");
+  const resumeInput = { ...closing, idempotencyKey: crypto.randomUUID() };
+  const resumed = await db.$transaction(tx => startSaleClosing(tx, resumeInput));
+  const auditCount = await db.auditLog.count({ where: { organizationId: org.id, action: "SALE_CLOSING_STARTED" } });
+  await db.inquiry.update({ where: { id: resumed.inquiryId }, data: { status: "CLOSED_LOST" } });
+  assert.deepEqual(await db.$transaction(tx => startSaleClosing(tx, resumeInput)), resumed);
+  assert.equal(await db.auditLog.count({ where: { organizationId: org.id, action: "SALE_CLOSING_STARTED" } }), auditCount);
+  assert.equal(await db.inquiry.count({ where: { propertyId: saleProperty.id, contactId: contact.id } }), 1);
+  console.log("PASS PostgreSQL: resumed closing retry after terminal closure preserves original inquiry and audit");
+
+  const transaction = await db.transaction.create({ data: { organizationId: org.id, propertyId: saleProperty.id, inquiryId: results[0].inquiryId, grossValue: 100000, agencyCommissionPct: 5, agencyCommissionAmount: 5000, agentSplitPct: 40, agentSplitAmount: 2000, closingAgentId: agent.id, status: "EARNED", closedAt: new Date("2026-09-30") } });
+  const own = { ...ctx, contourRole: "FIELD_AGENT" as const, permissions: ["pwa.access"] as const };
+  const commission = await generateStatementDocument(own, { kind: "AGENT_COMMISSION", period: "month", anchor: "2026-09-30T12:00:00Z", idempotencyKey: crypto.randomUUID() });
+  const commissionSnapshot = (await readStatementDocument(own, commission.id)).snapshot;
+  assert.equal(commissionSnapshot.sourceTransactionIds[0], transaction.id);
+  assert(commissionSnapshot.sections[0].rows[0][2].includes("40%"));
+  assert(commissionSnapshot.sections[0].rows[0][3].includes("not recorded as paid"));
+  await assert.rejects(readStatementDocument({ ...own, userId: otherAgent.id }, commission.id), /Statement not found/);
+  await db.transaction.update({ where: { id: transaction.id }, data: { closingAgentId: otherAgent.id } });
+  await assert.rejects(readStatementDocument(own, commission.id), /Statement not found/);
+  assert.equal((await readStatementDocument({ ...ctx, userId: otherAgent.id }, commission.id)).generationInput, null);
+  console.log("PASS PostgreSQL: PWA-only own-agent export, exact period, actual split, truthful payout status and assignment-change denial");
+}
+main().finally(() => db.$disconnect()).catch(error => { console.error(error); process.exitCode = 1; });

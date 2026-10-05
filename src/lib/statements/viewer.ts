@@ -15,6 +15,8 @@ export type LandlordStatementSummary = {
 };
 
 export type LandlordStatementDocument = LandlordStatementSummary & {
+  revision?: number;
+  propertyId?: string;
   arrearsBroughtForward: number | string;
   createdAt: string;
   approvedAt: string | null;

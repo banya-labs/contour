@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { z } from "zod";
+import { calculateTenantLedger, ledgerPaymentPeriodWhere, landlordClosingArrears } from "@/lib/statements/ledger";
 
 const getHandler = createApiHandler({
   requirePermissions: ["statements.read"],
@@ -78,39 +79,57 @@ const postHandler = createApiHandler({
     });
     if (!property) return NextResponse.json({ success: false, error: "Select an active rental property." }, { status: 404 });
 
-    const duplicate = await db.landlordStatement.findFirst({ where: { organizationId, propertyId: body.propertyId, statementMonth: body.statementMonth, statementYear: body.statementYear }, include: { property: { select: { title: true, suburb: true } } } });
-    if (duplicate) return NextResponse.json({ success: true, existing: true, statement: duplicate });
+    const duplicate = await db.landlordStatement.findFirst({ where: { organizationId, propertyId: body.propertyId, statementMonth: body.statementMonth, statementYear: body.statementYear }, orderBy: { revision: "desc" }, include: { property: { select: { title: true, suburb: true } } } });
+    if (duplicate && !body.regenerate) return NextResponse.json({ success: true, existing: true, statement: duplicate });
 
     const payments = await db.rentPayment.findMany({
       where: { organizationId: organizationId!, lease: { propertyId: body.propertyId }, periodMonth: body.statementMonth, periodYear: body.statementYear, status: "CONFIRMED" },
-      select: { amountPaid: true, currency: true },
+      select: { amountPaid: true, currency: true }, take: 5001,
     });
     const expenses = await db.maintenanceExpense.findMany({
       where: { organizationId: organizationId!, propertyId: body.propertyId, periodMonth: body.statementMonth, periodYear: body.statementYear, status: { in: ["APPROVED", "PAID"] } },
-      select: { amount: true },
+      select: { amount: true, currency: true }, take: 5001,
     });
-    const currencies = new Set(payments.map((payment) => payment.currency));
+    if (payments.length > 5000 || expenses.length > 5000) return NextResponse.json({ success: false, error: "The property period exceeds the 5,000-record statement limit." }, { status: 400 });
+    const currencies = new Set([...payments.map((payment) => payment.currency), ...expenses.map(expense => expense.currency)]);
     currencies.add(body.currency ?? "ZMW");
     if (currencies.size > 1) return NextResponse.json({ success: false, error: "Payments and statement must use the same currency." }, { status: 400 });
-    const leases = await db.lease.findMany({ where: { organizationId, propertyId: body.propertyId, status: { in: ["ACTIVE", "IN_ARREARS", "EXPIRING_SOON"] } }, select: { monthlyRent: true, currency: true, status: true } });
-    const rentDue = leases.filter((lease) => lease.currency === body.currency).reduce((sum, lease) => sum + Number(lease.monthlyRent), 0);
-    const arrearsBroughtForward = leases.filter((lease) => lease.status === "IN_ARREARS" && lease.currency === body.currency).reduce((sum, lease) => sum + Number(lease.monthlyRent), 0);
-    const grossRentCollected = payments.reduce((sum, payment) => sum + Number(payment.amountPaid), 0);
-    const maintenanceDeducted = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    const agencyFeeDeducted = grossRentCollected * Number(property.agencyCommissionPct ?? 10) / 100;
-    const netPayout = grossRentCollected - agencyFeeDeducted - maintenanceDeducted;
+    const leases = await db.lease.findMany({ where: { organizationId, propertyId: body.propertyId, leaseStartDate: { lt: new Date(Date.UTC(body.statementYear, body.statementMonth, 1)) }, OR: [{ leaseEndDate: { gte: new Date(Date.UTC(body.statementYear, body.statementMonth - 1, 1)) } }, { payments: { some: { periodMonth: body.statementMonth, periodYear: body.statementYear, status: "CONFIRMED" } } }] }, take: 201 });
+    const organization = await db.organizationProfile.findUnique({ where: { organizationId: organizationId! }, select: { timezone: true } });
+    let rentDue = new Prisma.Decimal(0), arrearsBroughtForward = new Prisma.Decimal(0), arrearsClosing = new Prisma.Decimal(0);
+    try {
+      if (leases.length > 200) throw new Error("This property exceeds the 200-lease statement limit.");
+      for (const lease of leases) {
+        if (lease.currency !== body.currency) throw new Error("All leases and payments must match the statement currency.");
+        const leasePayments = await db.rentPayment.findMany({ where: { organizationId, leaseId: lease.id, paymentDate: { lte: new Date() }, ...ledgerPaymentPeriodWhere(lease.openingBalanceYear || body.statementYear, lease.openingBalanceMonth || body.statementMonth, body.statementYear, body.statementMonth) }, take: 5001 });
+        if (leasePayments.length > 5000) throw new Error("This lease needs a recent verified opening balance before statement generation.");
+        const ledger = calculateTenantLedger({ ...lease, payments: leasePayments, baseline: lease.openingBalance !== null && lease.openingBalanceVerifiedAt && lease.openingBalanceMonth && lease.openingBalanceYear ? { amount: lease.openingBalance, month: lease.openingBalanceMonth, year: lease.openingBalanceYear } : null, month: body.statementMonth, year: body.statementYear, timezone: organization?.timezone || "Africa/Lusaka" });
+        rentDue = rentDue.plus(ledger.rentCharged);
+        arrearsBroughtForward = arrearsBroughtForward.plus(Prisma.Decimal.max(0, ledger.openingBalance));
+        arrearsClosing = arrearsClosing.plus(landlordClosingArrears([ledger]));
+      }
+    } catch (error) { return NextResponse.json({ success: false, error: `${error instanceof Error ? error.message : "Unable to verify the rental ledger."} Use Prepare tenant statement to verify the lease opening balance.` }, { status: 400 }); }
+    const grossRentCollected = payments.reduce((sum, payment) => sum.plus(payment.amountPaid), new Prisma.Decimal(0));
+    const maintenanceDeducted = expenses.reduce((sum, expense) => sum.plus(expense.amount), new Prisma.Decimal(0));
+    const agencyFeeDeducted = grossRentCollected.mul(property.agencyCommissionPct ?? 10).div(100).toDecimalPlaces(2);
+    const netPayout = grossRentCollected.minus(agencyFeeDeducted).minus(maintenanceDeducted);
 
-    const statement = await db.landlordStatement.create({
+    const statement = await db.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${organizationId}:landlord:${body.propertyId}:${body.statementYear}:${body.statementMonth}`}, 0))`;
+      const latest = await tx.landlordStatement.findFirst({ where: { organizationId, propertyId: body.propertyId, statementMonth: body.statementMonth, statementYear: body.statementYear }, orderBy: { revision: "desc" } });
+      if (latest && !body.regenerate) return latest;
+      return tx.landlordStatement.create({
       data: {
         organizationId: organizationId!,
         propertyId: body.propertyId,
         landlordName: property.ownerName || "Landlord",
         statementMonth: body.statementMonth,
         statementYear: body.statementYear,
+        revision: (latest?.revision || 0) + 1,
         grossRentCollected: new Prisma.Decimal(grossRentCollected),
-        rentDue: new Prisma.Decimal(rentDue),
-        arrearsBroughtForward: new Prisma.Decimal(arrearsBroughtForward),
-        arrearsClosing: new Prisma.Decimal(Math.max(0, arrearsBroughtForward + rentDue - grossRentCollected)),
+        rentDue,
+        arrearsBroughtForward,
+        arrearsClosing,
         agencyFeeDeducted: new Prisma.Decimal(agencyFeeDeducted),
         maintenanceDeducted: new Prisma.Decimal(maintenanceDeducted),
         netLandlordPayout: new Prisma.Decimal(netPayout),
@@ -125,6 +144,7 @@ const postHandler = createApiHandler({
           },
         },
       },
+      });
     });
 
     return NextResponse.json({ success: true, statement });

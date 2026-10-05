@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { StatementGenerateButton } from "@/components/statements/statement-generate-button";
+import { commissionStatusLabels } from "@/lib/statements/document";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -208,10 +210,10 @@ function AgentKioskContent() {
   const formatEarningsMonth = (date: Date) =>
     new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(date);
   const formatEarningsWeek = (date: Date) => {
-    const end = new Date(date);
-    end.setDate(end.getDate() - (end.getDay() === 0 ? 1 : end.getDay()));
-    const start = new Date(end);
-    start.setDate(start.getDate() - 6);
+    const start = new Date(date);
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
     return `${formatEarningsDate(start)} to ${formatEarningsDate(end)}`;
   };
   const earningsLabels = earningsDate
@@ -2614,13 +2616,19 @@ function AgentKioskContent() {
                   onChange={(event) => setEarningsPeriod(event.target.value as EarningsPeriod)}
                   className="border border-editorial-border bg-white px-2.5 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-editorial-black outline-none focus:border-contour-red"
                 >
-                  <option value="today">{earningsLabels.today}</option>
-                  <option value="week">{earningsLabels.week}</option>
-                  <option value="month">{earningsLabels.month}</option>
+                  <option value="today">{agentSummary?.earnings?.periodLabels?.today || earningsLabels.today}</option>
+                  <option value="week">{agentSummary?.earnings?.periodLabels?.week || earningsLabels.week}</option>
+                  <option value="month">{agentSummary?.earnings?.periodLabels?.month || earningsLabels.month}</option>
                   <option value="all">All time</option>
                 </select>
               </div>
 
+              <p className="text-xs text-editorial-muted">{agentSummary?.earnings?.periodLabel}</p>
+              <StatementGenerateButton input={{ kind: "AGENT_COMMISSION", period: earningsPeriod, anchor: agentSummary?.earnings?.asOf }} label="Generate commission statement" />
+              {Object.entries(agentSummary?.earnings?.currencyTotals || {}).map(([currency, value]) => {
+                const total = value as { paid: number; earned: number; pending: number };
+                return <div key={currency} className="grid grid-cols-3 gap-2 border border-editorial-border bg-neutral-50 p-3 text-xs"><div><p className="text-editorial-muted">Payout recorded</p><strong>{formatCurrency(total.paid, currency)}</strong></div><div><p className="text-editorial-muted">Earned, not paid</p><strong>{formatCurrency(total.earned, currency)}</strong></div><div><p className="text-editorial-muted">Expected / partial</p><strong>{formatCurrency(total.pending, currency)}</strong></div></div>;
+              })}
               {/* Earnings Grid */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="bg-neutral-50 p-3 border border-editorial-border">
@@ -2628,14 +2636,14 @@ function AgentKioskContent() {
                   <div className="text-base font-bold text-editorial-black font-mono mt-0.5">
                     ${currentAgent.earnedSplitUsd.toLocaleString()}
                   </div>
-                  <span className="text-[9px] text-editorial-muted font-mono">50% Broker Split</span>
+                  <span className="text-[9px] text-editorial-muted font-mono">Agent payout recorded</span>
                 </div>
                 <div className="bg-neutral-50 p-3 border border-editorial-border">
                   <span className="text-[10px] text-editorial-muted uppercase font-mono">Paid (ZMW)</span>
                   <div className="text-base font-bold text-editorial-black font-mono mt-0.5">
                     K{currentAgent.earnedSplitZmw.toLocaleString()}
                   </div>
-                  <span className="text-[9px] text-editorial-muted font-mono">Cleared to Bank</span>
+                  <span className="text-[9px] text-editorial-muted font-mono">Agent payout recorded</span>
                 </div>
               </div>
 
@@ -2643,7 +2651,7 @@ function AgentKioskContent() {
               <div className="bg-neutral-50 p-3.5 border border-editorial-border flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-contour-red uppercase font-mono font-bold">
-                    Pending In Pipeline
+                    Not recorded as paid to agent
                   </span>
                   <div className="text-sm font-bold text-editorial-black font-mono mt-0.5">
                     K {currentAgent.pendingSplitZmw.toLocaleString()} + ${currentAgent.pendingSplitUsd.toLocaleString()}
@@ -3633,7 +3641,7 @@ function AgentKioskContent() {
                   C
                 </div>
                 <div>
-                  <h3 className="text-sm font-heading font-semibold text-editorial-black">Commission Payout Slip</h3>
+                  <h3 className="text-sm font-heading font-semibold text-editorial-black">Commission statement</h3>
                   <p className="text-[10px] text-editorial-muted font-mono">CONTOUR VOUCHER #{selectedCommissionSlip.id}</p>
                 </div>
               </div>
@@ -3651,7 +3659,7 @@ function AgentKioskContent() {
                 <span className="font-heading font-semibold text-editorial-black">{selectedCommissionSlip.property}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-editorial-muted">Settlement Date:</span>
+                <span className="text-editorial-muted">Recorded deal date:</span>
                 <span className="font-mono text-editorial-black">{selectedCommissionSlip.date}</span>
               </div>
               <div className="flex justify-between">
@@ -3659,14 +3667,14 @@ function AgentKioskContent() {
                 <span className="font-mono text-editorial-black">{selectedCommissionSlip.grossCommission}</span>
               </div>
               <div className="flex justify-between border-t border-editorial-border pt-2 text-sm font-bold">
-                <span className="text-editorial-black">Agent Split (50%):</span>
+                <span className="text-editorial-black">Agent Split ({selectedCommissionSlip.splitPct}):</span>
                 <span className="font-mono text-contour-red">{selectedCommissionSlip.agentSplit}</span>
               </div>
             </div>
 
             <div className="bg-neutral-100 p-3 border border-editorial-border flex items-center gap-2 text-[11px] text-editorial-black">
               <CheckCircle2 className="w-4 h-4 text-contour-red shrink-0" />
-              <span>Settlement verified and cleared to agent bank account.</span>
+              <span>{commissionStatusLabels[selectedCommissionSlip.status] || "Settlement status not recorded"}</span>
             </div>
 
             <button
@@ -3676,8 +3684,9 @@ function AgentKioskContent() {
               }}
               className="w-full py-2.5 bg-editorial-black hover:bg-contour-red text-white font-heading font-semibold text-xs uppercase tracking-wider transition-colors"
             >
-              Close Receipt
+              Close statement
             </button>
+            <StatementGenerateButton input={{ kind: "AGENT_COMMISSION", period: earningsPeriod, transactionId: selectedCommissionSlip.id }} label="Generate deal commission statement" />
           </div>
         </div>
       )}

@@ -3,21 +3,11 @@ import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { formatCurrency } from "@/lib/utils";
 import { getStageDefinition, mapLegacyPipelineState } from "@/lib/deal-workflow";
+import { resolveEarningsPeriod } from "@/lib/statements/period";
 
 const earningsPeriods = ["today", "week", "month", "all"] as const;
 type EarningsPeriod = (typeof earningsPeriods)[number];
 
-function getEarningsStart(period: EarningsPeriod, now = new Date()) {
-  if (period === "all") return undefined;
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  if (period === "week") {
-    const day = start.getDay();
-    start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
-  }
-  if (period === "month") start.setDate(1);
-  return start;
-}
 
 const getHandler = createApiHandler({
   requirePermissions: ["pwa.access"],
@@ -25,7 +15,6 @@ const getHandler = createApiHandler({
     const { organizationId, userId, userRole, contourRole } = ctx;
     const requestedPeriod = req.nextUrl.searchParams.get("earningsPeriod") || "all";
     const earningsPeriod: EarningsPeriod = earningsPeriods.includes(requestedPeriod as EarningsPeriod) ? requestedPeriod as EarningsPeriod : "all";
-    const earningsStart = getEarningsStart(earningsPeriod);
 
     const [user, org] = await Promise.all([
       db.user.findUnique({
@@ -34,13 +23,15 @@ const getHandler = createApiHandler({
       }),
       db.organization.findUnique({
         where: { id: organizationId },
-        select: { id: true, name: true, slug: true, currency: true },
+        select: { id: true, name: true, slug: true, currency: true, profile: { select: { timezone: true } } },
       }),
     ]);
 
     if (!user || !org) {
       return NextResponse.json({ success: false, error: "User or organization not found" }, { status: 404 });
     }
+    const earningsWindow = resolveEarningsPeriod(earningsPeriod, org.profile?.timezone || "Africa/Lusaka");
+    const earningsStart = earningsWindow.start;
 
     // 1. Property Counts
     const [assignedPropertiesCount, totalOrgPropertiesCount] = await Promise.all([
@@ -181,33 +172,38 @@ const getHandler = createApiHandler({
       where: {
         organizationId,
         closingAgentId: userId,
-        ...(earningsStart ? { OR: [{ closedAt: { gte: earningsStart } }, { closedAt: null, createdAt: { gte: earningsStart } }] } : {}),
+        OR: [{ closedAt: { ...(earningsStart ? { gte: earningsStart } : {}), lt: earningsWindow.end } }, { closedAt: null, createdAt: { ...(earningsStart ? { gte: earningsStart } : {}), lt: earningsWindow.end } }],
       },
       include: {
         property: { select: { title: true, suburb: true } },
         inquiry: { select: { clientName: true, clientPhone: true, clientEmail: true } },
       },
       orderBy: { createdAt: "desc" },
+      take: 5001,
     });
+    if (transactions.length > 5000) return NextResponse.json({ success: false, error: "Select a shorter earnings period (maximum 5,000 deals)." }, { status: 400 });
 
     let earnedSplitUsd = 0;
     let earnedSplitZmw = 0;
     let pendingSplitUsd = 0;
     let pendingSplitZmw = 0;
+    const currencyTotals: Record<string, { paid: number; earned: number; pending: number }> = {};
 
     const slips = transactions.map((tx) => {
       const agentSplit = Number(tx.agentSplitAmount);
       const grossCommission = Number(tx.agencyCommissionAmount);
+      const total = currencyTotals[tx.currency] ||= { paid: 0, earned: 0, pending: 0 };
+      if (tx.status === "AGENT_PAID_OUT") total.paid += agentSplit;
+      else if (tx.status === "EARNED" || tx.status === "RECEIVED") total.earned += agentSplit;
+      else total.pending += agentSplit;
 
-      // A management-confirmed winning deal is recorded as EARNED. It has
-      // left the pipeline and must appear in the agent's closed/paid totals;
-      // only expected or partially received commissions remain pending.
-      if (tx.status === "EARNED" || tx.status === "RECEIVED" || tx.status === "AGENT_PAID_OUT") {
+      // Only an explicitly recorded agent payout counts as paid.
+      if (tx.status === "AGENT_PAID_OUT") {
         if (tx.currency === "USD") earnedSplitUsd += agentSplit;
-        else earnedSplitZmw += agentSplit;
+        else if (tx.currency === "ZMW") earnedSplitZmw += agentSplit;
       } else {
         if (tx.currency === "USD") pendingSplitUsd += agentSplit;
-        else pendingSplitZmw += agentSplit;
+        else if (tx.currency === "ZMW") pendingSplitZmw += agentSplit;
       }
 
       return {
@@ -250,6 +246,10 @@ const getHandler = createApiHandler({
       deals: activeDeals,
       earnings: {
         period: earningsPeriod,
+        periodLabel: earningsWindow.label,
+        asOf: new Date().toISOString(),
+        periodLabels: { today: resolveEarningsPeriod("today", org.profile?.timezone || "Africa/Lusaka").label, week: resolveEarningsPeriod("week", org.profile?.timezone || "Africa/Lusaka").label, month: resolveEarningsPeriod("month", org.profile?.timezone || "Africa/Lusaka").label },
+        currencyTotals,
         earnedSplitUsd,
         earnedSplitZmw,
         pendingSplitUsd,
