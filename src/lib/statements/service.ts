@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { resolveStatementLogo } from "./branding";
 import { db } from "@/lib/db";
 import type { ApiContext } from "@/lib/api-handler";
 import { isManagementRole, roleHasPermission, type Permission } from "@/lib/authorization";
@@ -129,6 +130,8 @@ export async function readStatementDocument(ctx: ApiContext, id: string) {
     if (ids.length && await db.transaction.count({ where: { id: { in: ids }, organizationId: ctx.organizationId, ...(canReadAgencyCommissions(ctx) ? {} : { closingAgentId: ctx.userId }) } }) !== ids.length) throw new MatchingError("Statement not found.", 404);
   }
   const snapshot = snapshotSchema.parse(document.snapshot), generationInput = generationSchema.parse(document.generationInput);
+  const organization = await db.organization.findUnique({ where: { id: ctx.organizationId }, select: { logo: true } });
+  snapshot.organization.logo = await resolveStatementLogo(ctx.organizationId, organization?.logo);
   if (document.kind === "AGENT_COMMISSION" && document.agentId !== ctx.userId) return { id: document.id, revision: document.revision, snapshot, generationInput: null };
   return { id: document.id, revision: document.revision, snapshot, generationInput: generationInput.kind === "AGENT_COMMISSION" ? { ...generationInput, anchor: generationInput.anchor || snapshot.asOf } : generationInput };
 }
