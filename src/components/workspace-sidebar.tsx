@@ -389,7 +389,6 @@ export default function WorkspaceSidebar() {
             <Settings className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
             <span className="hidden lg:inline">Agency Settings</span>
           </Link>
-          {isManagement && <Link href="/dashboard/settings/closing-requirements" className={`ml-5 mt-1 flex items-center px-2 lg:px-3 py-1.5 text-[10px] uppercase tracking-wider ${pathname.startsWith("/dashboard/settings/closing-requirements") ? "text-contour-red font-bold" : "text-editorial-muted hover:text-editorial-black"}`}>Closing requirements</Link>}
           <Link href="/agent" title="Field Agent PWA" className="flex items-center justify-center lg:justify-start gap-2 px-2 lg:px-2.5 py-1.5 text-xs font-heading font-medium text-editorial-black hover:bg-neutral-50 transition-colors">
             <Smartphone className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-editorial-muted shrink-0" />
             <span className="hidden lg:inline">Field Agent PWA</span>
