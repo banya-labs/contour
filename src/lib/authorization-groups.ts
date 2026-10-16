@@ -36,7 +36,7 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
   { key: "clients_leads", displayName: "Clients & leads", description: "Manage client and lead records.", permissions: ["leads.read", "leads.create", "leads.assign"] },
   { key: "deals_pipeline", displayName: "Deals & pipeline", description: "View and progress deals through the pipeline.", permissions: ["pipeline.read", "pipeline.update"] },
   { key: "rentals_leases", displayName: "Rentals & leases", description: "Manage rental and lease workflows.", permissions: ["leases.read", "leases.manage"] },
-  { key: "finance_statements", displayName: "Finance & statements", description: "Manage finance records and landlord statements.", permissions: ["finance.read", "finance.manage", "statements.read", "statements.approve"] },
+  { key: "finance_statements", displayName: "Finance & statements", description: "Manage finance records, payment verification and landlord statements.", permissions: ["finance.read", "finance.manage", "sales.payments.read", "sales.payments.record", "sales.payments.verify", "sales.plans.manage", "rental.fees.manage", "rental.payments.read", "rental.payments.record", "rental.payments.verify", "statements.read", "statements.approve"] },
   { key: "documents_vault", displayName: "Documents & legal vault", description: "Manage legal and compliance documents.", permissions: ["vault.read", "vault.upload", "vault.download", "vault.verify", "vault.delete", "vault.grant_access"] },
   { key: "field_agent_pwa", displayName: "Field Agent PWA", description: "Mobile field-agent access included by the Field Agent role.", permissions: FIELD_AGENT_BASELINE, roleOnly: "FIELD_AGENT" },
 ];
