@@ -407,10 +407,6 @@ function ClientsCRMContent() {
       setFormError("Client name is required (at least 3 characters).");
       return;
     }
-    if (!formData.contactId) {
-      setFormError("Select a contact before creating an inquiry.");
-      return;
-    }
     if (!formData.phone.trim() || formData.phone.trim().length < 7) {
       setFormError("Valid phone number is required.");
       return;
@@ -434,7 +430,9 @@ function ClientsCRMContent() {
       creationSurface: "DESKTOP" as const,
       matchingProfile: { strictRequirements: captureStrict },
       clientName: formData.name.trim(),
-      contactId: formData.contactId,
+      // An existing contact is optional on the dashboard. When it is omitted,
+      // the API creates the contact from the name, phone, and email fields.
+      contactId: formData.contactId || undefined,
       clientPhone: formData.phone.trim(),
       clientEmail: formData.email.trim() || undefined,
       lookingFor: lookingForType,
@@ -683,7 +681,7 @@ function ClientsCRMContent() {
 
             <form onSubmit={handleCreateClient} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Contact *</label>
+                <label className="block font-mono text-[11px] font-bold text-editorial-black uppercase tracking-wider mb-1">Existing contact (optional)</label>
                 <select
                   value={formData.contactId}
                   onChange={(e) => {
@@ -691,12 +689,11 @@ function ClientsCRMContent() {
                     setFormData({ ...formData, contactId: e.target.value, name: contact?.name || "", phone: contact?.phone || "", email: contact?.email || "" });
                   }}
                   className="w-full bg-editorial-paper/40 px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none"
-                  required
                 >
-                  <option value="">Select an existing contact...</option>
+                  <option value="">Create a new contact from the form below</option>
                   {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} ({contact.phone})</option>)}
                 </select>
-                {contacts.length === 0 && <p className="mt-1 text-[10px] text-editorial-red">Create a contact first from the Contacts page.</p>}
+                <p className="mt-1 text-[10px] text-editorial-muted">Choose an existing contact to prefill the form, or leave this blank to create a new contact with this inquiry.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
