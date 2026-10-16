@@ -30,15 +30,26 @@ function money(value: Prisma.Decimal | string | number): Prisma.Decimal {
 }
 
 function dateOnly(value: Date | string): string {
-  const date = value instanceof Date ? value : new Date(`${value}T00:00:00.000Z`);
+  if (typeof value === "string") {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+    if (!match) throw new Error("Invalid schedule date.");
+    return match[1];
+  }
+  const raw = value.toISOString();
+  const date = new Date(raw);
   if (Number.isNaN(date.getTime())) throw new Error("Invalid schedule date.");
   return date.toISOString().slice(0, 10);
 }
 
-function addMonths(date: Date, months: number): Date {
-  const result = new Date(date);
-  result.setUTCMonth(result.getUTCMonth() + months);
-  return result;
+function addMonthsToDateString(value: string, months: number): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) throw new Error(`Invalid schedule date: ${value}`);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const result = new Date(Date.UTC(year, month - 1 + months, day));
+  if (Number.isNaN(result.getTime())) throw new Error("Invalid schedule date.");
+  return result.toISOString().slice(0, 10);
 }
 
 /** Builds a bounded schedule whose lines reconcile exactly to the sale price. */
@@ -54,10 +65,10 @@ export function buildSaleSchedule(input: {
   if (!price.isPositive()) throw new Error("Sale price must be positive.");
   const deposit = money(input.deposit ?? "0");
   if (deposit.isNegative() || deposit.greaterThan(price)) throw new Error("Deposit must be between zero and the sale price.");
-  const firstDate = new Date(`${dateOnly(input.firstDueDate)}T00:00:00.000Z`);
+  const firstDate = dateOnly(input.firstDueDate);
   const remainder = price.minus(deposit);
   if (remainder.isZero()) {
-    return [{ sequence: 1, kind: "FULL_PAYMENT", amount: price.toFixed(2), dueDate: dateOnly(firstDate) }];
+    return [{ sequence: 1, kind: "FULL_PAYMENT", amount: price.toFixed(2), dueDate: firstDate }];
   }
   const count = input.installmentCount ?? 1;
   if (!Number.isInteger(count) || count < 1 || count > 360) throw new Error("Installment count must be between 1 and 360.");
@@ -69,14 +80,13 @@ export function buildSaleSchedule(input: {
   let remaining = remainder;
   let sequence = 1;
   if (deposit.isPositive()) {
-    lines.push({ sequence: sequence++, kind: "DEPOSIT", amount: deposit.toFixed(2), dueDate: dateOnly(firstDate) });
+    lines.push({ sequence: sequence++, kind: "DEPOSIT", amount: deposit.toFixed(2), dueDate: firstDate });
   }
-  let dueDate = firstDate;
-  while (remaining.isPositive()) {
-    const amount = Prisma.Decimal.min(requested, remaining);
-    lines.push({ sequence: sequence++, kind: "INSTALLMENT", amount: amount.toFixed(2), dueDate: dateOnly(dueDate) });
+  const installmentLines = input.installmentAmount ? Math.ceil(Number(remainder.div(requested).toDecimalPlaces(10))) : count;
+  for (let index = 0; index < installmentLines; index += 1) {
+    const amount = index === installmentLines - 1 ? remaining : requested;
+    lines.push({ sequence: sequence++, kind: "INSTALLMENT", amount: amount.toFixed(2), dueDate: addMonthsToDateString(firstDate, interval * (index + (deposit.isPositive() ? 1 : 0))) });
     remaining = remaining.minus(amount);
-    dueDate = addMonths(dueDate, interval);
   }
   if (lines.length > 361) throw new Error("Schedule exceeds the maximum supported number of lines.");
   return lines;
@@ -99,7 +109,7 @@ export function summarizeSaleSchedule(input: {
     const carried = money(line.carriedPaidAmount ?? "0");
     const applied = Prisma.Decimal.min(expected, carried.plus(allocationBySequence.get(line.sequence) ?? 0));
     const remaining = expected.minus(applied);
-    const status: SaleScheduleSummary["status"] = remaining.isZero() ? "PAID" : applied.isPositive() ? "PART_PAID" : line.dueDate < asOf ? "OVERDUE" : "UNPAID";
+    const status: SaleScheduleSummary["status"] = remaining.isZero() ? "PAID" : line.dueDate < asOf ? "OVERDUE" : applied.greaterThan(0) ? "PART_PAID" : "UNPAID";
     return { ...line, appliedAmount: applied.toFixed(2), remainingAmount: remaining.toFixed(2), status };
   });
   const paid = lines.reduce((total, line) => total.plus(line.appliedAmount), new Prisma.Decimal(0));
