@@ -134,6 +134,10 @@ export default function PropertyFullDetailModal({
   const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; phone?: string; email?: string; roleKey?: string }>>([]);
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [rentalCommissionConfigs, setRentalCommissionConfigs] = useState<any[]>([]);
+  const [editingRentalCommission, setEditingRentalCommission] = useState(false);
+  const [savingRentalCommission, setSavingRentalCommission] = useState(false);
+  const [rentalCommissionError, setRentalCommissionError] = useState("");
+  const [rentalCommissionForm, setRentalCommissionForm] = useState({ mode: "NONE", calculation: "MONTHS_OF_RENT", fixedAmount: "", monthsOfRent: "1", percentage: "", durationMonths: "12", untilLeaseEnd: false, effectiveFrom: new Date().toISOString().slice(0, 10) });
 
   // Real Documents State
   const [vaultDocuments, setVaultDocuments] = useState<any[]>([]);
@@ -191,6 +195,28 @@ export default function PropertyFullDetailModal({
       .then((data) => setRentalCommissionConfigs(Array.isArray(data?.configurations) ? data.configurations : []))
       .catch(() => setRentalCommissionConfigs([]));
   }, [isOpen, property?.id, property?.listingType]);
+
+  const openRentalCommissionEditor = () => {
+    const current = rentalCommissionConfigs[0];
+    setRentalCommissionForm({ mode: current?.mode || "NONE", calculation: current?.basis || "MONTHS_OF_RENT", fixedAmount: current?.fixedAmount || "", monthsOfRent: current?.monthsOfRent || "1", percentage: current?.percentage || "", durationMonths: current?.durationMonths || "12", untilLeaseEnd: Boolean(current?.untilLeaseEnd), effectiveFrom: new Date().toISOString().slice(0, 10) });
+    setRentalCommissionError(""); setEditingRentalCommission(true);
+  };
+
+  const saveRentalCommissionRevision = async () => {
+    setSavingRentalCommission(true); setRentalCommissionError("");
+    try {
+      const payload = rentalCommissionForm.mode === "NONE" ? { mode: "NONE", currency: property.currency, effectiveFrom: rentalCommissionForm.effectiveFrom } : rentalCommissionForm.mode === "UPFRONT" ? { mode: "UPFRONT", calculation: rentalCommissionForm.calculation, ...(rentalCommissionForm.calculation === "FIXED_AMOUNT" ? { fixedAmount: rentalCommissionForm.fixedAmount } : { monthsOfRent: rentalCommissionForm.monthsOfRent }), currency: property.currency, effectiveFrom: rentalCommissionForm.effectiveFrom } : { mode: "PERCENTAGE", percentage: rentalCommissionForm.percentage, ...(rentalCommissionForm.untilLeaseEnd ? { untilLeaseEnd: true } : { durationMonths: Number(rentalCommissionForm.durationMonths) }), currency: property.currency, effectiveFrom: rentalCommissionForm.effectiveFrom };
+      const response = await fetch(`/api/properties/${property.id}/rental-commission`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to save rental commission terms.");
+      const approval = await fetch(`/api/properties/${property.id}/rental-commission/${data.configuration.id}/approve`, { method: "POST" });
+      const approvalData = await approval.json();
+      if (!approval.ok || !approvalData.success) throw new Error(approvalData.error || "Terms saved but could not be approved.");
+      setRentalCommissionConfigs((current) => [approvalData.configuration, ...current.map((item) => item.id === approvalData.configuration.id ? approvalData.configuration : item)]);
+      setEditingRentalCommission(false);
+    } catch (value) { setRentalCommissionError(value instanceof Error ? value.message : "Unable to save rental commission terms."); }
+    finally { setSavingRentalCommission(false); }
+  };
 
   // 1. Fetch Real Organization Agents
   useEffect(() => {
@@ -875,12 +901,13 @@ export default function PropertyFullDetailModal({
               <div className="space-y-6 max-w-4xl">
                 {(["FOR_RENT", "BOTH"].includes(property.listingType)) && (
                   <div className="border border-[#E6E4DF] bg-white p-4 space-y-2">
-                    <div className="flex items-center justify-between"><h3 className="font-heading text-xs font-bold uppercase tracking-wider text-[#1C1C1A]">Rental agency commission</h3><span className="text-[10px] font-mono text-[#73716B]">Property terms</span></div>
+                    <div className="flex items-center justify-between gap-2"><h3 className="font-heading text-xs font-bold uppercase tracking-wider text-[#1C1C1A]">Rental agency commission</h3><div className="flex items-center gap-2"><span className="text-[10px] font-mono text-[#73716B]">Property terms</span><button type="button" onClick={openRentalCommissionEditor} className="border border-[#1C1C1A] px-2 py-1 text-[10px] font-bold uppercase tracking-wider hover:bg-[#1C1C1A] hover:text-white">Adjust terms</button></div></div>
                     {rentalCommissionConfigs[0] ? <>
                       <p className="text-sm font-semibold text-[#1C1C1A]">{rentalCommissionConfigs[0].mode === "NONE" ? "No agency commission" : rentalCommissionConfigs[0].mode === "UPFRONT" ? `Upfront ${rentalCommissionConfigs[0].basis === "MONTHS_OF_RENT" ? `${rentalCommissionConfigs[0].monthsOfRent} month(s) of rent` : `${rentalCommissionConfigs[0].fixedAmount} ${rentalCommissionConfigs[0].currency}`}` : `${rentalCommissionConfigs[0].percentage}% of rent for ${rentalCommissionConfigs[0].untilLeaseEnd ? "the lease term" : `${rentalCommissionConfigs[0].durationMonths} month(s)`}`}</p>
                       <p className="text-[10px] font-mono text-[#73716B]">Revision {rentalCommissionConfigs[0].revision} · Effective {new Date(rentalCommissionConfigs[0].effectiveFrom).toISOString().slice(0, 10)} · Changes apply to future leases.</p>
                     </> : <p className="text-xs text-[#FA3600]">Rental commission needs configuration before a lease can be activated.</p>}
                     {rentalCommissionConfigs.length > 1 && <p className="text-[10px] text-[#73716B]">{rentalCommissionConfigs.length - 1} previous configuration revision(s) retained.</p>}
+                    {editingRentalCommission && <div className="mt-3 space-y-3 border-t border-[#E6E4DF] pt-3"><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#FA3600]">New commission revision</p><select value={rentalCommissionForm.mode} onChange={(event) => setRentalCommissionForm((current) => ({ ...current, mode: event.target.value }))} className="w-full border border-[#E6E4DF] p-2 text-xs"><option value="NONE">No agency commission</option><option value="UPFRONT">Upfront fee</option><option value="PERCENTAGE">Percentage of rent</option></select>{rentalCommissionForm.mode === "UPFRONT" && <><select value={rentalCommissionForm.calculation} onChange={(event) => setRentalCommissionForm((current) => ({ ...current, calculation: event.target.value }))} className="w-full border border-[#E6E4DF] p-2 text-xs"><option value="MONTHS_OF_RENT">Months of rent</option><option value="FIXED_AMOUNT">Fixed amount</option></select><input type="number" min="0.01" step="0.01" value={rentalCommissionForm.calculation === "MONTHS_OF_RENT" ? rentalCommissionForm.monthsOfRent : rentalCommissionForm.fixedAmount} onChange={(event) => setRentalCommissionForm((current) => ({ ...current, [current.calculation === "MONTHS_OF_RENT" ? "monthsOfRent" : "fixedAmount"]: event.target.value }))} className="w-full border border-[#E6E4DF] p-2 text-xs" placeholder={rentalCommissionForm.calculation === "MONTHS_OF_RENT" ? "Months" : "Amount"} /></>}{rentalCommissionForm.mode === "PERCENTAGE" && <><div className="grid grid-cols-2 gap-2"><input type="number" min="0.01" max="100" step="0.01" value={rentalCommissionForm.percentage} onChange={(event) => setRentalCommissionForm((current) => ({ ...current, percentage: event.target.value }))} className="border border-[#E6E4DF] p-2 text-xs" placeholder="Percentage" /><input type="number" min="1" max="360" disabled={rentalCommissionForm.untilLeaseEnd} value={rentalCommissionForm.durationMonths} onChange={(event) => setRentalCommissionForm((current) => ({ ...current, durationMonths: event.target.value }))} className="border border-[#E6E4DF] p-2 text-xs disabled:opacity-50" placeholder="Months" /></div><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={rentalCommissionForm.untilLeaseEnd} onChange={(event) => setRentalCommissionForm((current) => ({ ...current, untilLeaseEnd: event.target.checked }))} /> Until lease end</label></>}<label className="block text-[10px] font-bold uppercase tracking-wider">Effective from<input type="date" value={rentalCommissionForm.effectiveFrom} onChange={(event) => setRentalCommissionForm((current) => ({ ...current, effectiveFrom: event.target.value }))} className="mt-1 w-full border border-[#E6E4DF] p-2 text-xs" /></label><div className="flex gap-2"><button type="button" disabled={savingRentalCommission} onClick={saveRentalCommissionRevision} className="bg-[#1C1C1A] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50">{savingRentalCommission ? "Saving…" : "Save & approve revision"}</button><button type="button" onClick={() => setEditingRentalCommission(false)} className="border border-[#E6E4DF] px-3 py-2 text-[10px] font-bold uppercase tracking-wider">Cancel</button></div>{rentalCommissionError && <p role="alert" className="text-xs text-red-700">{rentalCommissionError}</p>}</div>}
                   </div>
                 )}
                 {unassignedMatches.length > 0 && (
