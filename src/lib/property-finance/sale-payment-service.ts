@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { assertScheduleReconciles } from "./sale-payment-plan";
-import type { CreateSalePaymentPlanInput, RecordSalePaymentReceiptInput } from "./sale-payment-validation";
+import type { CreateSalePaymentPlanInput, RecordSalePaymentReceiptInput, CreateSalePlanRevisionInput } from "./sale-payment-validation";
 
 type Tx = Prisma.TransactionClient;
 
@@ -111,4 +111,26 @@ export async function reverseOrRefundSalePayment(tx: Tx, input: {
       return [{ organizationId: input.organizationId, installmentId: allocation.installmentId, amount: reversalAmount.negated(), reversedAllocationId: allocation.id }];
     }) } : undefined,
   }, include: { allocations: true } });
+}
+
+export async function createSalePlanRevision(tx: Tx, input: CreateSalePlanRevisionInput & { organizationId: string; planId: string }) {
+  assertScheduleReconciles((await tx.salePaymentPlan.findFirst({ where: { id: input.planId, organizationId: input.organizationId }, select: { price: true } }))?.price.toFixed(2) ?? "0", input.schedule.map((line, sequence) => ({ ...line, sequence })));
+  await tx.$queryRaw`SELECT id FROM "sale_payment_plan" WHERE id = ${input.planId} AND "organizationId" = ${input.organizationId} FOR UPDATE`;
+  const plan = await tx.salePaymentPlan.findFirst({ where: { id: input.planId, organizationId: input.organizationId }, include: { revisions: { include: { installments: true }, orderBy: { revision: "desc" }, take: 1 } } });
+  if (!plan) throw new Error("SALE_PAYMENT_PLAN_NOT_FOUND");
+  if (plan.version !== input.expectedVersion) throw new Error("SALE_PAYMENT_PLAN_VERSION_CONFLICT");
+  if (plan.status !== "ACTIVE") throw new Error("SALE_PAYMENT_PLAN_NOT_RESCHEDULABLE");
+  const previous = plan.revisions[0];
+  if (!previous) throw new Error("SALE_PAYMENT_REVISION_NOT_FOUND");
+  const allocations = await tx.salePaymentAllocation.findMany({ where: { organizationId: input.organizationId, installment: { revisionId: previous.id }, event: { kind: "CONFIRM" } }, select: { installmentId: true, amount: true } });
+  const paidBySequence = new Map<number, Prisma.Decimal>();
+  for (const allocation of allocations) {
+    const line = previous.installments.find((item) => item.id === allocation.installmentId);
+    if (line) paidBySequence.set(line.sequence, (paidBySequence.get(line.sequence) ?? new Prisma.Decimal(0)).plus(allocation.amount));
+  }
+  const nextRevision = previous.revision + 1;
+  return tx.salePlanRevision.create({ data: {
+    organizationId: input.organizationId, planId: plan.id, revision: nextRevision, effectiveDate: new Date(`${input.effectiveDate}T00:00:00.000Z`), reason: input.reason, supersedesId: previous.id,
+    installments: { create: input.schedule.map((line, index) => ({ organizationId: input.organizationId, sequence: index + 1, kind: line.kind, amount: line.amount, dueDate: new Date(`${line.dueDate}T00:00:00.000Z`), carriedPaidAmount: paidBySequence.get(index + 1) ?? 0 })) },
+  }, include: { installments: true } });
 }

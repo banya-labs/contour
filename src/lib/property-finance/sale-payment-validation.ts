@@ -32,6 +32,14 @@ export const recordSalePaymentReceiptSchema = z.object({
   idempotencyKey,
 });
 
+export const createSalePlanRevisionSchema = z.object({
+  effectiveDate: date,
+  reason: z.string().min(3).max(500),
+  schedule: z.array(saleScheduleLineSchema).min(1).max(360),
+  expectedVersion: z.number().int().positive(),
+  idempotencyKey,
+});
+
 export const salePaymentEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("CONFIRM"), sourceEventId: z.string().min(1), idempotencyKey }),
   z.object({ kind: z.literal("REJECT"), sourceEventId: z.string().min(1), reason: z.string().min(3).max(500), idempotencyKey }),
@@ -41,3 +49,4 @@ export const salePaymentEventSchema = z.discriminatedUnion("kind", [
 
 export type CreateSalePaymentPlanInput = z.infer<typeof createSalePaymentPlanSchema>;
 export type RecordSalePaymentReceiptInput = z.infer<typeof recordSalePaymentReceiptSchema>;
+export type CreateSalePlanRevisionInput = z.infer<typeof createSalePlanRevisionSchema>;
