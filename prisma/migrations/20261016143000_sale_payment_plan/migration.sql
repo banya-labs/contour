@@ -77,3 +77,8 @@ ALTER TABLE "sale_payment_event" ADD CONSTRAINT "sale_payment_event_recordedById
 ALTER TABLE "sale_payment_allocation" ADD CONSTRAINT "sale_payment_allocation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "sale_payment_allocation" ADD CONSTRAINT "sale_payment_allocation_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "sale_payment_event"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "sale_payment_allocation" ADD CONSTRAINT "sale_payment_allocation_installmentId_fkey" FOREIGN KEY ("installmentId") REFERENCES "sale_installment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Add durable idempotency for draft plan creation.
+ALTER TABLE "sale_payment_plan" ADD COLUMN "idempotencyKey" TEXT;
+UPDATE "sale_payment_plan" SET "idempotencyKey" = 'legacy-plan-' || "id" WHERE "idempotencyKey" IS NULL;
+ALTER TABLE "sale_payment_plan" ALTER COLUMN "idempotencyKey" SET NOT NULL;
+CREATE UNIQUE INDEX "sale_payment_plan_organizationId_idempotencyKey_key" ON "sale_payment_plan"("organizationId","idempotencyKey");

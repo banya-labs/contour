@@ -722,6 +722,7 @@ model PropertyRentalCommissionConfig {
   currency          Currency                      @default(ZMW)
   effectiveFrom     DateTime                      @db.Date
   evidenceReference String?
+  idempotencyKey String
   approvedById      String?
   approvedAt        DateTime?
   createdAt         DateTime                      @default(now())
@@ -1083,6 +1084,7 @@ model SalePaymentPlan {
   events SalePaymentEvent[]
   @@index([organizationId, status, updatedAt])
   @@index([organizationId, transactionId])
+  @@unique([organizationId, idempotencyKey])
   @@map("sale_payment_plan")
 }
 

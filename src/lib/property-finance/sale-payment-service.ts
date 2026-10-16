@@ -15,12 +15,13 @@ export async function createSalePaymentPlan(tx: Tx, input: CreateSalePaymentPlan
     if (!transaction) throw new Error("SALE_TRANSACTION_NOT_FOUND");
     if (transaction.currency !== input.currency) throw new Error("SALE_CURRENCY_MISMATCH");
   }
-  const existing = await tx.salePaymentPlan.findFirst({ where: { organizationId: input.organizationId, inquiryId: input.inquiryId }, include: { revisions: { include: { installments: true }, orderBy: { revision: "desc" }, take: 1 } } });
+  const existing = await tx.salePaymentPlan.findFirst({ where: { organizationId: input.organizationId, OR: [{ idempotencyKey: input.idempotencyKey }, { inquiryId: input.inquiryId }] }, include: { revisions: { include: { installments: true }, orderBy: { revision: "desc" }, take: 1 } } });
   if (existing) return existing;
   return tx.salePaymentPlan.create({
     data: {
       organizationId: input.organizationId, inquiryId: input.inquiryId, transactionId: input.transactionId,
       buyerContactId: input.buyerContactId, price: input.price, currency: input.currency, evidenceReference: input.evidenceReference,
+      idempotencyKey: input.idempotencyKey,
       revisions: { create: { organizationId: input.organizationId, revision: 1, effectiveDate: new Date(), reason: "Initial payment terms", installments: { create: input.schedule.map((line, sequence) => ({ organizationId: input.organizationId, sequence: sequence + 1, kind: line.kind, amount: line.amount, dueDate: new Date(`${line.dueDate}T00:00:00.000Z`) })) } } },
     }, include: { revisions: { include: { installments: true } } },
   });
