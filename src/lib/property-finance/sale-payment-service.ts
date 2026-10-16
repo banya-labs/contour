@@ -40,3 +40,46 @@ export async function recordSalePaymentReceipt(tx: Tx, input: RecordSalePaymentR
     payloadHash: JSON.stringify(input), recordedById: input.recordedById,
   } });
 }
+
+export async function confirmSalePaymentReceipt(tx: Tx, input: { organizationId: string; planId: string; receiptEventId: string; recordedById: string; idempotencyKey: string }) {
+  await tx.$queryRaw`SELECT id FROM "sale_payment_plan" WHERE id = ${input.planId} AND "organizationId" = ${input.organizationId} FOR UPDATE`;
+  const receipt = await tx.salePaymentEvent.findFirst({ where: { id: input.receiptEventId, planId: input.planId, organizationId: input.organizationId, kind: "RECEIPT" } });
+  if (!receipt) throw new Error("SALE_RECEIPT_NOT_FOUND");
+  const existingConfirmation = await tx.salePaymentEvent.findFirst({ where: { organizationId: input.organizationId, sourceEventId: receipt.id, kind: "CONFIRM" } });
+  if (existingConfirmation) return existingConfirmation;
+  const plan = await tx.salePaymentPlan.findFirst({ where: { id: input.planId, organizationId: input.organizationId }, select: { status: true, currentRevision: true, currency: true } });
+  if (!plan) throw new Error("SALE_PAYMENT_PLAN_NOT_FOUND");
+  if (plan.status === "CANCELLED" || plan.status === "COMPLETED") throw new Error("SALE_PAYMENT_PLAN_NOT_COLLECTIBLE");
+  const revision = await tx.salePlanRevision.findFirst({ where: { planId: input.planId, organizationId: input.organizationId, revision: plan.currentRevision || undefined }, include: { installments: { orderBy: { sequence: "asc" } } } });
+  if (!revision) throw new Error("SALE_PAYMENT_REVISION_NOT_FOUND");
+  const confirmedAllocations = await tx.salePaymentAllocation.findMany({ where: { organizationId: input.organizationId, installment: { revisionId: revision.id }, event: { kind: "CONFIRM" } }, select: { installmentId: true, amount: true } });
+  const paid = new Map<string, Prisma.Decimal>();
+  for (const allocation of confirmedAllocations) paid.set(allocation.installmentId, (paid.get(allocation.installmentId) ?? new Prisma.Decimal(0)).plus(allocation.amount));
+  let remaining = new Prisma.Decimal(receipt.amount);
+  const allocations: Array<{ installmentId: string; amount: Prisma.Decimal }> = [];
+  for (const installment of revision.installments) {
+    const outstanding = new Prisma.Decimal(installment.amount).minus(installment.carriedPaidAmount).minus(paid.get(installment.id) ?? 0);
+    if (outstanding.isPositive() && remaining.isPositive()) {
+      const amount = Prisma.Decimal.min(outstanding, remaining);
+      allocations.push({ installmentId: installment.id, amount });
+      remaining = remaining.minus(amount);
+    }
+  }
+  if (remaining.isPositive()) throw new Error("SALE_PAYMENT_EXCEEDS_BALANCE");
+  return tx.salePaymentEvent.create({ data: {
+    organizationId: input.organizationId, planId: input.planId, kind: "CONFIRM", amount: receipt.amount, currency: receipt.currency,
+    paymentDate: receipt.paymentDate, custodian: receipt.custodian, sourceEventId: receipt.id, idempotencyKey: input.idempotencyKey,
+    payloadHash: JSON.stringify({ receiptEventId: receipt.id }), recordedById: input.recordedById,
+    allocations: { create: allocations.map((allocation) => ({ organizationId: input.organizationId, installmentId: allocation.installmentId, amount: allocation.amount })) },
+  }, include: { allocations: true } });
+}
+
+export async function approveSalePaymentPlan(tx: Tx, input: { organizationId: string; planId: string; approvedById: string }) {
+  await tx.$queryRaw`SELECT id FROM "sale_payment_plan" WHERE id = ${input.planId} AND "organizationId" = ${input.organizationId} FOR UPDATE`;
+  const plan = await tx.salePaymentPlan.findFirst({ where: { id: input.planId, organizationId: input.organizationId }, include: { revisions: { orderBy: { revision: "desc" }, take: 1 } } });
+  if (!plan) throw new Error("SALE_PAYMENT_PLAN_NOT_FOUND");
+  if (plan.status === "CANCELLED" || plan.status === "COMPLETED") throw new Error("SALE_PAYMENT_PLAN_NOT_APPROVABLE");
+  const revision = plan.revisions[0];
+  if (!revision) throw new Error("SALE_PAYMENT_REVISION_NOT_FOUND");
+  return tx.salePaymentPlan.update({ where: { id: plan.id }, data: { status: "ACTIVE", currentRevision: revision.revision, approvedById: input.approvedById, approvedAt: new Date(), version: { increment: 1 } }, include: { revisions: { include: { installments: true } } } });
+}
