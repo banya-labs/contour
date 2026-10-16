@@ -83,3 +83,32 @@ export async function approveSalePaymentPlan(tx: Tx, input: { organizationId: st
   if (!revision) throw new Error("SALE_PAYMENT_REVISION_NOT_FOUND");
   return tx.salePaymentPlan.update({ where: { id: plan.id }, data: { status: "ACTIVE", currentRevision: revision.revision, approvedById: input.approvedById, approvedAt: new Date(), version: { increment: 1 } }, include: { revisions: { include: { installments: true } } } });
 }
+
+export async function reverseOrRefundSalePayment(tx: Tx, input: {
+  organizationId: string; planId: string; sourceEventId: string; kind: "REVERSAL" | "REFUND";
+  amount: string; reason: string; evidenceReference?: string; recordedById: string; idempotencyKey: string;
+}) {
+  await tx.$queryRaw`SELECT id FROM "sale_payment_plan" WHERE id = ${input.planId} AND "organizationId" = ${input.organizationId} FOR UPDATE`;
+  const source = await tx.salePaymentEvent.findFirst({ where: { id: input.sourceEventId, planId: input.planId, organizationId: input.organizationId, kind: { in: ["CONFIRM", "RECEIPT"] } } });
+  if (!source) throw new Error("SALE_SOURCE_PAYMENT_NOT_FOUND");
+  const existing = await tx.salePaymentEvent.findFirst({ where: { organizationId: input.organizationId, idempotencyKey: input.idempotencyKey } });
+  if (existing) return existing;
+  const related = await tx.salePaymentEvent.aggregate({ where: { organizationId: input.organizationId, planId: input.planId, sourceEventId: source.id, kind: input.kind }, _sum: { amount: true } });
+  const alreadyApplied = related._sum.amount ?? new Prisma.Decimal(0);
+  const available = new Prisma.Decimal(source.amount).minus(alreadyApplied);
+  const amount = new Prisma.Decimal(input.amount);
+  if (!amount.isPositive() || amount.greaterThan(available)) throw new Error(input.kind === "REFUND" ? "SALE_REFUND_EXCEEDS_AVAILABLE" : "SALE_REVERSAL_EXCEEDS_AVAILABLE");
+  const allocations = input.kind === "REVERSAL" ? await tx.salePaymentAllocation.findMany({ where: { organizationId: input.organizationId, eventId: source.id }, orderBy: { installmentId: "asc" } }) : [];
+  let remaining = amount;
+  return tx.salePaymentEvent.create({ data: {
+    organizationId: input.organizationId, planId: input.planId, kind: input.kind, amount, currency: source.currency,
+    paymentDate: new Date(), custodian: source.custodian, sourceEventId: source.id, evidenceReference: input.evidenceReference,
+    idempotencyKey: input.idempotencyKey, payloadHash: JSON.stringify({ sourceEventId: source.id, amount: input.amount, reason: input.reason }), recordedById: input.recordedById,
+    allocations: input.kind === "REVERSAL" ? { create: allocations.flatMap((allocation) => {
+      if (!remaining.isPositive()) return [];
+      const reversalAmount = Prisma.Decimal.min(allocation.amount, remaining);
+      remaining = remaining.minus(reversalAmount);
+      return [{ organizationId: input.organizationId, installmentId: allocation.installmentId, amount: reversalAmount.negated(), reversedAllocationId: allocation.id }];
+    }) } : undefined,
+  }, include: { allocations: true } });
+}
