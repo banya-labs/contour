@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, MapPin, Building, DollarSign, ArrowRight, ShieldCheck, Sparkles, ChevronDown } from "lucide-react";
+import { Search, MapPin, Building, DollarSign, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 
 export function LuxuryHeroStage() {
   const [selectedLocation, setSelectedLocation] = useState("All Sample Locations");

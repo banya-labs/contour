@@ -130,7 +130,7 @@ export function ProductFeatures() {
                         <span>Feature {item.num} - {item.name}</span>
                       </h3>
                       <p className="mt-1 font-geist text-xs sm:text-sm text-editorial-muted leading-relaxed">
-                        "{item.desc}"
+                        &quot;{item.desc}&quot;
                       </p>
                     </div>
                   </div>
@@ -364,11 +364,11 @@ function LeaseArrearsBlueprint() {
       <div className="space-y-2 text-[11px]">
         <div className="p-3 bg-neutral-100 border border-editorial-border rounded-none">
           <span className="text-[9px] text-editorial-muted block">CONTOUR BOT DISPATCH // 08:30 CAT</span>
-          "Dear Mr. Tembo, gentle reminder that monthly rental for Stand #401 (K 28,000) was due on 1st Sept. Pay via ZMW direct transfer."
+          &quot;Dear Mr. Tembo, gentle reminder that monthly rental for Stand #401 (K 28,000) was due on 1st Sept. Pay via ZMW direct transfer.&quot;
         </div>
         <div className="p-3 bg-editorial-hover border border-editorial-red/40 rounded-none ml-6">
           <span className="text-[9px] text-editorial-red block">TENANT CONFIRMATION // 10:15 CAT</span>
-          "Payment proof attached. Transfer ref: TX-902418-ZMW."
+          &quot;Payment proof attached. Transfer ref: TX-902418-ZMW.&quot;
         </div>
       </div>
       <div className="border-t border-editorial-black pt-3 flex items-center justify-between text-xs font-bold">

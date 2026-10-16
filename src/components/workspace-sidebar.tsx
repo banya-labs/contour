@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { authClient, contourSignOut } from "@/lib/auth-client";
 import { getAgencySettings, formatWorkspaceTitle } from "@/lib/settings/agency-settings";
@@ -15,13 +16,13 @@ import {
   Smartphone,
   ChevronDown,
   ChevronRight,
-  Building,
   BarChart3,
   Download,
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { triggerPwaInstallModal } from "@/components/pwa/pwa-install-banner";
 import { isManagementRole } from "@/lib/authorization";
+import type { LucideIcon } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -32,7 +33,7 @@ type NavItem = {
 
 type NavGroup = {
   name: string;
-  icon: any;
+  icon: LucideIcon;
   items: NavItem[];
 };
 
@@ -238,11 +239,6 @@ export default function WorkspaceSidebar() {
           {/* 2. Structured Submenu Groups */}
           {navGroups.map((group) => {
             const isOpen = openGroups[group.name];
-            const isAnyChildActive = group.items.some(
-              (item) =>
-                pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href))
-            );
             const Icon = group.icon;
 
             return (
@@ -356,9 +352,11 @@ export default function WorkspaceSidebar() {
         >
           <span className="flex items-center gap-2 min-w-0">
             {user?.image ? (
-              <img
+              <Image
                 src={user.image}
                 alt={user.name || "User"}
+                width={28}
+                height={28}
                 className="w-7 h-7 object-cover border border-editorial-border shrink-0"
               />
             ) : (

@@ -29,9 +29,11 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
     if (!password) { setError("Please enter your current password to continue."); return; }
     setLoading(true); setError(null);
     try {
-      const result = await (authClient as any).twoFactor.enable({ password });
+      const result = await authClient.twoFactor.enable({ password, method: "totp" });
       if (result.error) { setError(result.error.message || "Failed to enable 2FA."); return; }
-      const uri: string = result.data?.totpURI || "";
+      if (result.data?.method !== "totp") { setError("TOTP enrollment was not returned. Please try again."); return; }
+      const uri = result.data.totpURI;
+      setBackupCodes(result.data.backupCodes);
       setTotpUri(uri);
       const m = uri.match(/secret=([^&]+)/);
       setSecret(m ? m[1] : "");
@@ -45,9 +47,8 @@ export function MfaSetupDialog({ onClose, onEnabled }: MfaSetupDialogProps) {
     if (code.length !== 6) { setError("Please enter the 6-digit code from your authenticator app."); return; }
     setLoading(true); setError(null);
     try {
-      const result = await (authClient as any).twoFactor.verifyTotp({ code });
+      const result = await authClient.twoFactor.verifyTotp({ code });
       if (result.error) { setError("Invalid code. Please try again."); return; }
-      setBackupCodes(result.data?.backupCodes || []);
       setStep("backup");
     } catch { setError("Verification failed. Please try again."); }
     finally { setLoading(false); }

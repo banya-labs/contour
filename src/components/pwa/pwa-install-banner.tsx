@@ -19,7 +19,7 @@ export function PwaInstallBanner() {
   useEffect(() => {
     // Detect iOS
     const ua = window.navigator.userAgent;
-    const isIosDevice = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    const isIosDevice = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
     setIsIos(isIosDevice);
 
     // Capture native install prompt

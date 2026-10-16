@@ -14,7 +14,7 @@ const postHandler = createApiHandler({
     try {
       const event = await db.$transaction((tx) => body.kind === "CONFIRM"
         ? confirmSalePaymentReceipt(tx, { organizationId: organizationId!, planId, receiptEventId: paymentId, recordedById: userId!, idempotencyKey: body.idempotencyKey })
-        : reverseOrRefundSalePayment(tx, { organizationId: organizationId!, planId, sourceEventId: body.sourceEventId, kind: body.kind, amount: body.amount, reason: body.reason, evidenceReference: body.evidenceReference, recordedById: userId!, idempotencyKey: body.idempotencyKey }));
+        : reverseOrRefundSalePayment(tx, { organizationId: organizationId!, planId, sourceEventId: body.sourceEventId, kind: body.kind, amount: body.amount, reason: body.reason, evidenceReference: body.kind === "REFUND" ? body.evidenceReference : undefined, recordedById: userId!, idempotencyKey: body.idempotencyKey }));
       return NextResponse.json({ success: true, event }, { status: 201 });
     } catch (error) {
       const code = error instanceof Error ? error.message : "SALE_PAYMENT_CONFIRMATION_ERROR";

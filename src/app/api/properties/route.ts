@@ -14,7 +14,7 @@ import { inquirySelect } from "@/lib/matching/service";
 import { inquiryVisibility } from "@/lib/matching/visibility";
 import { matchingScope } from "@/lib/matching/api";
 import { reconcileMatchNotifications } from "@/lib/matching/inquiry-match-notifications";
-import { PROPERTY_MATCH_THRESHOLD, scorePropertyForInquiry } from "@/lib/matching/score";
+import {  scorePropertyForInquiry } from "@/lib/matching/score";
 import { propertySlugFromTitle, publicPropertyPath } from "@/lib/public-property";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 import type { ApiRouteContext } from "@/lib/api-handler";

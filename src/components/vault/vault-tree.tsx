@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 
 import * as React from "react";
 import {
@@ -8,7 +9,6 @@ import {
   FolderContent,
   SubFiles,
   FileItem,
-  VaultStatus,
 } from "@/components/ui/files";
 import {
   Download,
@@ -18,8 +18,6 @@ import {
   Lock,
   FileText,
   FileCheck2,
-  Building,
-  ExternalLink,
   AlertCircle,
   FileSpreadsheet,
   FileImage,
@@ -180,8 +178,8 @@ export function VaultTree({
       link.click();
       document.body.removeChild(link);
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    } catch (err: any) {
-      setErrorMsg(`Download error: ${err.message}`);
+    } catch (err: unknown) {
+      setErrorMsg(`Download error: ${getErrorMessage(err, "Unable to download document.")}`);
     } finally {
       setDownloadingId(null);
     }
@@ -210,8 +208,8 @@ export function VaultTree({
         throw new Error(data.error || "Failed to delete document");
       }
       onRefresh();
-    } catch (err: any) {
-      setErrorMsg(`Delete error: ${err.message}`);
+    } catch (err: unknown) {
+      setErrorMsg(`Delete error: ${getErrorMessage(err, "Unable to delete document.")}`);
     } finally {
       setDeletingId(null);
     }
@@ -231,8 +229,8 @@ export function VaultTree({
         throw new Error(data.error || "Failed to verify document");
       }
       onRefresh();
-    } catch (err: any) {
-      setErrorMsg(`Verification error: ${err.message}`);
+    } catch (err: unknown) {
+      setErrorMsg(`Verification error: ${getErrorMessage(err, "Unable to verify document access.")}`);
     } finally {
       setVerifyingId(null);
     }

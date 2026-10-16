@@ -9,8 +9,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   KeyRound,
-  AlertTriangle,
-  CheckCircle2,
   Plus,
   MessageSquare,
   X,

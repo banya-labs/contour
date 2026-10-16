@@ -10,7 +10,6 @@ import {
   Maximize2,
   X,
   Camera,
-  Copy,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatWhatsAppDigits } from "@/lib/phone-utils";

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { createFollowUpTaskSchema } from "@/lib/validations";
+import { TaskStatus } from "@prisma/client";
+import type { ApiRouteContext } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,9 @@ const getHandler = createApiHandler({
     const { organizationId } = ctx;
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    if (status && !Object.values(TaskStatus).includes(status as TaskStatus)) {
+      return NextResponse.json({ success: false, error: "Invalid task status." }, { status: 400 });
+    }
     const assignedUserId = searchParams.get("assignedUserId");
     const inquiryId = searchParams.get("inquiryId");
     const propertyId = searchParams.get("propertyId");
@@ -19,7 +24,7 @@ const getHandler = createApiHandler({
     const tasks = await db.followUpTask.findMany({
       where: {
         organizationId,
-        ...(status ? { status: status as any } : {}),
+        ...(status ? { status: status as TaskStatus } : {}),
         ...(assignedUserId ? { assignedUserId } : {}),
         ...(inquiryId ? { inquiryId } : {}),
         ...(propertyId ? { propertyId } : {}),
@@ -97,10 +102,10 @@ const postHandler = createApiHandler({
   },
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }
 
-export async function POST(req: NextRequest, context?: any) {
+export async function POST(req: NextRequest, context: ApiRouteContext) {
   return postHandler(req, context);
 }

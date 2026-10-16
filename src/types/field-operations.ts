@@ -1,0 +1,181 @@
+export type SerializedNumber = number | string | null;
+import type { Currency, InquiryStatus, LeadSource, ListingType, PropertyType } from "@prisma/client";
+
+export type FieldMatchPreview = {
+  id: string;
+  title?: string;
+  name?: string;
+  suburb?: string;
+  score?: number;
+};
+
+export type FieldProperty = {
+  id: string;
+  organizationId?: string;
+  title: string;
+  slug?: string;
+  status: string;
+  listingType: ListingType | string;
+  ownershipType?: string;
+  propertyType?: PropertyType | string;
+  currency: Currency | string;
+  price?: SerializedNumber;
+  askingPrice?: SerializedNumber;
+  rentalPrice?: SerializedNumber;
+  agencyCommissionPct?: SerializedNumber;
+  bedrooms?: number | null;
+  bathrooms?: SerializedNumber;
+  plotSizeSqm?: SerializedNumber;
+  suburb: string;
+  city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  landmarkDirections?: string | null;
+  description?: string | null;
+  photos?: string[];
+  featuredPhoto?: string | null;
+  features?: string[];
+  assignedAgentId?: string | null;
+  assignedAgentName?: string | null;
+  assignedAgentPhone?: string | null;
+  assignedAgent?: { id?: string; name?: string | null; phone?: string | null } | null;
+  organizationSlug?: string | null;
+  organization?: { slug?: string | null } | null;
+  matchingInquiryCount?: number;
+  matchingInquiryPreview?: FieldMatchPreview[];
+  matchingPropertyCount?: number;
+  matchingProperties?: FieldMatchPreview[];
+  matchingInquiries?: FieldMatchPreview[];
+  mandateType?: string;
+  ownerName?: string | null;
+  ownerPhone?: string | null;
+  ownerEmail?: string | null;
+  ownerBankDetails?: string | null;
+  titleDeedNumber?: string | null;
+  inquiries?: Array<{ id: string; lookingFor?: string; status?: string; property?: { title?: string | null } | null }>;
+};
+
+export type FieldInquiry = {
+  id: string;
+  contactId?: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string | null;
+  name?: string;
+  phone?: string;
+  email?: string | null;
+  propertyId?: string | null;
+  property?: FieldProperty | null;
+  lookingFor?: ListingType | string;
+  propertyType?: PropertyType | string | null;
+  budgetMin?: SerializedNumber;
+  budgetMax?: SerializedNumber;
+  budget?: string;
+  currency?: Currency | string;
+  preferredArea?: string;
+  preferredSuburbs?: string[];
+  bedroomsMin?: number | null;
+  bathroomsMin?: SerializedNumber;
+  areaMinSqm?: SerializedNumber;
+  notes?: string | null;
+  status?: InquiryStatus | string;
+  outcome?: string | null;
+  cancellationReason?: string | null;
+  leadSource?: LeadSource | string;
+  idempotencyKey?: string;
+  exclusiveLockExpiresAt?: string | Date | null;
+  lockExpiry?: string;
+  assignedAgentId?: string | null;
+  assignedAgentName?: string | null;
+  assignedAgent?: { id?: string; name?: string | null; phone?: string | null } | null;
+  matchingProfile?: Record<string, unknown> | null;
+  matchingProperties?: FieldMatchPreview[];
+  matchingPropertyCount?: number;
+  matchingPropertyPreview?: FieldMatchPreview[];
+  dealValue?: SerializedNumber;
+};
+
+export type FieldLease = {
+  id: string;
+  propertyId: string;
+  tenantName: string;
+  tenantPhone: string;
+  tenantEmail?: string | null;
+  monthlyRent: SerializedNumber;
+  currency: string;
+  depositAmount?: SerializedNumber;
+  leaseStartDate?: string | Date;
+  leaseEndDate?: string | Date;
+  paymentDayOfMonth?: number;
+  status?: string;
+  property?: FieldProperty | null;
+  tenantIdNumber?: string | null;
+  tenantBankDetails?: string | null;
+  depositBankReference?: string | null;
+};
+
+export type FieldTransaction = {
+  id: string;
+  transactionType?: string;
+  propertyId?: string;
+  inquiryId?: string | null;
+  grossValue?: SerializedNumber;
+  currency?: string;
+  agencyCommissionAmount?: SerializedNumber;
+  agentSplitAmount?: SerializedNumber;
+  status?: string;
+  transferStatus?: string;
+  assignedAgentId?: string | null;
+  assignedAgentName?: string | null;
+  property?: FieldProperty | null;
+  escrowAccountNumber?: string | null;
+  bankReference?: string | null;
+  internalNotes?: string | null;
+};
+
+export type FieldContact = {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string | null;
+  inquiries?: FieldInquiry[];
+};
+
+export type OfflineOutboxPayload = {
+  title?: string;
+  suburb?: string;
+  city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  price?: SerializedNumber;
+  askingPrice?: SerializedNumber;
+  rentalPrice?: SerializedNumber;
+  listingType?: ListingType | string;
+  propertyType?: PropertyType | string;
+  bedrooms?: number | null;
+  bathrooms?: SerializedNumber;
+  photos?: string[];
+  mandateType?: string;
+  clientPhone?: string;
+  clientName?: string;
+  budgetMax?: string | number | null;
+  currency?: string;
+  preferredSuburbs?: string[];
+  assignedAgentId?: string;
+  status?: string;
+  lookingFor?: string;
+  idempotencyKey?: string;
+  [key: string]: unknown;
+};
+
+export type FieldAgentSummary = {
+  agent?: { id: string; name: string; email?: string; phone?: string; role?: string };
+  metrics?: Record<string, number>;
+  queue?: Array<Record<string, unknown>>;
+  deals?: FieldTransaction[];
+  earnings?: {
+    slips?: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};

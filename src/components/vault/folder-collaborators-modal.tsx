@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 
 import * as React from "react";
 import {
@@ -11,13 +12,11 @@ import {
 import {
   Users,
   Shield,
-  ShieldCheck,
   UserPlus,
   Trash2,
   CheckCircle2,
   AlertCircle,
   Building,
-  Lock,
 } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 
@@ -137,8 +136,8 @@ export function FolderCollaboratorsModal({
       setSelectedUserId("");
       onUpdateSuccess?.();
       onAccessUpdated?.();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Unable to remove folder access."));
     } finally {
       setIsSubmitting(false);
     }
@@ -182,8 +181,8 @@ export function FolderCollaboratorsModal({
       setSuccessMsg(`Revoked ${targetMember.name}'s direct access to this folder.`);
       onUpdateSuccess?.();
       onAccessUpdated?.();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Unable to remove folder access."));
     } finally {
       setRemovingId(null);
     }

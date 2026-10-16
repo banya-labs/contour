@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ShieldCheck, Sparkles, Building2, TrendingUp } from "lucide-react";
+import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 
 export function InteractiveIntentMatrix() {
   const [activeIntent, setActiveIntent] = useState<"buy" | "sell" | "lease" | "develop">("buy");

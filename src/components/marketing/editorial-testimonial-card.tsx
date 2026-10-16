@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { Star, ChevronLeft, ChevronRight, Quote, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 
 export function EditorialTestimonialCard() {
   const [activeIndex, setActiveIndex] = useState(0);

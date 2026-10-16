@@ -3,14 +3,9 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  DollarSign,
+  
   TrendingUp,
-  Clock,
-  ShieldAlert,
-  ArrowRight,
-  Sparkles,
   Calculator,
-  CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 

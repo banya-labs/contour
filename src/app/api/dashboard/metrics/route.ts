@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
+import type { ApiRouteContext } from "@/lib/api-handler";
 
 import { smartCache } from "@/lib/cache";
 
@@ -45,15 +46,15 @@ const getHandler = createApiHandler({
 
         const arrearsCount = inArrearsLeases.length;
         const arrearsAmount = inArrearsLeases.reduce(
-          (acc: number, l: any) => acc + Number(l.monthlyRent),
+          (acc, l) => acc + Number(l.monthlyRent),
           0
         );
         const earnedCommission = receivedTransactions.reduce(
-          (acc: number, t: any) => acc + Number(t.agencyCommissionAmount),
+          (acc, t) => acc + Number(t.agencyCommissionAmount),
           0
         );
         const expectedCommission = expectedTransactions.reduce(
-          (acc: number, t: any) => acc + Number(t.agencyCommissionAmount),
+          (acc, t) => acc + Number(t.agencyCommissionAmount),
           0
         );
 
@@ -85,6 +86,6 @@ const getHandler = createApiHandler({
   },
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }

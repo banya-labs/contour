@@ -1,7 +1,9 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 import { formatPropertyLocation } from "@/lib/property-location";
 
 import React, { useEffect, useRef, useState } from "react";
+import type { Currency, InquiryStatus, LeadSource } from "@prisma/client";
 import { StatementGenerateButton } from "@/components/statements/statement-generate-button";
 import { commissionStatusLabels } from "@/lib/statements/document";
 import Link from "next/link";
@@ -13,19 +15,14 @@ import {
   MessageSquare,
   Share2,
   Lock,
-  Compass,
   Bed,
   Bath,
-  PhoneCall,
   Search,
   Sparkles,
   ChevronLeft,
-  Bot,
   Menu,
   X,
   User,
-  DollarSign,
-  TrendingUp,
   LogOut,
   ShieldCheck,
   FileCheck,
@@ -37,19 +34,11 @@ import {
   Users,
   Briefcase,
   Wallet,
-  Mic,
   Camera,
-  Send,
-  SlidersHorizontal,
   ArrowUpRight,
   Filter,
-  CheckCheck,
   Phone,
-  Layers,
-  Sparkle,
-  Map as MapIcon,
   Navigation,
-  Crosshair,
   ClipboardList,
   CalendarClock,
   Upload,
@@ -88,7 +77,7 @@ import { clearMatchCache } from "@/lib/matching/result-cache";
 import type { PropertyType, ListingType } from "@prisma/client";
 import type { StrictRequirements } from "@/lib/matching/types";
 import { publicPropertyPath } from "@/lib/public-property";
-import { PROPERTY_TYPE_OPTIONS, propertyTypeLabel } from "@/lib/property-types";
+import { PROPERTY_TYPE_OPTIONS } from "@/lib/property-types";
 import { ACTIVE_PIPELINE_STAGE_CODES, getStageDefinition, mapLegacyPipelineState, requiresPropertyForTransition, type ActivePipelineStage, type PipelineStage } from "@/lib/deal-workflow";
 
 
@@ -466,8 +455,8 @@ function AgentKioskContent() {
       emitWorkspaceMutation(["clients", "pipeline", "agent", "properties", "dashboard"], editingClient.id);
       setEditingClient(null);
       void syncData();
-    } catch (err: any) {
-      setEditClientError(err.message || "Failed to save client changes.");
+    } catch (err: unknown) {
+      setEditClientError(getErrorMessage(err, "Failed to save client changes."));
     } finally {
       setIsSavingClientEdit(false);
     }
@@ -1147,7 +1136,7 @@ function AgentKioskContent() {
   // Submit Intake: Formal Offer (Select Existing or New Client)
   const handleCreateOffer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const selectedOfferProperty = displayProperties.find((p: any) => p.id === offerPropertyId);
+    const selectedOfferProperty = displayProperties.find((p: { id: string }) => p.id === offerPropertyId);
     if (!selectedOfferProperty) {
       setCaptureError("Select the mandate connected to this offer.");
       return;
@@ -1155,7 +1144,7 @@ function AgentKioskContent() {
 
     const existingInquiry = offerClientMode === "EXISTING" ? (clients || []).find((inquiry) => inquiry.id === selectedExistingClientId) : undefined;
     const contact = offerClientMode === "EXISTING"
-      ? existingInquiry?.contactId ? { id: existingInquiry.contactId, name: existingInquiry.clientName || existingInquiry.name, phone: existingInquiry.clientPhone || existingInquiry.phone, email: existingInquiry.clientEmail } : null
+      ? existingInquiry?.contactId ? { id: existingInquiry.contactId, name: existingInquiry.clientName || existingInquiry.name || "", phone: existingInquiry.clientPhone || existingInquiry.phone || "", email: existingInquiry.clientEmail } : null
       : contacts.find((candidate) => candidate.id === offerContactId) || null;
     if (!contact) { setCaptureError("Select a contact or an existing contact-linked inquiry before adding a deal."); return; }
 
@@ -1172,12 +1161,12 @@ function AgentKioskContent() {
     try {
       payload = buildInquiryCapturePayload({
         idempotencyKey: newInquiryKey, existingInquiryId: existingInquiry?.id,
-        propertyId: selectedOfferProperty.id, propertyType: selectedOfferProperty.propertyType,
-        lookingFor: selectedOfferProperty.listingType || "FOR_SALE",
-        currency: offerCurrency, budgetMax: amount.toString(), dealValue: amount,
+        propertyId: selectedOfferProperty.id, propertyType: (selectedOfferProperty.propertyType || "STANDALONE_HOUSE") as PropertyType,
+        lookingFor: (selectedOfferProperty.listingType || "FOR_SALE") as ListingType,
+        currency: offerCurrency as Currency, budgetMax: amount.toString(), dealValue: amount,
         preferredSuburbs: selectedOfferProperty.suburb ? [selectedOfferProperty.suburb] : [],
-        assignedAgentId: session?.user.id, leadSource: existingInquiry?.leadSource || "OTHER",
-        status: existingInquiry?.status || "NEW_INQUIRY",
+        assignedAgentId: session?.user.id, leadSource: (existingInquiry?.leadSource || "OTHER") as LeadSource,
+        status: (existingInquiry?.status || "NEW_INQUIRY") as InquiryStatus,
         notes: `[Lodge Offer Intake] ${selectedOfferProperty.title}: ${offerCurrency} ${amount.toLocaleString()}`,
       }, contact);
     } catch (error) { setCaptureError(error instanceof Error ? error.message : "Check the deal requirements."); return; }

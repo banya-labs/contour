@@ -1,10 +1,10 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 
 import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -19,7 +19,6 @@ import {
   ExternalLink,
   Eye,
   Info,
-  Calendar,
   User,
   Building,
   HardDrive,
@@ -174,8 +173,8 @@ export function DocumentDetailsModal({
       link.click();
       document.body.removeChild(link);
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    } catch (err: any) {
-      setActionError(`Download failed: ${err.message}`);
+    } catch (err: unknown) {
+      setActionError(`Download failed: ${getErrorMessage(err, "Unable to download document.")}`);
     } finally {
       setDownloading(false);
     }
@@ -198,8 +197,8 @@ export function DocumentDetailsModal({
       // Refresh details
       await fetchDocumentDetails(currentDoc.id);
       if (onRefresh) onRefresh();
-    } catch (err: any) {
-      setActionError(err.message);
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, "Unable to update document details."));
     } finally {
       setVerifying(false);
     }
@@ -216,8 +215,8 @@ export function DocumentDetailsModal({
       if (!response.ok) throw new Error(payload?.error || "Unable to delete document");
       onRefresh?.();
       onClose();
-    } catch (err: any) {
-      setActionError(`Delete failed: ${err.message}`);
+    } catch (err: unknown) {
+      setActionError(`Delete failed: ${getErrorMessage(err, "Unable to delete document.")}`);
     } finally {
       setDeleting(false);
     }

@@ -6,19 +6,10 @@ import Link from "next/link";
 import {
   Building,
   MapPin,
-  ShieldCheck,
   CheckCircle2,
-  Sparkles,
   Share2,
-  Phone,
-  MessageSquare,
-  ArrowRight,
-  Maximize2,
   Bed,
   Bath,
-  Layers,
-  FileCheck,
-  Compass,
 } from "lucide-react";
 import SocialMediaCardGeneratorModal from "@/components/marketing/social-media-card-generator-modal";
 
@@ -44,6 +35,16 @@ interface PropertyShowcaseItem {
     avatar: string;
   };
 }
+
+type PropertyShowcaseFilter = "ALL" | PropertyShowcaseItem["category"];
+
+const PROPERTY_SHOWCASE_FILTERS: Array<{ id: PropertyShowcaseFilter; label: string }> = [
+  { id: "ALL", label: "All Prime Portfolios" },
+  { id: "DIPLOMATIC", label: "Diplomatic Residences" },
+  { id: "RESIDENTIAL", label: "Gated Estates" },
+  { id: "COMMERCIAL", label: "Commercial Hubs" },
+  { id: "AGRO", label: "Agro Plots" },
+];
 
 const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
   {
@@ -177,7 +178,7 @@ const FEATURED_PROPERTIES: PropertyShowcaseItem[] = [
 ];
 
 export function PropertyShowcaseGallery() {
-  const [filter, setFilter] = useState<"ALL" | "DIPLOMATIC" | "RESIDENTIAL" | "COMMERCIAL" | "AGRO">("ALL");
+  const [filter, setFilter] = useState<PropertyShowcaseFilter>("ALL");
   const [selectedPropertyForFlyer, setSelectedPropertyForFlyer] = useState<PropertyShowcaseItem | null>(null);
 
   const filteredProperties = filter === "ALL" 
@@ -208,16 +209,10 @@ export function PropertyShowcaseGallery() {
 
           {/* Filter Pills */}
           <div className="flex flex-wrap gap-2 text-xs font-medium">
-            {[
-              { id: "ALL", label: "All Prime Portfolios" },
-              { id: "DIPLOMATIC", label: "Diplomatic Residences" },
-              { id: "RESIDENTIAL", label: "Gated Estates" },
-              { id: "COMMERCIAL", label: "Commercial Hubs" },
-              { id: "AGRO", label: "Agro Plots" },
-            ].map((tab) => (
+            {PROPERTY_SHOWCASE_FILTERS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setFilter(tab.id as any)}
+                onClick={() => setFilter(tab.id)}
                 className={`px-3.5 py-2 rounded-xl transition-all ${
                   filter === tab.id
                     ? "bg-[#16382B] text-white shadow-md font-bold"

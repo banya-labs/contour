@@ -4,23 +4,10 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ShieldCheck,
+  
   CheckCircle2,
-  Building,
-  MapPin,
-  Lock,
-  Layers,
-  Sparkles,
-  Search,
-  Compass,
   ArrowRight,
-  TrendingUp,
-  FileCheck,
-  Smartphone,
-  Zap,
-  Filter,
   Navigation,
-  Globe,
 } from "lucide-react";
 
 export function LayeredHeroShowcase() {

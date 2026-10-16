@@ -31,8 +31,8 @@ export async function GET(
       photos: property.photos || [],
       featuredPhoto: property.featuredPhoto,
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unable to load property photos." }, { status: 500 });
   }
 }
 
@@ -112,8 +112,8 @@ export async function POST(
       featuredPhoto: updated.featuredPhoto,
       message: "Photos updated successfully.",
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unable to update property photos." }, { status: 500 });
   }
 }
 
@@ -196,7 +196,7 @@ export async function DELETE(
       featuredPhoto: updated.featuredPhoto,
       message: "Photo removed successfully.",
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unable to remove property photo." }, { status: 500 });
   }
 }

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, Sparkles, MapPin, CheckCircle2 } from "lucide-react";
+import { ArrowRight, ChevronRight, MapPin } from "lucide-react";
 
 export function EditorialManifestoGallery() {
   const [activePillar, setActivePillar] = useState<number | null>(0);
