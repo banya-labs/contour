@@ -13,6 +13,7 @@ const eslintConfig = [
       ".next/**",
       "node_modules/**",
       ".artifacts/**",
+      "brag-output/**",
       ".superpowers/**",
       ".test-screenshots/**",
       ".agents/**",

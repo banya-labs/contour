@@ -11,7 +11,6 @@ import {
   FileText,
   ShieldCheck,
   TriangleAlert,
-  Sparkles,
 } from "lucide-react";
 import { type BillingCycle, type SupportedCurrency } from "@/lib/lenco";
 import { ContourLogo } from "@/components/brand/contour-logo";

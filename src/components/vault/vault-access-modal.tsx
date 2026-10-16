@@ -12,6 +12,15 @@ interface VaultAccessModalProps {
   properties: Array<{ id: string; title: string; suburb: string }>;
 }
 
+type VaultMember = {
+  id: string;
+  name: string;
+  email?: string | null;
+  role: string;
+  vaultGrant?: { accessLevel: string; propertyIds: string[] } | null;
+  assignedProperties?: Array<{ id: string; title: string; suburb: string }>;
+};
+
 export function VaultAccessModal({
   isOpen,
   onClose,
@@ -20,7 +29,7 @@ export function VaultAccessModal({
 }: VaultAccessModalProps) {
   const [error, setError] = React.useState<string | null>(null);
   const savingRef = React.useRef(false);
-  const [members, setMembers] = React.useState<any[]>([]);
+  const [members, setMembers] = React.useState<VaultMember[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [savingUserId, setSavingUserId] = React.useState<string | null>(null);
   const [successUserId, setSuccessUserId] = React.useState<string | null>(null);

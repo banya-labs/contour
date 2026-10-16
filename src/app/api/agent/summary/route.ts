@@ -1,5 +1,6 @@
 import { formatPropertyLocation } from "@/lib/property-location";
 import { NextRequest, NextResponse } from "next/server";
+import type { ApiRouteContext } from "@/lib/api-handler";
 import { db } from "@/lib/db";
 import { createApiHandler } from "@/lib/api-handler";
 import { formatCurrency } from "@/lib/utils";
@@ -262,6 +263,6 @@ const getHandler = createApiHandler({
   },
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return getHandler(req, context);
 }

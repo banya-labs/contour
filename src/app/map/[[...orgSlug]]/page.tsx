@@ -1,11 +1,12 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 
 import React, { useState, useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import {
-  MapPin,
+  
   Search,
   X,
   Bed,
@@ -13,7 +14,6 @@ import {
   Ruler,
   MessageSquare,
   ExternalLink,
-  Navigation,
   Building2,
   ArrowUpRight,
 } from "lucide-react";
@@ -126,9 +126,9 @@ function PublicMapInner() {
           setLoadError(data.error || "Could not load public property catalog.");
           setProperties([]);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isCancelled) return;
-        console.error("Failed to load public map properties:", err);
+        console.error("Failed to load public map properties:", getErrorMessage(err, "Unknown map error"));
         setLoadError("Unable to connect to the property registry.");
         setProperties([]);
       } finally {

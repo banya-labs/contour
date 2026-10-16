@@ -1,15 +1,13 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 
 import React, { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import {
   Upload,
   Camera,
   X,
   Star,
   AlertCircle,
-  CheckCircle2,
-  Plus,
   ImageOff,
   RefreshCw,
   GripVertical,
@@ -140,7 +138,15 @@ export default function PropertyImageUploader({
         body: formData,
       });
 
-      let data: any = null;
+      let data: {
+        success?: boolean;
+        error?: string;
+        details?: string;
+        url?: string;
+        urls?: string[];
+        photos?: string[];
+        featuredPhoto?: string;
+      } = {};
 
       // If FormData fails on the server (e.g. multipart proxy or undici boundary error),
       // transparently fallback to base64 JSON payload
@@ -195,14 +201,15 @@ export default function PropertyImageUploader({
       const updatedPhotos = Array.isArray(data.photos) ? data.photos : [...photos, ...newUrls];
       const updatedFeatured = data.featuredPhoto || featuredPhoto || updatedPhotos[0];
       onChange(updatedPhotos, updatedFeatured);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Image upload error:", err);
-      setError(err.message || "An error occurred while uploading photos.");
+      const message = getErrorMessage(err, "An error occurred while uploading photos.");
+      setError(message);
       // Mark pending items with error
       setPendingUploads((prev) =>
         prev.map((p) =>
           newPendingItems.some((n) => n.id === p.id)
-            ? { ...p, isUploading: false, error: err.message || "Upload failed" }
+            ? { ...p, isUploading: false, error: message }
             : p
         )
       );

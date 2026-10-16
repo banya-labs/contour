@@ -1,11 +1,12 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 import { OperationProgress } from "@/components/ui/operation-progress";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  ShieldCheck,
+  
   Lock,
   Upload,
   FileText,
@@ -13,8 +14,6 @@ import {
   AlertTriangle,
   KeyRound,
   Building,
-  Scale,
-  Calendar,
 } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 import { PendingButtonContent } from "@/components/ui/pending-button-content";
@@ -93,8 +92,8 @@ export default function ClientUploadPortalPage() {
         if (data.request.clientName) {
           setClientName(data.request.clientName);
         }
-      } catch (err: any) {
-        setError(err.message || "Invalid or expired link");
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, "Invalid or expired link"));
       } finally {
         setLoading(false);
       }
@@ -118,8 +117,8 @@ export default function ClientUploadPortalPage() {
         throw new Error(data.error || "Incorrect access PIN");
       }
       setPinVerified(true);
-    } catch (err: any) {
-      setPinError(err.message || "PIN verification failed");
+    } catch (err: unknown) {
+      setPinError(getErrorMessage(err, "PIN verification failed"));
     } finally {
       setVerifyingPin(false);
     }
@@ -205,8 +204,8 @@ export default function ClientUploadPortalPage() {
       setUploadedFileRecords((prev) => [...prev, ...newUploadedFileRecords]);
       setSelectedFiles([]);
       setAwaitingMoreFilesDecision(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to upload documents");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to upload documents"));
     } finally {
       setUploading(false);
       setUploadProgress("");
@@ -239,8 +238,8 @@ export default function ClientUploadPortalPage() {
       }
 
       setSubmitted(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to finalize document receipt");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to finalize document receipt"));
     } finally {
       setUploading(false);
       setUploadProgress("");

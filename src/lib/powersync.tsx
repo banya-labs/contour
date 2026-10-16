@@ -6,13 +6,14 @@ import { authClient } from "./auth-client";
 import { fetchAllPages } from "./fetch-pages";
 import { clearMatchCache } from "./matching/result-cache";
 import { filterActivePwaInquiries } from "./pwa-inquiries";
+import type { FieldInquiry, FieldLease, FieldProperty, FieldTransaction, OfflineOutboxPayload } from "@/types/field-operations";
 
 // Types
 export interface OfflineOutboxItem {
   id: string;
   type: "INQUIRY" | "VISIT" | "PROPERTY";
   endpoint: string;
-  payload: any;
+  payload: OfflineOutboxPayload;
   createdAt: string;
 }
 
@@ -22,14 +23,14 @@ interface PowerSyncContextType {
   syncing: boolean;
   syncError: string | null;
   retrySync: () => Promise<void>;
-  properties: any[];
-  leases: any[];
-  clients: any[];
-  sales: any[];
+  properties: FieldProperty[];
+  leases: FieldLease[];
+  clients: FieldInquiry[];
+  sales: FieldTransaction[];
   outboxCount: number;
   toggleNetwork: () => void;
   syncData: () => Promise<void>;
-  addToOutbox: (type: OfflineOutboxItem["type"], endpoint: string, payload: any) => Promise<void>;
+  addToOutbox: (type: OfflineOutboxItem["type"], endpoint: string, payload: OfflineOutboxPayload) => Promise<void>;
   playSuccessTone: () => void;
   playNeutralTone: () => void;
   playErrorTone: () => void;
@@ -42,7 +43,9 @@ let audioCtx: AudioContext | null = null;
 function getAudioContext() {
   if (typeof window === "undefined") return null;
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextConstructor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextConstructor) return null;
+    audioCtx = new AudioContextConstructor();
   }
   return audioCtx;
 }
@@ -117,7 +120,7 @@ export function playErrorTone() {
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24-hour TTL for offline client caches
 
-interface CachedPayload<T = any> {
+interface CachedPayload<T = unknown> {
   version: number;
   timestamp: number;
   data: T;
@@ -147,7 +150,7 @@ export function clearLocalOfflineCache() {
 }
 
 // Simulated IndexedDB storage helper with 24h TTL eviction
-function readBrowserCache(key: string, defaultVal: any) {
+function readBrowserCache<T>(key: string, defaultVal: T): T {
   if (typeof window === "undefined") return defaultVal;
   try {
     const raw = localStorage.getItem(`powersync_cache_${key}`);
@@ -155,20 +158,21 @@ function readBrowserCache(key: string, defaultVal: any) {
 
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && "timestamp" in parsed && "data" in parsed) {
-      const age = Date.now() - parsed.timestamp;
+      const payload = parsed as { timestamp?: number; data?: T };
+      const age = Date.now() - (payload.timestamp ?? 0);
       if (age > CACHE_TTL_MS) {
         localStorage.removeItem(`powersync_cache_${key}`);
         return defaultVal;
       }
-      return parsed.data;
+      return payload.data ?? defaultVal;
     }
-    return parsed;
+    return parsed as T;
   } catch {
     return defaultVal;
   }
 }
 
-function writeBrowserCache(key: string, data: any) {
+function writeBrowserCache(key: string, data: unknown) {
   if (typeof window === "undefined") return;
   try {
     const payload: CachedPayload = {
@@ -184,6 +188,11 @@ function writeBrowserCache(key: string, data: any) {
 }
 
 let databaseScope = "";
+function omitFields<T extends object, K extends keyof T>(value: T, keys: readonly K[]): Omit<T, K> {
+  const result = { ...value } as T;
+  for (const key of keys) delete result[key];
+  return result;
+}
 export function PowerSyncProvider({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
   const scope = session?.session.activeOrganizationId && session?.user.id ? `${session.session.activeOrganizationId}:${session.user.id}` : "";
@@ -198,8 +207,8 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
     window.addEventListener("contour:workspace-mutated", reset);
     return () => { active.current = false; window.removeEventListener("contour:workspace-mutated", reset); };
   }, []);
-  const getLocalCache = <T,>(key: string, fallback: T): T => readBrowserCache(`${scope}:${key}`, fallback);
-  const setLocalCache = (key: string, value: unknown) => { if (active.current) writeBrowserCache(`${scope}:${key}`, value); };
+  const getLocalCache = useCallback(<T,>(key: string, fallback: T): T => readBrowserCache(`${scope}:${key}`, fallback), [scope]);
+  const setLocalCache = useCallback((key: string, value: unknown) => { if (active.current) writeBrowserCache(`${scope}:${key}`, value); }, [scope]);
 
   const processingOutbox = useRef(false);
   const refreshing = useRef(false);
@@ -208,27 +217,11 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
   const [outboxError, setOutboxError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
-  const [properties, setProperties] = useState<any[]>(() => getLocalCache("properties", []));
-  const [leases, setLeases] = useState<any[]>(() => getLocalCache("leases", []));
-  const [clients, setClients] = useState<any[]>(() => getLocalCache("clients", []));
-  const [sales, setSales] = useState<any[]>(() => getLocalCache("sales", []));
+  const [properties, setProperties] = useState<FieldProperty[]>(() => getLocalCache("properties", []));
+  const [leases, setLeases] = useState<FieldLease[]>(() => getLocalCache("leases", []));
+  const [clients, setClients] = useState<FieldInquiry[]>(() => getLocalCache("clients", []));
+  const [sales, setSales] = useState<FieldTransaction[]>(() => getLocalCache("sales", []));
   const [outbox, setOutbox] = useState<OfflineOutboxItem[]>(() => getLocalCache("outbox", []));
-
-  useEffect(() => {
-    // Initial load
-    const storedOnline = localStorage.getItem("powersync_online_state");
-    if (storedOnline !== null) {
-      setIsOnline(storedOnline === "true");
-    }
-    syncData();
-  }, []);
-
-  // Outbox effect: try to sync when transitioning to online
-  useEffect(() => {
-    if (isOnline && outbox.length > 0) {
-      processOutbox();
-    }
-  }, [isOnline, outbox]);
 
   const toggleNetwork = () => {
     const nextState = !isOnline;
@@ -283,10 +276,10 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
                 setLocalFirstDatabase(database);
               }
               const [cachedProperties, cachedLeases, cachedClients, cachedSales, cachedOutbox] = await Promise.all([
-                readLocalFirstCache(`${scope}:properties`, [] as any[]),
-                readLocalFirstCache(`${scope}:leases`, [] as any[]),
-                readLocalFirstCache(`${scope}:clients`, [] as any[]),
-                readLocalFirstCache(`${scope}:sales`, [] as any[]),
+                readLocalFirstCache<FieldProperty[]>(`${scope}:properties`, []),
+                readLocalFirstCache<FieldLease[]>(`${scope}:leases`, []),
+                readLocalFirstCache<FieldInquiry[]>(`${scope}:clients`, []),
+                readLocalFirstCache<FieldTransaction[]>(`${scope}:sales`, []),
                 readLocalFirstCache(`${scope}:outbox`, [] as OfflineOutboxItem[]),
               ]);
               if (!active.current) return;
@@ -340,8 +333,8 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
       if (!active.current) return;
       if (propsData.success && Array.isArray(propsData.properties)) {
         // Enforce POPIA compliance by stripping owner details on client
-        const safeProperties = propsData.properties.filter((p: any) => p.status === "AVAILABLE").map((p: any) => {
-          const { ownerName, ownerPhone, ownerEmail, ownerBankDetails, titleDeedNumber, ...publicFields } = p;
+        const safeProperties = (propsData.properties as FieldProperty[]).filter((p) => p.status === "AVAILABLE").map((p) => {
+          const publicFields = omitFields(p, ["ownerName", "ownerPhone", "ownerEmail", "ownerBankDetails", "titleDeedNumber"]);
           return {
             ...publicFields,
             price: Number(p.price || p.askingPrice || p.rentalPrice || 0),
@@ -355,13 +348,13 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
 
       if (leasesData.success) {
         // Strip sensitive PII (tenant NRC/passport ID, bank accounts) from offline client cache
-        const safeLeases = (leasesData.leases || []).map((l: any) => {
-          const { tenantIdNumber, tenantBankDetails, depositBankReference, ...safeFields } = l;
+        const safeLeases = ((leasesData.leases || []) as FieldLease[]).map((l) => {
+          const safeFields = omitFields(l, ["tenantIdNumber", "tenantBankDetails", "depositBankReference"]);
           return {
             ...safeFields,
             tenantPhone: safeFields.tenantPhone
               ? `${safeFields.tenantPhone.slice(0, 4)}***${safeFields.tenantPhone.slice(-2)}`
-              : undefined,
+              : "",
           };
         });
         setLeases(safeLeases);
@@ -370,7 +363,7 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
 
       if (clientsData.success) {
         // Normalize CRM client fields from server while preserving all fields
-        const normalized = filterActivePwaInquiries(clientsData.clients || []).map((c: any) => {
+        const normalized = filterActivePwaInquiries((clientsData.clients || []) as FieldInquiry[]).map((c) => {
           const lockExpiresAt = c.exclusiveLockExpiresAt ? new Date(c.exclusiveLockExpiresAt) : null;
           const daysLeft = lockExpiresAt 
             ? Math.max(0, Math.ceil((lockExpiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
@@ -379,10 +372,10 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
           return {
             ...c,
             id: c.id,
-            name: c.clientName || c.name,
-            clientName: c.clientName || c.name,
-            phone: c.clientPhone || c.phone,
-            clientPhone: c.clientPhone || c.phone,
+            name: c.clientName || c.name || "",
+            clientName: c.clientName || c.name || "",
+            phone: c.clientPhone || c.phone || "",
+            clientPhone: c.clientPhone || c.phone || "",
             clientEmail: c.clientEmail || c.email || null,
             budget: c.budgetMax ? `${c.currency === "USD" ? "$" : "K"} ${Number(c.budgetMax).toLocaleString()}` : (c.budget || "No budget"),
             budgetMax: c.budgetMax,
@@ -406,10 +399,10 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
           .map((item) => ({
             ...item.payload,
             id: item.id,
-            name: item.payload.clientName,
-            clientName: item.payload.clientName,
-            phone: item.payload.clientPhone,
-            clientPhone: item.payload.clientPhone,
+            name: item.payload.clientName || "",
+            clientName: item.payload.clientName || "",
+            phone: item.payload.clientPhone || "",
+            clientPhone: item.payload.clientPhone || "",
             budget: item.payload.budgetMax ? `${item.payload.currency === "USD" ? "$" : "K"} ${Number(item.payload.budgetMax).toLocaleString()}` : "No budget",
             budgetMax: item.payload.budgetMax,
             currency: item.payload.currency || "ZMW",
@@ -422,7 +415,7 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
           }));
 
         // Exclude pending items already present in the server list by phone
-        const uniquePending = currentPending.filter((p) => !normalized.some((n: any) => n.idempotencyKey === p.idempotencyKey));
+        const uniquePending = currentPending.filter((p) => !normalized.some((n) => n.idempotencyKey === p.idempotencyKey));
 
         const mergedClients = [...uniquePending, ...normalized];
         setClients(mergedClients);
@@ -431,10 +424,9 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
 
       if (salesData.success) {
         // Strip internal accounting / escrow account identifiers from offline cache
-        const safeSales = (salesData.transactions || []).map((t: any) => {
-          const { escrowAccountNumber, bankReference, internalNotes, ...safeFields } = t;
-          return safeFields;
-        });
+        const safeSales = ((salesData.transactions || []) as FieldTransaction[]).map((t) =>
+          omitFields(t, ["escrowAccountNumber", "bankReference", "internalNotes"])
+        );
         setSales(safeSales);
         setLocalCache("sales", safeSales);
       }
@@ -445,9 +437,9 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
       refreshing.current = false;
       if (active.current) setLoading(false);
     }
-  }, [isOnline, scope]);
+  }, [getLocalCache, isOnline, scope, setLocalCache]);
 
-  const processOutbox = async (queueOverride?: OfflineOutboxItem[]) => {
+  const processOutbox = useCallback(async (queueOverride?: OfflineOutboxItem[]) => {
     const queue = queueOverride ? [...queueOverride] : [...outbox];
     if (!isOnline || !active.current || queue.length === 0 || processingOutbox.current) return;
     processingOutbox.current = true;
@@ -489,9 +481,19 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
       playSuccessTone();
       syncData(); // Reload synced data
     }
-  };
+  }, [active, isOnline, outbox, setLocalCache, syncData]);
 
-  const addToOutbox = async (type: OfflineOutboxItem["type"], endpoint: string, payload: any) => {
+  useEffect(() => {
+    const storedOnline = localStorage.getItem("powersync_online_state");
+    if (storedOnline !== null) setIsOnline(storedOnline === "true");
+    void syncData();
+  }, [syncData]);
+
+  useEffect(() => {
+    if (isOnline && outbox.length > 0) void processOutbox();
+  }, [isOnline, outbox.length, processOutbox]);
+
+  const addToOutbox = async (type: OfflineOutboxItem["type"], endpoint: string, payload: OfflineOutboxPayload) => {
     const newItem: OfflineOutboxItem = {
       id: `outbox_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       type,
@@ -509,23 +511,23 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
     if (type === "PROPERTY") {
       const optimisticProperty = {
         id: newItem.id,
-        title: payload.title,
-        suburb: payload.suburb,
-        city: payload.city || "",
-        latitude: payload.latitude ?? null,
-        longitude: payload.longitude ?? null,
-        price: payload.price || payload.askingPrice || payload.rentalPrice || 0,
-        askingPrice: payload.askingPrice,
-        rentalPrice: payload.rentalPrice,
+        title: typeof payload.title === "string" ? payload.title : "Untitled property",
+        suburb: typeof payload.suburb === "string" ? payload.suburb : "",
+        city: typeof payload.city === "string" ? payload.city : "",
+        latitude: typeof payload.latitude === "number" ? payload.latitude : null,
+        longitude: typeof payload.longitude === "number" ? payload.longitude : null,
+        price: payload.price ?? payload.askingPrice ?? payload.rentalPrice ?? 0,
+        askingPrice: payload.askingPrice as FieldProperty["askingPrice"],
+        rentalPrice: payload.rentalPrice as FieldProperty["rentalPrice"],
         currency: payload.currency || "ZMW",
         listingType: payload.listingType || "FOR_SALE",
         propertyType: payload.propertyType || "STANDALONE_HOUSE",
-        bedrooms: payload.bedrooms || 4,
-        bathrooms: payload.bathrooms || 3,
+        bedrooms: typeof payload.bedrooms === "number" ? payload.bedrooms : 4,
+        bathrooms: typeof payload.bathrooms === "number" ? payload.bathrooms : 3,
         status: "AVAILABLE",
-        photos: payload.photos || [],
+        photos: Array.isArray(payload.photos) ? payload.photos.filter((photo): photo is string => typeof photo === "string") : [],
         assignedAgentId: payload.assignedAgentId,
-        mandateType: payload.mandateType || "SOLE_MANDATE",
+        mandateType: typeof payload.mandateType === "string" ? payload.mandateType : "SOLE_MANDATE",
       };
       setProperties((prev) => {
         const next = [optimisticProperty, ...prev];
@@ -536,8 +538,10 @@ function ScopedPowerSyncProvider({ children, scope }: { children: React.ReactNod
       const optimisticClient = {
         ...payload,
         id: newItem.id,
-        name: payload.clientName,
-        phone: payload.clientPhone,
+        name: payload.clientName || "",
+        phone: payload.clientPhone || "",
+        clientName: payload.clientName || "",
+        clientPhone: payload.clientPhone || "",
         budget: payload.budgetMax ? `${payload.currency === "USD" ? "$" : "K"} ${Number(payload.budgetMax).toLocaleString()}` : "No budget",
         preferredArea: payload.preferredSuburbs?.[0] || "",
         preferredSuburbs: payload.preferredSuburbs || [],

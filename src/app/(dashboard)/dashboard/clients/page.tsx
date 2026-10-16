@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 
 import { usePageUrlState } from "@/hooks/use-page-url-state";
 import { consumeCreationLink } from "@/lib/page-url-state";
@@ -9,12 +10,6 @@ import {
   Users,
   Search,
   Plus,
-  Phone,
-  Mail,
-  ShieldCheck,
-  Building2,
-  Clock,
-  ExternalLink,
   Lock,
   X,
   Sparkles,
@@ -333,8 +328,8 @@ function ClientsCRMContent() {
       emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], editingClient.id);
 
       setEditingClient(null);
-    } catch (err: any) {
-      setEditError(`Failed to update client: ${err?.message || "Network error"}`);
+    } catch (err: unknown) {
+      setEditError(`Failed to update client: ${getErrorMessage(err, "Network error")}`);
     } finally {
       setIsSavingEdit(false);
     }
@@ -359,8 +354,8 @@ function ClientsCRMContent() {
       setClients((prev) => prev.filter((c) => c.id !== deletingClient.id));
       emitWorkspaceMutation(["clients", "pipeline", "dashboard", "agent"], deletingClient.id);
       setDeletingClient(null);
-    } catch (err: any) {
-      setDeleteError(`Failed to delete client: ${err?.message || "Network error"}`);
+    } catch (err: unknown) {
+      setDeleteError(`Failed to delete client: ${getErrorMessage(err, "Network error")}`);
     } finally {
       setIsDeleting(false);
     }
@@ -652,8 +647,9 @@ function ClientsCRMContent() {
           ...(selectedClient.outcome === "CANCELLED" ? [{ label: "Cancellation reason", value: selectedClient.cancellationReason }] : []),
           { label: "Notes", value: selectedClient.notes },
         ] : []}
-        children={selectedClient ? <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a></div><div className="border-t border-editorial-border pt-3 space-y-2"><div className="flex items-center justify-between"><p className="text-[10px] font-mono font-bold uppercase tracking-wider">Property matching results</p><span className="text-[10px] text-editorial-muted">Actual matches are over 70%</span></div>{matchesLoading ? <SectionPendingState compact label="Testing all available properties…" /> : matchResults?.error ? <p role="alert" className="text-xs text-red-700">{matchResults.error} <button type="button" onClick={() => void loadMatches(selectedClient)} className="underline">Retry matching</button></p> : <div className="max-h-64 overflow-y-auto space-y-1">{matchResults?.matches?.length ? matchResults.matches.map((match: any) => <div key={match.property.id} className={`flex items-center justify-between gap-3 border p-2 ${match.isMatch ? "border-emerald-300 bg-emerald-50" : "border-editorial-border bg-neutral-50"}`}><div className="min-w-0"><p className="text-xs font-semibold truncate">{match.property.title}</p><p className="text-[10px] text-editorial-muted truncate">{match.property.suburb} · {match.hardFailures?.length ? `Does not fit: ${match.hardFailures.join(", ")}` : match.reasons.join(", ") || "Criteria evaluated"}</p></div><span className={`shrink-0 text-xs font-mono font-bold ${match.isMatch ? "text-emerald-700" : "text-editorial-muted"}`}>{match.score}%{match.isMatch ? " Match" : ""}</span></div>) : <p className="text-xs text-editorial-muted">No available or under-offer properties were found.</p>}</div>}</div></div> : undefined}
-      />
+      >
+        {selectedClient ? <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setSelectedClient(null); openEditModal(selectedClient); }} className="px-3 py-2 bg-editorial-black text-white text-[10px] font-mono font-bold uppercase">Edit client</button><a href={`https://wa.me/${formatWhatsAppDigits(selectedClient.phone)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-editorial-border text-editorial-black text-[10px] font-mono font-bold uppercase">WhatsApp client</a></div><div className="border-t border-editorial-border pt-3 space-y-2"><div className="flex items-center justify-between"><p className="text-[10px] font-mono font-bold uppercase tracking-wider">Property matching results</p><span className="text-[10px] text-editorial-muted">Actual matches are over 70%</span></div>{matchesLoading ? <SectionPendingState compact label="Testing all available properties…" /> : matchResults?.error ? <p role="alert" className="text-xs text-red-700">{matchResults.error} <button type="button" onClick={() => void loadMatches(selectedClient)} className="underline">Retry matching</button></p> : <div className="max-h-64 overflow-y-auto space-y-1">{matchResults?.matches?.length ? matchResults.matches.map((match: any) => <div key={match.property.id} className={`flex items-center justify-between gap-3 border p-2 ${match.isMatch ? "border-emerald-300 bg-emerald-50" : "border-editorial-border bg-neutral-50"}`}><div className="min-w-0"><p className="text-xs font-semibold truncate">{match.property.title}</p><p className="text-[10px] text-editorial-muted truncate">{match.property.suburb} · {match.hardFailures?.length ? `Does not fit: ${match.hardFailures.join(", ")}` : match.reasons.join(", ") || "Criteria evaluated"}</p></div><span className={`shrink-0 text-xs font-mono font-bold ${match.isMatch ? "text-emerald-700" : "text-editorial-muted"}`}>{match.score}%{match.isMatch ? " Match" : ""}</span></div>) : <p className="text-xs text-editorial-muted">No available or under-offer properties were found.</p>}</div>}</div></div> : undefined}
+      </SelectedRowDetailsDialog>
 
       {selectedClient && selectedClient.status !== "CLOSED" && <button type="button" onClick={() => { setCancellationTarget(selectedClient); setCancellationReason(""); }} className="fixed bottom-6 right-6 z-40 px-3 py-2 border border-amber-300 bg-amber-50 text-amber-900 text-[10px] font-mono font-bold uppercase shadow-lg">Cancel selected inquiry</button>}
 

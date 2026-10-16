@@ -3,24 +3,16 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  MapPin,
+  
   Search,
   ChevronLeft,
   ChevronRight,
-  Maximize2,
-  Navigation,
   Bed,
   Bath,
   ExternalLink,
   Layers,
-  Sparkles,
-  MessageSquare,
   X,
   Building2,
-  TrendingUp,
-  Compass,
-  Plus,
-  Minus,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { publicPropertyPath } from "@/lib/public-property";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
-import { ArrowLeft, Cookie, ShieldCheck, Database, Lock } from "lucide-react";
+import { ArrowLeft, Cookie, Database } from "lucide-react";
 import { ContourLogo } from "@/components/brand/contour-logo";
 
 export const metadata: Metadata = {

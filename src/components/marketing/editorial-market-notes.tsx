@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, BookOpen, Clock, Calendar } from "lucide-react";
+import { ArrowUpRight, Clock, Calendar } from "lucide-react";
 
 export function EditorialMarketNotes() {
   const articles = [

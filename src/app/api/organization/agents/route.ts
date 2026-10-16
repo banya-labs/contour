@@ -47,8 +47,8 @@ export const GET = createApiHandler({
             memberId: "current_user",
             name: session.user.name || "Active Agent",
             email: session.user.email,
-            phone: (session.user as any).phone || null,
-            roleKey: (session.user as any).role || "FIELD_AGENT",
+            phone: session.user.phone || null,
+            roleKey: session.user.role || "FIELD_AGENT",
           },
         ],
       });

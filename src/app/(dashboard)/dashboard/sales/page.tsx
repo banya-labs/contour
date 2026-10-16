@@ -9,8 +9,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   DollarSign,
-  TrendingUp,
-  Building2,
   Search,
   Plus,
   Landmark,

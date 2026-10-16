@@ -2,17 +2,13 @@
 
 import * as React from "react";
 import {
-  Folder,
+  
   FileText,
   ShieldCheck,
   Plus,
   Users,
   Building,
-  CheckCircle2,
-  Clock,
   ArrowRight,
-  ExternalLink,
-  Lock,
 } from "lucide-react";
 import { VaultDoc, PropertyItem } from "./vault-tree";
 import { VaultMember } from "./folder-collaborators-modal";

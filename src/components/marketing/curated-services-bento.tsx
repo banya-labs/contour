@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, ShieldCheck, KeyRound, Building, FileCheck2, Sparkles } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 export function CuratedServicesBento() {
   const services = [

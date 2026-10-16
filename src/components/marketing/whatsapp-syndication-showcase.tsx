@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  MessageSquare,
+  
   Copy,
   Check,
   Share2,
@@ -11,7 +11,6 @@ import {
   Sparkles,
   ArrowRight,
   AlertTriangle,
-  Send,
   Users,
   Bot,
 } from "lucide-react";

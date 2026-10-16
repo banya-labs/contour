@@ -4,14 +4,8 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
-  Sparkles,
   ArrowRight,
   CreditCard,
-  Smartphone,
-  ShieldCheck,
-  Zap,
-  Building,
-  Check,
 } from "lucide-react";
 
 export function PricingMatrix() {

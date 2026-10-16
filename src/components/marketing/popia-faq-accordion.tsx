@@ -6,9 +6,6 @@ import {
   Lock,
   FileCheck,
   ChevronDown,
-  HelpCircle,
-  Sparkles,
-  CheckCircle2,
 } from "lucide-react";
 
 interface FaqItem {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createApiHandler } from "@/lib/api-handler";
+import { createApiHandler, type ApiRouteContext } from "@/lib/api-handler";
 import { signPowerSyncToken } from "@/lib/local-first/sync-token";
 
 const tokenHandler = createApiHandler({
@@ -27,6 +27,6 @@ const tokenHandler = createApiHandler({
   }
 });
 
-export async function GET(req: NextRequest, context?: any) {
+export async function GET(req: NextRequest, context: ApiRouteContext) {
   return tokenHandler(req, context);
 }

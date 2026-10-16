@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -96,8 +97,8 @@ export function RequestDocumentModal({
         pin: usePin && pin ? pin.trim() : undefined,
       });
       onSuccess();
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Something went wrong"));
     } finally {
       setIsSubmitting(false);
     }

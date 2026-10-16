@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldAlert, Check } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import { ContourSunLoader } from "@/components/ui/contour-sun-loader";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 import { mutationTouchesScope, WORKSPACE_MUTATION_EVENT, type WorkspaceMutationEventDetail } from "@/lib/workspace-events";

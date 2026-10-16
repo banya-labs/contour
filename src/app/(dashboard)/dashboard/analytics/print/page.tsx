@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, CheckCircle2, ShieldCheck, Download } from "lucide-react";
+import { Printer, ArrowLeft, ZoomIn, ZoomOut, FileText, Download } from "lucide-react";
 import Link from "next/link";
 import { ContourReportPayload } from "@/lib/analytics/types";
 import { buildReportUrls, loadReportForViewer } from "@/lib/analytics/report-viewer";

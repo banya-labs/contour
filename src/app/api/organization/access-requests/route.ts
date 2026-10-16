@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import {  NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiHandler } from "@/lib/api-handler";
 import { db } from "@/lib/db";
-import { ROLE_DESCRIPTIONS, ROLE_PRESETS, CONTOUR_ROLE_KEYS } from "@/lib/authorization";
+import { ROLE_DESCRIPTIONS, CONTOUR_ROLE_KEYS } from "@/lib/authorization";
 
 const reviewSchema = z.object({ requestId: z.string().min(1), decision: z.enum(["APPROVE", "DECLINE"]), roleKey: z.enum(CONTOUR_ROLE_KEYS.filter((key) => key !== "OWNER") as [string, ...string[]]).optional(), declineReason: z.string().trim().max(300).optional() });
 

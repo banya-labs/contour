@@ -4,18 +4,14 @@ import React, { useState } from "react";
 import Link from "next/link";
 import {
   Smartphone,
-  Wifi,
   WifiOff,
   Battery,
   MapPin,
   Lock,
-  MessageSquare,
   ShieldCheck,
   Zap,
   ArrowRight,
-  Sparkles,
   Share2,
-  CheckCircle2,
   FileText,
   UserCheck,
 } from "lucide-react";

@@ -1,4 +1,5 @@
 "use client";
+import { getErrorMessage } from "@/lib/error-message";
 import { formatPropertyLocation } from "@/lib/property-location";
 
 import { fetchAllPages } from "@/lib/fetch-pages";
@@ -478,9 +479,9 @@ export default function PropertyFullDetailModal({
         const errJson = await res.json().catch(() => null);
         throw new Error(errJson?.error || "Failed to update property details on server.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("API save error:", err);
-      alert(`Unable to save property: ${err.message || err}`);
+      alert(`Unable to save property: ${getErrorMessage(err, "Unknown error")}`);
       return;
     } finally {
       setIsSaving(false);
