@@ -109,11 +109,11 @@ export function summarizeSaleSchedule(input: {
     const carried = money(line.carriedPaidAmount ?? "0");
     const applied = Prisma.Decimal.min(expected, carried.plus(allocationBySequence.get(line.sequence) ?? 0));
     const remaining = expected.minus(applied);
-    const status: SaleScheduleSummary["status"] = remaining.isZero() ? "PAID" : line.dueDate < asOf ? "OVERDUE" : applied.greaterThan(0) ? "PART_PAID" : "UNPAID";
+    const status: SaleScheduleSummary["status"] = remaining.isZero() ? "PAID" : applied.greaterThan(0) ? "PART_PAID" : line.dueDate < asOf ? "OVERDUE" : "UNPAID";
     return { ...line, appliedAmount: applied.toFixed(2), remainingAmount: remaining.toFixed(2), status };
   });
   const paid = lines.reduce((total, line) => total.plus(line.appliedAmount), new Prisma.Decimal(0));
   const outstanding = lines.reduce((total, line) => total.plus(line.remainingAmount), new Prisma.Decimal(0));
-  const overdue = lines.filter((line) => line.status === "OVERDUE").reduce((total, line) => total.plus(line.remainingAmount), new Prisma.Decimal(0));
+  const overdue = lines.filter((line) => line.dueDate < asOf && Number(line.remainingAmount) > 0).reduce((total, line) => total.plus(line.remainingAmount), new Prisma.Decimal(0));
   return { paid: paid.toFixed(2), outstanding: outstanding.toFixed(2), overdue: overdue.toFixed(2), lines };
 }
