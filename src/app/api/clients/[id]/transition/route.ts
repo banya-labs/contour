@@ -142,6 +142,14 @@ export const POST = createApiHandler({
         },
       });
 
+      if (targetStage === "VERIFICATION_CLOSING" && inquiry.propertyId) {
+        const competingClosing = await tx.inquiry.findFirst({
+          where: { organizationId, propertyId: inquiry.propertyId, status: "VERIFICATION_CLOSING", id: { not: inquiry.id } },
+          select: { id: true },
+        });
+        if (competingClosing) throw new MatchingError("This property is already assigned to another Verification & Closing inquiry.", 409);
+      }
+
       if (targetStage === "VERIFICATION_CLOSING") {
         await ensureClosingWorkflow(tx, { organizationId, inquiryId: inquiry.id, actorId: userId });
       }

@@ -15,10 +15,17 @@ describe("explicit property attachment", () => {
   });
   it.each(["SOLD", "RENTED", "UNDER_OFFER"])("rejects unavailable %s inventory", async (status) => { mocks.property.findFirst.mockResolvedValue({ id: "p", suburb: "Roma", title: "House", bedrooms: 3, bathrooms: 2, propertyType: "STANDALONE_HOUSE", status }); await expect(attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p", expectedPropertyId: null })).rejects.toThrow("no longer available"); expect(mocks.inquiry.updateMany).not.toHaveBeenCalled(); });
   it("rejects stale and concurrent changes", async () => { mocks.inquiry.updateMany.mockResolvedValue({ count: 0 }); await expect(attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p", expectedPropertyId: null })).rejects.toThrow("changed"); });
-  it("enforces persisted strict requirements during attachment", async () => {
+  it("allows deliberate assignment even when persisted preferences do not match", async () => {
     mocks.inquiry.findFirst.mockResolvedValue({ id: "i", propertyId: null, assignedAgentId: "agent", status: "NEW_INQUIRY", lookingFor: "FOR_SALE", currency: "ZMW", budgetMax: 100, matchingProfile: { strictRequirements: { budgetMax: true } } });
     mocks.property.findFirst.mockResolvedValue({ id: "p", suburb: "Roma", title: "House", bedrooms: 3, bathrooms: 2, propertyType: "STANDALONE_HOUSE", status: "AVAILABLE", listingType: "FOR_SALE", currency: "ZMW", askingPrice: 200 });
-    await expect(attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p" })).rejects.toThrow("maximum budget");
+    await attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p" });
+    expect(mocks.inquiry.updateMany).toHaveBeenCalled();
+  });
+  it("prevents a property from being assigned to two closing inquiries", async () => {
+    mocks.inquiry.findFirst
+      .mockResolvedValueOnce({ id: "i", propertyId: null, assignedAgentId: "agent", status: "VERIFICATION_CLOSING", lookingFor: "FOR_SALE", currency: "ZMW" })
+      .mockResolvedValueOnce({ id: "other-closing" });
+    await expect(attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p", expectedPropertyId: null })).rejects.toThrow("already assigned");
     expect(mocks.inquiry.updateMany).not.toHaveBeenCalled();
   });
   it("rejects another agent and terminal inquiries", async () => { mocks.inquiry.findFirst.mockResolvedValue({ id: "i", status: "CLOSED_WON", assignedAgentId: "other", propertyId: null }); await expect(attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p", expectedPropertyId: null })).rejects.toThrow(); expect(mocks.inquiry.updateMany).not.toHaveBeenCalled(); });
@@ -48,7 +55,7 @@ describe("explicit property attachment", () => {
   it("validates the replacement against requirements saved in the same edit", async () => {
     mocks.inquiry.findFirst.mockResolvedValue({ id: "i", propertyId: "old", assignedAgentId: "agent", status: "QUALIFIED", lookingFor: "FOR_SALE", currency: "ZMW", budgetMax: 100, matchingProfile: { strictRequirements: { budgetMax: true } } });
     mocks.property.findFirst.mockResolvedValue({ id: "p", title: "Replacement", suburb: "Roma", status: "AVAILABLE", listingType: "FOR_SALE", currency: "USD", askingPrice: 200, propertyType: "STANDALONE_HOUSE" });
-    await attachPropertyInTransaction(mocks as unknown as Prisma.TransactionClient, scope, { inquiryId: "i", propertyId: "p", expectedPropertyId: "old" }, { currency: "USD", budgetMax: 250 });
+    await attachPropertyInTransaction(mocks as unknown as Prisma.TransactionClient, scope, { inquiryId: "i", propertyId: "p", expectedPropertyId: "old" });
     expect(mocks.inquiry.updateMany).toHaveBeenCalled();
   });
 });

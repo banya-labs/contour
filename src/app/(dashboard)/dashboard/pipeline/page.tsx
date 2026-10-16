@@ -131,6 +131,7 @@ function DealPipelineContent() {
     notes: "",
   });
   const [editError, setEditError] = useState("");
+  const [propertySearch, setPropertySearch] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isClosingDeal, setIsClosingDeal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
@@ -341,6 +342,7 @@ function DealPipelineContent() {
   const openEditModal = (deal: Deal) => {
     setEditingDeal(deal);
     setEditError("");
+    setPropertySearch("");
     setEditFormData({
       propertyId: deal.propertyId || "",
       assignedAgentId: deal.assignedAgentId || "",
@@ -1297,15 +1299,19 @@ function DealPipelineContent() {
                   <span className="flex items-center gap-1">
                     <Building className="w-3.5 h-3.5 text-editorial-muted" /> Associated Property
                   </span>
-                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">link or change</span>
+                  <span className="text-[10px] text-editorial-muted font-normal font-geist lowercase">search, link or change</span>
                 </label>
+                <input value={propertySearch} onChange={(e) => setPropertySearch(e.target.value)} placeholder="Search title, suburb or city" className="mb-1 w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist" />
                 <select
                   value={editFormData.propertyId}
                   onChange={(e) => setEditFormData({ ...editFormData, propertyId: e.target.value })}
                   className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                 >
                   <option value="">No Property Associated (Unassigned)</option>
-                  {availableProperties.map((p) => (
+                  {availableProperties.filter((p) => {
+                    const query = propertySearch.trim().toLowerCase();
+                    return !query || [p.title, p.suburb, p.city].some((value) => value?.toLowerCase().includes(query));
+                  }).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.title} ({p.suburb || p.city || "Location not recorded"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}
                     </option>
