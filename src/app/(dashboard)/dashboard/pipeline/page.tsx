@@ -13,6 +13,7 @@ import {
   Edit3,
   Trash2,
   ClipboardCheck,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
@@ -155,6 +156,7 @@ function DealPipelineContent() {
   const [transitionReason, setTransitionReason] = useState("");
 
   const [activeMobileStage, setActiveMobileStage] = useState<Deal["stage"]>("NEW_INQUIRY");
+  const [pipelineSearch, setPipelineSearch] = useState("");
 
   const { data: session } = authClient.useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
@@ -241,13 +243,34 @@ function DealPipelineContent() {
     return () => window.removeEventListener(WORKSPACE_MUTATION_EVENT, handleWorkspaceMutation);
   }, []);
 
+  const filteredDeals = useMemo(() => {
+    const query = pipelineSearch.trim().toLowerCase();
+    if (!query) return deals;
+    return deals.filter((deal) => {
+      const stageLabel = STAGES.find((stage) => stage.id === deal.stage)?.label || "Closed";
+      return [
+        deal.clientName,
+        deal.clientPhone,
+        deal.clientEmail,
+        deal.propertyTitle,
+        deal.suburb,
+        deal.agentName,
+        deal.leadSource,
+        deal.notes,
+        deal.outcome,
+        stageLabel,
+        deal.id,
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    });
+  }, [deals, pipelineSearch]);
+
   const stats = useMemo(() => {
     const totalsByCurrency: Record<string, number> = {};
     const commByCurrency: Record<string, number> = {};
     let totalNegotiatingDays = 0;
     let negotiatingCount = 0;
 
-    deals.filter((d) => d.stage !== "CLOSED").forEach((d) => {
+    filteredDeals.filter((d) => d.stage !== "CLOSED").forEach((d) => {
       totalsByCurrency[d.currency] = (totalsByCurrency[d.currency] || 0) + d.dealValue;
       commByCurrency[d.currency] = (commByCurrency[d.currency] || 0) + d.agencyCommission;
       if (d.stage === "NEGOTIATING") {
@@ -272,10 +295,10 @@ function DealPipelineContent() {
         : "0.0 Days";
 
     return { totalValStr, commValStr, avgVelocity };
-  }, [deals]);
+  }, [filteredDeals]);
 
-  const openDeals = deals.filter((deal) => deal.stage !== "CLOSED");
-  const closedDeals = deals.filter((deal) => deal.stage === "CLOSED");
+  const openDeals = filteredDeals.filter((deal) => deal.stage !== "CLOSED");
+  const closedDeals = filteredDeals.filter((deal) => deal.stage === "CLOSED");
 
   const openCloseModal = (deal: Deal) => {
     setFormError("");
@@ -576,6 +599,16 @@ function DealPipelineContent() {
         </Link>
       </div>
 
+      <div className="border border-editorial-border bg-white p-3 sm:p-4 space-y-2">
+        <label htmlFor="pipeline-search" className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-black">Search every pipeline stage</label>
+        <div className="flex items-center gap-2 border border-editorial-border bg-neutral-50 px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-editorial-muted" aria-hidden="true" />
+          <input id="pipeline-search" type="search" value={pipelineSearch} onChange={(event) => setPipelineSearch(event.target.value)} placeholder="Search client, phone, property, location, agent, stage…" className="w-full bg-transparent text-sm text-editorial-black outline-none placeholder:text-editorial-muted" />
+          {pipelineSearch && <button type="button" onClick={() => setPipelineSearch("")} className="shrink-0 text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted hover:text-editorial-black">Clear</button>}
+        </div>
+        <p className="text-[11px] text-editorial-muted" role="status">{pipelineSearch.trim() ? `Showing ${filteredDeals.length} matching ${filteredDeals.length === 1 ? "result" : "results"} across all stages.` : `Showing all ${deals.length} pipeline ${deals.length === 1 ? "record" : "records"}.`}</p>
+      </div>
+
       <UnassignedMatchPanel />
 
       {/* Velocity Intelligence Cards */}
@@ -624,8 +657,8 @@ function DealPipelineContent() {
             {openDeals.length} Open • {closedDeals.filter((d) => d.outcome === "WON").length} Won
           </div>
           <span className="text-[10px] sm:text-[11px] font-geist text-editorial-muted mt-0.5 block">
-            {deals.length > 0
-              ? ((closedDeals.filter((d) => d.outcome === "WON").length / deals.length) * 100).toFixed(0)
+            {filteredDeals.length > 0
+              ? ((closedDeals.filter((d) => d.outcome === "WON").length / filteredDeals.length) * 100).toFixed(0)
               : "0"}% Win rate
           </span>
         </MotionCard>
@@ -642,11 +675,19 @@ function DealPipelineContent() {
         </div>
       )}
 
+      {deals.length > 0 && filteredDeals.length === 0 && (
+        <div className="border border-dashed border-editorial-border bg-white p-8 text-center">
+          <Search className="mx-auto h-5 w-5 text-editorial-muted" aria-hidden="true" />
+          <h2 className="mt-2 font-heading text-sm font-bold uppercase tracking-tight text-editorial-black">No matching pipeline results</h2>
+          <p className="mt-2 text-xs text-editorial-muted">Try a different client, property, location, agent, or stage search.</p>
+        </div>
+      )}
+
       {/* ── Mobile Touch Stage Switcher & Cards View (< md) ── */}
       <div className="md:hidden space-y-3">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-editorial-border pb-2">
           {STAGES.map((stage) => {
-            const count = deals.filter((d) => d.stage === stage.id).length;
+            const count = filteredDeals.filter((d) => d.stage === stage.id).length;
             const isSelected = activeMobileStage === stage.id;
             return (
               <button
@@ -671,7 +712,7 @@ function DealPipelineContent() {
 
         {/* Mobile Stage Cards List */}
         <div className="space-y-3">
-          {deals.filter((d) => d.stage === activeMobileStage).map((deal) => (
+          {filteredDeals.filter((d) => d.stage === activeMobileStage).map((deal) => (
             <div key={deal.id} className="bg-white p-4 border border-editorial-border space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-geist font-semibold uppercase tracking-wider text-editorial-muted">
@@ -852,7 +893,7 @@ function DealPipelineContent() {
             </div>
           ))}
 
-          {deals.filter((d) => d.stage === activeMobileStage).length === 0 && (
+          {filteredDeals.filter((d) => d.stage === activeMobileStage).length === 0 && (
             <div className="p-8 border border-dashed border-editorial-border text-center text-xs text-editorial-muted">
               No deals in this stage.
             </div>
@@ -864,7 +905,7 @@ function DealPipelineContent() {
       <div className="hidden md:block overflow-x-auto pb-4">
         <div className="grid grid-cols-5 gap-3.5 items-start min-w-[1180px]">
           {STAGES.map((stage) => {
-            const stageDeals = deals.filter((d) => d.stage === stage.id);
+            const stageDeals = filteredDeals.filter((d) => d.stage === stage.id);
 
             return (
               <div
