@@ -143,6 +143,12 @@ function PropertiesCatalogContent() {
     rentalPrice: "",
     currency: "ZMW",
     agencyCommissionPct: "5",
+    rentalCommissionMode: "NONE",
+    rentalCommissionCalculation: "MONTHS_OF_RENT",
+    rentalCommissionFixedAmount: "",
+    rentalCommissionMonthsOfRent: "1",
+    rentalCommissionPercentage: "",
+    rentalCommissionDurationMonths: "12",
     bedrooms: "3",
     bathrooms: "2",
     plotSizeSqm: "500",
@@ -297,6 +303,16 @@ function PropertiesCatalogContent() {
 
       const data = await res.json();
       if (data.success && data.property) {
+        if (formData.listingType === "FOR_RENT" || formData.listingType === "BOTH") {
+          const commissionPayload = formData.rentalCommissionMode === "NONE"
+            ? { mode: "NONE", currency: formData.currency, effectiveFrom: new Date().toISOString().slice(0, 10) }
+            : formData.rentalCommissionMode === "UPFRONT"
+              ? { mode: "UPFRONT", calculation: formData.rentalCommissionCalculation, fixedAmount: formData.rentalCommissionCalculation === "FIXED_AMOUNT" ? formData.rentalCommissionFixedAmount : undefined, monthsOfRent: formData.rentalCommissionCalculation === "MONTHS_OF_RENT" ? formData.rentalCommissionMonthsOfRent : undefined, currency: formData.currency, effectiveFrom: new Date().toISOString().slice(0, 10) }
+              : { mode: "PERCENTAGE", percentage: formData.rentalCommissionPercentage, durationMonths: Number(formData.rentalCommissionDurationMonths), currency: formData.currency, effectiveFrom: new Date().toISOString().slice(0, 10) };
+          const commissionResponse = await fetch(`/api/properties/${data.property.id}/rental-commission`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(commissionPayload) });
+          const commissionData = await commissionResponse.json();
+          if (!commissionResponse.ok || !commissionData.success) throw new Error(commissionData.error || "Property saved, but rental commission terms could not be saved.");
+        }
         setProperties((prev) => [data.property, ...prev]);
         emitWorkspaceMutation(["properties", "dashboard", "pipeline", "agent"], data.property.id);
         setIsModalOpen(false);
@@ -792,6 +808,27 @@ function PropertiesCatalogContent() {
                   <p className="mt-1 text-[10px] text-editorial-muted font-geist">
                     Contracted rate for this property. Sales default to 5%; rentals default to 10%.
                   </p>
+                </div>
+              )}
+
+              {(formData.listingType === "FOR_RENT" || formData.listingType === "BOTH") && (
+                <div className="p-3 bg-neutral-50 border border-editorial-border space-y-2">
+                  <div>
+                    <label className="block font-heading font-semibold uppercase tracking-wider text-editorial-black mb-1">Rental agency commission</label>
+                    <p className="text-[10px] text-editorial-muted font-geist">How does the agency receive commission for this rental property?</p>
+                  </div>
+                  <select value={formData.rentalCommissionMode} onChange={(e) => setFormData({ ...formData, rentalCommissionMode: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black">
+                    <option value="NONE">No agency commission</option>
+                    <option value="UPFRONT">Upfront amount</option>
+                    <option value="PERCENTAGE">Percentage of rent for a period</option>
+                  </select>
+                  {formData.rentalCommissionMode === "UPFRONT" && <>
+                    <select value={formData.rentalCommissionCalculation} onChange={(e) => setFormData({ ...formData, rentalCommissionCalculation: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black">
+                      <option value="MONTHS_OF_RENT">Months of rent</option><option value="FIXED_AMOUNT">Fixed amount</option>
+                    </select>
+                    {formData.rentalCommissionCalculation === "MONTHS_OF_RENT" ? <input type="number" min="0.01" step="0.01" value={formData.rentalCommissionMonthsOfRent} onChange={(e) => setFormData({ ...formData, rentalCommissionMonthsOfRent: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black" placeholder="e.g. 1" /> : <input type="number" min="0.01" step="0.01" value={formData.rentalCommissionFixedAmount} onChange={(e) => setFormData({ ...formData, rentalCommissionFixedAmount: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black" placeholder="Agreed amount" />}
+                  </>}
+                  {formData.rentalCommissionMode === "PERCENTAGE" && <div className="grid grid-cols-2 gap-2"><input type="number" min="0.01" max="100" step="0.01" value={formData.rentalCommissionPercentage} onChange={(e) => setFormData({ ...formData, rentalCommissionPercentage: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black" placeholder="Percentage" /><input type="number" min="1" max="360" value={formData.rentalCommissionDurationMonths} onChange={(e) => setFormData({ ...formData, rentalCommissionDurationMonths: e.target.value })} className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black" placeholder="Months" /></div>}
                 </div>
               )}
 

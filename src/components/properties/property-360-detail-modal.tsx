@@ -132,6 +132,7 @@ export default function PropertyFullDetailModal({
   // Real Organization Agents State
   const [orgAgents, setOrgAgents] = useState<Array<{ id: string; name: string; phone?: string; email?: string; roleKey?: string }>>([]);
   const [loadingAgents, setLoadingAgents] = useState(false);
+  const [rentalCommissionConfigs, setRentalCommissionConfigs] = useState<any[]>([]);
 
   // Real Documents State
   const [vaultDocuments, setVaultDocuments] = useState<any[]>([]);
@@ -181,6 +182,14 @@ export default function PropertyFullDetailModal({
   // Check photo upload permissions (all agency team members can manage listing media)
   const userRole = (session?.user as any)?.role || "";
   const canUploadPhotos = property ? !["LANDLORD", "TENANT"].includes(userRole) : false;
+
+  useEffect(() => {
+    if (!isOpen || !property?.id || !["FOR_RENT", "BOTH"].includes(property.listingType)) return;
+    fetch(`/api/properties/${property.id}/rental-commission`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => setRentalCommissionConfigs(Array.isArray(data?.configurations) ? data.configurations : []))
+      .catch(() => setRentalCommissionConfigs([]));
+  }, [isOpen, property?.id, property?.listingType]);
 
   // 1. Fetch Real Organization Agents
   useEffect(() => {
@@ -863,6 +872,16 @@ export default function PropertyFullDetailModal({
             {/* SECTION 1: PROPERTY DETAILS */}
             {activeSection === "DETAILS" && (
               <div className="space-y-6 max-w-4xl">
+                {(["FOR_RENT", "BOTH"].includes(property.listingType)) && (
+                  <div className="border border-[#E6E4DF] bg-white p-4 space-y-2">
+                    <div className="flex items-center justify-between"><h3 className="font-heading text-xs font-bold uppercase tracking-wider text-[#1C1C1A]">Rental agency commission</h3><span className="text-[10px] font-mono text-[#73716B]">Property terms</span></div>
+                    {rentalCommissionConfigs[0] ? <>
+                      <p className="text-sm font-semibold text-[#1C1C1A]">{rentalCommissionConfigs[0].mode === "NONE" ? "No agency commission" : rentalCommissionConfigs[0].mode === "UPFRONT" ? `Upfront ${rentalCommissionConfigs[0].basis === "MONTHS_OF_RENT" ? `${rentalCommissionConfigs[0].monthsOfRent} month(s) of rent` : `${rentalCommissionConfigs[0].fixedAmount} ${rentalCommissionConfigs[0].currency}`}` : `${rentalCommissionConfigs[0].percentage}% of rent for ${rentalCommissionConfigs[0].untilLeaseEnd ? "the lease term" : `${rentalCommissionConfigs[0].durationMonths} month(s)`}`}</p>
+                      <p className="text-[10px] font-mono text-[#73716B]">Revision {rentalCommissionConfigs[0].revision} · Effective {new Date(rentalCommissionConfigs[0].effectiveFrom).toISOString().slice(0, 10)} · Changes apply to future leases.</p>
+                    </> : <p className="text-xs text-[#FA3600]">Rental commission needs configuration before a lease can be activated.</p>}
+                    {rentalCommissionConfigs.length > 1 && <p className="text-[10px] text-[#73716B]">{rentalCommissionConfigs.length - 1} previous configuration revision(s) retained.</p>}
+                  </div>
+                )}
                 {unassignedMatches.length > 0 && (
                   <div className="border-2 border-[#FA3600] bg-[#fff5f3] p-3.5 flex items-start gap-3">
                     <Sparkles className="w-4 h-4 text-[#FA3600] shrink-0 mt-0.5" />

@@ -10,6 +10,8 @@ export const PERMISSIONS = [
   "properties.read", "properties.create", "properties.update", "properties.archive", "leads.read",
   "leads.create", "leads.assign", "pipeline.read", "pipeline.update", "leases.read", "leases.manage",
   "finance.read", "finance.manage", "statements.read", "statements.approve", "vault.read", "vault.upload",
+  "sales.payments.read", "sales.payments.record", "sales.payments.verify", "sales.plans.manage",
+  "rental.fees.manage", "rental.payments.read", "rental.payments.record", "rental.payments.verify",
   "vault.download", "vault.verify", "vault.delete", "vault.grant_access", "pwa.access",
   "pwa.listings.create", "pwa.listings.share", "pwa.inquiries.update", "pwa.inquiries.read",
 ] as const;
@@ -37,10 +39,10 @@ export function applyPermissionOverrides(
 const ALL: readonly Permission[] = PERMISSIONS;
 export const ROLE_PRESETS: Readonly<Record<ContourRoleKey, readonly Permission[]>> = {
   OWNER: ALL,
-  BROKER_MANAGER: ["org.read", "org.update", "org.members.read", "org.members.invite", "org.billing.read", "dashboard.read", "properties.read", "properties.create", "properties.update", "properties.archive", "leads.read", "leads.create", "leads.assign", "pipeline.read", "pipeline.update", "leases.read", "leases.manage", "statements.read", "statements.approve", "vault.read", "vault.upload", "vault.download", "vault.verify", "vault.grant_access", "pwa.access", "pwa.listings.create", "pwa.listings.share", "pwa.inquiries.update", "pwa.inquiries.read"],
+  BROKER_MANAGER: ["org.read", "org.update", "org.members.read", "org.members.invite", "org.billing.read", "dashboard.read", "properties.read", "properties.create", "properties.update", "properties.archive", "leads.read", "leads.create", "leads.assign", "pipeline.read", "pipeline.update", "leases.read", "leases.manage", "sales.payments.read", "sales.payments.record", "sales.plans.manage", "rental.fees.manage", "rental.payments.read", "rental.payments.record", "statements.read", "statements.approve", "vault.read", "vault.upload", "vault.download", "vault.verify", "vault.grant_access", "pwa.access", "pwa.listings.create", "pwa.listings.share", "pwa.inquiries.update", "pwa.inquiries.read"],
   ADMIN_STAFF: ["org.read", "org.members.read", "dashboard.read", "properties.read", "properties.create", "properties.update", "leads.read", "pipeline.read", "leases.read", "pwa.access", "pwa.inquiries.read"],
   FIELD_AGENT: ["pwa.access", "pwa.listings.create", "pwa.listings.share", "pwa.inquiries.update", "pwa.inquiries.read"],
-  FINANCE_OFFICER: ["org.read", "org.billing.read", "dashboard.read", "finance.read", "finance.manage", "statements.read", "statements.approve"],
+  FINANCE_OFFICER: ["org.read", "org.billing.read", "dashboard.read", "finance.read", "finance.manage", "sales.payments.read", "sales.payments.record", "sales.payments.verify", "sales.plans.manage", "rental.fees.manage", "rental.payments.read", "rental.payments.record", "rental.payments.verify", "statements.read", "statements.approve"],
   VAULT_MANAGER: ["org.read", "vault.read", "vault.upload", "vault.download", "vault.verify", "vault.grant_access"],
   LANDLORD: [], TENANT: [],
 };
