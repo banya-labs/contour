@@ -47,6 +47,8 @@ model User {
   approvedStatements         LandlordStatement[]          @relation("ApprovedBy")
   approvedRentalCommissionConfigs PropertyRentalCommissionConfig[] @relation("RentalCommissionApprovals")
   approvedLeaseRentalCommissionAgreements LeaseRentalCommissionAgreement[] @relation("LeaseCommissionApprovals")
+  approvedSalePlanRevisions    SalePlanRevision[]       @relation("SalePlanRevisionApprovals")
+  recordedSalePaymentEvents    SalePaymentEvent[]       @relation("SalePaymentEventActors")
   vaultGrants                VaultAccessGrant[]           @relation("VaultGrants")
   grantedVaultAccess         VaultAccessGrant[]           @relation("GrantedVaultAccess")
   documentRequests           DocumentRequest[]
@@ -163,6 +165,11 @@ model Organization {
   properties                  Property[]
   rentalCommissionConfigs     PropertyRentalCommissionConfig[]
   leaseRentalCommissionAgreements LeaseRentalCommissionAgreement[]
+  salePaymentPlans            SalePaymentPlan[]
+  salePlanRevisions           SalePlanRevision[]
+  saleInstallments            SaleInstallment[]
+  salePaymentEvents           SalePaymentEvent[]
+  salePaymentAllocations      SalePaymentAllocation[]
   leases                      Lease[]
   rentPayments                RentPayment[]
   maintenanceExpenses         MaintenanceExpense[]
@@ -1018,6 +1025,7 @@ model Transaction {
   property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   closingAgent User         @relation("ClosingAgent", fields: [closingAgentId], references: [id])
   inquiry      Inquiry?     @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  salePaymentPlan SalePaymentPlan? @relation("SalePlanTransaction")
   statementDocuments StatementDocument[]
 
   @@index([organizationId, status])
@@ -1025,6 +1033,139 @@ model Transaction {
   @@index([propertyId])
   @@index([closingAgentId])
   @@map("transaction")
+}
+
+enum SalePaymentPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+enum SaleInstallmentKind {
+  DEPOSIT
+  INSTALLMENT
+  FULL_PAYMENT
+}
+enum SalePaymentEventKind {
+  RECEIPT
+  CONFIRM
+  REJECT
+  REVERSAL
+  REFUND
+}
+enum SalePaymentCustodian {
+  AGENCY
+  SELLER
+  CONVEYANCER
+}
+
+model SalePaymentPlan {
+  id String @id @default(cuid())
+  organizationId String
+  inquiryId String @unique
+  transactionId String? @unique
+  buyerContactId String
+  price Decimal @db.Decimal(14,2)
+  currency Currency
+  status SalePaymentPlanStatus @default(DRAFT)
+  currentRevision Int @default(0)
+  version Int @default(1)
+  approvedById String?
+  approvedAt DateTime?
+  evidenceReference String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Restrict)
+  transaction Transaction? @relation("SalePlanTransaction", fields: [transactionId], references: [id], onDelete: Restrict)
+  buyerContact Contact @relation(fields: [buyerContactId], references: [id], onDelete: Restrict)
+  revisions SalePlanRevision[]
+  events SalePaymentEvent[]
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, transactionId])
+  @@map("sale_payment_plan")
+}
+
+model SalePlanRevision {
+  id String @id @default(cuid())
+  organizationId String
+  planId String
+  revision Int
+  effectiveDate DateTime @db.Date
+  reason String? @db.VarChar(500)
+  approvedById String?
+  approvedAt DateTime?
+  supersedesId String?
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan SalePaymentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  approvedBy User? @relation("SalePlanRevisionApprovals", fields: [approvedById], references: [id])
+  installments SaleInstallment[]
+  @@unique([organizationId, planId, revision])
+  @@index([organizationId, planId, effectiveDate])
+  @@map("sale_plan_revision")
+}
+
+model SaleInstallment {
+  id String @id @default(cuid())
+  organizationId String
+  revisionId String
+  sequence Int
+  kind SaleInstallmentKind
+  amount Decimal @db.Decimal(14,2)
+  dueDate DateTime @db.Date
+  carriedPaidAmount Decimal @default(0) @db.Decimal(14,2)
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  revision SalePlanRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  allocations SalePaymentAllocation[]
+  @@unique([organizationId, revisionId, sequence])
+  @@index([organizationId, dueDate])
+  @@map("sale_installment")
+}
+
+model SalePaymentEvent {
+  id String @id @default(cuid())
+  organizationId String
+  planId String
+  kind SalePaymentEventKind
+  amount Decimal @db.Decimal(14,2)
+  currency Currency
+  paymentDate DateTime @db.Date
+  postedAt DateTime @default(now())
+  custodian SalePaymentCustodian
+  paymentMethod PaymentMethod?
+  referenceNumber String?
+  evidenceReference String?
+  sourceEventId String?
+  idempotencyKey String
+  payloadHash String
+  recordedById String
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan SalePaymentPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  recordedBy User @relation("SalePaymentEventActors", fields: [recordedById], references: [id])
+  allocations SalePaymentAllocation[]
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, planId, postedAt, id])
+  @@index([organizationId, sourceEventId])
+  @@map("sale_payment_event")
+}
+
+model SalePaymentAllocation {
+  id String @id @default(cuid())
+  organizationId String
+  eventId String
+  installmentId String
+  amount Decimal @db.Decimal(14,2)
+  reversedAllocationId String?
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event SalePaymentEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  installment SaleInstallment @relation(fields: [installmentId], references: [id], onDelete: Restrict)
+  @@unique([organizationId, eventId, installmentId])
+  @@index([organizationId, installmentId, createdAt])
+  @@map("sale_payment_allocation")
 }
 
 model StatementPaymentInstruction {
@@ -1227,6 +1368,7 @@ model Contact {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   inquiries    Inquiry[]
+  salePaymentPlans SalePaymentPlan[]
 
   @@unique([organizationId, identityKey])
   @@index([organizationId, name])
@@ -1299,6 +1441,7 @@ model Inquiry {
   property                   Property?                   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   visits                     PropertyVisit[]
   documentRequests           DocumentRequest[]
+  salePaymentPlan            SalePaymentPlan?
   followUpTasks              FollowUpTask[]
   matchNotifications         PropertyMatchNotification[]
   lease                      Lease?
