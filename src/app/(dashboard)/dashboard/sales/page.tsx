@@ -30,6 +30,8 @@ function PropertySalesContent() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = usePageUrlState<string>("search", "");
   const [filterStatus, setFilterStatus] = usePageUrlState<string>("status", "ALL", ["ALL", "PENDING_STATE_CONSENT", "DEEDS_LODGED", "TRANSFER_COMPLETE"]);
+  const [paymentFilter, setPaymentFilter] = usePageUrlState<string>("payment", "ALL", ["ALL", "DUE", "OVERDUE", "COMPLETED", "CANCELLED"]);
+  const [paymentCollections, setPaymentCollections] = useState<Record<string, any>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = usePageUrlState<string>("saleId", "");
   const selectedSale = sales.find((sale) => sale.id === selectedSaleId) || null;
@@ -55,8 +57,10 @@ function PropertySalesContent() {
       setLoading(true);
       setFormError("");
       try {
-        const salesRes = await fetch("/api/sales", { signal: controller.signal });
+        const [salesRes, collectionsRes] = await Promise.all([fetch("/api/sales", { signal: controller.signal }), fetch("/api/v1/collections?status=ALL", { signal: controller.signal })]);
         const salesData = await salesRes.json();
+        const collectionsData = await collectionsRes.json();
+        if (collectionsRes.ok && collectionsData.success) setPaymentCollections(Object.fromEntries((collectionsData.collections || []).filter((item: any) => item.transactionId).map((item: any) => [item.transactionId, item])));
         if (!salesRes.ok || !salesData.success) throw new Error(salesData.error || "Unable to load sales.");
 
         if (salesData.success && salesData.transactions) {
@@ -156,8 +160,10 @@ function PropertySalesContent() {
 
     const matchesStatus =
       filterStatus === "ALL" || s.transferStatus === filterStatus;
+    const payment = paymentCollections[s.id];
+    const matchesPayment = paymentFilter === "ALL" || (paymentFilter === "COMPLETED" ? payment?.status === "COMPLETED" : paymentFilter === "CANCELLED" ? payment?.status === "CANCELLED" : paymentFilter === "OVERDUE" ? Number(payment?.summary?.overdue || 0) > 0 : paymentFilter === "DUE" ? Number(payment?.summary?.outstanding || 0) > 0 : true);
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesPayment;
   });
 
   return activeTab === "commissions" ? <CommissionsPage /> : (
@@ -188,6 +194,13 @@ function PropertySalesContent() {
           <Plus className="w-3.5 h-3.5" />
           <span>Record Sale</span>
         </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-editorial-border pb-3">
+        <label htmlFor="payment-filter" className="text-[10px] font-heading font-bold uppercase tracking-wider text-editorial-muted">Purchase payment status</label>
+        <select id="payment-filter" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)} className="bg-white border border-editorial-border px-2 py-1.5 text-xs text-editorial-black">
+          <option value="ALL">All</option><option value="DUE">Has outstanding balance</option><option value="OVERDUE">Overdue</option><option value="COMPLETED">Paid in full</option><option value="CANCELLED">Cancelled</option>
+        </select>
       </div>
 
       {formError && <p role="alert" className="border border-red-200 bg-red-50 p-3 text-sm text-red-800">{formError}<button type="button" className="ml-3 underline" onClick={() => setRefreshNonce(v => v + 1)}>Reload sales</button></p>}

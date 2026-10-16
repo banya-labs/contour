@@ -26,7 +26,7 @@ const getHandler = createApiHandler({
       const revision = plan.revisions.find((item) => item.revision === plan.currentRevision) ?? plan.revisions[0];
       const allocations = plan.events.flatMap((event) => event.allocations.map((allocation) => ({ installmentSequence: revision?.installments.find((line) => line.id === allocation.installmentId)?.sequence ?? 0, amount: allocation.amount.toFixed(2) })));
       const summary = revision ? summarizeSaleSchedule({ lines: revision.installments.map((line) => ({ sequence: line.sequence, kind: line.kind, amount: line.amount.toFixed(2), dueDate: line.dueDate.toISOString().slice(0, 10), carriedPaidAmount: line.carriedPaidAmount.toFixed(2) })), allocations, asOfDate: new Date() }) : null;
-      return { id: plan.id, status: plan.status, currency: plan.currency, client: plan.inquiry, revision: revision?.revision ?? null, summary };
+      return { id: plan.id, transactionId: plan.transactionId, status: plan.status, currency: plan.currency, client: plan.inquiry, revision: revision?.revision ?? null, summary };
     }).filter((row) => query.status === "OVERDUE" ? Number(row.summary?.overdue ?? 0) > 0 : query.status === "DUE" ? Number(row.summary?.outstanding ?? 0) > 0 : true);
     return NextResponse.json({ success: true, collections: rows, nextCursor: hasMore ? page.at(-1)?.id ?? null : null }, { headers: { "Cache-Control": "private, no-store" } });
   },
