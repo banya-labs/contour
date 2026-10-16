@@ -45,6 +45,7 @@ model User {
   visits                     PropertyVisit[]
   transactions               Transaction[]                @relation("ClosingAgent")
   approvedStatements         LandlordStatement[]          @relation("ApprovedBy")
+  approvedRentalCommissionConfigs PropertyRentalCommissionConfig[] @relation("RentalCommissionApprovals")
   vaultGrants                VaultAccessGrant[]           @relation("VaultGrants")
   grantedVaultAccess         VaultAccessGrant[]           @relation("GrantedVaultAccess")
   documentRequests           DocumentRequest[]
@@ -159,6 +160,7 @@ model Organization {
   invitations                 Invitation[]
   apiKeys                     ApiKey[]
   properties                  Property[]
+  rentalCommissionConfigs     PropertyRentalCommissionConfig[]
   leases                      Lease[]
   rentPayments                RentPayment[]
   maintenanceExpenses         MaintenanceExpense[]
@@ -666,6 +668,7 @@ model Property {
   boundaryEvidenceEvents BoundaryEvidenceEvent[]
   followUpTasks          FollowUpTask[]
   matchNotifications     PropertyMatchNotification[]
+  rentalCommissionConfigs PropertyRentalCommissionConfig[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -675,6 +678,54 @@ model Property {
   @@index([assignedAgentId])
   @@index([assignedAgentLockExpiresAt])
   @@map("property")
+}
+
+enum RentalAgencyCommissionMode {
+  NONE
+  UPFRONT
+  PERCENTAGE
+}
+
+enum RentalAgencyCommissionBasis {
+  FIXED_AMOUNT
+  MONTHS_OF_RENT
+}
+
+enum RentalAgencyCommissionStatus {
+  DRAFT
+  APPROVED
+  SUPERSEDED
+}
+
+model PropertyRentalCommissionConfig {
+  id                String                        @id @default(cuid())
+  organizationId    String
+  propertyId        String
+  revision          Int                           @default(1)
+  status            RentalAgencyCommissionStatus  @default(DRAFT)
+  mode              RentalAgencyCommissionMode
+  basis             RentalAgencyCommissionBasis?
+  fixedAmount       Decimal?                      @db.Decimal(12, 2)
+  monthsOfRent      Decimal?                      @db.Decimal(5, 2)
+  percentage        Decimal?                      @db.Decimal(5, 2)
+  durationMonths    Int?
+  untilLeaseEnd     Boolean                       @default(false)
+  currency          Currency                      @default(ZMW)
+  effectiveFrom     DateTime                      @db.Date
+  evidenceReference String?
+  approvedById      String?
+  approvedAt        DateTime?
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  approvedBy   User?        @relation("RentalCommissionApprovals", fields: [approvedById], references: [id])
+
+  @@unique([organizationId, propertyId, revision])
+  @@index([organizationId, propertyId, status])
+  @@index([organizationId, effectiveFrom])
+  @@map("property_rental_commission_config")
 }
 
 // -----------------------------------------------------------------------------
