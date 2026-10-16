@@ -109,6 +109,9 @@ async function getOrganizationOtherProperties(organizationId?: string, currentPr
       where: {
         organizationId,
         id: currentPropertyId ? { not: currentPropertyId } : undefined,
+        // Public property links use this section for sale discovery. Rental-only
+        // mandates must not be promoted alongside those sale listings.
+        listingType: { in: ["FOR_SALE", "BOTH"] },
         // Closed inventory must never be promoted from a public property page.
         // The detail route itself is also restricted to active inventory.
         status: { in: ["AVAILABLE", "UNDER_OFFER"] },
