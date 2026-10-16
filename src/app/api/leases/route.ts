@@ -4,6 +4,7 @@ import { createApiHandler } from "@/lib/api-handler";
 import { createLeaseSchema } from "@/lib/validations";
 import { smartCache } from "@/lib/cache";
 import { Prisma } from "@prisma/client";
+import { snapshotLeaseCommissionAgreement } from "@/lib/property-finance/lease-commission";
 import type { ApiRouteContext } from "@/lib/api-handler";
 
 const getHandler = createApiHandler({
@@ -33,7 +34,7 @@ const postHandler = createApiHandler({
   requirePermissions: ["leases.manage"],
   bodySchema: createLeaseSchema,
   handler: async (req, ctx) => {
-    const { organizationId, body } = ctx;
+    const { organizationId, body, userId } = ctx;
 
     const property = await db.property.findFirst({
       where: {
@@ -80,6 +81,34 @@ const postHandler = createApiHandler({
         throw new Error("ACTIVE_LEASE_EXISTS");
       }
 
+      const leaseStartDate = new Date(body.leaseStartDate);
+      const commissionConfig = await tx.propertyRentalCommissionConfig.findFirst({
+        where: {
+          organizationId: organizationId!,
+          propertyId: body.propertyId,
+          status: "APPROVED",
+          effectiveFrom: { lte: leaseStartDate },
+        },
+        orderBy: { revision: "desc" },
+      });
+      if (!commissionConfig) throw new Error("RENTAL_COMMISSION_NOT_CONFIGURED");
+      const commissionAgreement = snapshotLeaseCommissionAgreement({
+        config: {
+          ...commissionConfig,
+          status: "APPROVED" as const,
+          calculation: commissionConfig.basis ?? undefined,
+          fixedAmount: commissionConfig.fixedAmount?.toFixed(2),
+          monthsOfRent: commissionConfig.monthsOfRent?.toFixed(2),
+          percentage: commissionConfig.percentage?.toFixed(2),
+          durationMonths: commissionConfig.durationMonths ?? undefined,
+          effectiveFrom: commissionConfig.effectiveFrom.toISOString().slice(0, 10),
+          evidenceReference: commissionConfig.evidenceReference ?? undefined,
+        },
+        monthlyRent: String(body.monthlyRent),
+        leaseCurrency: body.currency,
+        leaseStartDate,
+      });
+
       const createdLease = await tx.lease.create({
       data: {
         organizationId: organizationId!,
@@ -93,10 +122,30 @@ const postHandler = createApiHandler({
         currency: body.currency,
         depositAmount: new Prisma.Decimal(body.depositAmount),
         managementFeePercent: new Prisma.Decimal(body.managementFeePercent),
-        leaseStartDate: new Date(body.leaseStartDate),
+        leaseStartDate,
         leaseEndDate: new Date(body.leaseEndDate),
         paymentDayOfMonth: body.paymentDayOfMonth,
-        status: "ACTIVE"
+        status: "ACTIVE",
+        rentalCommissionAgreement: {
+          create: {
+            organizationId: organizationId!,
+            sourceConfigId: commissionAgreement.sourceConfigId,
+            sourceConfigRevision: commissionAgreement.sourceConfigRevision,
+            mode: commissionAgreement.mode,
+            basis: commissionAgreement.basis,
+            fixedAmount: commissionAgreement.fixedAmount,
+            monthsOfRent: commissionAgreement.monthsOfRent,
+            percentage: commissionAgreement.percentage,
+            durationMonths: commissionAgreement.durationMonths,
+            untilLeaseEnd: commissionAgreement.untilLeaseEnd,
+            currency: commissionAgreement.currency,
+            frozenMonthlyRent: commissionAgreement.frozenMonthlyRent,
+            targetAmount: commissionAgreement.targetAmount,
+            effectiveFrom: leaseStartDate,
+            approvedById: userId,
+            approvedAt: new Date(),
+          },
+        },
       },
       include: {
         property: {
@@ -117,6 +166,9 @@ const postHandler = createApiHandler({
     } catch (error) {
       if (error instanceof Error && error.message === "ACTIVE_LEASE_EXISTS") {
         return NextResponse.json({ success: false, error: "This property already has an active lease." }, { status: 409 });
+      }
+      if (error instanceof Error && error.message === "RENTAL_COMMISSION_NOT_CONFIGURED") {
+        return NextResponse.json({ success: false, error: "Configure and approve rental agency commission terms on this property before creating a lease." }, { status: 409 });
       }
       throw error;
     }
