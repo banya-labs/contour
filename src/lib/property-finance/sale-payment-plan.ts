@@ -14,6 +14,17 @@ export type SaleScheduleSummary = SaleScheduleLine & {
   status: "UNPAID" | "PART_PAID" | "PAID" | "OVERDUE";
 };
 
+export function assertScheduleReconciles(price: string, lines: SaleScheduleLine[]): void {
+  const expected = money(price);
+  if (lines.length < 1 || lines.length > 360) throw new Error("Schedule must contain between 1 and 360 lines.");
+  const total = lines.reduce((sum, line) => {
+    const amount = money(line.amount);
+    if (!amount.isPositive()) throw new Error("Schedule amounts must be positive.");
+    return sum.plus(amount);
+  }, new Prisma.Decimal(0));
+  if (!total.equals(expected)) throw new Error("Schedule amounts must reconcile exactly to the sale price.");
+}
+
 function money(value: Prisma.Decimal | string | number): Prisma.Decimal {
   return new Prisma.Decimal(value).toDecimalPlaces(2);
 }

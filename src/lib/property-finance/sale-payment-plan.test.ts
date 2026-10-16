@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildSaleSchedule, summarizeSaleSchedule } from "./sale-payment-plan";
+import { assertScheduleReconciles, buildSaleSchedule, summarizeSaleSchedule } from "./sale-payment-plan";
+import { createSalePaymentPlanSchema } from "./sale-payment-validation";
 
 describe("sale payment plan schedule", () => {
   it("reconciles a deposit and final rounded installment", () => {
@@ -16,5 +17,14 @@ describe("sale payment plan schedule", () => {
     expect(summary.outstanding).toBe("60.00");
     expect(summary.overdue).toBe("60.00");
     expect(summary.lines[1].status).toBe("PART_PAID");
+  });
+
+  it("rejects a schedule that does not reconcile to the sale price", () => {
+    expect(() => assertScheduleReconciles("100", [{ sequence: 1, kind: "FULL_PAYMENT", amount: "99", dueDate: "2026-01-01" }])).toThrow(/reconcile/);
+  });
+
+  it("requires a strong idempotency key and canonical money strings", () => {
+    const result = createSalePaymentPlanSchema.safeParse({ inquiryId: "i", buyerContactId: "c", price: "100.00", currency: "ZMW", schedule: [{ kind: "FULL_PAYMENT", amount: "100.00", dueDate: "2026-01-01" }], idempotencyKey: "short" });
+    expect(result.success).toBe(false);
   });
 });
