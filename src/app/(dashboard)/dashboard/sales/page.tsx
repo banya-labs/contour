@@ -23,6 +23,39 @@ import { emitWorkspaceMutation, mutationTouchesScope, WORKSPACE_MUTATION_EVENT, 
 import { PageTabs } from "@/components/ui/page-tabs";
 import { SectionPendingState } from "@/components/ui/section-pending-state";
 
+type SalePlanLine = { kind: "DEPOSIT" | "INSTALLMENT" | "FULL_PAYMENT"; amount: string; dueDate: string };
+
+function SalePaymentPlanPanel({ sale, collection, onChanged }: { sale: any; collection?: any; onChanged: () => void }) {
+  const [lines, setLines] = useState<SalePlanLine[]>([{ kind: "FULL_PAYMENT", amount: String(sale.salePrice || ""), dueDate: new Date().toISOString().slice(0, 10) }]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const addLine = () => setLines((current) => [...current, { kind: "INSTALLMENT", amount: "", dueDate: new Date().toISOString().slice(0, 10) }]);
+  const updateLine = (index: number, key: keyof SalePlanLine, value: string) => setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, [key]: value } : line));
+  const submit = async () => {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      if (!sale.inquiryId || !sale.buyerContactId) throw new Error("This sale is missing its buyer/inquiry link. Refresh the sale after the closing workflow is complete.");
+      const response = await fetch("/api/v1/sale-payment-plans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inquiryId: sale.inquiryId, transactionId: sale.id, buyerContactId: sale.buyerContactId, price: Number(sale.salePrice).toFixed(2), currency: sale.currency, schedule: lines.map((line) => ({ ...line, amount: Number(line.amount).toFixed(2) })), idempotencyKey: crypto.randomUUID() }) });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Unable to create the payment plan.");
+      const approval = await fetch(`/api/v1/sale-payment-plans/${data.plan.id}/approve`, { method: "POST" });
+      const approvalData = await approval.json();
+      if (!approval.ok || !approvalData.success) throw new Error(approvalData.error || "Plan saved but could not be approved.");
+      setMessage("Payment plan created and approved."); onChanged();
+    } catch (value) { setError(value instanceof Error ? value.message : "Unable to save the payment plan."); }
+    finally { setBusy(false); }
+  };
+  return <div className="space-y-3 border-t border-editorial-border pt-4">
+    <div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Purchase payment plan</p><p className="mt-1 text-xs text-editorial-muted">A sale can be accepted with scheduled payments. The schedule must total the purchase price.</p></div>
+    {collection ? <div className="border border-editorial-border bg-neutral-50 p-3 text-xs"><p className="font-semibold uppercase tracking-wider">{collection.status || "PLAN"}</p><p className="mt-1 text-editorial-muted">Outstanding: {collection.summary?.outstanding || "0.00"} {sale.currency} · Overdue: {collection.summary?.overdue || "0.00"} {sale.currency}</p></div> : <>
+      {lines.map((line, index) => <div key={`${index}-${line.kind}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"><select aria-label={`Payment ${index + 1} type`} value={line.kind} onChange={(event) => updateLine(index, "kind", event.target.value)} className="border border-editorial-border p-2 text-xs"><option value="DEPOSIT">Deposit</option><option value="INSTALLMENT">Installment</option><option value="FULL_PAYMENT">Full payment</option></select><input aria-label={`Payment ${index + 1} amount`} type="number" min="0.01" step="0.01" value={line.amount} onChange={(event) => updateLine(index, "amount", event.target.value)} className="border border-editorial-border p-2 text-xs" placeholder="Amount" /><input aria-label={`Payment ${index + 1} due date`} type="date" value={line.dueDate} onChange={(event) => updateLine(index, "dueDate", event.target.value)} className="border border-editorial-border p-2 text-xs" />{lines.length > 1 && <button type="button" onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))} className="border border-editorial-border px-2 text-xs">Remove</button>}</div>)}
+      <div className="flex flex-wrap gap-2"><button type="button" onClick={addLine} className="border border-editorial-border px-3 py-2 text-[10px] font-bold uppercase tracking-wider">Add instalment</button><button type="button" disabled={busy} onClick={submit} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50">{busy ? "Saving…" : "Create & approve plan"}</button></div>
+    </>}
+    {error && <p role="alert" className="text-xs text-red-700">{error}</p>}{message && <p className="text-xs text-emerald-700">{message}</p>}
+  </div>;
+}
+
 function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +111,8 @@ function PropertySalesContent() {
               buyerName,
               buyerContact,
               buyerNrcPassport,
+              inquiryId: t.inquiry?.id,
+              buyerContactId: t.inquiry?.contactId,
               salePrice: Number(t.grossValue || 0),
               currency: t.currency || "ZMW",
               agencyCommissionEarned: Number(t.agencyCommissionAmount || 0),
@@ -455,6 +490,7 @@ function PropertySalesContent() {
         ] : []}
       >
         {selectedSale && <div className="grid gap-3 border-t border-editorial-border pt-4 sm:grid-cols-2"><StatementGenerateButton input={{ kind: "SALE", transactionId: selectedSale.id }} label="Generate sale statement" /><StatementGenerateButton input={{ kind: "SALE_COMMISSION", transactionId: selectedSale.id }} label="Generate internal commission statement" /></div>}
+        {selectedSale && <SalePaymentPlanPanel sale={selectedSale} collection={paymentCollections[selectedSale.id]} onChanged={() => setRefreshNonce((value) => value + 1)} />}
         {selectedSale && selectedSale.transactionType === "PROPERTY_SALE" && (
           <div className="space-y-3">
             <div>

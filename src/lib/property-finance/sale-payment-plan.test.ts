@@ -13,8 +13,8 @@ describe("sale payment plan schedule", () => {
   it("reports partial payment and only past-due outstanding as overdue", () => {
     const lines = buildSaleSchedule({ price: "300", deposit: "100", installmentAmount: "100", installmentCount: 2, firstDueDate: "2026-01-01" });
     const summary = summarizeSaleSchedule({ lines, allocations: [{ installmentSequence: 1, amount: "100" }, { installmentSequence: 2, amount: "40" }], asOfDate: "2026-02-15" });
-    expect(summary.paid).toBe("240.00");
-    expect(summary.outstanding).toBe("60.00");
+    expect(summary.paid).toBe("140.00");
+    expect(summary.outstanding).toBe("160.00");
     expect(summary.overdue).toBe("60.00");
     expect(summary.lines[1].status).toBe("PART_PAID");
   });

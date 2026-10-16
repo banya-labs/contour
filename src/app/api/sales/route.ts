@@ -45,6 +45,8 @@ const getHandler = createApiHandler({
         },
         inquiry: {
           select: {
+            id: true,
+            contactId: true,
             clientName: true,
             clientPhone: true,
             clientEmail: true,
