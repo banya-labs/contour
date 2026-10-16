@@ -55,7 +55,7 @@ export const POST = createApiHandler({
         currency: true,
         updatedAt: true,
         lookingFor: true,
-        property: { select: { id: true, status: true } },
+        property: { select: { id: true, status: true, askingPrice: true, rentalPrice: true, agencyCommissionPct: true } },
         visits: { select: { status: true } },
         documentRequests: { select: { status: true } },
         followUpTasks: { where: { status: "PENDING" }, select: { id: true }, take: 1 },
@@ -147,6 +147,12 @@ export const POST = createApiHandler({
       }
 
       if (closed && body.outcome === "WON" && inquiry.propertyId) {
+        const configuredValue = Number(inquiry.dealValue ?? 0);
+        const fallbackValue = Number((inquiry.lookingFor === "FOR_RENT" ? inquiry.property?.rentalPrice : inquiry.property?.askingPrice) ?? 0);
+        const grossValue = configuredValue > 0 ? configuredValue : fallbackValue;
+        if (!Number.isFinite(grossValue) || grossValue <= 0) {
+          throw new MatchingError("Record an agreed sale value before marking this deal Won.", 409);
+        }
         const propertyUpdate = await tx.property.updateMany({
           where: { id: inquiry.propertyId, organizationId, status: { not: "SOLD" } },
           data: { status: inquiry.lookingFor === "FOR_RENT" ? "UNDER_OFFER" : "SOLD" },
@@ -160,21 +166,19 @@ export const POST = createApiHandler({
         competingInquiriesClosed = closedCompeting.count;
 
         const property = result.property;
-        const grossValue = Number(inquiry.dealValue || 0);
-        if (property && grossValue > 0) {
-          const commissionPct = Number((await tx.property.findUnique({ where: { id: property.id }, select: { agencyCommissionPct: true } }))?.agencyCommissionPct ?? 5);
-          const commissionAmount = grossValue * commissionPct / 100;
-          await tx.transaction.create({
-            data: {
-              organizationId, propertyId: property.id, inquiryId: inquiry.id,
-              transactionType: inquiry.lookingFor === "FOR_RENT" ? "RENTAL_PLACEMENT" : "PROPERTY_SALE",
-              grossValue: new Prisma.Decimal(grossValue), currency: inquiry.currency,
-              agencyCommissionPct: new Prisma.Decimal(commissionPct), agencyCommissionAmount: new Prisma.Decimal(commissionAmount),
-              agentSplitPct: new Prisma.Decimal(50), agentSplitAmount: new Prisma.Decimal(commissionAmount / 2),
-              status: "EARNED", closingAgentId: inquiry.assignedAgentId || userId, closedAt: now,
-            },
-          });
-        }
+        if (!property) throw new MatchingError("The assigned property could not be loaded. Refresh and retry.", 409);
+        const commissionPct = Number(inquiry.property?.agencyCommissionPct ?? 5);
+        const commissionAmount = grossValue * commissionPct / 100;
+        await tx.transaction.create({
+          data: {
+            organizationId, propertyId: property.id, inquiryId: inquiry.id,
+            transactionType: inquiry.lookingFor === "FOR_RENT" ? "RENTAL_PLACEMENT" : "PROPERTY_SALE",
+            grossValue: new Prisma.Decimal(grossValue), currency: inquiry.currency,
+            agencyCommissionPct: new Prisma.Decimal(commissionPct), agencyCommissionAmount: new Prisma.Decimal(commissionAmount),
+            agentSplitPct: new Prisma.Decimal(50), agentSplitAmount: new Prisma.Decimal(commissionAmount / 2),
+            status: "EARNED", closingAgentId: inquiry.assignedAgentId || userId, closedAt: now,
+          },
+        });
       }
 
       return result;
