@@ -21,6 +21,7 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -29,7 +30,7 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
     if (!isOnline) { setLoading(false); return () => controller.abort(); }
     void (async () => {
       try {
-        const response = await fetch(`/api/agent/matching/inquiries/${inquiryId}/available-properties?page=${page}&pageSize=20`, { cache: "no-store", signal: controller.signal });
+        const response = await fetch(`/api/agent/matching/inquiries/${inquiryId}/available-properties?page=${page}&pageSize=20&search=${encodeURIComponent(search)}`, { cache: "no-store", signal: controller.signal });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.error || "Unable to load available properties.");
         if (!controller.signal.aborted) setData(result);
@@ -40,7 +41,7 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
       }
     })();
     return () => controller.abort();
-  }, [inquiryId, page, revision, isOnline]);
+  }, [inquiryId, page, revision, search, isOnline]);
 
   const assign = async (match: MatchRow) => {
     if (busy || loading || !isOnline) return;
@@ -63,9 +64,10 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
   return <Dialog open layer={80} onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
     <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto" onPointerDownOutside={(event) => event.preventDefault()} onEscapeKeyDown={(event) => { if (busy) event.preventDefault(); }}>
       <div className="pr-9">
-        <DialogTitle>Assign property to continue</DialogTitle>
-        <DialogDescription className="mt-2">Choose a property for {clientName} before moving to {targetLabel}. Available properties are ranked by match percentage, highest first.</DialogDescription>
+        <DialogTitle>Assign a property</DialogTitle>
+        <DialogDescription className="mt-2">Search all available properties for {clientName}, then associate one with this inquiry before moving to {targetLabel}. Match percentage is guidance only; you can assign any available property.</DialogDescription>
       </div>
+      <label className="block text-sm">Search properties<input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} maxLength={120} placeholder="Title, suburb, city, or description" className="mt-1 min-h-11 w-full border p-2" /></label>
       {!isOnline && <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm">Reconnect to load available properties and assign one. The inquiry has not progressed.</p>}
       {loading && <SectionPendingState compact label="Checking available properties…" />}
       {error && <p role="alert" className="border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
@@ -79,8 +81,8 @@ export function AssignPropertyDialog({ inquiryId, clientName, targetLabel, isOnl
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-heading font-bold break-words">{match.property.title}</h3><p className="text-xs text-editorial-muted">{match.property.suburb || "Location not specified"} · {match.property.listingType === "FOR_RENT" ? "To rent" : match.property.listingType === "BOTH" ? "Sale / rent" : "For sale"}{match.effectivePrice != null ? ` · ${match.property.currency} ${match.effectivePrice.toLocaleString("en-ZM")}` : ""}</p></div><span className="shrink-0 font-mono font-bold text-contour-red">{match.score}% match</span></div>
           {match.reasons.length > 0 && <p className="text-xs">{match.reasons.join(" · ")}</p>}
           {match.unmetPreferences.length > 0 && <p className="text-xs text-amber-800">Preferences unmet: {match.unmetPreferences.join(" · ")}</p>}
-          {match.hardFailures.length > 0 && <p className="text-xs text-red-700">Cannot assign: {match.hardFailures.join(" · ")}</p>}
-          <button type="button" disabled={loading || Boolean(error) || busy !== null || match.hardFailures.length > 0} onClick={() => void assign(match)} className="min-h-11 w-full sm:w-auto px-4 py-2 bg-editorial-black text-white text-xs font-heading font-bold uppercase disabled:opacity-50"><PendingButtonContent pending={busy === match.propertyId} pendingLabel="Assigning…">Assign and continue</PendingButtonContent></button>
+          {match.hardFailures.length > 0 && <p className="text-xs text-amber-800">Match notes: {match.hardFailures.join(" · ")} — assignment is still allowed.</p>}
+          <button type="button" disabled={loading || Boolean(error) || busy !== null} onClick={() => void assign(match)} className="min-h-11 w-full sm:w-auto px-4 py-2 bg-editorial-black text-white text-xs font-heading font-bold uppercase disabled:opacity-50"><PendingButtonContent pending={busy === match.propertyId} pendingLabel="Assigning…">Assign and continue</PendingButtonContent></button>
         </article>)}</div>
         <div className="flex items-center justify-between gap-3"><button type="button" disabled={page === 1 || loading || busy !== null} onClick={() => setPage(page - 1)} className="min-h-11 border px-3 py-2 text-xs disabled:opacity-50">Previous</button><button type="button" disabled={!data.hasMore || loading || busy !== null} onClick={() => setPage(page + 1)} className="min-h-11 border px-3 py-2 text-xs disabled:opacity-50">Next</button></div>
       </>}

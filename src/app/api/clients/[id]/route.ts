@@ -85,7 +85,7 @@ export const PATCH = createApiHandler({
     const clientEmail = body.clientEmail !== undefined ? (body.clientEmail || null) : body.email !== undefined ? (body.email || null) : undefined;
 
     const updated = await db.$transaction(async (tx) => {
-      if (body.propertyId !== undefined) await attachPropertyInTransaction(tx, scope, { inquiryId, propertyId: body.propertyId || null, expectedPropertyId: body.expectedPropertyId }, body);
+      if (body.propertyId !== undefined) await attachPropertyInTransaction(tx, scope, { inquiryId, propertyId: body.propertyId || null, expectedPropertyId: body.expectedPropertyId });
       const result = await tx.inquiry.update({
       where: { id: inquiry.id },
       data: {

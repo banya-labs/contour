@@ -3,11 +3,8 @@ import { Prisma } from "@prisma/client";
 import { isActiveInquiry } from "./policy";
 import { canManageMatching, inquiryVisibility, type MatchingScope } from "./visibility";
 import { MatchingError, invalidateMatchingSummaries } from "./service";
-import { buildInquiryMatchingProfile } from "./inquiry-profile";
-import { buildPropertyMatchingCandidate } from "./property-profile";
-import { scorePropertyForInquiry } from "./score";
 type Attachment = { inquiryId: string; propertyId: string | null; expectedPropertyId?: string | null };
-export async function attachPropertyInTransaction(tx: Prisma.TransactionClient, scope: MatchingScope, input: Attachment, criteriaUpdates: Parameters<typeof buildInquiryMatchingProfile>[0] = {}) {
+export async function attachPropertyInTransaction(tx: Prisma.TransactionClient, scope: MatchingScope, input: Attachment) {
   const inquiry = await tx.inquiry.findFirst({ where: { ...inquiryVisibility(scope), id: input.inquiryId } });
   if (!inquiry) throw new MatchingError("Inquiry not found");
   if (!isActiveInquiry(inquiry.status)) throw new MatchingError("Terminal inquiries cannot be attached", 409);
@@ -15,13 +12,16 @@ export async function attachPropertyInTransaction(tx: Prisma.TransactionClient, 
   const expected = input.expectedPropertyId === undefined ? null : input.expectedPropertyId;
   if (inquiry.propertyId !== expected && inquiry.propertyId !== input.propertyId) throw new MatchingError("Attachment changed; refresh before choosing another property", 409);
   if (input.propertyId) {
-    const profile = buildInquiryMatchingProfile({ ...inquiry, ...criteriaUpdates });
     const property = await tx.property.findFirst({ where: { id: input.propertyId, organizationId: scope.organizationId } });
     if (!property || property.status !== "AVAILABLE") throw new MatchingError("Property is no longer available", 409);
-    if (property.listingType !== "BOTH" && property.listingType !== profile.lookingFor) throw new MatchingError("Property listing type does not fit inquiry", 409);
-    if (property.currency !== profile.currency) throw new MatchingError("Property currency does not fit inquiry", 409);
-    const result = scorePropertyForInquiry(profile, buildPropertyMatchingCandidate(property));
-    if (result.hardFailures.length) throw new MatchingError(`Property does not meet required criteria: ${result.hardFailures.join(", ")}`, 409);
+    // Matching is a ranking and review aid. Staff may deliberately associate
+    // any available property with an inquiry when the business context calls
+    // for it, even when the saved preferences do not match.
+    const closingInquiry = inquiry.status === "VERIFICATION_CLOSING" ? await tx.inquiry.findFirst({
+      where: { organizationId: scope.organizationId, propertyId: input.propertyId, status: "VERIFICATION_CLOSING", id: { not: inquiry.id } },
+      select: { id: true },
+    }) : null;
+    if (closingInquiry) throw new MatchingError("This property is already assigned to another Verification & Closing inquiry.", 409);
   }
   const changed = await tx.inquiry.updateMany({ where: { id: inquiry.id, organizationId: scope.organizationId, propertyId: inquiry.propertyId, status: inquiry.status, assignedAgentId: inquiry.assignedAgentId }, data: { propertyId: input.propertyId, matchStatus: input.propertyId ? "MATCHED" : "UNMATCHED" } });
   if (changed.count !== 1) throw new MatchingError("Inquiry changed; refresh and retry", 409);

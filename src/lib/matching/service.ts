@@ -7,8 +7,8 @@ import { isQualifyingMatch, MATCH_POLICY_VERSION, PROPERTY_MATCH_THRESHOLD, TERM
 import { inquiryVisibility, type MatchingScope } from "./visibility";
 import type { Prisma } from "@prisma/client";
 
-export const matchingQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20), view: z.enum(["qualifying", "near", "all"]).default("qualifying") });
-export type MatchingQuery = z.infer<typeof matchingQuerySchema>;
+export const matchingQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20), view: z.enum(["qualifying", "near", "all"]).default("qualifying"), search: z.string().trim().max(120).default("") });
+export type MatchingQuery = Omit<z.infer<typeof matchingQuerySchema>, "search"> & { search?: string };
 export const candidateSelect = { id: true, title: true, suburb: true, listingType: true, propertyType: true, currency: true, askingPrice: true, rentalPrice: true, bedrooms: true, bathrooms: true, plotSizeSqm: true, matchingMetadata: true, status: true } satisfies Prisma.PropertySelect;
 export const inquirySelect = { id: true, clientName: true, clientPhone: true, contactId: true, assignedAgentId: true, propertyId: true, status: true, lookingFor: true, currency: true, budgetMin: true, budgetMax: true, preferredSuburbs: true, propertyType: true, bedroomsMin: true, bathroomsMin: true, areaMinSqm: true, matchingProfile: true, contact: { select: { id: true, name: true, phone: true } } } satisfies Prisma.InquirySelect;
 import { MatchingError } from "./errors";
@@ -28,7 +28,12 @@ export async function getPropertyInquiryMatches(scope: MatchingScope, propertyId
 export async function getInquiryPropertyMatches(scope: MatchingScope, inquiryId: string, query: MatchingQuery) {
   const inquiry = await db.inquiry.findFirst({ where: { ...inquiryVisibility(scope), id: inquiryId, status: { notIn: [...TERMINAL_INQUIRY_STATUSES] } }, select: inquirySelect });
   if (!inquiry) throw new MatchingError("Inquiry not found");
-  const properties = await db.property.findMany({ where: { organizationId: scope.organizationId, status: "AVAILABLE" }, select: candidateSelect });
+  const properties = await db.property.findMany({ where: { organizationId: scope.organizationId, status: "AVAILABLE", ...(query.search ? { OR: [
+    { title: { contains: query.search, mode: "insensitive" } },
+    { suburb: { contains: query.search, mode: "insensitive" } },
+    { city: { contains: query.search, mode: "insensitive" } },
+    { description: { contains: query.search, mode: "insensitive" } },
+  ] } : {}) }, select: candidateSelect });
   const profile = buildInquiryMatchingProfile(inquiry);
   const rows = properties.map((property) => { const result = scorePropertyForInquiry(profile, buildPropertyMatchingCandidate(property)); return { ...result, property, isMatch: isQualifyingMatch(result) }; });
   return { ...envelope(rows, query), inquiry, matchingEnabled: !inquiry.propertyId };
