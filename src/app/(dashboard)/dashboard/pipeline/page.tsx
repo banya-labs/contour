@@ -1307,7 +1307,17 @@ function DealPipelineContent() {
                 <input value={propertySearch} onChange={(e) => setPropertySearch(e.target.value)} placeholder="Search title, suburb or city" className="mb-1 w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist" />
                 <select
                   value={editFormData.propertyId}
-                  onChange={(e) => setEditFormData({ ...editFormData, propertyId: e.target.value })}
+                  onChange={(e) => {
+                    const selected = availableProperties.find((property) => property.id === e.target.value);
+                    const automaticValue = editingDeal?.lookingFor === "FOR_RENT"
+                      ? selected?.rentalPrice ?? selected?.askingPrice
+                      : selected?.askingPrice ?? selected?.rentalPrice;
+                    setEditFormData({
+                      ...editFormData,
+                      propertyId: e.target.value,
+                      ...(automaticValue != null ? { dealValue: String(automaticValue) } : {}),
+                    });
+                  }}
                   className="w-full bg-white px-3 py-2 border border-editorial-border text-editorial-black focus:outline-none font-geist"
                 >
                   <option value="">No Property Associated (Unassigned)</option>
@@ -1316,7 +1326,7 @@ function DealPipelineContent() {
                     return !query || [p.title, p.suburb, p.city].some((value) => value?.toLowerCase().includes(query));
                   }).map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.title} ({p.suburb || p.city || "Location not recorded"}) {p.askingPrice ? `- ${formatCurrency(p.askingPrice, "ZMW")}` : ""}
+                      {p.title} ({p.suburb || p.city || "Location not recorded"}) {(() => { const value = editingDeal?.lookingFor === "FOR_RENT" ? p.rentalPrice ?? p.askingPrice : p.askingPrice ?? p.rentalPrice; return value != null ? `- ${formatCurrency(value, editFormData.currency)}` : ""; })()}
                     </option>
                   ))}
                 </select>
