@@ -35,6 +35,7 @@ import type { ApiRouteContext } from "@/lib/api-handler";
 import { roleHasPermission, resolveContourRole } from "@/lib/authorization";
 import { canTransitionStatement } from "@/lib/actions/statement-workflow";
 import { smartCache } from "@/lib/cache";
+import { calculateRentalAgencyFee } from "@/lib/property-finance/rental-fee";
 
 const updateStatementStatusSchema = z.object({
   id: z.string(),
@@ -94,9 +95,9 @@ const postHandler = createApiHandler({
     const currencies = new Set([...payments.map((payment) => payment.currency), ...expenses.map(expense => expense.currency)]);
     currencies.add(body.currency ?? "ZMW");
     if (currencies.size > 1) return NextResponse.json({ success: false, error: "Payments and statement must use the same currency." }, { status: 400 });
-    const leases = await db.lease.findMany({ where: { organizationId, propertyId: body.propertyId, leaseStartDate: { lt: new Date(Date.UTC(body.statementYear, body.statementMonth, 1)) }, OR: [{ leaseEndDate: { gte: new Date(Date.UTC(body.statementYear, body.statementMonth - 1, 1)) } }, { payments: { some: { periodMonth: body.statementMonth, periodYear: body.statementYear, status: "CONFIRMED" } } }] }, take: 201 });
+    const leases = await db.lease.findMany({ where: { organizationId, propertyId: body.propertyId, leaseStartDate: { lt: new Date(Date.UTC(body.statementYear, body.statementMonth, 1)) }, OR: [{ leaseEndDate: { gte: new Date(Date.UTC(body.statementYear, body.statementMonth - 1, 1)) } }, { payments: { some: { periodMonth: body.statementMonth, periodYear: body.statementYear, status: "CONFIRMED" } } }] }, include: { rentalCommissionAgreement: true }, take: 201 });
     const organization = await db.organizationProfile.findUnique({ where: { organizationId: organizationId! }, select: { timezone: true } });
-    let rentDue = new Prisma.Decimal(0), arrearsBroughtForward = new Prisma.Decimal(0), arrearsClosing = new Prisma.Decimal(0);
+    let rentDue = new Prisma.Decimal(0), arrearsBroughtForward = new Prisma.Decimal(0), arrearsClosing = new Prisma.Decimal(0), agencyFeeDeducted = new Prisma.Decimal(0);
     try {
       if (leases.length > 200) throw new Error("This property exceeds the 200-lease statement limit.");
       for (const lease of leases) {
@@ -107,11 +108,12 @@ const postHandler = createApiHandler({
         rentDue = rentDue.plus(ledger.rentCharged);
         arrearsBroughtForward = arrearsBroughtForward.plus(Prisma.Decimal.max(0, ledger.openingBalance));
         arrearsClosing = arrearsClosing.plus(landlordClosingArrears([ledger]));
+        const periodCollected = leasePayments.filter((payment) => payment.periodMonth === body.statementMonth && payment.periodYear === body.statementYear && payment.status === "CONFIRMED").reduce((sum, payment) => sum.plus(payment.amountPaid), new Prisma.Decimal(0));
+        agencyFeeDeducted = agencyFeeDeducted.plus(calculateRentalAgencyFee({ agreement: lease.rentalCommissionAgreement, collectedRent: periodCollected, periodYear: body.statementYear, periodMonth: body.statementMonth, leaseStartDate: lease.leaseStartDate, leaseEndDate: lease.leaseEndDate }));
       }
     } catch (error) { return NextResponse.json({ success: false, error: `${error instanceof Error ? error.message : "Unable to verify the rental ledger."} Use Prepare tenant statement to verify the lease opening balance.` }, { status: 400 }); }
     const grossRentCollected = payments.reduce((sum, payment) => sum.plus(payment.amountPaid), new Prisma.Decimal(0));
     const maintenanceDeducted = expenses.reduce((sum, expense) => sum.plus(expense.amount), new Prisma.Decimal(0));
-    const agencyFeeDeducted = grossRentCollected.mul(property.agencyCommissionPct ?? 10).div(100).toDecimalPlaces(2);
     const netPayout = grossRentCollected.minus(agencyFeeDeducted).minus(maintenanceDeducted);
 
     const statement = await db.$transaction(async tx => {

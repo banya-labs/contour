@@ -30,6 +30,8 @@ function SalePaymentPlanPanel({ sale, collection, onChanged }: { sale: any; coll
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [receiptAmount, setReceiptAmount] = useState("");
+  const [receiptReference, setReceiptReference] = useState("");
   const addLine = () => setLines((current) => [...current, { kind: "INSTALLMENT", amount: "", dueDate: new Date().toISOString().slice(0, 10) }]);
   const updateLine = (index: number, key: keyof SalePlanLine, value: string) => setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, [key]: value } : line));
   const submit = async () => {
@@ -46,9 +48,23 @@ function SalePaymentPlanPanel({ sale, collection, onChanged }: { sale: any; coll
     } catch (value) { setError(value instanceof Error ? value.message : "Unable to save the payment plan."); }
     finally { setBusy(false); }
   };
+  const recordReceipt = async () => {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      if (!collection?.id || !receiptAmount) throw new Error("Enter the amount received before recording a receipt.");
+      const receiptResponse = await fetch(`/api/v1/sales/${collection.id}/payments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: Number(receiptAmount).toFixed(2), currency: sale.currency, paymentDate: new Date().toISOString().slice(0, 10), custodian: "AGENCY", paymentMethod: "BANK_TRANSFER", referenceNumber: receiptReference || undefined, idempotencyKey: crypto.randomUUID() }) });
+      const receipt = await receiptResponse.json();
+      if (!receiptResponse.ok || !receipt.success) throw new Error(receipt.error || "Unable to record receipt.");
+      const confirmResponse = await fetch(`/api/v1/sales/${collection.id}/payments/${receipt.payment.id}/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "CONFIRM", sourceEventId: receipt.payment.id, idempotencyKey: crypto.randomUUID() }) });
+      const confirmation = await confirmResponse.json();
+      if (!confirmResponse.ok || !confirmation.success) throw new Error(confirmation.error || "Receipt recorded but could not be confirmed.");
+      setReceiptAmount(""); setReceiptReference(""); setMessage("Receipt recorded and confirmed."); onChanged();
+    } catch (value) { setError(value instanceof Error ? value.message : "Unable to record receipt."); }
+    finally { setBusy(false); }
+  };
   return <div className="space-y-3 border-t border-editorial-border pt-4">
     <div><p className="text-[10px] font-mono font-bold uppercase tracking-wider text-contour-red">Purchase payment plan</p><p className="mt-1 text-xs text-editorial-muted">A sale can be accepted with scheduled payments. The schedule must total the purchase price.</p></div>
-    {collection ? <div className="border border-editorial-border bg-neutral-50 p-3 text-xs"><p className="font-semibold uppercase tracking-wider">{collection.status || "PLAN"}</p><p className="mt-1 text-editorial-muted">Outstanding: {collection.summary?.outstanding || "0.00"} {sale.currency} · Overdue: {collection.summary?.overdue || "0.00"} {sale.currency}</p></div> : <>
+    {collection ? <div className="border border-editorial-border bg-neutral-50 p-3 text-xs"><p className="font-semibold uppercase tracking-wider">{collection.status || "PLAN"}</p><p className="mt-1 text-editorial-muted">Outstanding: {collection.summary?.outstanding || "0.00"} {sale.currency} · Overdue: {collection.summary?.overdue || "0.00"} {sale.currency}</p><div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]"><input aria-label="Receipt amount" type="number" min="0.01" step="0.01" value={receiptAmount} onChange={(event) => setReceiptAmount(event.target.value)} placeholder="Amount received" className="border border-editorial-border bg-white p-2 text-xs" /><input aria-label="Receipt reference" value={receiptReference} onChange={(event) => setReceiptReference(event.target.value)} placeholder="Bank/reference number" className="border border-editorial-border bg-white p-2 text-xs" /><button type="button" disabled={busy} onClick={recordReceipt} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50">Record receipt</button></div></div> : <>
       {lines.map((line, index) => <div key={`${index}-${line.kind}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"><select aria-label={`Payment ${index + 1} type`} value={line.kind} onChange={(event) => updateLine(index, "kind", event.target.value)} className="border border-editorial-border p-2 text-xs"><option value="DEPOSIT">Deposit</option><option value="INSTALLMENT">Installment</option><option value="FULL_PAYMENT">Full payment</option></select><input aria-label={`Payment ${index + 1} amount`} type="number" min="0.01" step="0.01" value={line.amount} onChange={(event) => updateLine(index, "amount", event.target.value)} className="border border-editorial-border p-2 text-xs" placeholder="Amount" /><input aria-label={`Payment ${index + 1} due date`} type="date" value={line.dueDate} onChange={(event) => updateLine(index, "dueDate", event.target.value)} className="border border-editorial-border p-2 text-xs" />{lines.length > 1 && <button type="button" onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))} className="border border-editorial-border px-2 text-xs">Remove</button>}</div>)}
       <div className="flex flex-wrap gap-2"><button type="button" onClick={addLine} className="border border-editorial-border px-3 py-2 text-[10px] font-bold uppercase tracking-wider">Add instalment</button><button type="button" disabled={busy} onClick={submit} className="bg-editorial-black px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50">{busy ? "Saving…" : "Create & approve plan"}</button></div>
     </>}

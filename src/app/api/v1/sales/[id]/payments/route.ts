@@ -14,7 +14,7 @@ const postHandler = createApiHandler({
       return NextResponse.json({ success: true, payment: event }, { status: 201 });
     } catch (error) {
       const code = error instanceof Error ? error.message : "SALE_PAYMENT_RECEIPT_ERROR";
-      const status = code.endsWith("NOT_FOUND") ? 404 : code.includes("MISMATCH") || code.includes("CANCELLED") ? 409 : 400;
+      const status = code.endsWith("NOT_FOUND") ? 404 : code.includes("MISMATCH") || code.includes("CANCELLED") || code.includes("NOT_ACTIVE") ? 409 : 400;
       return NextResponse.json({ success: false, error: code, code }, { status });
     }
   },
