@@ -52,6 +52,17 @@ const getHandler = createApiHandler({
             clientEmail: true,
           },
         },
+        salePaymentPlan: {
+          select: {
+            id: true,
+            status: true,
+            price: true,
+            currency: true,
+            currentRevision: true,
+            revisions: { orderBy: { revision: "desc" }, take: 1, include: { installments: true } },
+            events: { where: { kind: "CONFIRM" }, include: { allocations: true }, orderBy: { postedAt: "asc" } },
+          },
+        },
       },
       orderBy: { closedAt: "desc" }
     });

@@ -33,6 +33,7 @@ export async function recordSalePaymentReceipt(tx: Tx, input: RecordSalePaymentR
   const plan = await tx.salePaymentPlan.findFirst({ where: { id: input.planId, organizationId: input.organizationId }, select: { id: true, currency: true, status: true } });
   if (!plan) throw new Error("SALE_PAYMENT_PLAN_NOT_FOUND");
   if (plan.status === "CANCELLED") throw new Error("SALE_PAYMENT_PLAN_CANCELLED");
+  if (plan.status !== "ACTIVE") throw new Error("SALE_PAYMENT_PLAN_NOT_ACTIVE");
   if (plan.currency !== input.currency) throw new Error("SALE_CURRENCY_MISMATCH");
   return tx.salePaymentEvent.create({ data: {
     organizationId: input.organizationId, planId: plan.id, kind: "RECEIPT", amount: input.amount, currency: input.currency,
