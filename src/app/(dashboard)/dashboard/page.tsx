@@ -51,7 +51,6 @@ export default function DashboardOverviewPage() {
 
   // Real action queue data from DB
   const [arrearsLeases, setArrearsLeases] = useState<any[]>([]);
-  const [draftStatements, setDraftStatements] = useState<any[]>([]);
   const [newInquiries, setNewInquiries] = useState<any[]>([]);
   const [managementHandoverInquiries, setManagementHandoverInquiries] = useState<any[]>([]);
   const [pendingTransactions, setPendingTransactions] = useState<any[]>([]);
@@ -96,7 +95,6 @@ export default function DashboardOverviewPage() {
         }
         if (aqData.success) {
           setArrearsLeases(aqData.arrearsLeases || []);
-          setDraftStatements(aqData.draftStatements || []);
           setNewInquiries(aqData.newInquiries || []);
           setManagementHandoverInquiries(aqData.managementHandoverInquiries || []);
           setPendingTransactions(aqData.pendingTransactions || []);
@@ -203,16 +201,6 @@ export default function DashboardOverviewPage() {
       title: `Management Handover - ${inq.property?.title || "Property"}`,
       detail: `${inq.clientName} • Submitted by ${inq.assignedAgent?.name || "TO"}${inq.property?.suburb ? ` • ${inq.property.suburb}` : ""}`,
       actionLabel: "Review closing",
-    });
-  });
-
-  draftStatements.forEach((stmt) => {
-    dailyActionQueue.push({
-      id: `stmt_${stmt.id}`,
-      tag: "STATEMENT",
-      title: `Approve Statement - ${stmt.landlordName}`,
-      detail: `${stmt.period} • Net Payout: ${formatCurrency(Number(stmt.netPayout), stmt.currency)}`,
-      actionLabel: "Open statement",
     });
   });
 
@@ -597,8 +585,6 @@ export default function DashboardOverviewPage() {
                       className={`text-[9px] font-geist font-bold px-1.5 py-0.5 border shrink-0 ${
                         item.tag === "ARREARS"
                           ? "border-red-300 bg-red-50 text-red-800"
-                          : item.tag === "STATEMENT"
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
                           : "border-editorial-border bg-neutral-100 text-editorial-black"
                       }`}
                     >
@@ -676,8 +662,6 @@ export default function DashboardOverviewPage() {
                         } else {
                           const destination = item.tag === "INQUIRY"
                             ? "/dashboard/clients"
-                            : item.tag === "STATEMENT"
-                            ? "/dashboard/leases?tab=statements"
                             : "/dashboard/sales";
                           window.location.assign(destination);
                         }

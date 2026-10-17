@@ -20,10 +20,9 @@ const getHandler = createApiHandler({
         const sixtyDaysFromNow = new Date();
         sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
 
-        // Run all 6 action-queue queries concurrently in a single parallel batch
+        // Run the action-queue queries concurrently in a single parallel batch
         const [
           arrearsLeases,
-          draftStatements,
           newInquiries,
           managementHandoverInquiries,
           pendingTransactions,
@@ -41,22 +40,13 @@ const getHandler = createApiHandler({
             orderBy: { updatedAt: "asc" },
             take: 3,
           }),
-          // 2. DRAFT Landlord Statements
-          db.landlordStatement.findMany({
-            where: { organizationId, status: "DRAFT" },
-            include: {
-              property: { select: { title: true } },
-            },
-            orderBy: { createdAt: "asc" },
-            take: 2,
-          }),
-          // 3. NEW_INQUIRY clients that still need assignment
+          // 2. NEW_INQUIRY clients that still need assignment
           db.inquiry.findMany({
             where: { organizationId, status: "NEW_INQUIRY", assignedAgentId: null },
             orderBy: { createdAt: "asc" },
             take: 2,
           }),
-          // 4. Verification and closing actions awaiting management action
+          // 3. Verification and closing actions awaiting management action
           db.inquiry.findMany({
             where: { organizationId, status: "VERIFICATION_CLOSING", outcome: null },
             include: {
@@ -67,7 +57,7 @@ const getHandler = createApiHandler({
             orderBy: { managementCloseRequestedAt: "asc" },
             take: 20,
           }),
-          // 5. EXPECTED Transactions
+          // 4. EXPECTED Transactions
           db.transaction.findMany({
             where: { organizationId, status: "EXPECTED" },
             include: {
@@ -107,13 +97,13 @@ const getHandler = createApiHandler({
             orderBy: { closedAt: "asc" },
             take: 20,
           }),
-          // 6. Inquiry status breakdown
+          // 5. Inquiry status breakdown
           db.inquiry.groupBy({
             by: ["status"],
             where: { organizationId },
             _count: { status: true },
           }),
-          // 7. EXPIRING_SOON leases
+          // 6. EXPIRING_SOON leases
           db.lease.findMany({
             where: {
               organizationId,
@@ -135,7 +125,6 @@ const getHandler = createApiHandler({
 
         return {
           arrearsLeases,
-          draftStatements,
           newInquiries,
           managementHandoverInquiries,
           managementActionCount: managementHandoverInquiries.length,
