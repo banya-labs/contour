@@ -11,9 +11,11 @@ export async function attachPropertyInTransaction(tx: Prisma.TransactionClient, 
   if (!canManageMatching(scope) && inquiry.assignedAgentId && inquiry.assignedAgentId !== scope.userId) throw new MatchingError("Inquiry belongs to another agent", 403);
   const expected = input.expectedPropertyId === undefined ? null : input.expectedPropertyId;
   if (inquiry.propertyId !== expected && inquiry.propertyId !== input.propertyId) throw new MatchingError("Attachment changed; refresh before choosing another property", 409);
+  let selectedProperty: { askingPrice: Prisma.Decimal | null; rentalPrice: Prisma.Decimal | null } | null = null;
   if (input.propertyId) {
     const property = await tx.property.findFirst({ where: { id: input.propertyId, organizationId: scope.organizationId } });
     if (!property || property.status !== "AVAILABLE") throw new MatchingError("Property is no longer available", 409);
+    selectedProperty = { askingPrice: property.askingPrice, rentalPrice: property.rentalPrice };
     // Matching is a ranking and review aid. Staff may deliberately associate
     // any available property with an inquiry when the business context calls
     // for it, even when the saved preferences do not match.
@@ -23,7 +25,12 @@ export async function attachPropertyInTransaction(tx: Prisma.TransactionClient, 
     }) : null;
     if (closingInquiry) throw new MatchingError("This property is already assigned to another Verification & Closing inquiry.", 409);
   }
-  const changed = await tx.inquiry.updateMany({ where: { id: inquiry.id, organizationId: scope.organizationId, propertyId: inquiry.propertyId, status: inquiry.status, assignedAgentId: inquiry.assignedAgentId }, data: { propertyId: input.propertyId, matchStatus: input.propertyId ? "MATCHED" : "UNMATCHED" } });
+  const automaticDealValue = selectedProperty
+    ? inquiry.lookingFor === "FOR_RENT"
+      ? selectedProperty.rentalPrice ?? selectedProperty.askingPrice
+      : selectedProperty.askingPrice ?? selectedProperty.rentalPrice
+    : null;
+  const changed = await tx.inquiry.updateMany({ where: { id: inquiry.id, organizationId: scope.organizationId, propertyId: inquiry.propertyId, status: inquiry.status, assignedAgentId: inquiry.assignedAgentId }, data: { propertyId: input.propertyId, matchStatus: input.propertyId ? "MATCHED" : "UNMATCHED", ...(automaticDealValue != null ? { dealValue: automaticDealValue } : {}) } });
   if (changed.count !== 1) throw new MatchingError("Inquiry changed; refresh and retry", 409);
   await tx.auditLog.create({ data: { organizationId: scope.organizationId, userId: scope.userId, action: "INQUIRY_PROPERTY_ATTACHED", entityType: "Inquiry", entityId: inquiry.id, details: { previousPropertyId: inquiry.propertyId, propertyId: input.propertyId } } });
   return tx.inquiry.findUnique({ where: { id: inquiry.id }, include: { contact: true, property: { select: { id: true, title: true, suburb: true } } } });

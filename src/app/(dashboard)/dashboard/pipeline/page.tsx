@@ -47,6 +47,7 @@ type Deal = {
   clientPhone: string;
   clientEmail?: string | null;
   propertyId?: string | null;
+  lookingFor?: "FOR_SALE" | "FOR_RENT";
   propertyTitle: string;
   suburb: string;
   dealValue: number;
@@ -79,6 +80,7 @@ type AvailableProperty = {
 
 type PipelineInquiry = Pick<Deal, "id" | "clientName" | "clientPhone" | "clientEmail" | "propertyId" | "assignedAgentId" | "outcome" | "lostReason" | "cancellationReason" | "closedAt" | "leadSource" | "notes"> & {
   status: string;
+  lookingFor?: "FOR_SALE" | "FOR_RENT";
   updatedAt: string;
   currency?: Deal["currency"];
   dealValue?: number | string | null;
@@ -183,6 +185,7 @@ function DealPipelineContent() {
             clientPhone: inquiry.clientPhone,
             clientEmail: inquiry.clientEmail,
             propertyId: inquiry.property?.id || inquiry.propertyId || null,
+            lookingFor: inquiry.lookingFor,
             propertyTitle: inquiry.property?.title || "Unassigned property",
             suburb: inquiry.property?.suburb?.trim() || inquiry.preferredSuburbs?.find((area: string) => area.trim())?.trim() || "Location not specified",
             dealValue: Number(inquiry.dealValue || inquiry.property?.askingPrice || inquiry.property?.rentalPrice || 0),
@@ -1468,7 +1471,8 @@ function DealPipelineContent() {
         onClose={() => { setPropertyAssignmentTarget(null); setPendingTransition(null); }}
         onAssigned={(property) => {
           setPropertyAssignmentTarget(null);
-          const linkedDeal = { ...propertyAssignmentTarget.deal, propertyId: property.id, propertyTitle: property.title, suburb: property.suburb };
+          const automaticDealValue = propertyAssignmentTarget.deal.lookingFor === "FOR_RENT" ? property.rentalPrice ?? property.askingPrice : property.askingPrice ?? property.rentalPrice;
+          const linkedDeal = { ...propertyAssignmentTarget.deal, propertyId: property.id, propertyTitle: property.title, suburb: property.suburb, ...(automaticDealValue != null ? { dealValue: Number(automaticDealValue) } : {}) };
           setDeals((previous) => previous.map((deal) => deal.id === linkedDeal.id ? { ...deal, propertyId: property.id, propertyTitle: property.title, suburb: property.suburb } : deal));
           if (propertyAssignmentTarget.targetStage === "CLOSED") { setCloseTarget(linkedDeal); void handleCloseDeal(true); }
           else { setPendingTransition((current) => current ? { ...current, deal: linkedDeal } : current); void confirmTransition(property); }

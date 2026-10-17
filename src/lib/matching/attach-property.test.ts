@@ -21,6 +21,11 @@ describe("explicit property attachment", () => {
     await attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p" });
     expect(mocks.inquiry.updateMany).toHaveBeenCalled();
   });
+  it("copies the selected sale price into deal value", async () => {
+    mocks.property.findFirst.mockResolvedValue({ id: "p", suburb: "Roma", title: "House", bedrooms: 3, bathrooms: 2, propertyType: "STANDALONE_HOUSE", status: "AVAILABLE", listingType: "FOR_SALE", currency: "ZMW", askingPrice: 250000 });
+    await attachPropertyToInquiry(scope, { inquiryId: "i", propertyId: "p" });
+    expect(mocks.inquiry.updateMany.mock.calls[0][0].data.dealValue).toEqual(250000);
+  });
   it("prevents a property from being assigned to two closing inquiries", async () => {
     mocks.inquiry.findFirst
       .mockResolvedValueOnce({ id: "i", propertyId: null, assignedAgentId: "agent", status: "VERIFICATION_CLOSING", lookingFor: "FOR_SALE", currency: "ZMW" })
