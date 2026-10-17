@@ -76,13 +76,17 @@ function PropertySalesContent() {
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = usePageUrlState<string>("search", "");
+  const [selectedInquiryId, setSelectedInquiryId] = usePageUrlState<string>("inquiryId", "");
   const [filterStatus, setFilterStatus] = usePageUrlState<string>("status", "ALL", ["ALL", "PENDING_STATE_CONSENT", "DEEDS_LODGED", "TRANSFER_COMPLETE"]);
   const [paymentFilter, setPaymentFilter] = usePageUrlState<string>("payment", "ALL", ["ALL", "DUE", "OVERDUE", "COMPLETED", "CANCELLED"]);
   const [paymentCollections, setPaymentCollections] = useState<Record<string, any>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = usePageUrlState<string>("saleId", "");
-  const selectedSale = sales.find((sale) => sale.id === selectedSaleId) || null;
-  const setSelectedSale = (sale: { id: string } | null) => setSelectedSaleId(sale?.id || "");
+  const selectedSale = sales.find((sale) => sale.id === selectedSaleId || sale.inquiryId === selectedInquiryId) || null;
+  const setSelectedSale = (sale: { id: string } | null) => {
+    setSelectedSaleId(sale?.id || "");
+    setSelectedInquiryId(sale ? "" : "");
+  };
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [closingInquiryId, setClosingInquiryId] = useState<string | null>(null);
 

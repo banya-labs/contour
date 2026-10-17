@@ -442,10 +442,14 @@ function DealPipelineContent() {
       );
       emitWorkspaceMutation(["pipeline", "clients", "dashboard", "agent", "sales", "leases"], closeTarget.id);
       setCloseTarget(null);
-      setClosingResult(result.closingResult);
       if (closeOutcome === "WON" && result?.leasePrefill) {
         const encoded = encodeURIComponent(JSON.stringify(result.leasePrefill));
         window.location.assign(`/dashboard/leases?new=1&prefill=${encoded}`);
+      } else if (closeOutcome === "WON" && closeTarget.lookingFor !== "FOR_RENT") {
+        // A completed sale must immediately expose the purchase payment-plan step.
+        window.location.assign(`/dashboard/sales?inquiryId=${encodeURIComponent(closeTarget.id)}`);
+      } else {
+        setClosingResult(result.closingResult);
       }
     } catch {
       setFormError("Unable to connect. The outcome was not saved.");
